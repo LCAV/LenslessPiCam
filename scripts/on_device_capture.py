@@ -94,8 +94,8 @@ def capture(fn="test", exp=0.5, config_pause=2, sensor_mode="0", iso=100, sixtee
     print("Sensor mode : {}".format(SENSOR_MODES[sensor_mode]))
     print("Config load time : {} seconds".format(config_pause))
     # keep this as it needs to be parsed from remote script!
-    red_gain = awb_gains[0].numerator / awb_gains[0].denominator
-    blue_gain = awb_gains[1].numerator / awb_gains[1].denominator
+    red_gain = float(awb_gains[0])
+    blue_gain = float(awb_gains[1])
     print("Red gain : {}".format(red_gain))
     print("Blue gain : {}".format(blue_gain))
 
