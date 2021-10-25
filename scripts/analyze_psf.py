@@ -4,8 +4,8 @@ histogram and width.
 
 Example usage
 ```bash
-python scripts/analyze_psf.py --fp data/psf/lens_cardboard_pinhole.png
-python scripts/analyze_psf.py --fp data/psf/lens_iris.png
+python scripts/analyze_psf.py --fp data/psf/lens_cardboard.png --plot_width 100
+python scripts/analyze_psf.py --fp data/psf/lens_iris.png --plot_width 100
 ```
 
 For bayer data
@@ -56,8 +56,16 @@ from diffcam.io import load_psf
     type=float,
     help="Red gain.",
 )
-def analyze_psf(fp, gamma, width, bayer, bg, rg):
+@click.option(
+    "--plot_width",
+    type=int,
+    help="Width for cross-section.",
+)
+def analyze_psf(fp, gamma, width, bayer, bg, rg, plot_width):
     assert fp is not None, "Must pass file path."
+
+    # TODO as nbits as argument
+    nbits = 12
 
     _, ax_rgb = plt.subplots(ncols=2, nrows=1, num="RGB", figsize=(15, 5))
     _, ax_gray = plt.subplots(ncols=3, nrows=1, num="Grayscale", figsize=(15, 5))
@@ -73,17 +81,26 @@ def analyze_psf(fp, gamma, width, bayer, bg, rg):
     ax = plot_image(psf_grey, gamma=gamma, normalize=True, ax=ax_gray[0])
     ax.set_title("PSF")
 
-    # plot histogram, TODO as nbits as argument
-    ax = pixel_histogram(psf, ax=ax_rgb[1], nbits=12)
+    # plot histogram,
+    ax = pixel_histogram(psf, ax=ax_rgb[1], nbits=nbits)
     ax.set_title("Histogram")
-    ax = pixel_histogram(psf_grey, ax=ax_gray[1], nbits=12)
+    ax = pixel_histogram(psf_grey, ax=ax_gray[1], nbits=nbits)
     ax.set_title("Histogram")
 
     # determine PSF width
-    plot_cross_section(psf_grey, color="gray", plot_db_drop=width, ax=ax_gray[2])
+    plot_cross_section(
+        psf_grey, color="gray", plot_db_drop=width, ax=ax_gray[2], plot_width=plot_width
+    )
     _, ax_cross = plt.subplots(ncols=3, nrows=1, num="RGB widths", figsize=(15, 5))
     for i, c in enumerate(["r", "g", "b"]):
-        ax, _ = plot_cross_section(psf[:, :, i], color=c, ax=ax_cross[i], plot_db_drop=width)
+        ax, _ = plot_cross_section(
+            psf[:, :, i],
+            color=c,
+            ax=ax_cross[i],
+            plot_db_drop=width,
+            max_val=2 ** nbits - 1,
+            plot_width=plot_width,
+        )
         if i > 0:
             ax.set_ylabel("")
 
