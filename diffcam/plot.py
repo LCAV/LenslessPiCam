@@ -80,7 +80,17 @@ def pixel_histogram(img, nbits=None, ax=None, log_scale=True):
     return ax
 
 
-def plot_cross_section(vals, idx=None, ax=None, dB=True, plot_db_drop=3, min_val=1e-4, **kwargs):
+def plot_cross_section(
+    vals,
+    idx=None,
+    ax=None,
+    dB=True,
+    plot_db_drop=3,
+    min_val=1e-4,
+    max_val=None,
+    plot_width=None,
+    **kwargs,
+):
     """
     Plot cross-section of a 2-D image.
 
@@ -103,24 +113,34 @@ def plot_cross_section(vals, idx=None, ax=None, dB=True, plot_db_drop=3, min_val
     if ax is None:
         _, ax = plt.subplots()
 
+    # get cross-section
     if idx is None:
+        # if no index, take cross-section with maximum value
         max_idx = np.unravel_index(np.argmax(vals, axis=None), vals.shape)
         idx = max_idx[0]
-
     cross_section = vals[idx, :].astype(np.float32)
-    cross_section /= np.max(np.abs(cross_section))
+
+    # normalize
+    if max_val is None:
+        max_val = cross_section.max()
+    cross_section /= max_val
+
     if dB:
         cross_section[cross_section < min_val] = min_val
         cross_section = 10 * np.log10(cross_section)
         min_val = 10 * np.log10(min_val)
         ax.set_ylabel("dB")
-    shift_vals = np.arange(len(cross_section))
-    shift_vals -= np.argmax(cross_section)
-    ax.plot(shift_vals, cross_section, **kwargs)
+    x_vals = np.arange(len(cross_section))
+    x_vals -= np.argmax(cross_section)
+    ax.plot(x_vals, cross_section, **kwargs)
     ax.set_ylim([min_val, 0])
+    if plot_width is not None:
+        half_width = plot_width // 2 + 1
+        ax.set_xlim([-half_width, half_width])
     ax.grid()
 
     if dB and plot_db_drop:
+        cross_section -= np.max(cross_section)
         zero_crossings = np.where(np.diff(np.signbit(cross_section + plot_db_drop)))[0]
         if len(zero_crossings) == 2:
             zero_crossings -= np.argmax(cross_section)
@@ -130,8 +150,8 @@ def plot_cross_section(vals, idx=None, ax=None, dB=True, plot_db_drop=3, min_val
             ax.axvline(x=zero_crossings[1], c="k", linestyle="--")
         else:
             warnings.warn(
-                "Width could not be determined. Did not detect just two -3dB points : {}".format(
-                    zero_crossings
+                "Width could not be determined. Did not detect just two -{} points : {}".format(
+                    plot_db_drop, zero_crossings
                 )
             )
 
