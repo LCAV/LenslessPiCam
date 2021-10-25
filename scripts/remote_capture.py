@@ -19,8 +19,8 @@ from diffcam.plot import plot_image, pixel_histogram
 from diffcam.io import load_image
 
 REMOTEHOST = "pi@raspberrypi4.local"
-REMOTE_PYTHON = "~/DiffuserCam-Playground/diffcam_env/bin/python"
-REMOTE_CAPTURE_FP = "~/DiffuserCam-Playground/scripts/on_device_capture.py"
+REMOTE_PYTHON = "~/DiffuserCam/diffcam_env/bin/python"
+REMOTE_CAPTURE_FP = "~/DiffuserCam/scripts/on_device_capture.py"
 SENSOR_MODES = [
     "off",
     "auto",
@@ -50,7 +50,7 @@ SENSOR_MODES = [
 )
 @click.option(
     "--iso",
-    default=0,
+    default=100,
     type=int,
     help="ISO",
 )
@@ -75,10 +75,9 @@ SENSOR_MODES = [
 )
 @click.option(
     "--nbits",
-    default=10,
+    default=12,
     type=int,
-    help="Number of bits to set maximum value in histogram. Default is 10, but RPi HQ camera can "
-    "go up to 12 bits.",
+    help="Number of bits to set maximum value in histogram. Default is 12 for RPi HQ camera.",
 )
 @click.option(
     "--rgb",

@@ -61,12 +61,12 @@ SENSOR_MODES = [
 @click.option(
     "--rgb", is_flag=True, help="Whether to reconstruct RGB data or return raw bayer data."
 )
-@click.option("--iso", default=0, type=int)
+@click.option("--iso", default=100, type=int)
 @click.option(
     "--sixteen",
     is_flag=True,
 )
-def capture(fn="test", exp=0.5, config_pause=2, sensor_mode="0", iso=0, sixteen=False, rgb=False):
+def capture(fn="test", exp=0.5, config_pause=2, sensor_mode="0", iso=100, sixteen=False, rgb=False):
     assert exp <= 10
     assert exp > 0
     sensor_mode = int(sensor_mode)
