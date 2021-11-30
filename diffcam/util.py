@@ -1,4 +1,5 @@
 import cv2
+import csv
 import numpy as np
 from diffcam.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
@@ -109,6 +110,7 @@ def bayer2rgb(
     rg=None,
     black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
     ccm=RPI_HQ_CAMERA_CCM_MATRIX,
+    nbits_out=None,
 ):
     """
     Convert raw Bayer data to RGB with the following steps:
@@ -127,10 +129,12 @@ def bayer2rgb(
     :return:
     """
     assert len(img.shape) == 2, img.shape
-    if nbits > 8:
+    if nbits_out is None:
+        nbits_out = nbits
+    if nbits_out > 8:
         dtype = np.uint16
     else:
-        nbits = np.uint8
+        dtype = np.uint8
 
     # demosaic Bayer data
     img = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
@@ -146,4 +150,31 @@ def bayer2rgb(
     img = (img.reshape(-1, 3, order="F") @ ccm.T).reshape(img.shape, order="F")
     img[img < 0] = 0
     img[img > 1] = 1
-    return (img * (2 ** nbits - 1)).astype(dtype)
+    return (img * (2 ** nbits_out - 1)).astype(dtype)
+
+
+def get_distro():
+    # https://majornetwork.net/2019/11/get-linux-distribution-name-and-version-with-python/
+    RELEASE_DATA = {}
+    with open("/etc/os-release") as f:
+        reader = csv.reader(f, delimiter="=")
+        for row in reader:
+            if row:
+                RELEASE_DATA[row[0]] = row[1]
+    if RELEASE_DATA["ID"] in ["debian", "raspbian"]:
+        with open("/etc/debian_version") as f:
+            DEBIAN_VERSION = f.readline().strip()
+        major_version = DEBIAN_VERSION.split(".")[0]
+        version_split = RELEASE_DATA["VERSION"].split(" ", maxsplit=1)
+        if version_split[0] == major_version:
+            # Just major version shown, replace it with the full version
+            RELEASE_DATA["VERSION"] = " ".join([DEBIAN_VERSION] + version_split[1:])
+    return f"{RELEASE_DATA['NAME']} {RELEASE_DATA['VERSION']}"
+
+
+def print_image_info(img):
+    print("dimensions : {}".format(img.shape))
+    print("data type : {}".format(img.dtype))
+    print("max  : {}".format(img.max()))
+    print("min  : {}".format(img.min()))
+    print("mean : {}".format(img.mean()))
