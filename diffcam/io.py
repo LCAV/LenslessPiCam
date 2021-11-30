@@ -2,7 +2,8 @@ import os.path
 
 import cv2
 import numpy as np
-from diffcam.util import resize, bayer2rgb
+from diffcam.util import resize, bayer2rgb, rgb2gray, print_image_info
+from diffcam.plot import plot_image
 from diffcam.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
 
@@ -12,9 +13,11 @@ def load_image(
     flip=False,
     bayer=False,
     black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
-    bg=None,
-    rg=None,
+    blue_gain=None,
+    red_gain=None,
     ccm=RPI_HQ_CAMERA_CCM_MATRIX,
+    back=None,
+    nbits_out=None,
 ):
     """
     Load image as numpy array.
@@ -27,8 +30,8 @@ def load_image(
         Whether to plot into about file.
     flip : bool
     bayer : bool
-    bg : float
-    rg : float
+    blue_gain : float
+    red_gain : float
 
     Returns
     -------
@@ -45,9 +48,27 @@ def load_image(
             n_bits = 12
         else:
             n_bits = 8
-        img = bayer2rgb(img, nbits=n_bits, bg=bg, rg=rg, black_level=black_level, ccm=ccm)
+
+        if back:
+            back_img = cv2.imread(back, cv2.IMREAD_UNCHANGED)
+            dtype = img.dtype
+            img = img.astype(np.float32) - back_img.astype(np.float32)
+            img = np.clip(img, a_min=0, a_max=img.max())
+            img = img.astype(dtype)
+        if nbits_out is None:
+            nbits_out = n_bits
+        img = bayer2rgb(
+            img,
+            nbits=n_bits,
+            bg=blue_gain,
+            rg=red_gain,
+            black_level=black_level,
+            ccm=ccm,
+            nbits_out=nbits_out,
+        )
 
     else:
+        assert len(img.shape) == 3
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     if flip:
@@ -55,12 +76,7 @@ def load_image(
         img = np.fliplr(img)
 
     if verbose:
-        # print image properties
-        print("dimensions : {}".format(img.shape))
-        print("data type : {}".format(img.dtype))
-        print("max  : {}".format(img.max()))
-        print("min  : {}".format(img.min()))
-        print("mean : {}".format(img.mean()))
+        print_image_info(img)
 
     return img
 
@@ -76,6 +92,8 @@ def load_psf(
     bayer=False,
     blue_gain=None,
     red_gain=None,
+    dtype=np.float32,
+    nbits_out=None,
 ):
     """
     Load and process PSF for analysis or for reconstruction.
@@ -110,10 +128,18 @@ def load_psf(
     """
 
     # load image data and extract necessary channels
-    psf = load_image(fp, verbose=verbose, flip=flip, bayer=bayer, bg=blue_gain, rg=red_gain)
+    psf = load_image(
+        fp,
+        verbose=verbose,
+        flip=flip,
+        bayer=bayer,
+        blue_gain=blue_gain,
+        red_gain=red_gain,
+        nbits_out=nbits_out,
+    )
 
     original_dtype = psf.dtype
-    psf = np.array(psf, dtype="float32")
+    psf = np.array(psf, dtype=dtype)
 
     # subtract background, assume black edges
     bg = np.zeros(3)
@@ -132,6 +158,7 @@ def load_psf(
 
     # normalize
     if return_float:
+        # psf /= psf.max()
         psf /= np.linalg.norm(psf.ravel())
     else:
         psf = psf.astype(original_dtype)
@@ -140,3 +167,90 @@ def load_psf(
         return psf, bg
     else:
         return psf
+
+
+def load_data(
+    psf_fp,
+    data_fp,
+    downsample,
+    bg_pix=(5, 25),
+    plot=True,
+    flip=False,
+    bayer=False,
+    blue_gain=None,
+    red_gain=None,
+    gamma=None,
+    gray=False,
+    dtype=np.float32,
+):
+    """
+    Load data for image reconstruction.
+
+    Parameters
+    ----------
+    psf_fp : str
+        Full path to PSF file.
+    data_fp : str
+        Full path to measurement file.
+    source : "white", "red", "green", or "blue"
+        Light source used to measure PSF.
+    downsample : int or float
+        Downsampling factor.
+    bg_pix : tuple, optional
+        Section of pixels to take from top left corner to remove background
+        level. Set to `None` to omit this step, although it is highly
+        recommended.
+    plot : bool, optional
+        Whether or not to plot PSF and raw data.
+    flip : bool, optional
+        Whether to flip data.
+    cv : bool, optional
+        Whether image was saved with OpenCV. If not colors need to be swapped.
+
+    Returns
+    -------
+    psf :py:class:`~numpy.ndarray`
+        2-D array of PSF.
+    data :py:class:`~numpy.ndarray`
+        2-D array of raw measurement data.
+    """
+
+    assert os.path.isfile(psf_fp)
+    assert os.path.isfile(data_fp)
+
+    # load and process PSF data
+    psf, bg = load_psf(
+        psf_fp,
+        downsample=downsample,
+        return_float=True,
+        bg_pix=bg_pix,
+        return_bg=True,
+        flip=flip,
+        bayer=bayer,
+        blue_gain=blue_gain,
+        red_gain=red_gain,
+        dtype=dtype,
+    )
+
+    # load and process raw measurement
+    data = load_image(data_fp, flip=flip, bayer=bayer, blue_gain=blue_gain, red_gain=red_gain)
+    data = np.array(data, dtype=dtype)
+
+    data -= bg
+    data = np.clip(data, a_min=0, a_max=data.max())
+    if data.shape != psf.shape:
+        # in DiffuserCam dataset, images are already reshaped
+        data = resize(data, 1 / downsample)
+    data /= np.linalg.norm(data.ravel())
+
+    if gray:
+        psf = rgb2gray(psf)
+        data = rgb2gray(data)
+
+    if plot:
+        ax = plot_image(psf, gamma=gamma)
+        ax.set_title("PSF")
+        ax = plot_image(data, gamma=gamma)
+        ax.set_title("Raw data")
+
+    return psf, data
