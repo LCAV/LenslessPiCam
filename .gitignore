@@ -1,4 +1,9 @@
 .idea/
+*_sol.py
+scripts/admm_*
+scripts/gd_*
+.DS_Store
+DiffuserCam_Mirflickr*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
