@@ -1,9 +1,10 @@
 """
-Apply ADMM reconstruction.
+This script will load the PSF data and raw measurement for the reconstruction
+that can implement afterwards.
 
-```
-python scripts/admm.py --psf_fp data/psf/diffcam_rgb.png \
---data_fp data/raw_data/thumbs_up_rgb.png --n_iter 5
+```bash
+python scripts/reconstruction_template.py --psf_fp data/psf/diffcam_rgb.png \
+--data_fp data/raw_data/thumbs_up_rgb.png
 ```
 
 """
@@ -15,7 +16,6 @@ import click
 import matplotlib.pyplot as plt
 from datetime import datetime
 from diffcam.io import load_data
-from diffcam.admm import ADMM
 
 
 @click.command()
@@ -32,7 +32,7 @@ from diffcam.admm import ADMM
 @click.option(
     "--n_iter",
     type=int,
-    default=5,
+    default=500,
     help="Number of iterations.",
 )
 @click.option(
@@ -43,9 +43,9 @@ from diffcam.admm import ADMM
 )
 @click.option(
     "--disp",
-    default=1,
+    default=50,
     type=int,
-    help="How many iterations to wait for intermediate plot. Set to negative value for no intermediate plots.",
+    help="How many iterations to wait for intermediate plot/results. Set to negative value for no intermediate plots.",
 )
 @click.option(
     "--flip",
@@ -93,7 +93,7 @@ from diffcam.admm import ADMM
     is_flag=True,
     help="Same PSF for all channels (sum) or unique PSF for RGB.",
 )
-def admm(
+def reconstruction(
     psf_fp,
     data_fp,
     n_iter,
@@ -128,17 +128,16 @@ def admm(
     if save:
         save = os.path.basename(data_fp).split(".")[0]
         timestamp = datetime.now().strftime("_%d%m%d%Y_%Hh%M")
-        save = "admm_" + save + timestamp
+        save = "YOUR_RECONSTRUCTION_" + save + timestamp
         save = plib.Path(__file__).parent / save
         save.mkdir(exist_ok=False)
 
     start_time = time.time()
-    recon = ADMM(psf)
-    recon.set_data(data)
+    # TODO : setup for your reconstruction algorithm
     print(f"setup time : {time.time() - start_time} s")
 
     start_time = time.time()
-    recon.apply(n_iter=n_iter, disp_iter=disp, save=save, gamma=gamma, plot=not no_plot)
+    # TODO : apply your reconstruction
     print(f"proc time : {time.time() - start_time} s")
 
     if not no_plot:
@@ -148,4 +147,4 @@ def admm(
 
 
 if __name__ == "__main__":
-    admm()
+    reconstruction()
