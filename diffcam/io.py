@@ -94,6 +94,7 @@ def load_psf(
     red_gain=None,
     dtype=np.float32,
     nbits_out=None,
+    single_psf=False,
 ):
     """
     Load and process PSF for analysis or for reconstruction.
@@ -156,6 +157,13 @@ def load_psf(
     if downsample != 1:
         psf = resize(psf, 1 / downsample)
 
+    if single_psf:
+        assert len(psf.shape) == 3
+        # TODO : in Lensless Learning, they sum channels --> `psf_diffuser = np.sum(psf_diffuser,2)`
+        # https://github.com/Waller-Lab/LenslessLearning/blob/master/pre-trained%20reconstructions.ipynb
+        psf = np.sum(psf, 2)
+        psf = psf[:, :, np.newaxis]
+
     # normalize
     if return_float:
         # psf /= psf.max()
@@ -182,6 +190,7 @@ def load_data(
     gamma=None,
     gray=False,
     dtype=np.float32,
+    single_psf=False,
 ):
     """
     Load data for image reconstruction.
@@ -230,6 +239,7 @@ def load_data(
         blue_gain=blue_gain,
         red_gain=red_gain,
         dtype=dtype,
+        single_psf=single_psf,
     )
 
     # load and process raw measurement
