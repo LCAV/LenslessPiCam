@@ -22,13 +22,7 @@ def ssim(true, est, normalize=True):
     if normalize:
         true /= true.max()
         est /= est.max()
-    if true.shape[2] == 3:
-        multichannel = True
-    else:
-        true = true.squeeze()
-        est = est.squeeze()
-        multichannel = False
-    return structural_similarity(im1=true, im2=est, multichannel=multichannel)
+    return structural_similarity(im1=true, im2=est, channel_axis=2)
 
 
 def lpips(true, est, normalize=True):
