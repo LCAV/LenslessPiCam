@@ -6,19 +6,18 @@ python scripts/remote_capture.py
 
 
 import os
-import sys
 import subprocess
 import click
 import cv2
 from pprint import pprint
 import numpy as np
 import matplotlib.pyplot as plt
+import rawpy
 
-from diffcam.util import rgb2gray
+from diffcam.util import rgb2gray, print_image_info
 from diffcam.plot import plot_image, pixel_histogram
 from diffcam.io import load_image
 
-REMOTEHOST = "pi@raspberrypi4.local"
 REMOTE_PYTHON = "~/DiffuserCam/diffcam_env/bin/python"
 REMOTE_CAPTURE_FP = "~/DiffuserCam/scripts/on_device_capture.py"
 SENSOR_MODES = [
@@ -41,6 +40,11 @@ SENSOR_MODES = [
     default="test",
     type=str,
     help="File name for recorded image.",
+)
+@click.option(
+    "--hostname",
+    type=str,
+    help="Hostname or IP address.",
 )
 @click.option(
     "--exp",
@@ -85,21 +89,35 @@ SENSOR_MODES = [
     help="Get RGB data from the Raspberry Pi or reconstruct it here (default). Takes longer to copy RGB data.",
 )
 @click.option(
+    "--bayer",
+    is_flag=True,
+    help="Whether to save capture data as bayer. Useful for performing color correction later.",
+)
+@click.option(
     "--gamma",
-    default=2.2,
+    default=None,
     type=float,
     help="Gamma factor for plotting.",
 )
-def liveview(fn, exp, iso, config_pause, sensor_mode, nbits, source, rgb, gamma):
-    assert exp <= 10
-    assert exp > 0
+@click.option(
+    "--nbits_out",
+    default=8,
+    type=int,
+    help="Number of bits for output.",
+)
+def liveview(
+    fn, hostname, exp, iso, config_pause, sensor_mode, nbits, source, rgb, bayer, gamma, nbits_out
+):
+    if bayer:
+        assert not rgb
+    assert hostname is not None
 
     # take picture
     remote_fn = "remote_capture"
     print("\nTaking picture...")
     pic_command = (
         f"{REMOTE_PYTHON} {REMOTE_CAPTURE_FP} --fn {remote_fn} --exp {exp} --iso {iso} "
-        f"--config_pause {config_pause} --sensor_mode {sensor_mode}"
+        f"--config_pause {config_pause} --sensor_mode {sensor_mode} --nbits_out {nbits_out}"
     )
     if nbits > 8:
         pic_command += " --sixteen"
@@ -107,50 +125,112 @@ def liveview(fn, exp, iso, config_pause, sensor_mode, nbits, source, rgb, gamma)
         pic_command += " --rgb"
     print(f"COMMAND : {pic_command}")
     ssh = subprocess.Popen(
-        ["ssh", "%s" % REMOTEHOST, pic_command],
+        ["ssh", "pi@%s" % hostname, pic_command],
         shell=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
     result = ssh.stdout.readlines()
     error = ssh.stderr.readlines()
+
     if error != []:
         print("ERROR: %s" % error)
         return
     if result == []:
         error = ssh.stderr.readlines()
-        print(sys.stderr, "ERROR: %s" % error)
+        print("ERROR: %s" % error)
         return
     else:
         result = [res.decode("UTF-8") for res in result]
         result = [res for res in result if len(res) > 3]
-        result_dict = dict(map(lambda s: map(str.strip, s.split(":")), result))
+        result_dict = dict()
+        for res in result:
+            _key = res.split(":")[0].strip()
+            _val = "".join(res.split(":")[1:]).strip()
+            result_dict[_key] = _val
+        # result_dict = dict(map(lambda s: map(str.strip, s.split(":")), result))
         print(f"COMMAND OUTPUT : ")
         pprint(result_dict)
 
-    # copy over file
-    # more pythonic? https://stackoverflow.com/questions/250283/how-to-scp-in-python
-    remotefile = f"~/{remote_fn}.png"
-    localfile = f"{fn}.png"
-    print(f"\nCopying over picture as {localfile}...")
-    os.system('scp "%s:%s" %s' % (REMOTEHOST, remotefile, localfile))
+    if "bullseye" in result_dict["RPi distribution"]:
+        # copy over DNG file
 
-    if rgb:
+        remotefile = f"~/{remote_fn}.dng"
+        localfile = f"{fn}.dng"
+        print(f"\nCopying over picture as {localfile}...")
+        os.system('scp "pi@%s:%s" %s' % (hostname, remotefile, localfile))
+        raw = rawpy.imread(localfile)
 
-        img = load_image(localfile, verbose=True)
+        # https://letmaik.github.io/rawpy/api/rawpy.Params.html#rawpy.Params
+        # https://www.libraw.org/docs/API-datastruct-eng.html
+        if nbits_out > 8:
+            # only 8 or 16 bit supported by postprocess
+            if nbits_out != 16:
+                print("casting to 16 bit...")
+            output_bps = 16
+        else:
+            if nbits_out != 8:
+                print("casting to 8 bit...")
+            output_bps = 8
+        img = raw.postprocess(
+            adjust_maximum_thr=0,  # default 0.75
+            no_auto_scale=False,
+            gamma=(1, 1),
+            output_bps=output_bps,
+            bright=1,  # default 1
+            exp_shift=1,
+            no_auto_bright=True,
+            use_camera_wb=True,
+            use_auto_wb=False,  # default is False? f both use_camera_wb and use_auto_wb are True, then use_auto_wb has priority.
+        )
+
+        # print image properties
+        print_image_info(img)
+
+        # save as PNG
+        png_out = f"{fn}.png"
+        print(f"Saving RGB file as: {png_out}")
+        cv2.imwrite(png_out, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+        if not bayer:
+            os.remove(localfile)
 
     else:
 
-        # get white balance gains
-        red_gain = float(result_dict["Red gain"])
-        blue_gain = float(result_dict["Blue gain"])
+        # copy over file
+        # more pythonic? https://stackoverflow.com/questions/250283/how-to-scp-in-python
+        remotefile = f"~/{remote_fn}.png"
+        localfile = f"{fn}.png"
+        print(f"\nCopying over picture as {localfile}...")
+        os.system('scp "pi@%s:%s" %s' % (hostname, remotefile, localfile))
 
-        # load image
-        print("\nLoading picture...")
-        img = load_image(localfile, verbose=True, bayer=True, bg=blue_gain, rg=red_gain)
+        if rgb:
 
-        # write RGB data
-        cv2.imwrite(localfile, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+            img = load_image(localfile, verbose=True)
+
+        else:
+
+            # get white balance gains
+            if bayer:
+                red_gain = 1
+                blue_gain = 1
+            else:
+                red_gain = float(result_dict["Red gain"])
+                blue_gain = float(result_dict["Blue gain"])
+
+            # load image
+            print("\nLoading picture...")
+            img = load_image(
+                localfile,
+                verbose=True,
+                bayer=True,
+                blue_gain=blue_gain,
+                red_gain=red_gain,
+                nbits_out=nbits_out,
+            )
+
+            # write RGB data
+            if not bayer:
+                cv2.imwrite(localfile, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
     # plot RGB
     ax = plot_image(img, gamma=gamma)
