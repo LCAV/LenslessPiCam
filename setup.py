@@ -20,13 +20,16 @@ setuptools.setup(
     python_requires=">=3.6",
     install_requires=[
         "opencv-python==4.5.1.48",
-        "numpy==1.21.0",
+        "numpy==1.20.3",
         "scipy==1.7.0",
         "click==8.0.1",
         "image==1.5.33",
         "matplotlib==3.4.2",
         "jedi==0.18.0",
         "picamerax==20.9.1",
+        "pycsou==1.0.6",
+        "lpips==0.1.4",
+        "rawpy==0.16.0",
     ],
     extra_requires={
         "dev": ["pudb", "black"],
