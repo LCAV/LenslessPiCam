@@ -1,5 +1,5 @@
 import os.path
-
+import rawpy
 import cv2
 import numpy as np
 from diffcam.util import resize, bayer2rgb, rgb2gray, print_image_info
@@ -39,7 +39,15 @@ def load_image(
         RGB image of dimension (height, width, 3).
     """
     assert os.path.isfile(fp)
-    img = cv2.imread(fp, cv2.IMREAD_UNCHANGED)
+    if "dng" in fp:
+        assert bayer
+        raw = rawpy.imread(fp)
+        img = raw.raw_image
+        # TODO : use raw.postprocess?
+        ccm = raw.color_matrix[:, :3]
+        black_level = np.array(raw.black_level_per_channel[:3]).astype(np.float32)
+    else:
+        img = cv2.imread(fp, cv2.IMREAD_UNCHANGED)
 
     if bayer:
         assert len(img.shape) == 2, img.shape
