@@ -30,6 +30,7 @@ setuptools.setup(
         "pycsou==1.0.6",
         "lpips==0.1.4",
         "rawpy==0.16.0",
+        "scikit-image==0.19.0rc0",
     ],
     extra_requires={
         "dev": ["pudb", "black"],
