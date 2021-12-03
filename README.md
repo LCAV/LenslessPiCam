@@ -1,5 +1,7 @@
 # DiffuserCam
 
+![Example PSF, raw data, and reconstruction.](scripts/example_reconstruction.png)
+
 This package provides functionalities to perform imaging and reconstruction
 with a lensless camera known as DiffuserCam [[1]](#1). We use a more rudimentary
 version of the DiffuserCam where we use a piece of tape instead of the lens and 
@@ -48,6 +50,7 @@ Raspberry Pi without a password. To see this up you can follow instruction from
 ## Data for examples
 
 You can download example PSFs and raw data [here](https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww).
+We recommend placing this content in the `data` folder.
 
 You can download a subset for the [DiffuserCam Lensless Mirflickr Dataset](https://waller-lab.github.io/LenslessLearning/dataset.html)
 that we've prepared [here](https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE)
