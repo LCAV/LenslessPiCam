@@ -1,6 +1,30 @@
 # DiffuserCam
 
-Setup on local computer and/or Raspberry Pi:
+This package provides functionalities to perform imaging and reconstruction
+with a lensless camera known as DiffuserCam [[1]](#1). We use a more rudimentary
+version of the DiffuserCam where we use a piece of tape instead of the lens and 
+the [Raspberry Pi HQ camera sensor](https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera).
+However, the same principles can be used for a different diffuser and a better
+sensor (although the capture script would change). The content of this project 
+is largely based off of the work from Prof. Laura Waller's group at UC Berkeley:
+- [Build your own DiffuserCam tutorial](https://waller-lab.github.io/DiffuserCam/tutorial).
+- [DiffuserCam lensless MIR Flickr dataset](https://waller-lab.github.io/LenslessLearning/dataset.html) [[2]](#2).
+
+So a huge kudos to them for the idea and making the tools/code/data available!
+
+We've also made a few Medium articles to guide you through the process of
+building the DiffuserCam, measuring data with it, and reconstruction:
+1. [Raspberry Pi setup](https://medium.com/@bezzam/setting-up-a-raspberry-pi-without-a-monitor-headless-9a3c2337f329) and [SSH'ing without password](https://medium.com/@bezzam/headless-and-passwordless-interfacing-with-a-raspberry-pi-ssh-453dd75154c3) (needed for the remote capture/display scripts).
+2. [Building DiffuserCam](https://medium.com/@bezzam/building-a-diffusercam-with-the-raspberry-hq-camera-cardboard-and-tape-896b6020aff6).
+3. [Measuring DiffuserCam PSF and raw data](https://medium.com/@bezzam/measuring-a-diffusercam-psf-and-raw-data-b01ee29eda4).
+4. [Imaging with DiffuserCam](https://medium.com/@bezzam/lensless-imaging-with-the-raspberry-pi-and-python-diffusercam-473e47662857).
+
+Note that this material has been prepared for our graduate signal processing 
+course at EPFL, and therefore includes some exercises / code to complete. If you
+are an instructor or trying to replicate this tutorial, feel free to send an 
+email to `eric[dot]bezzam[at]epfl[dot]ch`.
+
+## Setup on local computer and/or Raspberry Pi:
 ```bash
 python3.9 -m venv diffcam_env
 source diffcam_env/bin/activate
@@ -31,7 +55,7 @@ with `scripts/prepare_mirflickr_subset.py`.
 
 ## Reconstruction
 
-There is one script / algorithm available for reconstruction - ADMM.
+There is one script / algorithm available for reconstruction - ADMM [[3]](#3).
 ```bash
 python scripts/admm.py --psf_fp data/psf/diffcam_rgb.png \
 --data_fp data/raw_data/thumbs_up_rgb.png --n_iter 5
@@ -112,3 +136,13 @@ brightness.
 pip install black
 ./format_code.sh
 ```
+
+## References
+<a id="1">[1]</a> 
+Antipa, N., Kuo, G., Heckel, R., Mildenhall, B., Bostan, E., Ng, R., & Waller, L. (2018). DiffuserCam: lensless single-exposure 3D imaging. Optica, 5(1), 1-9.
+
+<a id="2">[2]</a> 
+Monakhova, K., Yurtsever, J., Kuo, G., Antipa, N., Yanny, K., & Waller, L. (2019). Learned reconstructions for practical mask-based lensless imaging. Optics express, 27(20), 28075-28090.
+
+<a id="3">[3]</a> 
+Boyd, S., Parikh, N., & Chu, E. (2011). Distributed optimization and statistical learning via the alternating direction method of multipliers. Now Publishers Inc.
