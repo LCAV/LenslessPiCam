@@ -25,7 +25,7 @@ def plot_image(img, ax=None, gamma=None, normalize=True):
 
     # need float image for gamma correction and plotting
     img_norm = img / max_val
-    if gamma:
+    if gamma and gamma > 1:
         img_norm = gamma_correction(img_norm, gamma=gamma)
 
     if len(img.shape) == 3 and img.shape[2] == 3:
@@ -62,7 +62,6 @@ def pixel_histogram(img, nbits=None, ax=None, log_scale=True):
     if ax is None:
         _, ax = plt.subplots()
 
-    # TODO change
     if nbits:
         # max_val = get_max_val(img, nbits)
         max_val = 2 ** nbits - 1

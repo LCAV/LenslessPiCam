@@ -17,6 +17,63 @@ Note that we highly recommend using Python 3.9, as its [end-of-life](https://end
 
 For plotting on your local computer, you may also need to [install Tk](https://stackoverflow.com/questions/5459444/tkinter-python-may-not-be-configured-for-tk).
 
+The scripts for remote capture and remote display assume that you can SSH to the
+Raspberry Pi without a password. To see this up you can follow instruction from
+[this page](https://medium.com/@bezzam/headless-and-passwordless-interfacing-with-a-raspberry-pi-ssh-453dd75154c3).
+
+## Data for examples
+
+You can download example PSFs and raw data [here](https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww).
+
+You can download a subset for the [DiffuserCam Lensless Mirflickr Dataset](https://waller-lab.github.io/LenslessLearning/dataset.html)
+that we've prepared [here](https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE)
+with `scripts/prepare_mirflickr_subset.py`.
+
+## Reconstruction
+
+There is one script / algorithm available for reconstruction - ADMM.
+```bash
+python scripts/admm.py --psf_fp data/psf/diffcam_rgb.png \
+--data_fp data/raw_data/thumbs_up_rgb.png --n_iter 5
+```
+
+A template - `scripts/reconstruction_template.py` - can be used to implement
+other reconstruction approaches.
+
+## Evaluating on a dataset
+
+You can run ADMM on the [DiffuserCam Lensless Mirflickr Dataset](https://waller-lab.github.io/LenslessLearning/dataset.html)
+with the following script.
+```bash
+python scripts/evaluate_mirflickr_admm.py --data <FP>
+```
+where `<FP>` is the path to the dataset.
+
+You can also pass user [the subset](https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE)
+we've prepared and apply it to a few files.
+```bash
+python scripts/evaluate_mirflickr_admm.py \
+--data DiffuserCam_Mirflickr_200_3011302021_11h43_seed11 \
+--n_files 10 --save
+```
+The `--save` flag will save a viewable image for each reconstruction.
+
+You can also apply ADMM to a single image and visualize the iterative reconstruction.
+```bash
+python scripts/apply_admm_single_mirflickr.py \
+--data DiffuserCam_Mirflickr_200_3011302021_11h43_seed11 \
+--fid 172
+```
+
+## Remote capture
+
+You can remotely capture raw Bayer data with the following script.
+```bash
+python scripts/remote_capture.py --exp 0.1 --iso 100 --bayer --fp <FN> --hostname <HOSTNAME>
+```
+where `<HOSTNAME>` is the hostname or IP address of your Raspberry Pi, `<FN>` is
+the name of the file to saw the Bayer data, and the other arguments can be used
+to adjust camera settings.
 
 ## Remote display
 
@@ -48,10 +105,6 @@ python scripts/remote_display.py --fp data/original_images/rect.jpg \
 where `<HOSTNAME>` is the hostname or IP address of your Raspberry Pi and the 
 other arguments can be used to adjust the positioning of the image and its
 brightness.
-
-## Diffuser MirFlickr dataset
-
-Download subset that we've prepared [here](https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE).
 
 ## Formatting
 
