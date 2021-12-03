@@ -6,8 +6,6 @@ python scripts/prep_display_image.py --fp data/original_images/rect.jpg \
 --pad 50 --output_path test.jpg
 ```
 
-TODO : shift by adjusting padding.
-
 """
 
 import cv2
