@@ -1,12 +1,12 @@
 """
 
 Download data from here: https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE
+Or full dataset here: https://github.com/Waller-Lab/LenslessLearning
 
 ```
 python scripts/evaluate_mirflickr_admm.py \
 --data DiffuserCam_Mirflickr_200_3011302021_11h43_seed11 \
 --n_files 10 --save
-
 ```
 
 """
@@ -43,7 +43,7 @@ from diffcam.metric import mse, psnr, ssim, lpips
     help="Number of iterations.",
 )
 @click.option(
-    "--sum",
+    "--single_psf",
     is_flag=True,
     help="Whether to take PSF as sum of RGB channels.",
 )
@@ -52,7 +52,7 @@ from diffcam.metric import mse, psnr, ssim, lpips
     is_flag=True,
     help="Whether to save reconstructions.",
 )
-def mirflickr_dataset(data, n_files, n_iter, sum, save):
+def mirflickr_dataset(data, n_files, n_iter, single_psf, save):
     assert data is not None
 
     diffuser_dir = os.path.join(data, "diffuser")
@@ -70,13 +70,13 @@ def mirflickr_dataset(data, n_files, n_iter, sum, save):
     # -- prepare PSF
     print("\nPrepared PSF data")
     psf_float, background = load_psf(
-        psf_fp, downsample=downsample, return_float=True, return_bg=True, bg_pix=(0, 15)
+        psf_fp,
+        downsample=downsample,
+        return_float=True,
+        return_bg=True,
+        bg_pix=(0, 15),
+        single_psf=single_psf,
     )
-    if sum:
-        psf_float = np.sum(
-            psf_float, 2
-        )  # TODO: in lensless imaging they sum channels, handle inside ADMM without repeating
-        psf_float = np.repeat(psf_float[:, :, np.newaxis], repeats=3, axis=2)
     print_image_info(psf_float)
 
     if save:
@@ -102,9 +102,7 @@ def mirflickr_dataset(data, n_files, n_iter, sum, save):
         diffuser = np.load(lensless_fp)
         diffuser_prep = diffuser - background
         diffuser_prep = np.clip(diffuser_prep, a_min=0, a_max=1)
-        diffuser_prep /= np.linalg.norm(
-            diffuser_prep.ravel()
-        )  # TODO: maybe not needed? check in load_data
+        diffuser_prep /= np.linalg.norm(diffuser_prep.ravel())
         recon.set_data(diffuser_prep)
         est = recon.apply(n_iter=n_iter, plot=False)
 
