@@ -76,8 +76,13 @@ def apply_admm(data, fid, gamma, single_psf, n_iter, disp, save):
 
     # form file path
     psf_fp = os.path.join(data, "psf.tiff")
-    lensless_fp = os.path.join(data, f"diffuser/im{fid}.npy")
-    lensed_fp = os.path.join(data, f"lensed/im{fid}.npy")
+    dataset_dir = os.path.join(data, "dataset")
+    if os.path.isdir(dataset_dir):
+        lensless_fp = os.path.join(dataset_dir, f"diffuser_images/im{fid}.npy")
+        lensed_fp = os.path.join(dataset_dir, f"ground_truth_lensed/im{fid}.npy")
+    else:
+        lensless_fp = os.path.join(data, f"diffuser/im{fid}.npy")
+        lensed_fp = os.path.join(data, f"lensed/im{fid}.npy")
 
     # initialize plot
     _, ax = plt.subplots(ncols=2, nrows=2, figsize=(15, 10))
