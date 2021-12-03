@@ -55,8 +55,13 @@ from diffcam.metric import mse, psnr, ssim, lpips
 def mirflickr_dataset(data, n_files, n_iter, single_psf, save):
     assert data is not None
 
-    diffuser_dir = os.path.join(data, "diffuser")
-    lensed_dir = os.path.join(data, "lensed")
+    dataset_dir = os.path.join(data, "dataset")
+    if os.path.isdir(dataset_dir):
+        diffuser_dir = os.path.join(dataset_dir, "diffuser_images")
+        lensed_dir = os.path.join(dataset_dir, "ground_truth_lensed")
+    else:
+        diffuser_dir = os.path.join(data, "diffuser")
+        lensed_dir = os.path.join(data, "lensed")
     psf_fp = os.path.join(data, "psf.tiff")
     downsample = 4  # has to be this for collected data!
 
