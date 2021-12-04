@@ -1,5 +1,7 @@
 # DiffuserCam
 
+### _Lensless imaging with a Raspberry Pi and a piece of tape!_
+
 ![Example PSF, raw data, and reconstruction.](scripts/example_reconstruction.png)
 
 This package provides functionalities to perform imaging and reconstruction
