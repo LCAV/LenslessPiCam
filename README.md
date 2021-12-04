@@ -7,10 +7,12 @@
 This package provides functionalities to perform imaging and reconstruction
 with a lensless camera known as DiffuserCam [[1]](#1). We use a more rudimentary
 version of the DiffuserCam where we use a piece of tape instead of the lens and 
-the [Raspberry Pi HQ camera sensor](https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera).
-However, the same principles can be used for a different diffuser and a better
-sensor (although the capture script would change). The content of this project 
-is largely based off of the work from Prof. Laura Waller's group at UC Berkeley:
+the [Raspberry Pi HQ camera sensor](https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera)
+([V2 sensor](https://www.raspberrypi.com/products/camera-module-v2/) is also
+supported). However, the same principles can be used for a different diffuser 
+and a different sensor (although the capture script would change). The content of 
+this project is largely based off of the work from Prof. Laura Waller's group at
+UC Berkeley:
 - [Build your own DiffuserCam tutorial](https://waller-lab.github.io/DiffuserCam/tutorial).
 - [DiffuserCam lensless MIR Flickr dataset](https://waller-lab.github.io/LenslessLearning/dataset.html) [[2]](#2).
 
@@ -30,12 +32,17 @@ email to `eric[dot]bezzam[at]epfl[dot]ch`.
 
 ## Setup
 The expected workflow is to have a local computer which interfaces remotely
-with a Raspberry Pi equipped with the HQ camera sensor (or [V2 sensor](https://www.raspberrypi.com/products/camera-module-v2/) 
-as in the original tutorial).
+with a Raspberry Pi equipped with the HQ camera sensor (or V2 sensor as in the 
+original tutorial).
 
 The software from this repository has to be installed on your both your local 
-machine and the Raspberry Pi:
+machine and the Raspberry Pi (from the `home` directory of the Pi):
 ```bash
+# download from GitHub
+git clone git@github.com:LCAV/DiffuserCam.git
+
+# install in virtual environment
+cd DiffuserCam
 python3.9 -m venv diffcam_env
 source diffcam_env/bin/activate
 pip install -e .
@@ -103,7 +110,7 @@ python scripts/evaluate_mirflickr_admm.py \
 ```
 The `--save` flag will save a viewable image for each reconstruction.
 
-You can also apply ADMM to a single image and visualize the iterative 
+You can also apply ADMM on a single image and visualize the iterative 
 reconstruction.
 ```bash
 python scripts/apply_admm_single_mirflickr.py \
