@@ -8,13 +8,13 @@ See these code snippets for setting camera settings and post-processing
 
 """
 
-import picamerax.array
+import os
 import cv2
 import click
 import numpy as np
 from time import sleep
 from PIL import Image
-from diffcam.util import bayer2rgb
+from diffcam.util import bayer2rgb, get_distro
 from diffcam.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
 
@@ -66,71 +66,114 @@ SENSOR_MODES = [
     "--sixteen",
     is_flag=True,
 )
-def capture(fn="test", exp=0.5, config_pause=2, sensor_mode="0", iso=100, sixteen=False, rgb=False):
-    assert exp <= 10
+@click.option(
+    "--nbits_out",
+    default=8,
+    type=int,
+    help="Number of bits for output. Only used if saving RGB data.",
+)
+def capture(fn, exp, config_pause, sensor_mode, iso, sixteen, rgb, nbits_out):
+    # https://www.raspberrypi.com/documentation/accessories/camera.html#maximum-exposure-times
+    # TODO : check which camera
+    assert exp <= 230
     assert exp > 0
     sensor_mode = int(sensor_mode)
 
-    camera = picamerax.PiCamera(framerate=1 / exp, sensor_mode=sensor_mode)
+    distro = get_distro()
+    print("RPi distribution : {}".format(distro))
+    if "bullseye" in distro:
 
-    # camera settings, as little processing as possible
-    camera.iso = iso
-    camera.shutter_speed = int(exp * 1e6)
-    camera.exposure_mode = "off"
-    camera.drc_strength = "off"
-    camera.image_denoise = False
-    camera.image_effect = "none"
-    camera.still_stats = False
+        import subprocess
 
-    sleep(config_pause)
-    awb_gains = camera.awb_gains
-    camera.awb_mode = "off"
-    camera.awb_gains = awb_gains
+        jpg_fn = fn + ".jpg"
+        dng_fn = fn + ".dng"
+        pic_command = [
+            "libcamera-still",
+            "-r",
+            "--gain",
+            f"{iso / 100}",
+            "--shutter",
+            f"{int(exp * 1e6)}",
+            "-o",
+            f"{jpg_fn}",
+        ]
 
-    print("Resolution : {}".format(camera.MAX_RESOLUTION))
-    print("Shutter speed : {}".format(camera.shutter_speed))
-    print("ISO : {}".format(camera.iso))
-    print("Frame rate : {}".format(camera.framerate))
-    print("Sensor mode : {}".format(SENSOR_MODES[sensor_mode]))
-    print("Config load time : {} seconds".format(config_pause))
-    # keep this as it needs to be parsed from remote script!
-    red_gain = float(awb_gains[0])
-    blue_gain = float(awb_gains[1])
-    print("Red gain : {}".format(red_gain))
-    print("Blue gain : {}".format(blue_gain))
-
-    # capture data
-    stream = picamerax.array.PiBayerArray(camera)
-    camera.capture(stream, "jpeg", bayer=True)
-    fn += ".png"
-
-    # get bayer data
-    if sixteen:
-        output = np.sum(stream.array, axis=2).astype(np.uint16)
-    else:
-        output = (np.sum(stream.array, axis=2) >> 2).astype(np.uint8)
-
-    if rgb:
-        if sixteen:
-            n_bits = 12  # assuming Raspberry Pi HQ
-        else:
-            n_bits = 8
-        output = bayer2rgb(
-            output,
-            nbits=n_bits,
-            bg=blue_gain,
-            rg=red_gain,
-            black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
-            ccm=RPI_HQ_CAMERA_CCM_MATRIX,
+        cmd = subprocess.Popen(
+            pic_command,
+            shell=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
-
-        # need OpenCV to save 16-bit RGB image
-        cv2.imwrite(fn, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
+        result = cmd.stdout.readlines()
+        error = cmd.stderr.readlines()
+        os.remove(jpg_fn)
+        os.system(f"exiftool {dng_fn}")
+        print("\nJPG saved to : {}".format(jpg_fn))
+        print("\nDNG saved to : {}".format(dng_fn))
     else:
-        img = Image.fromarray(output)
-        img.save(fn)
+        import picamerax.array
 
-    print("\nImage saved to : {}".format(fn))
+        camera = picamerax.PiCamera(framerate=1 / exp, sensor_mode=sensor_mode)
+
+        # camera settings, as little processing as possible
+        camera.iso = iso
+        camera.shutter_speed = int(exp * 1e6)
+        camera.exposure_mode = "off"
+        camera.drc_strength = "off"
+        camera.image_denoise = False
+        camera.image_effect = "none"
+        camera.still_stats = False
+
+        sleep(config_pause)
+        awb_gains = camera.awb_gains
+        camera.awb_mode = "off"
+        camera.awb_gains = awb_gains
+
+        print("Resolution : {}".format(camera.MAX_RESOLUTION))
+        print("Shutter speed : {}".format(camera.shutter_speed))
+        print("ISO : {}".format(camera.iso))
+        print("Frame rate : {}".format(camera.framerate))
+        print("Sensor mode : {}".format(SENSOR_MODES[sensor_mode]))
+        print("Config load time : {} seconds".format(config_pause))
+        # keep this as it needs to be parsed from remote script!
+        red_gain = float(awb_gains[0])
+        blue_gain = float(awb_gains[1])
+        print("Red gain : {}".format(red_gain))
+        print("Blue gain : {}".format(blue_gain))
+
+        # capture data
+        stream = picamerax.array.PiBayerArray(camera)
+        camera.capture(stream, "jpeg", bayer=True)
+        fn += ".png"
+
+        # get bayer data
+        if sixteen:
+            output = np.sum(stream.array, axis=2).astype(np.uint16)
+        else:
+            output = (np.sum(stream.array, axis=2) >> 2).astype(np.uint8)
+
+        if rgb:
+            if sixteen:
+                n_bits = 12  # assuming Raspberry Pi HQ
+            else:
+                n_bits = 8
+            output = bayer2rgb(
+                output,
+                nbits=n_bits,
+                bg=blue_gain,
+                rg=red_gain,
+                black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
+                ccm=RPI_HQ_CAMERA_CCM_MATRIX,
+                nbits_out=nbits_out,
+            )
+
+            # need OpenCV to save 16-bit RGB image
+            cv2.imwrite(fn, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
+        else:
+            img = Image.fromarray(output)
+            img.save(fn)
+
+        print("\nImage saved to : {}".format(fn))
 
 
 if __name__ == "__main__":
