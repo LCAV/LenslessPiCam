@@ -1,5 +1,9 @@
 # DiffuserCam
 
+### _Lensless imaging with a Raspberry Pi and a piece of tape!_
+
+![Example PSF, raw data, and reconstruction.](scripts/example_reconstruction.png)
+
 This package provides functionalities to perform imaging and reconstruction
 with a lensless camera known as DiffuserCam [[1]](#1). We use a more rudimentary
 version of the DiffuserCam where we use a piece of tape instead of the lens and 
@@ -24,7 +28,13 @@ course at EPFL, and therefore includes some exercises / code to complete. If you
 are an instructor or trying to replicate this tutorial, feel free to send an 
 email to `eric[dot]bezzam[at]epfl[dot]ch`.
 
-## Setup on local computer and/or Raspberry Pi:
+## Setup
+The expected workflow is to have a local computer which interfaces remotely
+with a Raspberry Pi equipped with the HQ camera sensor (or [V2 sensor](https://www.raspberrypi.com/products/camera-module-v2/) 
+as in the original tutorial).
+
+The software from this repository has to be installed on your both your local 
+machine and the Raspberry Pi:
 ```bash
 python3.9 -m venv diffcam_env
 source diffcam_env/bin/activate
@@ -47,7 +57,8 @@ Raspberry Pi without a password. To see this up you can follow instruction from
 
 ## Data for examples
 
-You can download example PSFs and raw data [here](https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww).
+You can download example PSFs and raw data that we've measured [here](https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww).
+We recommend placing this content in the `data` folder.
 
 You can download a subset for the [DiffuserCam Lensless Mirflickr Dataset](https://waller-lab.github.io/LenslessLearning/dataset.html)
 that we've prepared [here](https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE)
@@ -62,7 +73,15 @@ python scripts/admm.py --psf_fp data/psf/diffcam_rgb.png \
 ```
 
 A template - `scripts/reconstruction_template.py` - can be used to implement
-other reconstruction approaches.
+other reconstruction approaches. Moreover, the abstract class 
+[`diffcam.recon.ReconstructionAlgorithm`](https://github.com/LCAV/DiffuserCam/blob/70936c1a1d0797b50190d978f8ece3edc7413650/diffcam/recon.py#L9)
+can be used to define new reconstruction algorithms by defining a few methods:
+forward model and its adjoint (`_forward` and `_backward`), the update step
+(`_update`), a method to reset state variables (`_reset`), and an image
+formation method (`_form_method`). Functionality for iterating, saving, and 
+visualization are implemented within the abstract class. [`diffcam.admm.ADMM`](https://github.com/LCAV/DiffuserCam/blob/70936c1a1d0797b50190d978f8ece3edc7413650/diffcam/admm.py#L6)
+shows an example reconstruction implementation deriving from this abstract 
+class.
 
 ## Evaluating on a dataset
 
@@ -73,8 +92,10 @@ python scripts/evaluate_mirflickr_admm.py --data <FP>
 ```
 where `<FP>` is the path to the dataset.
 
-You can also pass user [the subset](https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE)
-we've prepared and apply it to a few files.
+However, the original dataset is quite large (25000 files, 100 GB). So we've 
+prepared [this subset](https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE) (200
+files, 725 MB) which you can also pass to the script. It is also possible to 
+set the number of files.
 ```bash
 python scripts/evaluate_mirflickr_admm.py \
 --data DiffuserCam_Mirflickr_200_3011302021_11h43_seed11 \
@@ -82,7 +103,8 @@ python scripts/evaluate_mirflickr_admm.py \
 ```
 The `--save` flag will save a viewable image for each reconstruction.
 
-You can also apply ADMM to a single image and visualize the iterative reconstruction.
+You can also apply ADMM to a single image and visualize the iterative 
+reconstruction.
 ```bash
 python scripts/apply_admm_single_mirflickr.py \
 --data DiffuserCam_Mirflickr_200_3011302021_11h43_seed11 \
@@ -96,13 +118,14 @@ You can remotely capture raw Bayer data with the following script.
 python scripts/remote_capture.py --exp 0.1 --iso 100 --bayer --fp <FN> --hostname <HOSTNAME>
 ```
 where `<HOSTNAME>` is the hostname or IP address of your Raspberry Pi, `<FN>` is
-the name of the file to saw the Bayer data, and the other arguments can be used
+the name of the file to save the Bayer data, and the other arguments can be used
 to adjust camera settings.
 
 ## Remote display
 
 For collecting images displayed on a screen, we have prepared some software to
-display images remotely on Raspberry Pi connected to a monitor.
+remotely display images on a Raspberry Pi installed with this software and
+connected to a monitor.
 
 You first need to install the `feh` command line tool on your Raspberry Pi.
 ```bash
@@ -123,17 +146,23 @@ feh DiffuserCam_display --scale-down --auto-zoom -R 0.1 -x -F -Y
 Then from your laptop you can use the following script to display an image on
 the Raspberry Pi:
 ```bash
-python scripts/remote_display.py --fp data/original_images/rect.jpg \
---hostname <HOSTNAME> --pad 80 --vshift 10 --brightness 90
+python scripts/remote_display.py --fp <FP> --hostname <HOSTNAME> \
+--pad 80 --vshift 10 --brightness 90
 ```
-where `<HOSTNAME>` is the hostname or IP address of your Raspberry Pi and the 
+where `<HOSTNAME>` is the hostname or IP address of your Raspberry Pi, `<FN>` is
+the path on your local computer of the image you would like to display, and the 
 other arguments can be used to adjust the positioning of the image and its
 brightness.
 
 ## Formatting
+You can use `black` to format your code.
 
+First install the library.
 ```bash
 pip install black
+```
+Then run the formatting script we've prepared.
+```bash
 ./format_code.sh
 ```
 
