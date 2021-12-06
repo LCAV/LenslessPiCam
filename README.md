@@ -36,7 +36,9 @@ with a Raspberry Pi equipped with the HQ camera sensor (or V2 sensor as in the
 original tutorial).
 
 The software from this repository has to be installed on your both your local 
-machine and the Raspberry Pi (from the `home` directory of the Pi):
+machine and the Raspberry Pi (from the `home` directory of the Pi). Below are
+commands that worked for our configuration (Ubuntu 21.04), but there are 
+certainly other ways to download a repository and install the library locally.
 ```bash
 # download from GitHub
 git clone git@github.com:LCAV/DiffuserCam.git
@@ -61,6 +63,22 @@ For plotting on your local computer, you may also need to [install Tk](https://s
 The scripts for remote capture and remote display assume that you can SSH to the
 Raspberry Pi without a password. To see this up you can follow instruction from
 [this page](https://medium.com/@bezzam/headless-and-passwordless-interfacing-with-a-raspberry-pi-ssh-453dd75154c3).
+Do not set a password for your key pair, as this will not work with the provided
+scripts.
+
+We have noticed problems with locale when running the remote capture and display
+scripts, for example:
+```bash
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+...
+```
+This may arise due to incompatible locale settings between your local machine 
+and the Raspberry Pi. There are two possible solutions to this, as proposed in 
+[this forum](https://forums.raspberrypi.com/viewtopic.php?t=11870).
+1. Comment `SendEnv LANG LC_*` in `/etc/ssh/ssh_config` on your laptop.
+2. Comment `AcceptEnv LANG LC_*` in `/etc/ssh/sshd_config` on the Raspberry
+Pi.
 
 ## Data for examples
 
