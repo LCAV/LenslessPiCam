@@ -152,48 +152,46 @@ def liveview(
         print(f"COMMAND OUTPUT : ")
         pprint(result_dict)
 
-    if "RPi distribution" in result_dict.keys():
-        if "bullseye" in result_dict["RPi distribution"]:
-            # copy over DNG file
+    if "RPi distribution" in result_dict.keys() and "bullseye" in result_dict["RPi distribution"]:
+        # copy over DNG file
+        remotefile = f"~/{remote_fn}.dng"
+        localfile = f"{fn}.dng"
+        print(f"\nCopying over picture as {localfile}...")
+        os.system('scp "pi@%s:%s" %s' % (hostname, remotefile, localfile))
+        raw = rawpy.imread(localfile)
 
-            remotefile = f"~/{remote_fn}.dng"
-            localfile = f"{fn}.dng"
-            print(f"\nCopying over picture as {localfile}...")
-            os.system('scp "pi@%s:%s" %s' % (hostname, remotefile, localfile))
-            raw = rawpy.imread(localfile)
+        # https://letmaik.github.io/rawpy/api/rawpy.Params.html#rawpy.Params
+        # https://www.libraw.org/docs/API-datastruct-eng.html
+        if nbits_out > 8:
+            # only 8 or 16 bit supported by postprocess
+            if nbits_out != 16:
+                print("casting to 16 bit...")
+            output_bps = 16
+        else:
+            if nbits_out != 8:
+                print("casting to 8 bit...")
+            output_bps = 8
+        img = raw.postprocess(
+            adjust_maximum_thr=0,  # default 0.75
+            no_auto_scale=False,
+            gamma=(1, 1),
+            output_bps=output_bps,
+            bright=1,  # default 1
+            exp_shift=1,
+            no_auto_bright=True,
+            use_camera_wb=True,
+            use_auto_wb=False,  # default is False? f both use_camera_wb and use_auto_wb are True, then use_auto_wb has priority.
+        )
 
-            # https://letmaik.github.io/rawpy/api/rawpy.Params.html#rawpy.Params
-            # https://www.libraw.org/docs/API-datastruct-eng.html
-            if nbits_out > 8:
-                # only 8 or 16 bit supported by postprocess
-                if nbits_out != 16:
-                    print("casting to 16 bit...")
-                output_bps = 16
-            else:
-                if nbits_out != 8:
-                    print("casting to 8 bit...")
-                output_bps = 8
-            img = raw.postprocess(
-                adjust_maximum_thr=0,  # default 0.75
-                no_auto_scale=False,
-                gamma=(1, 1),
-                output_bps=output_bps,
-                bright=1,  # default 1
-                exp_shift=1,
-                no_auto_bright=True,
-                use_camera_wb=True,
-                use_auto_wb=False,  # default is False? f both use_camera_wb and use_auto_wb are True, then use_auto_wb has priority.
-            )
+        # print image properties
+        print_image_info(img)
 
-            # print image properties
-            print_image_info(img)
-
-            # save as PNG
-            png_out = f"{fn}.png"
-            print(f"Saving RGB file as: {png_out}")
-            cv2.imwrite(png_out, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-            if not bayer:
-                os.remove(localfile)
+        # save as PNG
+        png_out = f"{fn}.png"
+        print(f"Saving RGB file as: {png_out}")
+        cv2.imwrite(png_out, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+        if not bayer:
+            os.remove(localfile)
 
     else:
 
