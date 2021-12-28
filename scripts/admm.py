@@ -14,9 +14,7 @@ import pathlib as plib
 import click
 import matplotlib.pyplot as plt
 from datetime import datetime
-
 import numpy as np
-
 from diffcam.io import load_data
 from diffcam.admm import ADMM
 
