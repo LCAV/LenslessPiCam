@@ -14,6 +14,9 @@ import pathlib as plib
 import click
 import matplotlib.pyplot as plt
 from datetime import datetime
+
+import numpy as np
+
 from diffcam.io import load_data
 from diffcam.admm import ADMM
 
@@ -138,12 +141,13 @@ def admm(
     print(f"setup time : {time.time() - start_time} s")
 
     start_time = time.time()
-    recon.apply(n_iter=n_iter, disp_iter=disp, save=save, gamma=gamma, plot=not no_plot)
+    res = recon.apply(n_iter=n_iter, disp_iter=disp, save=save, gamma=gamma, plot=not no_plot)
     print(f"proc time : {time.time() - start_time} s")
 
     if not no_plot:
         plt.show()
     if save:
+        np.save(plib.Path(save) / "final_reconstruction.npy", res[0])
         print(f"Files saved to : {save}")
 
 

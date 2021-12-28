@@ -88,7 +88,8 @@ class ReconstructionAlgorithm(abc.ABC):
             self._update()
 
             if (plot or save) and (i + 1) % disp_iter == 0:
-                ax = plot_image(self._form_image(), ax=ax, gamma=gamma)
+                img = self._form_image()
+                ax = plot_image(img, ax=ax, gamma=gamma)
                 ax.set_title("Reconstruction after iteration {}".format(i + 1))
                 if save:
                     plt.savefig(plib.Path(save) / f"{i + 1}.png")
