@@ -51,7 +51,7 @@ def subset_mirflickr(data, n_files, seed, output_dir_path):
     output_dir_path = None
 
     # create output directory
-    timestamp = datetime.now().strftime("%d%m%d%Y_%Hh%M")
+    timestamp = datetime.now().strftime("%d%m%Y_%Hh%M")
     output_dir_fn = f"DiffuserCam_Mirflickr_{n_files}_{timestamp}_seed{seed}"
     if output_dir_path is not None:
         assert os.path.isdir(output_dir_path)

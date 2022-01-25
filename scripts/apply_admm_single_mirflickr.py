@@ -24,6 +24,10 @@ import click
 import time
 from diffcam.mirflickr import ADMM_MIRFLICKR, postprocess
 from diffcam.metric import mse, psnr, ssim, lpips
+import matplotlib
+
+font = {"family": "DejaVu Sans", "size": 18}
+matplotlib.rc("font", **font)
 
 
 @click.command()
@@ -92,7 +96,7 @@ def apply_admm(data, fid, gamma, single_psf, n_iter, disp, save):
     diffuser = np.load(lensless_fp)
     print_image_info(diffuser)
     _ax = plot_image(postprocess(diffuser), gamma=gamma, ax=ax[0, 0])
-    _ax.set_title("Diffuser")
+    _ax.set_title("Lensless")
 
     # Lensed data
     print("\nLensed data")
@@ -105,8 +109,8 @@ def apply_admm(data, fid, gamma, single_psf, n_iter, disp, save):
     # PSF
     print("\nPSF data")
     psf = load_image(fp=psf_fp, verbose=True)
-    _ax = plot_image(psf, gamma=gamma, ax=ax[1, 0])
-    _ax.set_title("PSF")
+    _ax = plot_image(psf, gamma=2.2, ax=ax[1, 0])
+    _ax.set_title("PSF (gamma corrected)")
 
     # RECONSTRUCTION
     # -- prepare data
@@ -140,7 +144,7 @@ def apply_admm(data, fid, gamma, single_psf, n_iter, disp, save):
     recon.apply(n_iter=n_iter, disp_iter=disp, save=save, gamma=gamma, ax=ax[1, 1])
     proc_time = time.time() - start_time
     print(f"Processing time : {proc_time} seconds")
-    _ax.set_title("ADMM reconstruction")
+    ax[1, 1].set_title(f"ADMM ({n_iter} iterations)")
 
     # -- compute metrics
     print("\nReconstruction")
