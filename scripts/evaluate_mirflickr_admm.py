@@ -85,7 +85,7 @@ def mirflickr_dataset(data, n_files, n_iter, single_psf, save):
     print_image_info(psf_float)
 
     if save:
-        timestamp = datetime.now().strftime("_%d%m%d%Y_%Hh%M")
+        timestamp = datetime.now().strftime("_%d%m%Y_%Hh%M")
         save = "admm_mirflickr" + timestamp
         save = plib.Path(__file__).parent / save
         save.mkdir(exist_ok=False)

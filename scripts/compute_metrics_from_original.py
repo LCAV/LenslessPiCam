@@ -21,6 +21,10 @@ from diffcam.io import load_image
 from diffcam.util import resize
 from scipy.ndimage import rotate
 from diffcam.metric import mse, psnr, ssim, lpips
+import matplotlib
+
+font = {"family": "DejaVu Sans", "size": 18}
+matplotlib.rc("font", **font)
 
 
 @click.command()
@@ -35,20 +39,12 @@ from diffcam.metric import mse, psnr, ssim, lpips
     help="File path to original file.",
 )
 @click.option(
-    "--vertical_crop",
-    type=(int, int),
-    help="Cropping for vertical dimension.",
+    "--vertical_crop", type=(int, int), help="Cropping for vertical dimension.", default=(0, -1)
 )
 @click.option(
-    "--horizontal_crop",
-    type=(int, int),
-    help="Cropping for horizontal dimension.",
+    "--horizontal_crop", type=(int, int), help="Cropping for horizontal dimension.", default=(0, -1)
 )
-@click.option(
-    "--rotation",
-    type=float,
-    help="Degrees to rotate reconstruction.",
-)
+@click.option("--rotation", type=float, help="Degrees to rotate reconstruction.", default=0)
 @click.option("-v", "--verbose", count=True)
 def compute_metrics(recon, original, vertical_crop, horizontal_crop, rotation, verbose):
 
@@ -69,7 +65,10 @@ def compute_metrics(recon, original, vertical_crop, horizontal_crop, rotation, v
         print(est.shape)
         print(est.dtype)
         print(est.max())
-    plot_image(est)
+
+    _, ax = plt.subplots(ncols=2, nrows=1, figsize=(10, 5))
+    plot_image(est, ax=ax[0])
+    ax[0].set_title("Reconstruction")
 
     # load real image
     img = load_image(original)
@@ -89,7 +88,8 @@ def compute_metrics(recon, original, vertical_crop, horizontal_crop, rotation, v
         print(img_resize.dtype)
         print(img_resize.max())
 
-    plot_image(img_resize)
+    plot_image(img_resize, ax=ax[1])
+    ax[1].set_title("Original")
 
     print("\nMSE", mse(img_resize, est))
     print("PSNR", psnr(img_resize, est))
