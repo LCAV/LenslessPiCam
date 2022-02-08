@@ -69,17 +69,33 @@ REMOTE_TMP_PATH = "~/tmp_display.jpg"
     help="Vertical shift percentage.",
 )
 @click.option(
+    "--hshift",
+    default=0,
+    type=float,
+    help="Horizontal shift percentage.",
+)
+@click.option(
     "--brightness",
     default=0,
     type=float,
     help="Brightness percentage.",
 )
-def remote_display(fp, hostname, pad, vshift, brightness, psf, black):
+@click.option(
+    "--screen_res",
+    default=None,
+    nargs=2,
+    type=int,
+    help="Screen resolution in pixels (width, height).",
+)
+def remote_display(fp, hostname, pad, vshift, brightness, psf, black, hshift, screen_res):
 
     if psf:
         assert fp is None
-        # create image, size of https://www.dell.com/en-us/work/shop/dell-ultrasharp-usb-c-hub-monitor-u2421e/apd/210-axmg/monitors-monitor-accessories#techspecs_section
-        shape = np.array((1200, 1920))
+        if screen_res:
+            shape = np.array(screen_res)[::-1]
+        else:
+            # create image, size of https://www.dell.com/en-us/work/shop/dell-ultrasharp-usb-c-hub-monitor-u2421e/apd/210-axmg/monitors-monitor-accessories#techspecs_section
+            shape = np.array((1200, 1920))
         point_source = np.zeros(tuple(shape) + (3,))
         mid_point = shape // 2
         start_point = mid_point - psf // 2
@@ -90,7 +106,10 @@ def remote_display(fp, hostname, pad, vshift, brightness, psf, black):
         im.save(fp)
     elif black:
         assert fp is None
-        shape = np.array((1200, 1920))
+        if screen_res:
+            shape = np.array(screen_res)[::-1]
+        else:
+            shape = np.array((1200, 1920))
         point_source = np.zeros(tuple(shape) + (3,))
         fp = "tmp_display.png"
         im = Image.fromarray(point_source.astype("uint8"), "RGB")
@@ -102,7 +121,8 @@ def remote_display(fp, hostname, pad, vshift, brightness, psf, black):
     os.system('scp %s "pi@%s:%s" ' % (fp, hostname, REMOTE_TMP_PATH))
 
     prep_command = f"{REMOTE_PYTHON} {REMOTE_IMAGE_PREP_SCRIPT} --fp {REMOTE_TMP_PATH} \
-        --pad {pad} --vshift {vshift} --brightness {brightness} --output_path {REMOTE_DISPLAY_PATH} "
+        --pad {pad} --vshift {vshift} --hshift {hshift} --screen_res {screen_res[0]} {screen_res[1]} \
+        --brightness {brightness} --output_path {REMOTE_DISPLAY_PATH} "
     print(f"COMMAND : {prep_command}")
     subprocess.Popen(
         ["ssh", "pi@%s" % hostname, prep_command],
