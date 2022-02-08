@@ -24,7 +24,7 @@ import click
     "--pad",
     default=0,
     type=float,
-    help="Padding percentage.",
+    help="Padding percentage along each dimension.",
 )
 @click.option(
     "--output_path",
@@ -37,30 +37,69 @@ import click
     help="Vertical shift percentage.",
 )
 @click.option(
+    "--hshift",
+    default=0,
+    type=float,
+    help="Horizontal shift percentage.",
+)
+@click.option(
     "--brightness",
     default=0,
     type=float,
     help="Brightness percentage.",
 )
-def display(fp, pad, output_path, vshift, brightness):
+@click.option(
+    "--screen_res",
+    default=None,
+    nargs=2,
+    type=int,
+    help="Screen resolution in pixels (width, height).",
+)
+def display(fp, pad, output_path, vshift, brightness, screen_res, hshift):
+
+    interpolation = cv2.INTER_NEAREST
 
     # load image
-    img = cv2.imread(fp, cv2.IMREAD_UNCHANGED)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img_og = cv2.imread(fp, cv2.IMREAD_UNCHANGED)
+    img_og = cv2.cvtColor(img_og, cv2.COLOR_BGR2RGB)
 
-    # pad image
-    if pad:
-        padding_amount = np.array(img.shape[:2]) * pad / 100
-        pad_width = (
-            (int(padding_amount[0] // 2), int(padding_amount[0] // 2)),
-            (int(padding_amount[1] // 2), int(padding_amount[1] // 2)),
-            (0, 0),
-        )
-        img = np.pad(img, pad_width=pad_width)
+    if screen_res:
+
+        if pad:
+            img = np.zeros((screen_res[1], screen_res[0], 3), dtype=img_og.dtype)
+            image_res = tuple((np.array(screen_res) / (1 + 2 * pad / 100)).astype(np.int16))
+            img_og = cv2.resize(img_og, image_res, interpolation=interpolation)
+            img[: image_res[1], : image_res[0]] = img_og
+
+            # center
+            img = np.roll(img, shift=int((screen_res[1] - image_res[1]) / 2), axis=0)
+            img = np.roll(img, shift=int((screen_res[0] - image_res[0]) / 2), axis=1)
+
+        else:
+            # resize
+            img = cv2.resize(img_og, screen_res, interpolation=interpolation)
+
+    else:
+
+        # pad image
+        if pad:
+            padding_amount = np.array(img_og.shape[:2]) * pad / 100
+            pad_width = (
+                (int(padding_amount[0] // 2), int(padding_amount[0] // 2)),
+                (int(padding_amount[1] // 2), int(padding_amount[1] // 2)),
+                (0, 0),
+            )
+            img = np.pad(img_og, pad_width=pad_width)
+        else:
+            img = img_og
 
     if vshift:
         nx, _, _ = img.shape
         img = np.roll(img, shift=int(vshift * nx / 100), axis=0)
+
+    if hshift:
+        _, ny, _ = img.shape
+        img = np.roll(img, shift=int(hshift * ny / 100), axis=1)
 
     if brightness:
         img = (img * brightness / 100).astype(np.uint8)

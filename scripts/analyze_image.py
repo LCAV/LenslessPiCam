@@ -27,7 +27,6 @@ python scripts/analyze_image.py --fp data/psf/diffcam_bayer.png --bayer \
 --gamma 2.2 --rg 2.1 --bg 1.3 --save data/psf/diffcam_rgb.png
 python scripts/analyze_image.py --fp data/raw_data/thumbs_up_bayer.png --bayer \
 --gamma 2.2 --rg 2.1 --bg 1.3 --save data/raw_data/thumbs_up_rgb.png
-
 ```
 
 """
@@ -136,7 +135,7 @@ def analyze_image(fp, gamma, width, bayer, lens, diffcam, bg, rg, plot_width, sa
 
     img_grey = rgb2gray(img)
     ax = plot_image(img_grey, gamma=gamma, normalize=True, ax=ax_gray[0])
-    ax.set_title("PSF")
+    ax.set_title("Grayscale")
 
     # plot histogram,
     ax = pixel_histogram(img, ax=ax_rgb[1], nbits=nbits)
