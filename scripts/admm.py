@@ -136,11 +136,11 @@ def admm(
     start_time = time.time()
     recon = ADMM(psf)
     recon.set_data(data)
-    print(f"setup time : {time.time() - start_time} s")
+    print(f"Setup time : {time.time() - start_time} s")
 
     start_time = time.time()
     res = recon.apply(n_iter=n_iter, disp_iter=disp, save=save, gamma=gamma, plot=not no_plot)
-    print(f"proc time : {time.time() - start_time} s")
+    print(f"Processing time : {time.time() - start_time} s")
 
     if not no_plot:
         plt.show()
