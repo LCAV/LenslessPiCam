@@ -19,11 +19,8 @@ UC Berkeley:
 So a huge kudos to them for the idea and making the tools/code/data available!
 
 We've also made a few Medium articles to guide you through the process of
-building the DiffuserCam, measuring data with it, and reconstruction:
-1. [Raspberry Pi setup](https://medium.com/@bezzam/setting-up-a-raspberry-pi-without-a-monitor-headless-9a3c2337f329) and [SSH'ing without password](https://medium.com/@bezzam/headless-and-passwordless-interfacing-with-a-raspberry-pi-ssh-453dd75154c3) (needed for the remote capture/display scripts).
-2. [Building DiffuserCam](https://medium.com/@bezzam/building-a-diffusercam-with-the-raspberry-hq-camera-cardboard-and-tape-896b6020aff6).
-3. [Measuring DiffuserCam PSF and raw data](https://medium.com/@bezzam/measuring-a-diffusercam-psf-and-raw-data-b01ee29eda4).
-4. [Imaging with DiffuserCam](https://medium.com/@bezzam/lensless-imaging-with-the-raspberry-pi-and-python-diffusercam-473e47662857).
+building the DiffuserCam, measuring data with it, and reconstruction. They are all
+laid out in [this post](https://medium.com/@bezzam/a-complete-lensless-imaging-tutorial-hardware-software-and-algorithms-8873fa81a660).
 
 Note that this material has been prepared for our graduate signal processing 
 course at EPFL, and therefore includes some exercises / code to complete. If you
