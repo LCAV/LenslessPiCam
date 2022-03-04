@@ -2,12 +2,12 @@ import numpy as np
 import warnings
 import matplotlib.pyplot as plt
 
-from diffcam.util import FLOAT_DTYPES, get_max_val, gamma_correction
+from lensless.util import FLOAT_DTYPES, get_max_val, gamma_correction
 
 try:
-    from diffcam.autocorr_sol import autocorr2d
+    from lensless.autocorr_sol import autocorr2d
 except:
-    from diffcam.autocorr import autocorr2d
+    from lensless.autocorr import autocorr2d
 
 
 def plot_image(img, ax=None, gamma=None, normalize=True):

@@ -18,13 +18,13 @@ python scripts/analyze_image.py --fp data/psf/diffcam_bayer.png --bayer \
 To plot autocorrelations of DiffuserCam PSF
 ```bash
 python scripts/analyze_image.py --fp data/psf/diffcam_bayer.png --bayer \
---gamma 2.2 --rg 2.1 --bg 1.3 --diffcam
+--gamma 2.2 --rg 2.1 --bg 1.3 --lensless
 ```
 
 Save RGB data from bayer
 ```
 python scripts/analyze_image.py --fp data/psf/diffcam_bayer.png --bayer \
---gamma 2.2 --rg 2.1 --bg 1.3 --save data/psf/diffcam_rgb.png
+--gamma 2.2 --rg 2.1 --bg 1.3 --save data/psf/tape_rgb.png
 python scripts/analyze_image.py --fp data/raw_data/thumbs_up_bayer.png --bayer \
 --gamma 2.2 --rg 2.1 --bg 1.3 --save data/raw_data/thumbs_up_rgb.png
 ```
@@ -37,9 +37,9 @@ import numpy as np
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from diffcam.util import rgb2gray
-from diffcam.plot import plot_image, pixel_histogram, plot_cross_section, plot_autocorr2d
-from diffcam.io import load_psf, load_image
+from lensless.util import rgb2gray
+from lensless.plot import plot_image, pixel_histogram, plot_cross_section, plot_autocorr2d
+from lensless.io import load_psf, load_image
 
 
 @click.command()
@@ -71,7 +71,7 @@ from diffcam.io import load_psf, load_image
     help="Whether measurement is PSF of lens, in that case plot cross-section of PSF.",
 )
 @click.option(
-    "--diffcam",
+    "--lensless",
     is_flag=True,
     help="Whether measurement is PSF of DiffuserCam, in that case plot cross-section of autocorrelation.",
 )

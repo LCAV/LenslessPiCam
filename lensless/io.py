@@ -2,9 +2,9 @@ import os.path
 import rawpy
 import cv2
 import numpy as np
-from diffcam.util import resize, bayer2rgb, rgb2gray, print_image_info
-from diffcam.plot import plot_image
-from diffcam.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
+from lensless.util import resize, bayer2rgb, rgb2gray, print_image_info
+from lensless.plot import plot_image
+from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
 
 def load_image(

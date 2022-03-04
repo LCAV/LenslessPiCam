@@ -1,5 +1,5 @@
 import numpy as np
-from diffcam.recon import ReconstructionAlgorithm
+from lensless.recon import ReconstructionAlgorithm
 from scipy import fft
 
 
