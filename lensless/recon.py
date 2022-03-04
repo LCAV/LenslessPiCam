@@ -3,7 +3,7 @@ import numpy as np
 import pathlib as plib
 import matplotlib.pyplot as plt
 from scipy.fftpack import next_fast_len
-from diffcam.plot import plot_image
+from lensless.plot import plot_image
 
 
 class ReconstructionAlgorithm(abc.ABC):
@@ -47,14 +47,6 @@ class ReconstructionAlgorithm(abc.ABC):
         return
 
     @abc.abstractmethod
-    def _forward(self):
-        return
-
-    @abc.abstractmethod
-    def _backward(self, x):
-        return
-
-    @abc.abstractmethod
     def _update(self):
         return
 
@@ -72,6 +64,9 @@ class ReconstructionAlgorithm(abc.ABC):
     def get_image_est(self):
         return self._form_image()
 
+    def _progress(self):
+        return None
+
     def apply(
         self, n_iter=100, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None
     ):
@@ -88,6 +83,7 @@ class ReconstructionAlgorithm(abc.ABC):
             self._update()
 
             if (plot or save) and (i + 1) % disp_iter == 0:
+                self._progress()
                 img = self._form_image()
                 ax = plot_image(img, ax=ax, gamma=gamma)
                 ax.set_title("Reconstruction after iteration {}".format(i + 1))

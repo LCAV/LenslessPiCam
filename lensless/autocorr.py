@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 
 
 def autocorr2d(vals, pad_mode="reflect"):
@@ -16,5 +17,5 @@ def autocorr2d(vals, pad_mode="reflect"):
     ------
     autocorr : py:class:`~numpy.ndarray`
     """
-
+    warnings.warn("`autocorr2d` to complete!")
     return np.ones_like(vals)

@@ -14,8 +14,8 @@ import click
 import numpy as np
 from time import sleep
 from PIL import Image
-from diffcam.util import bayer2rgb, get_distro
-from diffcam.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
+from lensless.util import bayer2rgb, get_distro
+from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
 
 SENSOR_MODES = [

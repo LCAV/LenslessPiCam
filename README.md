@@ -1,15 +1,15 @@
-# DiffuserCam
+# LenslessPiCam
 
 ### _Lensless imaging with a Raspberry Pi and a piece of tape!_
 
 ![Example PSF, raw data, and reconstruction.](scripts/example_reconstruction.png)
 
-This package provides functionalities to perform imaging and reconstruction
+This package provides functionalities to perform imaging
 with a lensless camera known as DiffuserCam [[1]](#1). We use a more rudimentary
 version of the DiffuserCam where we use a piece of tape instead of the lens and 
 the [Raspberry Pi HQ camera sensor](https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera)
 ([V2 sensor](https://www.raspberrypi.com/products/camera-module-v2/) is also
-supported). However, the same principles can be used for a different diffuser 
+supported). However, the same principles can be used for a different diffuser/mask 
 and a different sensor (although the capture script would change). The content of 
 this project is largely based off of the work from Prof. Laura Waller's group at
 UC Berkeley:
@@ -19,13 +19,12 @@ UC Berkeley:
 So a huge kudos to them for the idea and making the tools/code/data available!
 
 We've also made a few Medium articles to guide you through the process of
-building the DiffuserCam, measuring data with it, and reconstruction. They are all
+building the lensless camera, measuring data with it, and reconstruction. They are all
 laid out in [this post](https://medium.com/@bezzam/a-complete-lensless-imaging-tutorial-hardware-software-and-algorithms-8873fa81a660).
 
-Note that this material has been prepared for our graduate signal processing 
+Note that this material has been used for our graduate signal processing 
 course at EPFL, and therefore includes some exercises / code to complete. If you
-are an instructor or trying to replicate this tutorial, feel free to send an 
-email to `eric[dot]bezzam[at]epfl[dot]ch`.
+are an instructor, feel free to send an email to `eric[dot]bezzam[at]epfl[dot]ch`.
 
 ## Setup
 The expected workflow is to have a local computer which interfaces remotely
@@ -38,12 +37,12 @@ commands that worked for our configuration (Ubuntu 21.04), but there are
 certainly other ways to download a repository and install the library locally.
 ```bash
 # download from GitHub
-git clone git@github.com:LCAV/DiffuserCam.git
+git clone git@github.com:LCAV/LenslessPiCam.git
 
 # install in virtual environment
-cd DiffuserCam
-python3.9 -m venv diffcam_env
-source diffcam_env/bin/activate
+cd LenslessPiCam
+python3.9 -m venv lensless_env
+source lensless_env/bin/activate
 pip install -e .
 ```
 
@@ -90,18 +89,18 @@ with `scripts/prepare_mirflickr_subset.py`.
 
 There is one script / algorithm available for reconstruction - ADMM [[3]](#3).
 ```bash
-python scripts/admm.py --psf_fp data/psf/diffcam_rgb.png \
+python scripts/admm.py --psf_fp data/psf/tape_rgb.png \
 --data_fp data/raw_data/thumbs_up_rgb.png --n_iter 5
 ```
 
 A template - `scripts/reconstruction_template.py` - can be used to implement
 other reconstruction approaches. Moreover, the abstract class 
-[`diffcam.recon.ReconstructionAlgorithm`](https://github.com/LCAV/DiffuserCam/blob/70936c1a1d0797b50190d978f8ece3edc7413650/diffcam/recon.py#L9)
+[`lensless.recon.ReconstructionAlgorithm`](https://github.com/LCAV/DiffuserCam/blob/70936c1a1d0797b50190d978f8ece3edc7413650/diffcam/recon.py#L9)
 can be used to define new reconstruction algorithms by defining a few methods:
 forward model and its adjoint (`_forward` and `_backward`), the update step
-(`_update`), a method to reset state variables (`_reset`), and an image
+(`_update`), a method to reset state variables (`reset`), and an image
 formation method (`_form_method`). Functionality for iterating, saving, and 
-visualization are implemented within the abstract class. [`diffcam.admm.ADMM`](https://github.com/LCAV/DiffuserCam/blob/70936c1a1d0797b50190d978f8ece3edc7413650/diffcam/admm.py#L6)
+visualization are implemented within the abstract class. [`lensless.admm.ADMM`](https://github.com/LCAV/DiffuserCam/blob/70936c1a1d0797b50190d978f8ece3edc7413650/diffcam/admm.py#L6)
 shows an example reconstruction implementation deriving from this abstract 
 class.
 

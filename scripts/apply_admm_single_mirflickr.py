@@ -12,9 +12,9 @@ python scripts/apply_admm_single_mirflickr.py \
 """
 import glob
 import numpy as np
-from diffcam.util import print_image_info
-from diffcam.io import load_image, load_psf
-from diffcam.plot import plot_image
+from lensless.util import print_image_info
+from lensless.io import load_image, load_psf
+from lensless.plot import plot_image
 import matplotlib.pyplot as plt
 from datetime import datetime
 import pathlib as plib
@@ -22,8 +22,8 @@ import os
 import random
 import click
 import time
-from diffcam.mirflickr import ADMM_MIRFLICKR, postprocess
-from diffcam.metric import mse, psnr, ssim, lpips
+from lensless.mirflickr import ADMM_MIRFLICKR, postprocess
+from lensless.metric import mse, psnr, ssim, lpips
 import matplotlib
 
 font = {"family": "DejaVu Sans", "size": 18}

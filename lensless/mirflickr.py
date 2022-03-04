@@ -1,5 +1,5 @@
 import numpy as np
-from diffcam.admm import ADMM
+from lensless.admm import ADMM
 import cv2
 
 

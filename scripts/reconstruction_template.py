@@ -3,7 +3,7 @@ This script will load the PSF data and raw measurement for the reconstruction
 that can implement afterwards.
 
 ```bash
-python scripts/reconstruction_template.py --psf_fp data/psf/diffcam_rgb.png \
+python scripts/reconstruction_template.py --psf_fp data/psf/tape_rgb.png \
 --data_fp data/raw_data/thumbs_up_rgb.png
 ```
 
@@ -16,7 +16,7 @@ import pathlib as plib
 import click
 import matplotlib.pyplot as plt
 from datetime import datetime
-from diffcam.io import load_data
+from lensless.io import load_data
 
 
 @click.command()

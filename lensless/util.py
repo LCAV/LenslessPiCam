@@ -1,7 +1,7 @@
 import cv2
 import csv
 import numpy as np
-from diffcam.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
+from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
 
 SUPPORTED_BIT_DEPTH = np.array([8, 10, 12, 16])
