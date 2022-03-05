@@ -7,6 +7,11 @@ from pycsou.func.penalty import NonNegativeOrthant, SquaredL2Norm, L1Norm
 from pycsou.opt.proxalgs import APGD as APGD_pyc
 from copy import deepcopy
 
+try:
+    from lensless.realfftconv_sol import RealFFTConvolve2D
+except:
+    from lensless.realfftconv import RealFFTConvolve2D
+
 
 class APGDPriors:
     """
@@ -36,9 +41,12 @@ class APGD(ReconstructionAlgorithm):
         psf,
         max_iter=500,
         dtype=np.float32,
-        prior=APGDPriors.NONNEG,
+        diff_penalty=None,
+        prox_penalty=APGDPriors.NONNEG,
         acceleration="BT",
-        reg_weight=0.001,
+        diff_lambda=0.001,
+        prox_lambda=0.001,
+        realconv=True,
     ):
         """
         Wrapper for Pycsou's APGD (accelerated proximal gradient descent)
@@ -54,8 +62,12 @@ class APGD(ReconstructionAlgorithm):
             Maximal number of iterations.
         dtype : float32 or float64
             Data type to use for optimization.
-        prior : :py:class:`~pycsou.func.penalty`
-            Penalty functional to serve as prior / regularization term. Default
+        diff_penalty : None or str or :py:class:`~pycsou.func.penalty`
+            Differentiable functional to serve as prior / regularization term.
+            Default is None. See Pycsou documentation for available
+            penalties: https://matthieumeo.github.io/pycsou/html/api/functionals/pycsou.func.penalty.html?highlight=penalty#module-pycsou.func.penalty
+        prox_penalty : None or str or :py:class:`~pycsou.func.penalty`
+            Proximal functional to serve as prior / regularization term. Default
             is non-negative prior. See Pycsou documentation for available
             penalties: https://matthieumeo.github.io/pycsou/html/api/functionals/pycsou.func.penalty.html?highlight=penalty#module-pycsou.func.penalty
         acceleration : [None, 'BT', 'CD']
@@ -63,36 +75,57 @@ class APGD(ReconstructionAlgorithm):
             "BT" (Beck and Teboule) has convergence `O(1/k^2)`, while "CD"
             (Chambolle and Dossal) has convergence `o(1/K^2)`. So "CD" should be
             faster. but from our experience "BT" gives better results.
-        reg_weight : float
-            Weight of regularization / prior.
+        diff_lambda : float
+            Weight of differentiable penalty.
+        prox_lambda : float
+            Weight of proximal penalty.
+        realconv : bool
+            Whether to apply convolution for real signals (if available).
         """
-
-        self._max_iter = max_iter
 
         # PSF and data are the same size / shape
         self._original_shape = psf.shape
         self._original_size = psf.size
 
-        # Convolution operator
-        self._H = Convolve2D(size=psf.size, filter=psf, shape=psf.shape, dtype=dtype)
-        self._H.compute_lipschitz_cst()
-
-        # initialize solvers which will be created when data is set
-        if prior == APGDPriors.L2:
-            self._prior = SquaredL2Norm
-        elif prior == APGDPriors.L1:
-            self._prior = L1Norm
-        elif prior == APGDPriors.NONNEG:
-            self._prior = NonNegativeOrthant
-        else:
-            raise ValueError("Unexpected prior.")
-        self._acc = acceleration
-        self._lambda = reg_weight
         self._apgd = None
         self._gen = None
 
-        # TODO call reset() to initialize matrices?
         super(APGD, self).__init__(psf, dtype)
+
+        self._max_iter = max_iter
+
+        # Convolution operator
+        if realconv:
+            self._H = RealFFTConvolve2D(self._psf, dtype=dtype)
+        else:
+            assert self._is_rgb is False, "RGB not supported for `Convolve2D`."
+            self._H = Convolve2D(size=psf.size, filter=psf, shape=psf.shape, dtype=dtype)
+        self._H.compute_lipschitz_cst()
+
+        # initialize solvers which will be created when data is set
+        if diff_penalty is not None:
+            if diff_penalty == APGDPriors.L2:
+                self._diff_penalty = diff_lambda * SquaredL2Norm(dim=self._H.shape[1])
+            else:
+                assert hasattr(diff_penalty, "jacobianT")
+                self._diff_penalty = diff_lambda * diff_penalty(dim=self._H.shape[1])
+        else:
+            self._diff_penalty = None
+
+        if prox_penalty is not None:
+            if prox_penalty == APGDPriors.L1:
+                self._prox_penalty = prox_lambda * L1Norm(dim=self._H.shape[1])
+            elif prox_penalty == APGDPriors.NONNEG:
+                self._prox_penalty = prox_lambda * NonNegativeOrthant(dim=self._H.shape[1])
+            else:
+                try:
+                    self._prox_penalty = prox_lambda * prox_penalty(dim=self._H.shape[1])
+                except:
+                    raise ValueError("Unexpected prior.")
+        else:
+            self._prox_penalty = None
+
+        self._acc = acceleration
 
     def set_data(self, data):
         if not self._is_rgb:
@@ -105,13 +138,16 @@ class APGD(ReconstructionAlgorithm):
         # Cost function
         loss = (1 / 2) * SquaredL2Loss(dim=self._H.shape[0], data=self._data.ravel())
         F = loss * self._H
-        if self._prior == SquaredL2Norm:
-            dim = self._data.size
-            F += self._lambda * self._prior(dim=self._H.shape[1])
-            G = None
-        else:
-            G = self._lambda * self._prior(dim=self._H.shape[1])
+        if self._diff_penalty is not None:
+            F += self._diff_penalty
+
+        if self._prox_penalty is not None:
+            G = self._prox_penalty
             dim = G.shape[1]
+        else:
+            G = None
+            dim = self._data.size
+
         self._apgd = APGD_pyc(dim=dim, F=F, G=G, acceleration=self._acc)
 
         # -- setup to print progress report
@@ -139,4 +175,6 @@ class APGD(ReconstructionAlgorithm):
         self._image_est = self._apgd.iterand["iterand"]
 
     def _form_image(self):
-        return self._image_est.reshape(self._original_shape)
+        image = self._image_est.reshape(self._original_shape)
+        image[image < 0] = 0
+        return image
