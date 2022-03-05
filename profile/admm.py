@@ -13,6 +13,7 @@ n_iter = 5
 downsample = 4
 gray = True
 dtype = np.float32
+n_trials = 10
 
 
 psf, data = load_data(
@@ -31,9 +32,15 @@ save.mkdir(exist_ok=True)
 """ LenslessPiCam """
 recon = ADMM(psf, dtype=dtype)
 recon.set_data(data)
-start_time = time.time()
 res = recon.apply(n_iter=n_iter, save=save, disp_iter=None, plot=False)
-print(f"LenslessPiCam : {time.time() - start_time} s")
+recon.reset()
+total_time = 0
+for _ in range(n_trials):
+    start_time = time.time()
+    res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
+    total_time += time.time() - start_time
+    recon.reset()
+print(f"LenslessPiCam (avg) : {total_time / n_trials} s")
 
 """ DiffuserCam"""
 sensor_size = np.array(psf.shape[:2])
@@ -46,6 +53,8 @@ param = {
     "sensor_size": sensor_size,
     "full_size": full_size,
 }
-start_time = time.time()
 apply_admm(psf, data, n_iter=n_iter, param=param, disp_iter=None, save=save)
-print(f"DiffuserCam   : {time.time() - start_time} s")
+start_time = time.time()
+for _ in range(n_trials):
+    apply_admm(psf, data, n_iter=n_iter, param=param, disp_iter=None)
+print(f"DiffuserCam (avg)  : {(time.time() - start_time) / n_trials} s")

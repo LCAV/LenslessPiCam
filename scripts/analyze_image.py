@@ -33,13 +33,12 @@ python scripts/analyze_image.py --fp data/raw_data/thumbs_up_bayer.png --bayer \
 
 
 import click
-import numpy as np
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from lensless.util import rgb2gray
 from lensless.plot import plot_image, pixel_histogram, plot_cross_section, plot_autocorr2d
-from lensless.io import load_psf, load_image
+from lensless.io import load_image
 
 
 @click.command()

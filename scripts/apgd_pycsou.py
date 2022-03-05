@@ -41,7 +41,7 @@ import pathlib as plib
 @click.option(
     "--max_iter",
     type=int,
-    default=500,
+    default=300,
     help="Maximum number of iterations.",
 )
 @click.option(
@@ -102,6 +102,11 @@ import pathlib as plib
     is_flag=True,
     help="Same PSF for all channels (sum) or unique PSF for RGB.",
 )
+@click.option(
+    "--real_conv",
+    is_flag=True,
+    help="Whether to use real convolution linear operator.",
+)
 def apgd(
     psf_fp,
     data_fp,
@@ -118,6 +123,7 @@ def apgd(
     save,
     no_plot,
     single_psf,
+    real_conv,
 ):
 
     plot = not no_plot
@@ -143,7 +149,14 @@ def apgd(
         save.mkdir(exist_ok=False)
 
     start_time = time.time()
-    recon = APGD(psf=psf, max_iter=max_iter, prior=prior)
+    if prior == APGDPriors.L2:
+        recon = APGD(
+            psf=psf, max_iter=max_iter, diff_penalty=prior, prox_penalty=None, realconv=real_conv
+        )
+    else:
+        recon = APGD(
+            psf=psf, max_iter=max_iter, diff_penalty=None, prox_penalty=prior, realconv=real_conv
+        )
     recon.set_data(data)
     print(f"Setup time : {time.time() - start_time} s")
 
