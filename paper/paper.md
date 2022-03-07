@@ -42,11 +42,11 @@ the hardware to the application at hand (e.g. lightweight or flat). As a
 consequence,
 the imaging software is typically faced with solving an inverse problem in order
 to recover an image of the underlying object. 
-With `LenslessPiCam`, we hope to provide an accessible hardware and software 
-toolkit to enable researchers, hobbyists, and students to learn about and 
-explore the practical aspects of lensless imaging.
 For a comprehensive, theoretical treatment of lensless imaging, we refer to 
 [@boominathan2022recent]. 
+With `LenslessPiCam`, we provide an accessible hardware and software 
+toolkit to enable researchers, hobbyists, and students to implement and 
+explore practical aspects of lensless imaging.
 
 
 # Statement of need
@@ -65,9 +65,9 @@ built with cheap hardware: a Raspberry Pi, the Camera Module 2,[^1] and a piece
 of tape. The
 authors also provide Python implementations of two inverse problem reconstruction 
 approaches: variants of gradient descent (GD) with a non-negativity contraint 
-and alternating direction method of multipliers (ADMM) [@boyd2011distributed]
+*and* alternating direction method of multipliers (ADMM) [@boyd2011distributed]
 with a non-negativity constraint and a total variation (TV) regularizer. Moreover,
-detailed guides explain how to build the camera and give intuition behind the 
+detailed guides explain how to build their camera and give intuition behind the 
 reconstruction algorithms. \autoref{fig:compare_cams}a shows a reconstruction we
 obtained after replicating the DiffuserCam tutorial. 
 
@@ -91,7 +91,7 @@ problems, in order to provide flexibility in choosing penalties/regularizers.
 | ![](hq_cam.png){#fig:compare_cams width=45%} | ![](hq_cam.png){#fig:compare_cams width=45%} | -->
 
 
-`LenslessPiCam` was designed to be used by researchers, hobbyists, and students.
+`LenslessPiCam` is designed to be used by researchers, hobbyists, and students.
 In the past, we have found such open-source hardware and software platforms to be a valuable 
 resource for researchers [@bezzam2017hardware] and students alike [@bezzam2019teaching].
 
@@ -119,7 +119,7 @@ With respect to reconstruction algorithms, we:
 - provide an object-oriented structure that is easy to extend for exploring new 
   algorithms.
 - provide an object-oriented interface to Pycsou for solving
-  lensless imaging inverse problems. Pycsou is a state-of-the-art Python package
+  lensless imaging inverse problems. Pycsou is a Python package
   for solving linear inverse problems of the form
 \begin{equation}\label{eq:fourier}
 \min_{\mathbf{\alpha}\in\mathbb{R}^N} \,F(\mathbf{y}, \mathbf{G} \mathbf{\alpha})\quad+\quad \lambda\mathcal{R}(\mathbf{\alpha}),
@@ -146,7 +146,7 @@ The articles also include a set of proposed exercises for students.
 
 The core algorithmic component of `LenslessPiCam` is the abstract class 
 [`lensless.recon.ReconstructionAlgorithm`](https://github.com/LCAV/DiffuserCam/blob/70936c1a1d0797b50190d978f8ece3edc7413650/diffcam/recon.py#L9).
-The three available reconstruction strategies available in `LenslessPiCam` 
+The three reconstruction strategies available in `LenslessPiCam` 
 derive from this class:
 
 - `lensless.gradient_descent.GradientDescient`: projected gradient descent 
@@ -160,17 +160,17 @@ as a backend. Any differentiable or proximal operator can be used as long as it
   is compatible with Pycsou, namely derives from one of 
   `DifferentiableFunctional` or `ProximableFunctional` from Pycsou.
   
-New reconstruction algorithms can also derive from the abstract class by 
-defining the following abstract methods:
+New reconstruction algorithms can be conveniently implemented by deriving from 
+the abstract class and defining the following abstract methods:
 
 - the update step: `_update`.
 - a method to reset state variables: `reset`.
 - an image formation method: `_form_image`. 
   
-One advantage of deriving from this class is that functionality for iterating, 
-saving, and visualization is already implemented within the abstract class. 
-Consequently, using a reconstruction algorithm that derives from 
-`lensless.recon.ReconstructionAlgorithm` boils down to three steps:
+One advantage of deriving from `lensless.recon.ReconstructionAlgorithm` is that
+functionality for iterating, saving, and visualization is already implemented. 
+Consequently, using a reconstruction algorithm that derives from it boils down 
+to three steps:
 
 1. Creating an instance of the reconstruction algorithm.
 2. Setting the data.
@@ -183,19 +183,19 @@ For example, for ADMM (full example in `scripts/admm.py`):
     res = recon.apply(n_iter=n_iter)
 ```
 
-A template for applying a reconstruction algorithm can be found in
-`scripts/reconstruction_template.py`.
+A template for applying a reconstruction algorithm (including loading the data)
+can be found in `scripts/reconstruction_template.py`.
 
 
 # Efficient reconstruction
 
 In the table below, we compare the processing time of DiffuserCam's and 
-`LenslessPiCam`'s implementations of:
+`LenslessPiCam`'s implementations for grayscale reconstruction of:
 
 1. gradient descent using FISTA and a non-negativity constraint;
-2. ADMM with a non-negativity constraint and TV regularizer;
+2. ADMM with a non-negativity constraint and a TV regularizer.
 
-for grayscale reconstruction. The DiffuserCam implementations can be found 
+The DiffuserCam implementations can be found 
 [here](https://github.com/Waller-Lab/DiffuserCam-Tutorial), while 
 `lensless.apgd.APGD` and `lensless.admm.ADMM` are used for `LenslessPiCam`. The 
 comparison is done on a Lenovo Thinkpad P15 running Ubuntu 21.04.
@@ -234,11 +234,11 @@ comparison is done on a Lenovo Thinkpad P15 running Ubuntu 21.04.
 and 5 iterations for alternating direction method of multipliers (ADMM).
 
 From the above table, we observe a 3.1x reduction in computation time for
-GD and 2.6x reduction for ADMM. This comes
-from:
+GD and a 2.6x reduction for ADMM. This comes from:
 
 - our object-oriented implementation of the algorithms, which allocates all the 
-  necessary memory beforehand and pre-computes everything data-independent.
+  necessary memory beforehand and pre-computes everything data-independent, such
+  as forward operators from the point spread function (PSF).
 - our use of the real FFT, which is possible since we are working with
 real-valued image intensities.
 
@@ -264,7 +264,7 @@ image.[^3]
 
 [^3]: Using `scripts/compute_metrics_from_original.py`.
 
-![Extracting region from \autoref{fig:compare_cams}b to quantify performance.](metric.png){#fig:metric}
+![Extracting region from \autoref{fig:compare_cams}b to quantify performance.](metric.png){#fig:metric width=90%}
 
 |  MSE  | PSNR |  SSIM | LPIPS |
 |:-----:|------|:-----:|:-----:|
@@ -273,11 +273,14 @@ image.[^3]
 
 Sometimes it may be of interest to perform an exhaustive evaluation on a large
 dataset.
-While `LenslessPiCam` could be used for collecting such a dataset,[^4] the 
-authors of [@monakhova2019learned] have already collected a dataset of 25'000 parallel
-measurements, namely 25'000 pairs of DiffuserCam and lensed camera images.[^5]
+While `LenslessPiCam` could be used for collecting such a dataset with the
+proposed camera,[^4] the 
+authors of [@monakhova2019learned] have already collected a dataset of 25'000 
+parallel measurements, namely 25'000 pairs of DiffuserCam and lensed camera images.[^5]
 `LenslessPiCam` offers functionality to evaluate a reconstruction algorithm on
-this dataset, or a subset of it that we have prepared.[^6]
+this dataset, or a subset of it that we have prepared.[^6] Note that this 
+dataset is collected with a different lensless camera, but is nonetheless of 
+significant value for exploring reconstruction techniques.
 
 [^4]: Using the remote display and capture scripts, i.e. 
 `scripts/remote_display.py` and `scripts/remote_capture.py` respectively.
@@ -298,8 +301,10 @@ to the subset we have prepared.[^7]
 | 0.0797 | 12.7 | 0.535 | 0.585 |
 : Average metrics for subset (200 files) of the DiffuserCam Lensless Mirflickr Dataset.
 
-One can also visualize the performance on a single file, as shown in 
-\autoref{fig:dataset_single_file} and Table 4.[^8]
+One can also visualize the performance on a single file of the dataset, namely
+how the reconstruction changes as the number of iterations increase.[^8] The 
+final reconstruction and outputed metrics are shown in 
+\autoref{fig:dataset_single_file} and Table 4.
 
 [^8]: Using `scripts/apply_admm_single_mirflickr.py`.
 
@@ -312,17 +317,18 @@ One can also visualize the performance on a single file, as shown in
 
 # As an educational resource
 
-As mentioned earlier, `LenslessPiCam` also serves as a useful educational 
+As mentioned earlier, `LenslessPiCam` can serve as an educational 
 resource. We have used it in our graduate-level signal processing source for
-teaching fundamental signal processing concepts and solving inverse problems. 
-The work of our students can be found [here](https://infoscience.epfl.ch/search?ln=en&rm=&ln=en&sf=&so=d&rg=10&c=Infoscience%2FArticle&c=Infoscience%2FBook&c=Infoscience%2FChapter&c=Infoscience%2FConference&c=Infoscience%2FDataset&c=Infoscience%2FLectures&c=Infoscience%2FPatent&c=Infoscience%2FPhysical%20objects&c=Infoscience%2FPoster&c=Infoscience%2FPresentation&c=Infoscience%2FProceedings&c=Infoscience%2FReport&c=Infoscience%2FReview&c=Infoscience%2FStandard&c=Infoscience%2FStudent&c=Infoscience%2FThesis&c=Infoscience%2FWorking%20papers&c=Media&c=Other%20doctypes&c=Work%20done%20outside%20EPFL&c=&of=hb&fct__2=LCAV&p=diffusercam).
+providing experience in applying fundamental signal processing concepts and 
+solving linear inverse problems. The work of our students can be found 
+[here](https://infoscience.epfl.ch/search?ln=en&rm=&ln=en&sf=&so=d&rg=10&c=Infoscience%2FArticle&c=Infoscience%2FBook&c=Infoscience%2FChapter&c=Infoscience%2FConference&c=Infoscience%2FDataset&c=Infoscience%2FLectures&c=Infoscience%2FPatent&c=Infoscience%2FPhysical%20objects&c=Infoscience%2FPoster&c=Infoscience%2FPresentation&c=Infoscience%2FProceedings&c=Infoscience%2FReport&c=Infoscience%2FReview&c=Infoscience%2FStandard&c=Infoscience%2FStudent&c=Infoscience%2FThesis&c=Infoscience%2FWorking%20papers&c=Media&c=Other%20doctypes&c=Work%20done%20outside%20EPFL&c=&of=hb&fct__2=LCAV&p=diffusercam).
 
 As exercises in implementing key signal processing components, we have left a 
 couple incomplete functions in `LenslessPiCam`:
 
-- `lensless.autocorr.autocorr2d`: compute a 2D autocorrelation in the frequency 
-  domain;
-- `RealFFTConvolve2D`: perform a convolution in the frequency domain with the 
+- `lensless.autocorr.autocorr2d`: to compute a 2D autocorrelation in the 
+  frequency domain;
+- `RealFFTConvolve2D`: to perform a convolution in the frequency domain with the 
   real FFT and vectorize operations for RGB.
   
 We have also proposed a few reconstruction approaches to implement in
@@ -333,10 +339,10 @@ For the solutions to the above implementations, please request access to
 
 # Conclusion
 
-In summary, `LenslessPiCam` provides all the necessary designs and software to
-build, use, and evaluate a lensless camera with cheap and accessible components. 
-As we continue to use it as a research and educational platform, we hope to 
-investigate and incorporate the following:
+In summary, `LenslessPiCam` provides all the necessary hardware designs and 
+software to build, use, and evaluate a lensless camera with cheap and accessible
+components. As we continue to use it as a research and educational platform, we
+hope to investigate and incorporate:
 
 - computational refocusing.
 - programmable masks.
