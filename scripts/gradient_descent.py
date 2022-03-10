@@ -16,7 +16,7 @@ from datetime import datetime
 import click
 import matplotlib.pyplot as plt
 from lensless.io import load_data
-from lensless.gradient_descent import (
+from lensless import (
     GradientDescentUpdate,
     GradientDescient,
     NesterovGradientDescent,

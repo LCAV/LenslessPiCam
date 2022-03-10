@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import numpy as np
 from lensless.io import load_data
-from lensless.admm import ADMM
+from lensless import ADMM
 
 
 @click.command()
