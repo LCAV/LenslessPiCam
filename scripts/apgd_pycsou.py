@@ -16,7 +16,7 @@ from datetime import datetime
 import click
 import matplotlib.pyplot as plt
 from lensless.io import load_data
-from lensless.apgd import APGD, APGDPriors
+from lensless import APGD, APGDPriors
 import os
 import pathlib as plib
 
