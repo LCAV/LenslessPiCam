@@ -11,19 +11,19 @@ python scripts/analyze_image.py --fp data/psf/lens_iris.png --plot_width 100 --l
 
 For Bayer data
 ```bash
-python scripts/analyze_image.py --fp data/psf/diffcam_bayer.png --bayer \
+python scripts/analyze_image.py --fp data/psf/tape_bayer.png --bayer \
 --gamma 2.2 --rg 2.1 --bg 1.3
 ```
 
-To plot autocorrelations of DiffuserCam PSF
+To plot autocorrelations of lensless camera PSF
 ```bash
-python scripts/analyze_image.py --fp data/psf/diffcam_bayer.png --bayer \
+python scripts/analyze_image.py --fp data/psf/tape_bayer.png --bayer \
 --gamma 2.2 --rg 2.1 --bg 1.3 --lensless
 ```
 
 Save RGB data from bayer
 ```
-python scripts/analyze_image.py --fp data/psf/diffcam_bayer.png --bayer \
+python scripts/analyze_image.py --fp data/psf/tape_bayer.png --bayer \
 --gamma 2.2 --rg 2.1 --bg 1.3 --save data/psf/tape_rgb.png
 python scripts/analyze_image.py --fp data/raw_data/thumbs_up_bayer.png --bayer \
 --gamma 2.2 --rg 2.1 --bg 1.3 --save data/raw_data/thumbs_up_rgb.png
@@ -72,7 +72,7 @@ from lensless.io import load_image
 @click.option(
     "--lensless",
     is_flag=True,
-    help="Whether measurement is PSF of DiffuserCam, in that case plot cross-section of autocorrelation.",
+    help="Whether measurement is PSF of a lensless camera, in that case plot cross-section of autocorrelation.",
 )
 @click.option(
     "--bg",
@@ -105,7 +105,7 @@ from lensless.io import load_image
     type=str,
     help="File path for background image, e.g. for screen.",
 )
-def analyze_image(fp, gamma, width, bayer, lens, diffcam, bg, rg, plot_width, save, nbits, back):
+def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, save, nbits, back):
     assert fp is not None, "Must pass file path."
 
     # initialize plotting axis
@@ -159,7 +159,7 @@ def analyze_image(fp, gamma, width, bayer, lens, diffcam, bg, rg, plot_width, sa
             )
             if i > 0:
                 ax.set_ylabel("")
-    elif diffcam:
+    elif lensless:
         # plot autocorrelations and width
         # -- grey
         _, ax_auto = plt.subplots(ncols=4, nrows=2, num="Autocorrelations", figsize=(15, 5))

@@ -330,8 +330,9 @@ incomplete functions in `LenslessPiCam`:
 
 - `lensless.autocorr.autocorr2d`: to compute a 2D autocorrelation in the 
   frequency domain;
-- `RealFFTConvolve2D`: to perform a convolution in the frequency domain with the 
-  real FFT and vectorize operations for RGB.
+- `lensless.realfftconv.RealFFTConvolve2D`: to pre-compute the PSF's Fourier
+  transform, perform a convolution in the frequency domain with the real-valued
+  FFT, and vectorize operations for RGB.
   
 We have also proposed a few reconstruction approaches to implement in
 [this Medium article](https://medium.com/@bezzam/lensless-imaging-with-the-raspberry-pi-and-python-diffusercam-473e47662857).
