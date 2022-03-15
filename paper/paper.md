@@ -1,5 +1,5 @@
 ---
-title: 'LenslessPiCam: A hardware and software toolkit for lensless imaging with a Raspberry Pi'
+title: 'LenslessPiCam: A Hardware and Software Platform for Lensless Computational Imaging with a Raspberry Pi'
 tags:
   - lensless imaging
   - inverse problems
@@ -26,28 +26,17 @@ bibliography: paper.bib
 
 # Summary
 
-Lensless imaging seeks to replace/remove the lens in a 
-conventional imaging setup. The earliest cameras were in fact 
+Lensless imaging seeks to replace/remove the lens in a conventional imaging system. The earliest cameras were in fact 
 lensless, relying on 
 long exposure times to form images on the other end of a small aperture in a 
 darkened room/container (*camera obscura*). The introduction of a lens
 allowed for more light throughput and therefore shorter exposure 
 times, while retaining sharp focus. The 
 incorporation of digital sensors
-readily enabled computational techniques to post-process and enhance images.
-Lensless imaging make this post-processing a part of the imaging mechanism, 
-thereby removing the need to form a viewable image at the sensor, e.g. with a lens. 
-It represents a paradigm shift in camera system design as there is more flexibility to cater 
-the hardware to the application at hand (e.g. lightweight or flat). As a 
-consequence,
-the imaging software is typically faced with solving an inverse problem in order
-to recover an image of the underlying object. 
-For a comprehensive, theoretical treatment of lensless imaging, we refer to 
-[@boominathan2022recent]. 
-With `LenslessPiCam`, we provide an accessible hardware and software 
-toolkit to enable researchers, hobbyists, and students to implement and 
-explore practical aspects of lensless imaging.
-
+readily enabled the use of computational imaging techniques to post-process and enhance raw images (e.g. via deblurring, inpainting, denoising, sharpening).
+Recently, imaging scientist have started leveraging computational imaging as an integral part of lensless imaging systems, allowing them to form viewable images from the highly multiplexed raw measurements of lensless cameras (see [@boominathan2022recent] and references therein for a comprehensive treatment of lensless imaging). This represents a real paradigm shift in camera system design as there is more flexibility to cater the hardware to the application at hand (e.g. lightweight or flat designs). This increased flexibility comes however at the price of a more demanding post-processing of the raw digital recordings and a tighter integration of sensing and computation, often difficult to achieve in practice due to inefficient interactions between the various communities of scientists involved. With `LenslessPiCam`, we provide an easily accessible hardware and software 
+framework to enable researchers, hobbyists, and students to implement and 
+explore practical and computational aspects of lensless imaging.
 
 # Statement of need
 
@@ -59,28 +48,25 @@ accessible hardware designs and open-source software, that also achieves
 satisfactory results in order to explore novel ideas for hardware, software, and
 algorithm design.
 
-The DiffuserCam tutorial [@diffusercam] served as a great starting point when
-developing our toolkit as it demonstrates that a working lensless camera can be
+The DiffuserCam tutorial [@diffusercam] served as a great starting point to the present toolkit as it demonstrates that a working lensless camera can be
 built with cheap hardware: a Raspberry Pi, the Camera Module 2,[^1] and a piece 
 of tape. The
-authors also provide Python implementations of two inverse problem reconstruction 
-algorithms: variants of gradient descent (GD) with a non-negativity contraint 
-*and* alternating direction method of multipliers (ADMM) [@boyd2011distributed]
-with a non-negativity constraint and a total variation (TV) regularizer. Moreover,
-detailed guides explain how to build their camera and give intuition behind the 
-reconstruction algorithms. \autoref{fig:compare_cams}a shows a reconstruction we
-obtained after replicating the DiffuserCam tutorial. 
+authors also provide Python implementations of two image reconstruction 
+algorithms: variants of gradient descent (GD) with a non-negativity constraint 
+*and* the alternating direction method of multipliers (ADMM) [@boyd2011distributed]
+with an additional total variation (TV) prior. Moreover,
+detailed guides explain how to build their camera and give intuition behind the reconstruction algorithms. 
+
+Unfortunately, the resolution of the reconstructed images is poor (see \autoref{fig:compare_cams}a) and the processing pipeline is limited to
+grayscale reconstruction. With `LenslessPiCam`, we improve the resolution by
+using the newer HQ camera [^2] as well as a more versatile and generic RGB computational imaging pipeline. The latter is built upon the Python library Pycsou [@pycsou], a universal and reusable software environment providing key computational imaging functionalities and tools with great
+modularity and interoperability. This results in a more flexible and accurate reconstruction pipeline, allowing for the quick prototyping of advanced post-processing schemes with more sophisticated image priors (see \autoref{fig:compare_cams}b for an example image obtained with our lensless imaging framework).
+
+`LenslessPiCam` is designed to be used by researchers, hobbyists, and students.
+In the past, we have found such open-source hardware and software platforms to be a valuable 
+resource for researchers [@bezzam2017hardware] and students alike [@bezzam2019teaching].
 
 [^1]: [www.raspberrypi.com/products/camera-module-v2](https://www.raspberrypi.com/products/camera-module-v2).
-
-Reproducing the tutorial gave us considerable insight into the 
-practical challenges of developing a lensless camera. However, as can be seen 
-from \autoref{fig:compare_cams}a, the resolution is poor and the tutorial is limited to
-grayscale reconstruction. With `LenslessPiCam`, we improve the resolution by
-using the newer HQ camera,[^2] and extend the application to RGB imaging. An 
-example reconstruction can be seen in \autoref{fig:compare_cams}b. Furthermore, we
-incorporate Pycsou [@pycsou], a modular Python package for solving inverse
-problems, in order to provide flexibility in choosing penalties/regularizers.
 
 [^2]: [www.raspberrypi.com/products/raspberry-pi-high-quality-camera/](https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera/).
 
@@ -91,9 +77,6 @@ problems, in order to provide flexibility in choosing penalties/regularizers.
 | ![](hq_cam.png){#fig:compare_cams width=45%} | ![](hq_cam.png){#fig:compare_cams width=45%} | -->
 
 
-`LenslessPiCam` is designed to be used by researchers, hobbyists, and students.
-In the past, we have found such open-source hardware and software platforms to be a valuable 
-resource for researchers [@bezzam2017hardware] and students alike [@bezzam2019teaching].
 
 # Contributions
 
@@ -104,7 +87,7 @@ In terms of hardware, as shown in \autoref{fig:hardware}, we:
 
 - make use of the HQ camera sensor ($50): 4056 x 3040 pixels (12.3 MP) and 7.9 mm 
 sensor diagonal, compared to 3280 × 2464 pixels (8.1 MP) and 4.6 mm sensor diagonal for the 
-Camera Module 2 ($30). 
+Camera Module 2 ($30), 
 - provide the design and firmware for a cheap point source generator (needed 
 for calibration), which consists of an Arduino, a white LED, and a cardboard box.
   
@@ -114,10 +97,10 @@ for calibration), which consists of an Arduino, a white LED, and a cardboard box
 With respect to reconstruction algorithms, we:
 
 - provide significantly faster implementations of GD and ADMM, i.e. around 3x 
-  reduction in computation time.
-- extend the above reconstructions to RGB.
+  reduction in computation time,
+- extend the above reconstructions to RGB,
 - provide an object-oriented structure that is easy to extend for exploring new 
-  algorithms.
+  algorithms,
 - provide an object-oriented interface to Pycsou for solving
   lensless imaging inverse problems. Pycsou is a Python package
   for solving inverse problems of the form
@@ -131,17 +114,17 @@ and $\lambda >0$ controls the amount of regularization.
 
 We also provide functionality to:
 
-- remotely capture Bayer data with the proposed camera.
-- convert Bayer data to RGB or grayscale.
-- quantitavely evaluate the point spread function (PSF) of the lensless camera.
+- remotely capture Bayer data with the proposed camera,
+- convert Bayer data to RGB or grayscale,
+- quantitavely evaluate the point spread function (PSF) of the lensless camera,
 - remotely display data on an external monitor, which can be used to automate 
-  raw data measurements to, e.g., gather a dataset.
+  raw data measurements to, e.g., gather a dataset,
 - evalute reconstructions on a variety of metrics: MSE, PSNR, SSIM, LPIPS [@zhang2018perceptual].
 
 Finally, we have written a set of Medium articles to guide users through the 
-process of building and using the proposed lensless camera. An overview of these
+process of building, using or teaching with the proposed lensless camera. An overview of these
 articles can be found [here](https://medium.com/@bezzam/a-complete-lensless-imaging-tutorial-hardware-software-and-algorithms-8873fa81a660).
-The articles also include a set of proposed exercises for students.
+The articles also include a set of solved exercises and problems for teaching purposes (solutions available to instructors on request).
 
 # API
 
@@ -338,7 +321,7 @@ We have also proposed a few reconstruction approaches to implement in
 [this Medium article](https://medium.com/@bezzam/lensless-imaging-with-the-raspberry-pi-and-python-diffusercam-473e47662857).
 
 For the solutions to the above implementations, please request access to 
-[this folder](https://drive.google.com/drive/folders/1Y1scM8wVfjVAo5-8Nr2VfE4b6VHeDSia?usp=sharing).
+[this folder](https://drive.google.com/drive/folders/1Y1scM8wVfjVAo5-8Nr2VfE4b6VHeDSia?usp=sharing) detailing the intended use. 
 
 # Conclusion
 
