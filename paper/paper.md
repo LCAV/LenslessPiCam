@@ -22,7 +22,7 @@ authors:
 affiliations:
  - name: École Polytechnique Fédérale de Lausanne (EPFL)
    index: 1
-date: 4 March 2022
+date: 17 March 2022
 bibliography: paper.bib
    
 ---
@@ -39,7 +39,9 @@ incorporation of digital sensors
 readily enabled the use of computational imaging techniques to post-process and enhance raw images (e.g. via deblurring, inpainting, denoising, sharpening).
 Recently, imaging scientists have started leveraging computational imaging as an integral part of lensless imaging systems, allowing them to form viewable images from the highly multiplexed raw measurements of lensless cameras (see [@boominathan2022recent] and references therein for a comprehensive treatment of lensless imaging). This represents a real paradigm shift in camera system design as there is more flexibility to cater the hardware to the application at hand (e.g. lightweight or flat designs). This increased flexibility comes however at the price of a more demanding post-processing of the raw digital recordings and a tighter integration of sensing and computation, often difficult to achieve in practice due to inefficient interactions between the various communities of scientists involved. With `LenslessPiCam`, we provide an easily accessible hardware and software 
 framework to enable researchers, hobbyists, and students to implement and 
-explore practical and computational aspects of lensless imaging.
+explore practical and computational aspects of lensless imaging. We briefly 
+discuss how `LenslessPiCam` can be used as an educational resource and the 
+results from our graduate-level signal processing course.
 
 # Statement of need
 
@@ -130,7 +132,7 @@ process of building, using and/or teaching with the proposed lensless camera. An
 articles can be found [here](https://medium.com/@bezzam/a-complete-lensless-imaging-tutorial-hardware-software-and-algorithms-8873fa81a660).
 The articles also include a set of solved exercises and problems for teaching purposes (solutions available to instructors on request).
 
-# API
+# High-level functionality
 
 The core algorithmic component of `LenslessPiCam` is the abstract class 
 `lensless.ReconstructionAlgorithm`. The three reconstruction strategies 
@@ -145,13 +147,6 @@ available in `LenslessPiCam` derive from this class:
 as a backend. Any differentiable or proximal operator can be used as long as it 
   is compatible with Pycsou, namely derives from one of 
   `DifferentiableFunctional` or `ProximableFunctional`.
-  
-New reconstruction algorithms can be conveniently implemented by deriving from 
-the abstract class and defining the following abstract methods:
-
-- the update step: `_update`,
-- a method to reset state variables: `reset`,
-- an image formation method: `_form_image`. 
   
 One advantage of deriving from `lensless.ReconstructionAlgorithm` is that
 functionality for iterating, saving, and visualization is already implemented. 
@@ -232,7 +227,7 @@ GD and a 2.6x reduction for ADMM. This comes from:
 \autoref{fig:grayscale} shows the corresponding grayscale reconstruction for 
 FISTA and ADMM, which are equivalent for both DiffuserCam and `LenslessPiCam` implementations.
 
-![Grayscale reconstruction using FISTA (a) and ADMM (b).](grayscale.png){#fig:grayscale}
+![Grayscale reconstruction using FISTA (a) and ADMM (b).](grayscale.png){#fig:grayscale width=90%}
 
 # Quantifying performance
 

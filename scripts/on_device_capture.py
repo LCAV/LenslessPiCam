@@ -160,8 +160,8 @@ def capture(fn, exp, config_pause, sensor_mode, iso, sixteen, rgb, nbits_out):
             output = bayer2rgb(
                 output,
                 nbits=n_bits,
-                bg=blue_gain,
-                rg=red_gain,
+                blue_gain=blue_gain,
+                red_gain=red_gain,
                 black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
                 ccm=RPI_HQ_CAMERA_CCM_MATRIX,
                 nbits_out=nbits_out,

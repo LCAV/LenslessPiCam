@@ -128,6 +128,17 @@ class APGD(ReconstructionAlgorithm):
         self._acc = acceleration
 
     def set_data(self, data):
+        """
+        For `APGD`, we use data to initialize problem for Pycsou.
+
+        Parameters
+        ----------
+        data : :py:class:`~numpy.ndarray`
+            Lensless data on which to iterate to recover an estimate of the
+             scene. Should match provide PSF, i.e. shape and 2D (grayscale) or
+             3D (RGB).
+
+        """
         if not self._is_rgb:
             assert len(data.shape) == 2
             data = data[:, :, np.newaxis]
@@ -166,6 +177,11 @@ class APGD(ReconstructionAlgorithm):
             self._gen = self._apgd.iterates(n=self._max_iter)
 
     def _progress(self):
+        """
+        Pycsou has functionality for printing progress that we will make use of
+        here.
+
+        """
         self._apgd.update_diagnostics()
         self._apgd.old_iterand = deepcopy(self._apgd.iterand)
         self._apgd.print_diagnostics()

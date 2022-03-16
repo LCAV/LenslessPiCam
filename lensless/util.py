@@ -70,9 +70,13 @@ def gamma_correction(vals, gamma=2.2):
     ----------
     vals : array_like
         RGB values to gamma correct.
+    gamma : float, optional
+            Gamma correction factor to apply for plots. Default is None.
 
     Returns
     -------
+    vals : array_like
+        Gamma-corrected data.
 
     """
 
@@ -106,27 +110,41 @@ def get_max_val(img, nbits=None):
 def bayer2rgb(
     img,
     nbits,
-    bg=None,
-    rg=None,
+    blue_gain=None,
+    red_gain=None,
     black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
     ccm=RPI_HQ_CAMERA_CCM_MATRIX,
     nbits_out=None,
 ):
     """
     Convert raw Bayer data to RGB with the following steps:
-    - Demosaic with bilinear interpolation, mapping the Bayer array to RGB.
+    - Demosaic with bi-linear interpolation, mapping the Bayer array to RGB.
     - Black level removal.
     - White balancing, applying gains to red and blue channels.
     - Color correction matrix.
     - Clip
 
-    :param img:
-    :param nbits:
-    :param bg:
-    :param rg:
-    :param black_level:
-    :param ccm:
-    :return:
+    Parameters
+    ----------
+    img : :py:class:`~numpy.ndarray`
+        2D Bayer data to convert to RGB.
+    nbits : int
+        Bit depth of input data.
+    blue_gain : float
+        Blue gain.
+    red_gain : float
+        Red gain.
+    black_level : float
+        Black level. Default is to use that of Raspberry Pi HQ camera.
+    ccm : :py:class:`~numpy.ndarray`
+        Color correction matrix. Default is to use that of Raspberry Pi HQ camera.
+    nbits_out : int
+        Output bit depth. Default is to use that of input.
+
+    Returns
+    -------
+    rgb : :py:class:`~numpy.ndarray`
+        RGB data.
     """
     assert len(img.shape) == 2, img.shape
     if nbits_out is None:
@@ -141,10 +159,10 @@ def bayer2rgb(
 
     # correction
     img = img - black_level
-    if rg:
-        img[:, :, 0] *= rg
-    if bg:
-        img[:, :, 2] *= bg
+    if red_gain:
+        img[:, :, 0] *= red_gain
+    if blue_gain:
+        img[:, :, 2] *= blue_gain
     img = img / (2 ** nbits - 1 - black_level)
     img[img > 1] = 1
     img = (img.reshape(-1, 3, order="F") @ ccm.T).reshape(img.shape, order="F")

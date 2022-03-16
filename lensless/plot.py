@@ -11,7 +11,26 @@ except:
 
 
 def plot_image(img, ax=None, gamma=None, normalize=True):
-    """ """
+    """
+    Plot image data.
+
+    Parameters
+    ----------
+    img : :py:class:`~numpy.ndarray`
+        Data to plot.
+    ax :py:class:`~matplotlib.axes.Axes`, optional
+        `Axes` object to fill for plotting/saving, default is to create one.
+    gamma : float, optional
+            Gamma correction factor to apply for plots. Default is None.
+    normalize : bool
+        Whether to normalize data to maximum range. Default is True.
+
+    Returns
+    -------
+    ax :py:class:`~matplotlib.axes.Axes`, optional
+        `Axes` object to fill for plotting/saving, default is to create one.
+
+    """
 
     if ax is None:
         _, ax = plt.subplots()
