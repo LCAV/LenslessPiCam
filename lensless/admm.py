@@ -4,6 +4,15 @@ from scipy import fft
 
 
 class ADMM(ReconstructionAlgorithm):
+    """
+    Object for applying ADMM (Alternating Direction Method of Multipliers) with
+    a non-negativity constraint and a total variation (TV) prior.
+
+    Paper about ADMM: https://web.stanford.edu/~boyd/papers/pdf/admm_distr_stats.pdf
+    Slides about ADMM: https://web.stanford.edu/class/ee364b/lectures/admm_slides.pdf
+
+    """
+
     def __init__(
         self,
         psf,
@@ -16,6 +25,34 @@ class ADMM(ReconstructionAlgorithm):
         psi_adj=None,
         psi_gram=None,
     ):
+        """
+
+        Parameters
+        ----------
+        psf : :py:class:`~numpy.ndarray`
+            Point spread function (PSF) that models forward propagation.
+            2D (grayscale) or 3D (RGB) data can be provided and the shape will
+            be used to determine which reconstruction (and allocate the
+            appropriate memory).
+        dtype : float32 or float64
+            Data type to use for optimization.
+        mu1 : float
+            Step size for updating primal/dual variables.
+        mu2 : float
+            Step size for updating primal/dual variables.
+        mu3 : float
+            Step size for updating primal/dual variables.
+        tau : float
+            Weight for L1 norm of `psi` applied to the image estimate.
+        psi : :py:class:`function`, optional
+            Operator to map image to a space that the image is assumed to be
+            sparse in (hence L1 norm). Default is to use total variation (TV)
+            operator.
+        psi_adj : :py:class:`function`
+            Adjoint of `psi`.
+        psi_gram : :py:class:`function`
+            Function to compute gram of `psi`.
+        """
         self._mu1 = mu1
         self._mu2 = mu2
         self._mu3 = mu3
@@ -47,9 +84,16 @@ class ADMM(ReconstructionAlgorithm):
         ).astype(self._complex_dtype)
 
     def _Psi(self, x):
+        """
+        Operator to map image to space that the image is assumed to be sparse
+        in.
+        """
         return finite_diff(x)
 
     def _PsiT(self, U):
+        """
+        Adjoint of `_Psi`.
+        """
         return finite_diff_adj(U)
 
     def _crop(self, x):
