@@ -10,6 +10,9 @@ authors:
   - name: Eric Bezzam
     orcid: 0000-0003-4837-5031 
     affiliation: 1
+  - name: Sepand Kashani
+    orcid: 0000-0002-0735-371X 
+    affiliation: 1
   - name: Martin Vetterli
     orcid: 0000-0002-6122-1216
     affiliation: 1
@@ -52,7 +55,7 @@ explore practical aspects of lensless imaging.
 # Statement of need
 
 Being at the interface of hardware, software, and algorithm design, the field of
-lensless imaging necessitates a broad array of competances that might deter 
+lensless imaging necessitates a broad array of competences that might deter 
 newcomers to the field. The purpose of `LenslessPiCam` is to provide a
 complete toolkit with cheap, 
 accessible hardware designs and open-source software, that also achieves 
@@ -146,9 +149,8 @@ The articles also include a set of proposed exercises for students.
 # API
 
 The core algorithmic component of `LenslessPiCam` is the abstract class 
-[`lensless.ReconstructionAlgorithm`](https://github.com/LCAV/DiffuserCam/blob/70936c1a1d0797b50190d978f8ece3edc7413650/diffcam/recon.py#L9).
-The three reconstruction strategies available in `LenslessPiCam` 
-derive from this class:
+`lensless.ReconstructionAlgorithm`. The three reconstruction strategies 
+available in `LenslessPiCam` derive from this class:
 
 - `lensless.GradientDescient`: projected gradient descent 
   with a non-negativity constraint. Two accelerated approaches are also
@@ -353,7 +355,7 @@ hope to investigate and incorporate:
 
 # Acknowledgements
 
-We acknowledge feedback from Sepand Kashani, Julien Fageot, and the students 
-during the first iteration of this project in our graduate course.
+We acknowledge feedback from Julien Fageot and the students during the first 
+iteration of this project in our graduate course.
 
 # References
