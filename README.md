@@ -22,8 +22,14 @@ building the lensless camera, measuring data with it, and reconstruction. They a
 laid out in [this post](https://medium.com/@bezzam/a-complete-lensless-imaging-tutorial-hardware-software-and-algorithms-8873fa81a660).
 
 Note that this material has been used for our graduate signal processing 
-course at EPFL, and therefore includes some exercises / code to complete. If you
-are an instructor, you can request access to the solutions [here](https://drive.google.com/drive/folders/1Y1scM8wVfjVAo5-8Nr2VfE4b6VHeDSia?usp=sharing) 
+course at EPFL, and therefore includes some exercises / code to complete:
+- `lensless.autocorr.autocorr2d`: to compute a 2D autocorrelation in the 
+  frequency domain,
+- `lensless.realfftconv.RealFFTConvolve2D`: to pre-compute the PSF's Fourier
+  transform, perform a convolution in the frequency domain with the real-valued
+  FFT, and vectorize operations for RGB.
+
+If you are an instructor, you can request access to the solutions [here](https://drive.google.com/drive/folders/1Y1scM8wVfjVAo5-8Nr2VfE4b6VHeDSia?usp=sharing) 
 or send an email to `eric[dot]bezzam[at]epfl[dot]ch`.
 
 ## Setup
@@ -44,6 +50,10 @@ cd LenslessPiCam
 python3.9 -m venv lensless_env
 source lensless_env/bin/activate
 pip install -e .
+
+# (optional) try reconstruction
+python scripts/admm.py --psf_fp data/psf/tape_rgb.png \
+--data_fp data/raw_data/thumbs_up_rgb.png --n_iter 5
 ```
 
 On the Raspberry Pi, you may also have to install the following:
@@ -178,13 +188,13 @@ sudo apt-get install feh
 
 Then make a folder where we will create and read prepared images.
 ```bash
-mkdir DiffuserCam_display
-mv ~/DiffuserCam/data/original_images/rect.jpg ~/DiffuserCam_display/test.jpg
+mkdir LenslessPiCam_display
+mv ~/LenslessPiCam/data/original_images/rect.jpg ~/LenslessPiCam_display/test.jpg
 ```
 
 Then we can use `feh` to launch the image viewer.
 ```bash
-feh DiffuserCam_display --scale-down --auto-zoom -R 0.1 -x -F -Y
+feh LenslessPiCam_display --scale-down --auto-zoom -R 0.1 -x -F -Y
 ```
 
 Then from your laptop you can use the following script to display an image on

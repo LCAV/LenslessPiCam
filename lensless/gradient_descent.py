@@ -157,7 +157,7 @@ class FISTA(GradientDescient):
     def _update(self):
         self._image_est -= self._alpha * self._grad()
         xk = self._proj(self._image_est)
-        tk = (1 + np.sqrt(1 + 4 * self._tk ** 2)) / 2
+        tk = (1 + np.sqrt(1 + 4 * self._tk**2)) / 2
         self._image_est = xk + (self._tk - 1) / tk * (xk - self._xk)
         self._tk = tk
         self._xk = xk

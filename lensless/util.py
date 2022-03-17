@@ -99,11 +99,11 @@ def get_max_val(img, nbits=None):
 
     if nbits not in SUPPORTED_BIT_DEPTH:
         nbits = SUPPORTED_BIT_DEPTH[nbits < SUPPORTED_BIT_DEPTH][0]
-    max_val = 2 ** nbits - 1
+    max_val = 2**nbits - 1
     if img.max() > max_val:
         new_nbit = int(np.ceil(np.log2(img.max())))
         print(f"Detected pixel value larger than {nbits}-bit range, using {new_nbit}-bit range.")
-        max_val = 2 ** new_nbit - 1
+        max_val = 2**new_nbit - 1
     return max_val
 
 
@@ -163,12 +163,12 @@ def bayer2rgb(
         img[:, :, 0] *= red_gain
     if blue_gain:
         img[:, :, 2] *= blue_gain
-    img = img / (2 ** nbits - 1 - black_level)
+    img = img / (2**nbits - 1 - black_level)
     img[img > 1] = 1
     img = (img.reshape(-1, 3, order="F") @ ccm.T).reshape(img.shape, order="F")
     img[img < 0] = 0
     img[img > 1] = 1
-    return (img * (2 ** nbits_out - 1)).astype(dtype)
+    return (img * (2**nbits_out - 1)).astype(dtype)
 
 
 def get_distro():

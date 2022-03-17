@@ -137,7 +137,7 @@ def fista_update(params, parent_var):
     gradient = grad(Hadj, H, vk, b, crop, pad)
     vk -= alpha * gradient
     xk = proj(vk)
-    t_k1 = (1 + np.sqrt(1 + 4 * tk ** 2)) / 2
+    t_k1 = (1 + np.sqrt(1 + 4 * tk**2)) / 2
     vk = xk + (tk - 1) / t_k1 * (xk - x_k1)
     tk = t_k1
 

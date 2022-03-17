@@ -3,6 +3,12 @@
 Load and plot measured PSF along with other useful analysis: pixel value
 histogram and width.
 
+Analyze PSF of lensless camera, namely looking at autocorrelations:
+```python
+python scripts/analyze_image.py --fp data/psf/tape_rgb.png --gamma 2.2 --lensless
+```
+Note that the autocorrelation functions needs to be completed in `lensless/autocorr.py`.
+
 Example usage
 ```bash
 python scripts/analyze_image.py --fp data/psf/lens_cardboard.png --plot_width 100 --lens
@@ -154,7 +160,7 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
                 color=c,
                 ax=ax_cross[i],
                 plot_db_drop=width,
-                max_val=2 ** nbits - 1,
+                max_val=2**nbits - 1,
                 plot_width=plot_width,
             )
             if i > 0:
