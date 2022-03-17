@@ -3,10 +3,20 @@ Apply Accelerated Proximal Gradient Descent (APDG) with a non-negativity prior
 for grayscale reconstruction. Example using Pycsou:
 https://matthieumeo.github.io/pycsou/html/api/algorithms/pycsou.opt.proxalgs.html?highlight=apgd#pycsou.opt.proxalgs.AcceleratedProximalGradientDescent
 
+Example
 ```
 python scripts/apgd_pycsou.py --psf_fp data/psf/tape_rgb.png \
---data_fp data/raw_data/thumbs_up_rgb.png
+--data_fp data/raw_data/thumbs_up_rgb.png --real_conv
 ```
+Note that the `RealFFTConvolve2D` has to be implemented in `lensless/realfftconv.py`.
+
+Otherwise, grayscale reconstruction with the non-optimized FFT convolution can
+be readily used (RGB is not supported):
+```
+python scripts/apgd_pycsou.py --psf_fp data/psf/tape_rgb.png --data_fp \
+data/raw_data/thumbs_up_rgb.png --gray
+```
+
 
 """
 

@@ -83,7 +83,7 @@ def pixel_histogram(img, nbits=None, ax=None, log_scale=True):
 
     if nbits:
         # max_val = get_max_val(img, nbits)
-        max_val = 2 ** nbits - 1
+        max_val = 2**nbits - 1
     else:
         max_val = int(img.max())
 
@@ -208,7 +208,7 @@ def plot_autocorr2d(vals, pad_mode="reflect", ax=None):
     """
 
     nbit_plot = 8
-    max_val_plot = 2 ** nbit_plot - 1
+    max_val_plot = 2**nbit_plot - 1
 
     # compute autocorrelation
     autocorr = autocorr2d(vals, pad_mode=pad_mode)

@@ -118,6 +118,7 @@ ENV/
 env.bak/
 venv.bak/
 diffcam_env/
+lensless_env/
 
 # Spyder project settings
 .spyderproject
