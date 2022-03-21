@@ -33,9 +33,9 @@ def load_image(
     bayer : bool
         Whether input data is Bayer.
     blue_gain : float
-        Blue gain.
+        Blue gain for color correction.
     red_gain : float
-        Red gain.
+        Red gain for color correction.
     black_level : float
         Black level. Default is to use that of Raspberry Pi HQ camera.
     ccm : :py:class:`~numpy.ndarray`
@@ -140,7 +140,22 @@ def load_psf(
         Whether to return background level, for removing from data for reconstruction.
     flip : bool, optional
         Whether to flip up-down and left-right.
-    verbose
+    verbose : bool
+        Whether to print metadata.
+    bayer : bool
+        Whether input data is Bayer.
+    blue_gain : float
+        Blue gain for color correction.
+    red_gain : float
+        Red gain for color correction.
+    dtype : float32 or float64
+        Data type of returned data.
+    nbits_out : int
+        Output bit depth. Default is to use that of input.
+    single_psf : bool
+        Whether to sum RGB channels into single PSF, same across channels. Done
+        in "Learned reconstructions for practical mask-based lensless imaging"
+        of Kristina Monakhova et. al.
 
     Returns
     -------
@@ -221,8 +236,6 @@ def load_data(
         Full path to PSF file.
     data_fp : str
         Full path to measurement file.
-    source : "white", "red", "green", or "blue"
-        Light source used to measure PSF.
     downsample : int or float
         Downsampling factor.
     bg_pix : tuple, optional
@@ -231,10 +244,24 @@ def load_data(
         recommended.
     plot : bool, optional
         Whether or not to plot PSF and raw data.
-    flip : bool, optional
-        Whether to flip data.
-    cv : bool, optional
-        Whether image was saved with OpenCV. If not colors need to be swapped.
+    flip : bool
+        Whether to flip data (vertical and horizontal).
+    bayer : bool
+        Whether input data is Bayer.
+    blue_gain : float
+        Blue gain for color correction.
+    red_gain : float
+        Red gain for color correction.
+    gamma : float, optional
+        Optional gamma factor to apply, ONLY for plotting. Default is None.
+    gray : bool
+        Whether to load as grayscale or RGB.
+    dtype : float32 or float64
+        Data type of returned data.
+    single_psf : bool
+        Whether to sum RGB channels into single PSF, same across channels. Done
+        in "Learned reconstructions for practical mask-based lensless imaging"
+        of Kristina Monakhova et. al.
 
     Returns
     -------
@@ -282,5 +309,8 @@ def load_data(
         ax.set_title("PSF")
         ax = plot_image(data, gamma=gamma)
         ax.set_title("Raw data")
+
+    psf = np.array(psf, dtype=dtype)
+    data = np.array(data, dtype=dtype)
 
     return psf, data

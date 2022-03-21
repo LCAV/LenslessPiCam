@@ -77,7 +77,7 @@ class GradientDescient(ReconstructionAlgorithm):
         # for online approach could use last reconstruction
         psf_flat = self._psf.reshape(-1, self._n_channels)
         pixel_start = (np.max(psf_flat, axis=0) + np.min(psf_flat, axis=0)) / 2
-        x = np.ones(self._psf_shape) * pixel_start
+        x = np.ones(self._psf_shape, dtype=self._dtype) * pixel_start
         self._image_est = self._pad(x)
 
         # spatial frequency response
@@ -105,7 +105,7 @@ class GradientDescient(ReconstructionAlgorithm):
         self._image_est = self._proj(self._image_est)
 
     def _form_image(self):
-        return self._proj(self._crop(self._image_est))
+        return self._proj(self._crop(self._image_est)).squeeze()
 
 
 class NesterovGradientDescent(GradientDescient):

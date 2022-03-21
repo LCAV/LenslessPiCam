@@ -195,7 +195,7 @@ class ADMM(ReconstructionAlgorithm):
     def _form_image(self):
         image = self._crop(self._image_est)
         image[image < 0] = 0
-        return image
+        return image.squeeze()
 
     def set_data(self, data):
         if not self._is_rgb:
