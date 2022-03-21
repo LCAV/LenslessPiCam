@@ -1,5 +1,5 @@
 import numpy as np
-from diffcam.recon_sol import ReconstructionAlgorithm
+from lensless.recon import ReconstructionAlgorithm
 import inspect
 from scipy import fft
 
@@ -22,12 +22,42 @@ class GradientDescentUpdate:
 
 
 def non_neg(xi):
+    """
+    Clip input so that it is non-negative.
+
+    Parameters
+    ----------
+    xi : :py:class:`~numpy.ndarray`
+        Data to clip.
+
+    Returns
+    -------
+    nonneg : :py:class:`~numpy.ndarray`
+        Non-negative projection of input.
+
+    """
     xi = np.maximum(xi, 0)
     return xi
 
 
 class GradientDescient(ReconstructionAlgorithm):
     def __init__(self, psf, dtype=np.float32, proj=non_neg):
+        """
+        Object for applying projected gradient descent.
+
+        Parameters
+        ----------
+        psf : :py:class:`~numpy.ndarray`
+            Point spread function (PSF) that models forward propagation.
+            2D (grayscale) or 3D (RGB) data can be provided and the shape will
+            be used to determine which reconstruction (and allocate the
+            appropriate memory).
+        dtype : float32 or float64
+            Data type to use for optimization.
+        proj : :py:class:`function`
+            Projection function to apply at each iteration. Default is
+            non-negative.
+        """
 
         super(GradientDescient, self).__init__(psf, dtype)
         assert callable(proj)
@@ -79,6 +109,14 @@ class GradientDescient(ReconstructionAlgorithm):
 
 
 class NesterovGradientDescent(GradientDescient):
+    """
+    Object for applying projected gradient descent with Nesterov momentum for
+    acceleration.
+
+    Tutorial on Nesterov momentum: https://machinelearningmastery.com/gradient-descent-with-nesterov-momentum-from-scratch/
+
+    """
+
     def __init__(self, psf, dtype=np.float32, proj=non_neg, p=0, mu=0.9):
         self._p = p
         self._mu = mu
@@ -97,6 +135,14 @@ class NesterovGradientDescent(GradientDescient):
 
 
 class FISTA(GradientDescient):
+    """
+    Object for applying projected gradient descent with FISTA (Fast Iterative
+    Shrinkage-Thresholding Algorithm) for acceleration.
+
+    Paper: https://www.ceremade.dauphine.fr/~carlier/FISTA
+
+    """
+
     def __init__(self, psf, dtype=np.float32, proj=non_neg, tk=1):
 
         super(FISTA, self).__init__(psf, dtype, proj)
@@ -111,7 +157,7 @@ class FISTA(GradientDescient):
     def _update(self):
         self._image_est -= self._alpha * self._grad()
         xk = self._proj(self._image_est)
-        tk = (1 + np.sqrt(1 + 4 * self._tk ** 2)) / 2
+        tk = (1 + np.sqrt(1 + 4 * self._tk**2)) / 2
         self._image_est = xk + (self._tk - 1) / tk * (xk - self._xk)
         self._tk = tk
         self._xk = xk

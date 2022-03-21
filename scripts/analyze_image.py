@@ -3,6 +3,12 @@
 Load and plot measured PSF along with other useful analysis: pixel value
 histogram and width.
 
+Analyze PSF of lensless camera, namely looking at autocorrelations:
+```python
+python scripts/analyze_image.py --fp data/psf/tape_rgb.png --gamma 2.2 --lensless
+```
+Note that the autocorrelation functions needs to be completed in `lensless/autocorr.py`.
+
 Example usage
 ```bash
 python scripts/analyze_image.py --fp data/psf/lens_cardboard.png --plot_width 100 --lens
@@ -11,20 +17,20 @@ python scripts/analyze_image.py --fp data/psf/lens_iris.png --plot_width 100 --l
 
 For Bayer data
 ```bash
-python scripts/analyze_image.py --fp data/psf/diffcam_bayer.png --bayer \
+python scripts/analyze_image.py --fp data/psf/tape_bayer.png --bayer \
 --gamma 2.2 --rg 2.1 --bg 1.3
 ```
 
-To plot autocorrelations of DiffuserCam PSF
+To plot autocorrelations of lensless camera PSF
 ```bash
-python scripts/analyze_image.py --fp data/psf/diffcam_bayer.png --bayer \
---gamma 2.2 --rg 2.1 --bg 1.3 --diffcam
+python scripts/analyze_image.py --fp data/psf/tape_bayer.png --bayer \
+--gamma 2.2 --rg 2.1 --bg 1.3 --lensless
 ```
 
 Save RGB data from bayer
 ```
-python scripts/analyze_image.py --fp data/psf/diffcam_bayer.png --bayer \
---gamma 2.2 --rg 2.1 --bg 1.3 --save data/psf/diffcam_rgb.png
+python scripts/analyze_image.py --fp data/psf/tape_bayer.png --bayer \
+--gamma 2.2 --rg 2.1 --bg 1.3 --save data/psf/tape_rgb.png
 python scripts/analyze_image.py --fp data/raw_data/thumbs_up_bayer.png --bayer \
 --gamma 2.2 --rg 2.1 --bg 1.3 --save data/raw_data/thumbs_up_rgb.png
 ```
@@ -33,13 +39,12 @@ python scripts/analyze_image.py --fp data/raw_data/thumbs_up_bayer.png --bayer \
 
 
 import click
-import numpy as np
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from diffcam.util import rgb2gray
-from diffcam.plot import plot_image, pixel_histogram, plot_cross_section, plot_autocorr2d
-from diffcam.io import load_psf, load_image
+from lensless.util import rgb2gray
+from lensless.plot import plot_image, pixel_histogram, plot_cross_section, plot_autocorr2d
+from lensless.io import load_image
 
 
 @click.command()
@@ -71,9 +76,9 @@ from diffcam.io import load_psf, load_image
     help="Whether measurement is PSF of lens, in that case plot cross-section of PSF.",
 )
 @click.option(
-    "--diffcam",
+    "--lensless",
     is_flag=True,
-    help="Whether measurement is PSF of DiffuserCam, in that case plot cross-section of autocorrelation.",
+    help="Whether measurement is PSF of a lensless camera, in that case plot cross-section of autocorrelation.",
 )
 @click.option(
     "--bg",
@@ -106,7 +111,7 @@ from diffcam.io import load_psf, load_image
     type=str,
     help="File path for background image, e.g. for screen.",
 )
-def analyze_image(fp, gamma, width, bayer, lens, diffcam, bg, rg, plot_width, save, nbits, back):
+def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, save, nbits, back):
     assert fp is not None, "Must pass file path."
 
     # initialize plotting axis
@@ -155,12 +160,12 @@ def analyze_image(fp, gamma, width, bayer, lens, diffcam, bg, rg, plot_width, sa
                 color=c,
                 ax=ax_cross[i],
                 plot_db_drop=width,
-                max_val=2 ** nbits - 1,
+                max_val=2**nbits - 1,
                 plot_width=plot_width,
             )
             if i > 0:
                 ax.set_ylabel("")
-    elif diffcam:
+    elif lensless:
         # plot autocorrelations and width
         # -- grey
         _, ax_auto = plt.subplots(ncols=4, nrows=2, num="Autocorrelations", figsize=(15, 5))

@@ -2,9 +2,9 @@ import os.path
 import rawpy
 import cv2
 import numpy as np
-from diffcam.util import resize, bayer2rgb, rgb2gray, print_image_info
-from diffcam.plot import plot_image
-from diffcam.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
+from lensless.util import resize, bayer2rgb, rgb2gray, print_image_info
+from lensless.plot import plot_image
+from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
 
 def load_image(
@@ -29,9 +29,21 @@ def load_image(
     verbose : bool, optional
         Whether to plot into about file.
     flip : bool
+        Whether to flip data (vertical and horizontal).
     bayer : bool
+        Whether input data is Bayer.
     blue_gain : float
+        Blue gain.
     red_gain : float
+        Red gain.
+    black_level : float
+        Black level. Default is to use that of Raspberry Pi HQ camera.
+    ccm : :py:class:`~numpy.ndarray`
+        Color correction matrix. Default is to use that of Raspberry Pi HQ camera.
+    back : array_like
+        Background level to subtract.
+    nbits_out : int
+        Output bit depth. Default is to use that of input.
 
     Returns
     -------
@@ -68,8 +80,8 @@ def load_image(
         img = bayer2rgb(
             img,
             nbits=n_bits,
-            bg=blue_gain,
-            rg=red_gain,
+            blue_gain=blue_gain,
+            red_gain=red_gain,
             black_level=black_level,
             ccm=ccm,
             nbits_out=nbits_out,

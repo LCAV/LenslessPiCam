@@ -2,7 +2,7 @@
 Apply gradient descent.
 
 ```
-python scripts/gradient_descent.py --psf_fp data/psf/diffcam_rgb.png -\
+python scripts/gradient_descent.py --psf_fp data/psf/tape_rgb.png -\
 -data_fp data/raw_data/thumbs_up_rgb.png --n_iter 300
 ```
 
@@ -15,8 +15,8 @@ import pathlib as plib
 from datetime import datetime
 import click
 import matplotlib.pyplot as plt
-from diffcam.io import load_data
-from diffcam.gradient_descent import (
+from lensless.io import load_data
+from lensless import (
     GradientDescentUpdate,
     GradientDescient,
     NesterovGradientDescent,
@@ -28,13 +28,11 @@ from diffcam.gradient_descent import (
 @click.option(
     "--psf_fp",
     type=str,
-    default="data/psf_sample.tif",
     help="File name for recorded PSF.",
 )
 @click.option(
     "--data_fp",
     type=str,
-    default="data/rawdata_hand_sample.tif",
     help="File name for raw measurement data.",
 )
 @click.option(

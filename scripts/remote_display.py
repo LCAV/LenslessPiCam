@@ -2,7 +2,7 @@
 
 Prior to launching, launch `feh` image viewer from Raspberry Pi:
 ```
-feh DiffuserCam_display --scale-down --auto-zoom -R 0.1 -x -F -Y
+feh LenslessPiCam --scale-down --auto-zoom -R 0.1 -x -F -Y
 ```
 Refresh shouldn't be too fast, otherwise copying may have an issue.
 
@@ -28,9 +28,9 @@ import subprocess
 import sys
 
 
-REMOTE_PYTHON = "~/DiffuserCam/diffcam_env/bin/python"
-REMOTE_IMAGE_PREP_SCRIPT = "~/DiffuserCam/scripts/prep_display_image.py"
-REMOTE_DISPLAY_PATH = "~/DiffuserCam_display/test.jpg"
+REMOTE_PYTHON = "~/LenslessPiCam/lensless_env/bin/python"
+REMOTE_IMAGE_PREP_SCRIPT = "~/LenslessPiCam/scripts/prep_display_image.py"
+REMOTE_DISPLAY_PATH = "~/LenslessPiCam_display/test.jpg"
 REMOTE_TMP_PATH = "~/tmp_display.jpg"
 
 

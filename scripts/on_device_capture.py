@@ -14,8 +14,8 @@ import click
 import numpy as np
 from time import sleep
 from PIL import Image
-from diffcam.util import bayer2rgb, get_distro
-from diffcam.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
+from lensless.util import bayer2rgb, get_distro
+from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
 
 SENSOR_MODES = [
@@ -160,8 +160,8 @@ def capture(fn, exp, config_pause, sensor_mode, iso, sixteen, rgb, nbits_out):
             output = bayer2rgb(
                 output,
                 nbits=n_bits,
-                bg=blue_gain,
-                rg=red_gain,
+                blue_gain=blue_gain,
+                red_gain=red_gain,
                 black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
                 ccm=RPI_HQ_CAMERA_CCM_MATRIX,
                 nbits_out=nbits_out,

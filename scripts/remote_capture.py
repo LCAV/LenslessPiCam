@@ -14,12 +14,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import rawpy
 
-from diffcam.util import rgb2gray, print_image_info
-from diffcam.plot import plot_image, pixel_histogram
-from diffcam.io import load_image
+from lensless.util import rgb2gray, print_image_info
+from lensless.plot import plot_image, pixel_histogram
+from lensless.io import load_image
 
-REMOTE_PYTHON = "~/DiffuserCam/diffcam_env/bin/python"
-REMOTE_CAPTURE_FP = "~/DiffuserCam/scripts/on_device_capture.py"
+REMOTE_PYTHON = "~/LenslessPiCam/lensless_env/bin/python"
+REMOTE_CAPTURE_FP = "~/LenslessPiCam/scripts/on_device_capture.py"
 SENSOR_MODES = [
     "off",
     "auto",
