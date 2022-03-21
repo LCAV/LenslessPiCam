@@ -39,9 +39,9 @@ incorporation of digital sensors
 readily enabled the use of computational imaging techniques to post-process and enhance raw images (e.g. via deblurring, inpainting, denoising, sharpening).
 Recently, imaging scientists have started leveraging computational imaging as an integral part of lensless imaging systems, allowing them to form viewable images from the highly multiplexed raw measurements of lensless cameras (see [@boominathan2022recent] and references therein for a comprehensive treatment of lensless imaging). This represents a real paradigm shift in camera system design as there is more flexibility to cater the hardware to the application at hand (e.g. lightweight or flat designs). This increased flexibility comes however at the price of a more demanding post-processing of the raw digital recordings and a tighter integration of sensing and computation, often difficult to achieve in practice due to inefficient interactions between the various communities of scientists involved. With `LenslessPiCam`, we provide an easily accessible hardware and software 
 framework to enable researchers, hobbyists, and students to implement and 
-explore practical and computational aspects of lensless imaging. We briefly 
-discuss how `LenslessPiCam` can be used as an educational resource and the 
-results from our graduate-level signal processing course.
+explore practical and computational aspects of lensless imaging. We also provide
+detailed guides and exercises to that `LenslessPiCam` can be used as an educational 
+resource, and point to results from our graduate-level signal processing course.
 
 # Statement of need
 
@@ -76,7 +76,7 @@ resource for researchers [@bezzam2017hardware] and students alike [@bezzam2019te
 
 [^2]: [www.raspberrypi.com/products/raspberry-pi-high-quality-camera/](https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera/).
 
-![ADMM reconstruction of thumbs-up on a phone 40 cm away.](compare_cams.png){#fig:compare_cams width=80%}
+![ADMM reconstruction of thumbs-up on a phone 40 cm away.](compare_cams.png){#fig:compare_cams width=90%}
 
 <!-- | DiffuserCam   | `LenslessPiCam`   |
 |-------------  |---------------  |
@@ -132,6 +132,8 @@ process of building, using and/or teaching with the proposed lensless camera. An
 articles can be found [here](https://medium.com/@bezzam/a-complete-lensless-imaging-tutorial-hardware-software-and-algorithms-8873fa81a660).
 The articles also include a set of solved exercises and problems for teaching purposes (solutions available to instructors on request).
 
+In the following sections, we describe some of there contributions, and quantify them (where appropriate).
+
 # High-level functionality
 
 The core algorithmic component of `LenslessPiCam` is the abstract class 
@@ -142,7 +144,7 @@ available in `LenslessPiCam` derive from this class:
   with a non-negativity constraint. Two accelerated approaches are also
   available: `lensless.NesterovGradientDescent` 
   [@nesterov1983method] and `lensless.FISTA` [@beck2009fast],
-- `lensless.ADMM`: ADMM with non-negativity constraint and a TV regularizer,
+- `lensless.ADMM`: ADMM with a non-negativity constraint and a TV regularizer,
 - `lensless.APGD`: accelerated proximal GD with Pycsou
 as a backend. Any differentiable or proximal operator can be used as long as it 
   is compatible with Pycsou, namely derives from one of 
@@ -261,8 +263,8 @@ authors of [@monakhova2019learned] have already collected a dataset of 25'000
 parallel measurements, namely 25'000 pairs of DiffuserCam and lensed camera images.[^5]
 `LenslessPiCam` offers functionality to evaluate a reconstruction algorithm on
 this dataset, or a subset of it that we have prepared.[^6] Note that this 
-dataset is collected with a different lensless camera, but is nonetheless of 
-significant value for exploring reconstruction techniques.
+dataset is collected with a different lensless camera, but is nonetheless useful
+for exploring reconstruction techniques.
 
 [^4]: Using the remote display and capture scripts, i.e. 
 `scripts/remote_display.py` and `scripts/remote_capture.py` respectively.
