@@ -2,7 +2,7 @@
 Apply ADMM reconstruction.
 
 ```
-python scripts/admm.py --psf_fp data/psf/diffcam_rgb.png \
+python scripts/admm.py --psf_fp data/psf/tape_rgb.png \
 --data_fp data/raw_data/thumbs_up_rgb.png --n_iter 5
 ```
 
@@ -15,8 +15,8 @@ import click
 import matplotlib.pyplot as plt
 from datetime import datetime
 import numpy as np
-from diffcam.io import load_data
-from diffcam.admm import ADMM
+from lensless.io import load_data
+from lensless import ADMM
 
 
 @click.command()

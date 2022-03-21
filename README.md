@@ -1,31 +1,36 @@
-# DiffuserCam
+# LenslessPiCam
 
 ### _Lensless imaging with a Raspberry Pi and a piece of tape!_
 
 ![Example PSF, raw data, and reconstruction.](scripts/example_reconstruction.png)
 
-This package provides functionalities to perform imaging and reconstruction
-with a lensless camera known as DiffuserCam [[1]](#1). We use a more rudimentary
-version of the DiffuserCam where we use a piece of tape instead of the lens and 
-the [Raspberry Pi HQ camera sensor](https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera)
+This package provides functionalities to perform imaging with a lensless camera.
+We make use of a low-cost implementation of the DiffuserCam [[1]](#1) where we
+use a piece of tape instead of the lens and the [Raspberry Pi HQ camera sensor](https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera)
 ([V2 sensor](https://www.raspberrypi.com/products/camera-module-v2/) is also
-supported). However, the same principles can be used for a different diffuser 
-and a different sensor (although the capture script would change). The content of 
-this project is largely based off of the work from Prof. Laura Waller's group at
-UC Berkeley:
+supported). However, the same principles can be used for a different diffuser/mask 
+and a different sensor (although the capture script would change). The idea of
+building a lensless camera from a Raspberry Pi and a piece of tape, and a 
+dataset mentioned below come from Prof. Laura Waller's group at UC Berkeley:
 - [Build your own DiffuserCam tutorial](https://waller-lab.github.io/DiffuserCam/tutorial).
 - [DiffuserCam lensless MIR Flickr dataset](https://waller-lab.github.io/LenslessLearning/dataset.html) [[2]](#2).
 
 So a huge kudos to them for the idea and making the tools/code/data available!
 
-We've also made a few Medium articles to guide you through the process of
-building the DiffuserCam, measuring data with it, and reconstruction. They are all
+We've also made a few Medium articles to guide users through the process of
+building the lensless camera, measuring data with it, and reconstruction. They are all
 laid out in [this post](https://medium.com/@bezzam/a-complete-lensless-imaging-tutorial-hardware-software-and-algorithms-8873fa81a660).
 
-Note that this material has been prepared for our graduate signal processing 
-course at EPFL, and therefore includes some exercises / code to complete. If you
-are an instructor or trying to replicate this tutorial, feel free to send an 
-email to `eric[dot]bezzam[at]epfl[dot]ch`.
+Note that this material has been used for our graduate signal processing 
+course at EPFL, and therefore includes some exercises / code to complete:
+- `lensless.autocorr.autocorr2d`: to compute a 2D autocorrelation in the 
+  frequency domain,
+- `lensless.realfftconv.RealFFTConvolve2D`: to pre-compute the PSF's Fourier
+  transform, perform a convolution in the frequency domain with the real-valued
+  FFT, and vectorize operations for RGB.
+
+If you are an instructor, you can request access to the solutions [here](https://drive.google.com/drive/folders/1Y1scM8wVfjVAo5-8Nr2VfE4b6VHeDSia?usp=sharing) 
+or send an email to `eric[dot]bezzam[at]epfl[dot]ch`.
 
 ## Setup
 The expected workflow is to have a local computer which interfaces remotely
@@ -38,13 +43,17 @@ commands that worked for our configuration (Ubuntu 21.04), but there are
 certainly other ways to download a repository and install the library locally.
 ```bash
 # download from GitHub
-git clone git@github.com:LCAV/DiffuserCam.git
+git clone git@github.com:LCAV/LenslessPiCam.git
 
 # install in virtual environment
-cd DiffuserCam
-python3.9 -m venv diffcam_env
-source diffcam_env/bin/activate
+cd LenslessPiCam
+python3.9 -m venv lensless_env
+source lensless_env/bin/activate
 pip install -e .
+
+# (optional) try reconstruction
+python scripts/admm.py --psf_fp data/psf/tape_rgb.png \
+--data_fp data/raw_data/thumbs_up_rgb.png --n_iter 5
 ```
 
 On the Raspberry Pi, you may also have to install the following:
@@ -55,7 +64,7 @@ sudo apt-get install libatlas-base-dev
 
 Note that we highly recommend using Python 3.9, as its [end-of-life](https://endoflife.date/python) is Oct 2025. Some Python library versions may not be available with earlier versions of Python.
 
-For plotting on your local computer, you may also need to [install Tk](https://stackoverflow.com/questions/5459444/tkinter-python-may-not-be-configured-for-tk).
+For plotting on your local computer, you may also need to install [Tk](https://stackoverflow.com/questions/5459444/tkinter-python-may-not-be-configured-for-tk).
 
 The scripts for remote capture and remote display assume that you can SSH to the
 Raspberry Pi without a password. To see this up you can follow instruction from
@@ -88,22 +97,45 @@ with `scripts/prepare_mirflickr_subset.py`.
 
 ## Reconstruction
 
-There is one script / algorithm available for reconstruction - ADMM [[3]](#3).
-```bash
-python scripts/admm.py --psf_fp data/psf/diffcam_rgb.png \
---data_fp data/raw_data/thumbs_up_rgb.png --n_iter 5
+The core algorithmic component of `LenslessPiCam` is the abstract class 
+`lensless.ReconstructionAlgorithm`. The three reconstruction strategies 
+available in `LenslessPiCam` derive from this class:
+
+- `lensless.GradientDescient`: projected gradient descent 
+  with a non-negativity constraint. Two accelerated approaches are also
+  available: `lensless.NesterovGradientDescent` and `lensless.FISTA`.
+- `lensless.ADMM`: alternating direction method of multipliers (ADMM) with
+  a non-negativity constraint and a total variation (TV) regularizer.
+- `lensless.APGD`: accelerated proximal gradient descent with Pycsou
+as a backend. Any differentiable or proximal operator can be used as long as it 
+  is compatible with Pycsou, namely derives from one of 
+  `DifferentiableFunctional` or `ProximableFunctional`.
+  
+New reconstruction algorithms can be conveniently implemented by deriving from 
+the abstract class and defining the following abstract methods:
+
+- the update step: `_update`.
+- a method to reset state variables: `reset`.
+- an image formation method: `_form_image`. 
+  
+One advantage of deriving from `lensless.ReconstructionAlgorithm` is that
+functionality for iterating, saving, and visualization is already implemented. 
+Consequently, using a reconstruction algorithm that derives from it boils down 
+to three steps:
+
+1. Creating an instance of the reconstruction algorithm.
+2. Setting the data.
+3. Applying the algorithm.
+
+For example, for ADMM (full example in `scripts/admm.py`):
+```python
+    recon = ADMM(psf)
+    recon.set_data(data)
+    res = recon.apply(n_iter=n_iter)
 ```
 
-A template - `scripts/reconstruction_template.py` - can be used to implement
-other reconstruction approaches. Moreover, the abstract class 
-[`diffcam.recon.ReconstructionAlgorithm`](https://github.com/LCAV/DiffuserCam/blob/70936c1a1d0797b50190d978f8ece3edc7413650/diffcam/recon.py#L9)
-can be used to define new reconstruction algorithms by defining a few methods:
-forward model and its adjoint (`_forward` and `_backward`), the update step
-(`_update`), a method to reset state variables (`_reset`), and an image
-formation method (`_form_method`). Functionality for iterating, saving, and 
-visualization are implemented within the abstract class. [`diffcam.admm.ADMM`](https://github.com/LCAV/DiffuserCam/blob/70936c1a1d0797b50190d978f8ece3edc7413650/diffcam/admm.py#L6)
-shows an example reconstruction implementation deriving from this abstract 
-class.
+A template for applying a reconstruction algorithm (including loading the data)
+can be found in `scripts/reconstruction_template.py`.
 
 ## Evaluating on a dataset
 
@@ -156,13 +188,13 @@ sudo apt-get install feh
 
 Then make a folder where we will create and read prepared images.
 ```bash
-mkdir DiffuserCam_display
-mv ~/DiffuserCam/data/original_images/rect.jpg ~/DiffuserCam_display/test.jpg
+mkdir LenslessPiCam_display
+mv ~/LenslessPiCam/data/original_images/rect.jpg ~/LenslessPiCam_display/test.jpg
 ```
 
 Then we can use `feh` to launch the image viewer.
 ```bash
-feh DiffuserCam_display --scale-down --auto-zoom -R 0.1 -x -F -Y
+feh LenslessPiCam_display --scale-down --auto-zoom -R 0.1 -x -F -Y
 ```
 
 Then from your laptop you can use the following script to display an image on

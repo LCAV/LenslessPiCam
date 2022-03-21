@@ -4,6 +4,7 @@ scripts/admm_*
 scripts/gd_*
 .DS_Store
 DiffuserCam_Mirflickr*
+paper/paper.pdf
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -117,6 +118,7 @@ ENV/
 env.bak/
 venv.bak/
 diffcam_env/
+lensless_env/
 
 # Spyder project settings
 .spyderproject

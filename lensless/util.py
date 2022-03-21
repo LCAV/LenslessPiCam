@@ -1,7 +1,7 @@
 import cv2
 import csv
 import numpy as np
-from diffcam.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
+from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
 
 SUPPORTED_BIT_DEPTH = np.array([8, 10, 12, 16])
@@ -70,9 +70,13 @@ def gamma_correction(vals, gamma=2.2):
     ----------
     vals : array_like
         RGB values to gamma correct.
+    gamma : float, optional
+            Gamma correction factor to apply for plots. Default is None.
 
     Returns
     -------
+    vals : array_like
+        Gamma-corrected data.
 
     """
 
@@ -95,38 +99,52 @@ def get_max_val(img, nbits=None):
 
     if nbits not in SUPPORTED_BIT_DEPTH:
         nbits = SUPPORTED_BIT_DEPTH[nbits < SUPPORTED_BIT_DEPTH][0]
-    max_val = 2 ** nbits - 1
+    max_val = 2**nbits - 1
     if img.max() > max_val:
         new_nbit = int(np.ceil(np.log2(img.max())))
         print(f"Detected pixel value larger than {nbits}-bit range, using {new_nbit}-bit range.")
-        max_val = 2 ** new_nbit - 1
+        max_val = 2**new_nbit - 1
     return max_val
 
 
 def bayer2rgb(
     img,
     nbits,
-    bg=None,
-    rg=None,
+    blue_gain=None,
+    red_gain=None,
     black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
     ccm=RPI_HQ_CAMERA_CCM_MATRIX,
     nbits_out=None,
 ):
     """
     Convert raw Bayer data to RGB with the following steps:
-    - Demosaic with bilinear interpolation, mapping the Bayer array to RGB.
+    - Demosaic with bi-linear interpolation, mapping the Bayer array to RGB.
     - Black level removal.
     - White balancing, applying gains to red and blue channels.
     - Color correction matrix.
     - Clip
 
-    :param img:
-    :param nbits:
-    :param bg:
-    :param rg:
-    :param black_level:
-    :param ccm:
-    :return:
+    Parameters
+    ----------
+    img : :py:class:`~numpy.ndarray`
+        2D Bayer data to convert to RGB.
+    nbits : int
+        Bit depth of input data.
+    blue_gain : float
+        Blue gain.
+    red_gain : float
+        Red gain.
+    black_level : float
+        Black level. Default is to use that of Raspberry Pi HQ camera.
+    ccm : :py:class:`~numpy.ndarray`
+        Color correction matrix. Default is to use that of Raspberry Pi HQ camera.
+    nbits_out : int
+        Output bit depth. Default is to use that of input.
+
+    Returns
+    -------
+    rgb : :py:class:`~numpy.ndarray`
+        RGB data.
     """
     assert len(img.shape) == 2, img.shape
     if nbits_out is None:
@@ -141,16 +159,16 @@ def bayer2rgb(
 
     # correction
     img = img - black_level
-    if rg:
-        img[:, :, 0] *= rg
-    if bg:
-        img[:, :, 2] *= bg
-    img = img / (2 ** nbits - 1 - black_level)
+    if red_gain:
+        img[:, :, 0] *= red_gain
+    if blue_gain:
+        img[:, :, 2] *= blue_gain
+    img = img / (2**nbits - 1 - black_level)
     img[img > 1] = 1
     img = (img.reshape(-1, 3, order="F") @ ccm.T).reshape(img.shape, order="F")
     img[img < 0] = 0
     img[img > 1] = 1
-    return (img * (2 ** nbits_out - 1)).astype(dtype)
+    return (img * (2**nbits_out - 1)).astype(dtype)
 
 
 def get_distro():

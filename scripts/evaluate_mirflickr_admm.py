@@ -16,12 +16,12 @@ import os
 import pathlib as plib
 import click
 from datetime import datetime
-from diffcam.io import load_psf
+from lensless.io import load_psf
 import numpy as np
-from diffcam.util import print_image_info
+from lensless.util import print_image_info
 from PIL import Image
-from diffcam.mirflickr import ADMM_MIRFLICKR, postprocess
-from diffcam.metric import mse, psnr, ssim, lpips
+from lensless.mirflickr import ADMM_MIRFLICKR, postprocess
+from lensless.metric import mse, psnr, ssim, lpips
 
 
 @click.command()
