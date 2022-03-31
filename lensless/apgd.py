@@ -167,7 +167,7 @@ class APGD(ReconstructionAlgorithm):
         self._gen = self._apgd.iterates(n=self._max_iter)
 
     def reset(self):
-        self._image_est = np.zeros(self._original_size).astype(self._dtype)
+        self._image_est = np.zeros(self._original_size, dtype=self._dtype)
         if self._apgd is not None:
             self._apgd.reset()
 
@@ -188,7 +188,7 @@ class APGD(ReconstructionAlgorithm):
 
     def _update(self):
         next(self._gen)
-        self._image_est = self._apgd.iterand["iterand"]
+        self._image_est[:] = self._apgd.iterand["iterand"]
 
     def _form_image(self):
         image = self._image_est.reshape(self._original_shape)
