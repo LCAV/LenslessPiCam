@@ -37,10 +37,13 @@ allowed for more light throughput and therefore shorter exposure
 times, while retaining sharp focus. The 
 incorporation of digital sensors
 readily enabled the use of computational imaging techniques to post-process and enhance raw images (e.g. via deblurring, inpainting, denoising, sharpening).
-Recently, imaging scientists have started leveraging computational imaging as an integral part of lensless imaging systems, allowing them to form viewable images from the highly multiplexed raw measurements of lensless cameras (see [@boominathan2022recent] and references therein for a comprehensive treatment of lensless imaging). This represents a real paradigm shift in camera system design as there is more flexibility to cater the hardware to the application at hand (e.g. lightweight or flat designs). This increased flexibility comes however at the price of a more demanding post-processing of the raw digital recordings and a tighter integration of sensing and computation, often difficult to achieve in practice due to inefficient interactions between the various communities of scientists involved. With `LenslessPiCam`, we provide an easily accessible hardware and software 
+Recently, imaging scientists have started leveraging computational imaging as an integral part of lensless imaging systems, allowing them to form viewable images from the highly multiplexed raw measurements of lensless cameras (see [@boominathan2022recent] and references therein for a comprehensive treatment of lensless imaging).
+This represents a real paradigm shift in camera system design as there is more flexibility to cater the hardware to the application at hand (e.g. lightweight or flat designs).
+This increased flexibility comes however at the price of a more demanding post-processing of the raw digital recordings and a tighter integration of sensing and computation, often difficult to achieve in practice due to inefficient interactions between the various communities of scientists involved. 
+With `LenslessPiCam`, we provide an easily accessible hardware and software 
 framework to enable researchers, hobbyists, and students to implement and 
 explore practical and computational aspects of lensless imaging. We also provide
-detailed guides and exercises to that `LenslessPiCam` can be used as an educational 
+detailed guides and exercises so that `LenslessPiCam` can be used as an educational 
 resource, and point to results from our graduate-level signal processing course.
 
 # Statement of need
