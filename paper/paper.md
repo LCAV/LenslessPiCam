@@ -292,7 +292,7 @@ final reconstruction and outputed metrics are shown in
 
 [^8]: Using `scripts/apply_admm_single_mirflickr.py`.
 
-![Visualizing performance of ADMM (100 iterations) on a single file of the DiffuserCam Lensless Mirflickr Dataset.](dataset_single_file.png){#fig:dataset_single_file}
+![Visualizing performance of ADMM (100 iterations) on a single file of the DiffuserCam Lensless Mirflickr Dataset.](dataset_single_file.png){#fig:dataset_single_file  width=90%}
 
 |  MSE  | PSNR |  SSIM | LPIPS |
 |:-----:|------|:-----:|:-----:|
