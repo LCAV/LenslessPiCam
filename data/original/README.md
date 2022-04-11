@@ -1,0 +1,1 @@
+The file `mnist_3.png` comes from the [MNIST dataset](http://yann.lecun.com/exdb/mnist/).
