@@ -2,7 +2,7 @@
 
 Prior to launching, launch `feh` image viewer from Raspberry Pi:
 ```
-feh LenslessPiCam --scale-down --auto-zoom -R 0.1 -x -F -Y
+feh LenslessPiCam_display --scale-down --auto-zoom -R 0.1 -x -F -Y
 ```
 Refresh shouldn't be too fast, otherwise copying may have an issue.
 
