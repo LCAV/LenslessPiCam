@@ -188,8 +188,8 @@ sudo apt-get install feh
 
 Then make a folder where we will create and read prepared images.
 ```bash
-mkdir LenslessPiCam_display
-mv ~/LenslessPiCam/data/original_images/rect.jpg ~/LenslessPiCam_display/test.jpg
+mkdir ~/LenslessPiCam_display
+mv ~/LenslessPiCam/data/original/mnist_3.png ~/LenslessPiCam_display/test.png
 ```
 
 Then we can use `feh` to launch the image viewer.
