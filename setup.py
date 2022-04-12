@@ -24,15 +24,7 @@ setuptools.setup(
         "scipy==1.7.0",
         "click==8.0.1",
         "image==1.5.33",
-        "matplotlib==3.4.2",
-        "jedi==0.18.0",
         "picamerax==20.9.1",
-        "pycsou==1.0.6",
-        "lpips==0.1.4",
-        "rawpy==0.16.0",
-        "scikit-image==0.19.0rc0",
     ],
-    extra_requires={
-        "dev": ["pudb", "black"],
-    },
+    extra_requires={"dev": ["pudb", "black"]},
 )

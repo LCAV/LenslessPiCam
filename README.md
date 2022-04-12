@@ -51,7 +51,10 @@ python3.9 -m venv lensless_env
 source lensless_env/bin/activate
 pip install -e .
 
-# (optional) try reconstruction
+# -- extra dependencies for local local machine for plotting/reconstruction
+pip install -r recon_requirements.txt
+
+# (optional) try reconstruction on local machine
 python scripts/admm.py --psf_fp data/psf/tape_rgb.png \
 --data_fp data/raw_data/thumbs_up_rgb.png --n_iter 5
 ```
@@ -189,7 +192,7 @@ sudo apt-get install feh
 Then make a folder where we will create and read prepared images.
 ```bash
 mkdir LenslessPiCam_display
-mv ~/LenslessPiCam/data/original_images/rect.jpg ~/LenslessPiCam_display/test.jpg
+cp ~/LenslessPiCam/data/original/mnist_3.png ~/LenslessPiCam_display/test.png
 ```
 
 Then we can use `feh` to launch the image viewer.

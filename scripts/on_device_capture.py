@@ -14,7 +14,7 @@ import click
 import numpy as np
 from time import sleep
 from PIL import Image
-from lensless.util import bayer2rgb, get_distro
+from lensless.util import bayer2rgb, get_distro, rgb2gray, resize
 from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
 
@@ -61,6 +61,11 @@ SENSOR_MODES = [
 @click.option(
     "--rgb", is_flag=True, help="Whether to reconstruct RGB data or return raw bayer data."
 )
+@click.option(
+    "--gray",
+    is_flag=True,
+    help="Get grayscale data from the Raspberry Pi.",
+)
 @click.option("--iso", default=100, type=int)
 @click.option(
     "--sixteen",
@@ -72,7 +77,13 @@ SENSOR_MODES = [
     type=int,
     help="Number of bits for output. Only used if saving RGB data.",
 )
-def capture(fn, exp, config_pause, sensor_mode, iso, sixteen, rgb, nbits_out):
+@click.option(
+    "--legacy",
+    is_flag=True,
+    help="Whether to use legacy camera software, despite being on Bullseye.",
+)
+@click.option("--down", type=float, help="Factor by which to downsample output.", default=None)
+def capture(fn, exp, config_pause, sensor_mode, iso, sixteen, rgb, nbits_out, legacy, gray, down):
     # https://www.raspberrypi.com/documentation/accessories/camera.html#maximum-exposure-times
     # TODO : check which camera
     assert exp <= 230
@@ -81,7 +92,12 @@ def capture(fn, exp, config_pause, sensor_mode, iso, sixteen, rgb, nbits_out):
 
     distro = get_distro()
     print("RPi distribution : {}".format(distro))
-    if "bullseye" in distro:
+    if "bullseye" in distro and not legacy:
+
+        # TODO : grayscale and downsample
+        assert not rgb
+        assert not gray
+        assert down is not None
 
         import subprocess
 
@@ -152,7 +168,7 @@ def capture(fn, exp, config_pause, sensor_mode, iso, sixteen, rgb, nbits_out):
         else:
             output = (np.sum(stream.array, axis=2) >> 2).astype(np.uint8)
 
-        if rgb:
+        if rgb or gray:
             if sixteen:
                 n_bits = 12  # assuming Raspberry Pi HQ
             else:
@@ -167,8 +183,16 @@ def capture(fn, exp, config_pause, sensor_mode, iso, sixteen, rgb, nbits_out):
                 nbits_out=nbits_out,
             )
 
+            if down:
+                output = resize(output, 1 / down, interpolation=cv2.INTER_CUBIC)
+
             # need OpenCV to save 16-bit RGB image
-            cv2.imwrite(fn, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
+            if gray:
+                output_gray = rgb2gray(output)
+                output_gray = output_gray.astype(output.dtype)
+                cv2.imwrite(fn, output_gray)
+            else:
+                cv2.imwrite(fn, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
         else:
             img = Image.fromarray(output)
             img.save(fn)
