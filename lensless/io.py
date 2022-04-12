@@ -88,8 +88,8 @@ def load_image(
         )
 
     else:
-        assert len(img.shape) == 3
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        if len(img.shape) == 3:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     if flip:
         img = np.flipud(img)
