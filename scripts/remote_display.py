@@ -31,8 +31,8 @@ import sys
 
 REMOTE_PYTHON = "~/LenslessPiCam/lensless_env/bin/python"
 REMOTE_IMAGE_PREP_SCRIPT = "~/LenslessPiCam/scripts/prep_display_image.py"
-REMOTE_DISPLAY_PATH = "~/LenslessPiCam_display/test.jpg"
-REMOTE_TMP_PATH = "~/tmp_display.jpg"
+REMOTE_DISPLAY_PATH = "~/LenslessPiCam_display/test.png"
+REMOTE_TMP_PATH = "~/tmp_display.png"
 
 
 @click.command()
@@ -77,7 +77,7 @@ REMOTE_TMP_PATH = "~/tmp_display.jpg"
 )
 @click.option(
     "--brightness",
-    default=0,
+    default=100,
     type=float,
     help="Brightness percentage.",
 )
@@ -92,10 +92,10 @@ def remote_display(fp, hostname, pad, vshift, brightness, psf, black, hshift, sc
     assert hostname is not None, "Provide hostname / IP address."
 
     if screen_res:
-        shape = np.array(screen_res)[::-1]
+        shape = screen_res
     else:
         # create image, size of https://www.dell.com/en-us/work/shop/dell-ultrasharp-usb-c-hub-monitor-u2421e/apd/210-axmg/monitors-monitor-accessories#techspecs_section
-        shape = np.array((1200, 1920))
+        shape = np.array((1920, 1200))
 
     if psf:
         assert fp is None

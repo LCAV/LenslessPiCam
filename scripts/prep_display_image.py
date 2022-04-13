@@ -44,7 +44,7 @@ import click
 )
 @click.option(
     "--brightness",
-    default=0,
+    default=100,
     type=float,
     help="Brightness percentage.",
 )
@@ -108,7 +108,7 @@ def display(fp, pad, output_path, vshift, brightness, screen_res, hshift):
     if brightness:
         img = (img * brightness / 100).astype(np.uint8)
 
-    # save to jpg
+    # save to file
     im = Image.fromarray(img)
     im.save(output_path)
 
