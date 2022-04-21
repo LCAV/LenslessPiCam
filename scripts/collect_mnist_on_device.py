@@ -42,17 +42,35 @@ from picamerax import PiCamera
     default=128,
     help="Amount to downsample.",
 )
+@click.option(
+    "--runtime",
+    type=float,
+    default=None,
+    help="Runtime for script in hours, namely script stops after this many hours.",
+)
+@click.option(
+    "--progress",
+    type=int,
+    default=100,
+    help="How often to print progress.",
+)
 @click.option("-v", "--verbose", is_flag=True)
-def collect_mnist(input_dir, output_dir, n_files, verbose, test, bayer, downsample):
+def collect_mnist(
+    input_dir, output_dir, n_files, verbose, test, bayer, downsample, runtime, progress
+):
 
     assert output_dir is not None
 
+    # TODO : save metadata in JSON
     img_og_dim = (28, 28)
+
+    # TODO use after measurement!!
     output_dim = (np.array([4056, 3040]) / downsample).astype(int)
     interpolation = cv2.INTER_NEAREST
 
-    # TODO : save metadata in JSON
-    progress = 100
+    if runtime:
+        # convert to seconds
+        runtime = runtime * 60 * 60
 
     # display param
     screen_res = np.array((1920, 1200))
@@ -109,6 +127,12 @@ def collect_mnist(input_dir, output_dir, n_files, verbose, test, bayer, downsamp
     labels = []
     start_time = time.time()
     for i in range(n_files):
+
+        if runtime:
+            proc_time = time.time() - start_time
+            if proc_time > runtime:
+                print(f"-- measured {i} / {n_files} files")
+                break
 
         if verbose:
             print(f"\nFILE : {i+1} / {n_files}")
