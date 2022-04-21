@@ -7,6 +7,7 @@ import cv2
 from mlxtend.data import loadlocal_mnist
 from PIL import Image
 from picamerax import PiCamera
+import json
 
 
 @click.command()
@@ -69,6 +70,7 @@ def collect_mnist(
     interpolation = cv2.INTER_NEAREST
 
     if runtime:
+        print(f"Running script for {runtime} hours...")
         # convert to seconds
         runtime = runtime * 60 * 60
 
@@ -101,10 +103,13 @@ def collect_mnist(
     # set up camera for consistent photos
     # https://picamera.readthedocs.io/en/release-1.13/recipes1.html#capturing-consistent-images
     # https://picamerax.readthedocs.io/en/latest/fov.html?highlight=camera%20resolution#sensor-modes
-    camera = PiCamera(resolution=(640, 480), framerate=30)
+    resolution = (640, 480)
+    framerate = 30
+    camera_iso = 100
+    camera = PiCamera(resolution=resolution, framerate=framerate)
     # camera = PiCamera(resolution=output_dim, framerate=30)
     # Set ISO to the desired value
-    camera.iso = 100
+    camera.iso = camera_iso
     # Wait for the automatic gain control to settle
     time.sleep(2)
     # Now fix the values
@@ -117,6 +122,23 @@ def collect_mnist(
     # make output directory
     output_dir = plib.Path(output_dir)
     output_dir.mkdir(exist_ok=True)
+
+    # save collection parameters
+    # TODO : check if file exists and if different parameters!!
+    metadata = {
+        "screen_res": screen_res.tolist(),
+        "hshift": hshift,
+        "vshift": vshift,
+        "pad": pad,
+        "brightness": brightness,
+        "resolution": resolution,
+        "framerate": framerate,
+        "camera_iso": camera_iso,
+        "awb_gains": g,
+    }
+    metadata_fp = output_dir / "metadata.json"
+    with open(metadata_fp, "w") as fp:
+        json.dump(metadata, fp)
 
     # loop over files
     if test:
