@@ -1,6 +1,4 @@
 import torchvision.datasets as dset
-from torchvision import transforms
-import torch
 import numpy as np
 import time
 import os
@@ -35,15 +33,25 @@ import click
     is_flag=True,
     help="Measure test set, otherwise do train.",
 )
+@click.option(
+    "--bayer",
+    is_flag=True,
+    help="Copy over raw Bayer data. Otherwise do de-mosaicing and downsampling on Raspberry Pi.",
+)
+@click.option(
+    "--downsample",
+    type=float,
+    default=128,
+    help="Amount to downsample.",
+)
 @click.option("-v", "--verbose", is_flag=True)
-def collect_mnist(hostname, camera_hostname, output_dir, n_files, verbose, test):
+def collect_mnist(hostname, camera_hostname, output_dir, n_files, verbose, test, bayer, downsample):
 
     assert hostname is not None
     assert output_dir is not None
 
     # TODO : save metadata in JSON
     progress = 10
-    downsample = 128
 
     # display param
     display_python = "~/LenslessPiCam/lensless_env/bin/python"
@@ -126,10 +134,12 @@ def collect_mnist(hostname, camera_hostname, output_dir, n_files, verbose, test)
             remote_fn = "remote_capture"
             pic_command = (
                 f"{camera_python} {capture_script} --fn {remote_fn} --exp {exp} --iso 100 "
-                f"--config_pause {config_pause} --sensor_mode {sensor_mode} --nbits_out 8 --sixteen --legacy --gray"
+                f"--config_pause {config_pause} --sensor_mode {sensor_mode} --nbits_out 8 --sixteen --legacy"
             )
-            if downsample:
-                pic_command += f" --down {downsample}"
+            if not bayer:
+                pic_command += " --gray"
+                if downsample:
+                    pic_command += f" --down {downsample}"
             if verbose:
                 print("-- Taking picture...")
                 print(f"Command : {pic_command}")
