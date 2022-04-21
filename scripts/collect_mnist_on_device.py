@@ -124,7 +124,7 @@ def collect_mnist(
     output_dir.mkdir(exist_ok=True)
 
     # save collection parameters
-    # TODO : check if file exists and if different parameters!!
+    # TODO : check if file already exists and if different parameters!!
     metadata = {
         "screen_res": screen_res.tolist(),
         "hshift": hshift,
@@ -134,7 +134,7 @@ def collect_mnist(
         "resolution": resolution,
         "framerate": framerate,
         "camera_iso": camera_iso,
-        "awb_gains": g,
+        "awb_gains": (float(g[0]), float(g[1])),
     }
     metadata_fp = output_dir / "metadata.json"
     with open(metadata_fp, "w") as fp:
