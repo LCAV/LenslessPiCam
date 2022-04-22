@@ -9,6 +9,8 @@ from PIL import Image
 from picamerax import PiCamera
 import json
 import requests
+import gzip
+import shutil
 
 
 @click.command()
@@ -93,35 +95,32 @@ def collect_mnist(
     images_path = os.path.join(input_dir, images_fn)
     labels_path = os.path.join(input_dir, labels_fn)
 
+    # download data if not in local path
     if not os.path.exists(images_path):
-        print("Downloading images...")
+        url = f"http://yann.lecun.com/exdb/mnist/{images_fn}.gz"
+        print(f"Downloading images from {url}")
         zipped_file = images_path + ".gz"
-        response = requests.get(f"http://yann.lecun.com/exdb/mnist/{zipped_file}")
-        open(zipped_file, "wb").write(response.content)
-        os.system("gunzip " + zipped_file)
+        with open(zipped_file, "wb") as f:
+            r = requests.get(url)
+            f.write(r.content)
+        with gzip.open(zipped_file, "rb") as f_in:
+            with open(images_path, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
     if not os.path.exists(labels_path):
-        print("Downloading labels...")
+        url = f"http://yann.lecun.com/exdb/mnist/{labels_fn}.gz"
+        print(f"Downloading labels from {url}")
         zipped_file = labels_path + ".gz"
-        response = requests.get(f"http://yann.lecun.com/exdb/mnist/{zipped_file}")
-        os.system("gunzip " + zipped_file)
+        with open(zipped_file, "wb") as f:
+            r = requests.get(url)
+            f.write(r.content)
+        with gzip.open(zipped_file, "rb") as f_in:
+            with open(labels_path, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
 
     X, y = loadlocal_mnist(
         images_path=images_path,
         labels_path=labels_path,
     )
-
-    raise ValueError
-
-    # if test:
-    #     X, y = loadlocal_mnist(
-    #         images_path=os.path.join(input_dir, "t10k-images-idx3-ubyte"),
-    #         labels_path=os.path.join(input_dir, "t10k-labels-idx1-ubyte"),
-    #     )
-    # else:
-    #     X, y = loadlocal_mnist(
-    #         images_path=os.path.join(input_dir, "train-images-idx3-ubyte"),
-    #         labels_path=os.path.join(input_dir, "train-labels-idx1-ubyte"),
-    #     )
 
     print("\nNumber of files :", len(y))
     if n_files:
