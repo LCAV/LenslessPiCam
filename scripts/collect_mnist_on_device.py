@@ -58,9 +58,10 @@ import shutil
     default=100,
     help="How often to print progress.",
 )
+@click.option("--start", type=int, default=0, help="Start index for measuring files.")
 @click.option("-v", "--verbose", is_flag=True)
 def collect_mnist(
-    input_dir, output_dir, n_files, verbose, test, bayer, downsample, runtime, progress
+    input_dir, output_dir, n_files, verbose, test, bayer, downsample, runtime, progress, start
 ):
 
     assert output_dir is not None
@@ -176,7 +177,7 @@ def collect_mnist(
     subdir.mkdir(exist_ok=True)
     labels = []
     start_time = time.time()
-    for i in range(n_files):
+    for i in range(start, n_files):
 
         if runtime:
             proc_time = time.time() - start_time
