@@ -94,13 +94,16 @@ def collect_mnist(
     labels_path = os.path.join(input_dir, labels_fn)
 
     if not os.path.exists(images_path):
-        print("Download images...")
-        response = requests.get(f"http://yann.lecun.com/exdb/mnist/{images_fn}.gz")
-        os.system("gunzip " + images_path + ".gz")
+        print("Downloading images...")
+        zipped_file = images_path + ".gz"
+        response = requests.get(f"http://yann.lecun.com/exdb/mnist/{zipped_file}")
+        open(zipped_file, "wb").write(response.content)
+        os.system("gunzip " + zipped_file + ".gz")
     if not os.path.exists(labels_path):
-        print("Download labels...")
-        response = requests.get(f"http://yann.lecun.com/exdb/mnist/{labels_fn}.gz")
-        os.system("gunzip " + labels_path + ".gz")
+        print("Downloading labels...")
+        zipped_file = labels_path + ".gz"
+        response = requests.get(f"http://yann.lecun.com/exdb/mnist/{zipped_file}")
+        os.system("gunzip " + zipped_file + ".gz")
 
     X, y = loadlocal_mnist(
         images_path=images_path,
