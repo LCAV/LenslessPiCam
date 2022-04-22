@@ -47,11 +47,11 @@ git clone git@github.com:LCAV/LenslessPiCam.git
 
 # install in virtual environment
 cd LenslessPiCam
-python3.9 -m venv lensless_env
+python3 -m venv lensless_env
 source lensless_env/bin/activate
 pip install -e .
 
-# -- extra dependencies for local local machine for plotting/reconstruction
+# -- extra dependencies for local machine for plotting/reconstruction
 pip install -r recon_requirements.txt
 
 # (optional) try reconstruction on local machine
