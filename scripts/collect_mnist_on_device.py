@@ -177,6 +177,8 @@ def collect_mnist(
     subdir.mkdir(exist_ok=True)
     labels = []
     start_time = time.time()
+    if start:
+        print(f"Starting at {start}.")
     for i in range(start, n_files):
 
         if runtime:
