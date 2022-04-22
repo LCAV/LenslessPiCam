@@ -8,6 +8,7 @@ from mlxtend.data import loadlocal_mnist
 from PIL import Image
 from picamerax import PiCamera
 import json
+import requests
 
 
 @click.command()
@@ -62,7 +63,6 @@ def collect_mnist(
 
     assert output_dir is not None
 
-    # TODO : save metadata in JSON
     img_og_dim = (28, 28)
 
     # TODO use after measurement!!
@@ -84,15 +84,39 @@ def collect_mnist(
 
     # load data
     if test:
-        X, y = loadlocal_mnist(
-            images_path=os.path.join(input_dir, "t10k-images-idx3-ubyte"),
-            labels_path=os.path.join(input_dir, "t10k-labels-idx1-ubyte"),
-        )
+        images_fn = "t10k-images-idx3-ubyte"
+        labels_fn = "t10k-labels-idx1-ubyte"
     else:
-        X, y = loadlocal_mnist(
-            images_path=os.path.join(input_dir, "train-images-idx3-ubyte"),
-            labels_path=os.path.join(input_dir, "train-labels-idx1-ubyte"),
-        )
+        images_fn = "train-images-idx3-ubyte"
+        labels_fn = "train-labels-idx1-ubyte"
+
+    images_path = os.path.join(input_dir, images_fn)
+    labels_path = os.path.join(input_dir, labels_fn)
+
+    if not os.path.exists(images_path):
+        requests.get(f"http://yann.lecun.com/exdb/mnist/{images_fn}.gz")
+        os.system("gunzip " + images_path + ".gz")
+    if not os.path.exists(labels_path):
+        requests.get(f"http://yann.lecun.com/exdb/mnist/{labels_fn}.gz")
+        os.system("gunzip " + labels_path + ".gz")
+
+    X, y = loadlocal_mnist(
+        images_path=images_path,
+        labels_path=labels_path,
+    )
+
+    raise ValueError
+
+    # if test:
+    #     X, y = loadlocal_mnist(
+    #         images_path=os.path.join(input_dir, "t10k-images-idx3-ubyte"),
+    #         labels_path=os.path.join(input_dir, "t10k-labels-idx1-ubyte"),
+    #     )
+    # else:
+    #     X, y = loadlocal_mnist(
+    #         images_path=os.path.join(input_dir, "train-images-idx3-ubyte"),
+    #         labels_path=os.path.join(input_dir, "train-labels-idx1-ubyte"),
+    #     )
 
     print("\nNumber of files :", len(y))
     if n_files:
