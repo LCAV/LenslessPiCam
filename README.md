@@ -191,7 +191,7 @@ sudo apt-get install feh
 
 Then make a folder where we will create and read prepared images.
 ```bash
-mkdir LenslessPiCam_display
+mkdir ~/LenslessPiCam_display
 cp ~/LenslessPiCam/data/original/mnist_3.png ~/LenslessPiCam_display/test.png
 ```
 
