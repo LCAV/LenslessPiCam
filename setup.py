@@ -25,6 +25,7 @@ setuptools.setup(
         "click==8.0.1",
         "image==1.5.33",
         "picamerax==20.9.1",
+        "matplotlib==3.4.2",
     ],
     extra_requires={"dev": ["pudb", "black"]},
 )
