@@ -1,4 +1,4 @@
-# LenslessPiCam : Lensless Imaging with a Raspberry Pi
+# LenslessPiCam: A Hardware and Software Platform for Lensless Computational Imaging with a Raspberry Pi
 
 ![Example PSF, raw data, and reconstruction.](scripts/example_reconstruction.png)
 
