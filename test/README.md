@@ -1,8 +1,8 @@
-Install `pytest`
+Install `pytest`:
 ```
 pip install pytest
 ```
-And then run
+And then run:
 ```
 pytest test/
 ```
