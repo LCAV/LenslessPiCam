@@ -1,5 +1,7 @@
 # LenslessPiCam : Lensless Imaging with a Raspberry Pi
 
+![Example PSF, raw data, and reconstruction.](scripts/example_reconstruction.png)
+
 - [Setup](#setup).
 - [Data for examples](#data).
 - [Reconstruction](#recon).
@@ -7,8 +9,6 @@
 - [Remote capture](#capture).
 - [Remote display](#display).
 - [Collecting MNIST](#mnist).
-
-![Example PSF, raw data, and reconstruction.](scripts/example_reconstruction.png)
 
 This package provides functionalities to perform imaging with a lensless camera.
 We make use of a low-cost implementation of the DiffuserCam [[1]](#1) where we
