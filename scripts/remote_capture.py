@@ -84,9 +84,19 @@ SENSOR_MODES = [
     help="Number of bits to set maximum value in histogram. Default is 12 for RPi HQ camera.",
 )
 @click.option(
+    "--legacy",
+    is_flag=True,
+    help="Whether to use legacy camera software, despite being on Bullseye.",
+)
+@click.option(
     "--rgb",
     is_flag=True,
     help="Get RGB data from the Raspberry Pi or reconstruct it here (default). Takes longer to copy RGB data.",
+)
+@click.option(
+    "--gray",
+    is_flag=True,
+    help="Get grayscale data from the Raspberry Pi.",
 )
 @click.option(
     "--bayer",
@@ -105,11 +115,27 @@ SENSOR_MODES = [
     type=int,
     help="Number of bits for output.",
 )
+@click.option("--down", type=float, help="Factor by which to downsample output.", default=None)
 def liveview(
-    fn, hostname, exp, iso, config_pause, sensor_mode, nbits, source, rgb, bayer, gamma, nbits_out
+    fn,
+    hostname,
+    exp,
+    iso,
+    config_pause,
+    sensor_mode,
+    nbits,
+    source,
+    rgb,
+    bayer,
+    gamma,
+    nbits_out,
+    legacy,
+    gray,
+    down,
 ):
     if bayer:
         assert not rgb
+        assert not gray
     assert hostname is not None
 
     # take picture
@@ -123,6 +149,12 @@ def liveview(
         pic_command += " --sixteen"
     if rgb:
         pic_command += " --rgb"
+    if legacy:
+        pic_command += " --legacy"
+    if gray:
+        pic_command += " --gray"
+    if down:
+        pic_command += f" --down {down}"
     print(f"COMMAND : {pic_command}")
     ssh = subprocess.Popen(
         ["ssh", "pi@%s" % hostname, pic_command],
@@ -152,7 +184,11 @@ def liveview(
         print(f"COMMAND OUTPUT : ")
         pprint(result_dict)
 
-    if "RPi distribution" in result_dict.keys() and "bullseye" in result_dict["RPi distribution"]:
+    if (
+        "RPi distribution" in result_dict.keys()
+        and "bullseye" in result_dict["RPi distribution"]
+        and not legacy
+    ):
         # copy over DNG file
         remotefile = f"~/{remote_fn}.dng"
         localfile = f"{fn}.dng"
@@ -202,7 +238,7 @@ def liveview(
         print(f"\nCopying over picture as {localfile}...")
         os.system('scp "pi@%s:%s" %s' % (hostname, remotefile, localfile))
 
-        if rgb:
+        if rgb or gray:
 
             img = load_image(localfile, verbose=True)
 
@@ -232,27 +268,33 @@ def liveview(
                 cv2.imwrite(localfile, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
     # plot RGB
-    ax = plot_image(img, gamma=gamma)
-    ax.set_title("RGB")
+    if not gray:
+        ax = plot_image(img, gamma=gamma)
+        ax.set_title("RGB")
 
-    # plot red channel
-    if source == "red":
-        img_1chan = img[:, :, 0]
-    elif source == "green":
-        img_1chan = img[:, :, 1]
-    elif source == "blue":
-        img_1chan = img[:, :, 2]
-    else:
-        img_1chan = rgb2gray(img)
-    ax = plot_image(img_1chan)
-    if source == "white":
-        ax.set_title("Gray scale")
-    else:
-        ax.set_title(f"{source} channel")
+        # plot red channel
+        if source == "red":
+            img_1chan = img[:, :, 0]
+        elif source == "green":
+            img_1chan = img[:, :, 1]
+        elif source == "blue":
+            img_1chan = img[:, :, 2]
+        else:
+            img_1chan = rgb2gray(img)
+        ax = plot_image(img_1chan)
+        if source == "white":
+            ax.set_title("Gray scale")
+        else:
+            ax.set_title(f"{source} channel")
 
-    # plot histogram, useful for checking clipping
-    pixel_histogram(img)
-    pixel_histogram(img_1chan)
+        # plot histogram, useful for checking clipping
+        pixel_histogram(img)
+        pixel_histogram(img_1chan)
+
+    else:
+
+        ax = plot_image(img, gamma=gamma)
+        pixel_histogram(img)
 
     plt.show()
 

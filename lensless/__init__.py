@@ -1,5 +1,4 @@
 from .recon import ReconstructionAlgorithm
-from .apgd import APGD, APGDPriors
 from .admm import ADMM
 from .gradient_descent import (
     GradientDescient,
@@ -7,3 +6,10 @@ from .gradient_descent import (
     FISTA,
     GradientDescentUpdate,
 )
+
+try:
+    from .apgd import APGD, APGDPriors
+
+    pycsou_available = True
+except:
+    pycsou_available = False
