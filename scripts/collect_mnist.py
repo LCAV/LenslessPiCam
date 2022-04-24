@@ -163,18 +163,6 @@ def collect_mnist(hostname, camera_hostname, output_dir, n_files, verbose, test,
                 print(f"Copying over picture as {output_fp}...")
             os.system('scp "pi@%s:%s" %s' % (camera_hostname, remotefile, output_fp))
 
-            from lensless.io import load_image
-
-            # from lensless.plot import plot_image
-            # import matplotlib.pyplot as plt
-
-            img = load_image(str(output_fp), verbose=verbose)
-            # ax = plot_image(img, gamma=2.2)
-            # plt.show()
-            # raise ValueError
-
-            # TODO check: not all zeros, no clipping
-
         if (i + 1) % progress == 0:
             proc_time = time.time() - start_time
             print(f"\n{i+1} / {n_files}, {proc_time / 60.:.3f} minutes")
@@ -188,18 +176,6 @@ def collect_mnist(hostname, camera_hostname, output_dir, n_files, verbose, test,
 
     if os.path.isfile(local_display_file):
         os.remove(local_display_file)
-
-    # # load and pass in batches
-    # batch_size = 100
-    # train_loader = torch.utils.data.DataLoader(
-    #     dataset=train_set, batch_size=batch_size, shuffle=False
-    # )
-    # test_loader = torch.utils.data.DataLoader(
-    #     dataset=test_set, batch_size=batch_size, shuffle=False
-    # )
-
-    # for i, (x, target) in enumerate(train_loader):
-    #     x = x.numpy().squeeze()
 
 
 if __name__ == "__main__":
