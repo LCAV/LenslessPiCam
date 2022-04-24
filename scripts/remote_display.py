@@ -9,7 +9,8 @@ Refresh shouldn't be too fast, otherwise copying may have an issue.
 Consequently, after running this script, the displayed image will be reloaded
 on the display of the Raspberry Pi.
 ```
-python scripts/remote_display.py --fp data/original_images/rect.jpg --pad 50
+python scripts/remote_display.py --fp data/original/mnist_3.png --pad 50 \
+    --hostname <IP_ADDRESS>
 ```
 
 Procedure is as follows:
@@ -30,8 +31,8 @@ import sys
 
 REMOTE_PYTHON = "~/LenslessPiCam/lensless_env/bin/python"
 REMOTE_IMAGE_PREP_SCRIPT = "~/LenslessPiCam/scripts/prep_display_image.py"
-REMOTE_DISPLAY_PATH = "~/LenslessPiCam_display/test.jpg"
-REMOTE_TMP_PATH = "~/tmp_display.jpg"
+REMOTE_DISPLAY_PATH = "~/LenslessPiCam_display/test.png"
+REMOTE_TMP_PATH = "~/tmp_display.png"
 
 
 @click.command()
@@ -76,7 +77,7 @@ REMOTE_TMP_PATH = "~/tmp_display.jpg"
 )
 @click.option(
     "--brightness",
-    default=0,
+    default=100,
     type=float,
     help="Brightness percentage.",
 )
@@ -88,14 +89,16 @@ REMOTE_TMP_PATH = "~/tmp_display.jpg"
     help="Screen resolution in pixels (width, height).",
 )
 def remote_display(fp, hostname, pad, vshift, brightness, psf, black, hshift, screen_res):
+    assert hostname is not None, "Provide hostname / IP address."
+
+    if screen_res:
+        shape = screen_res
+    else:
+        # create image, size of https://www.dell.com/en-us/work/shop/dell-ultrasharp-usb-c-hub-monitor-u2421e/apd/210-axmg/monitors-monitor-accessories#techspecs_section
+        shape = np.array((1920, 1200))
 
     if psf:
         assert fp is None
-        if screen_res:
-            shape = np.array(screen_res)[::-1]
-        else:
-            # create image, size of https://www.dell.com/en-us/work/shop/dell-ultrasharp-usb-c-hub-monitor-u2421e/apd/210-axmg/monitors-monitor-accessories#techspecs_section
-            shape = np.array((1200, 1920))
         point_source = np.zeros(tuple(shape) + (3,))
         mid_point = shape // 2
         start_point = mid_point - psf // 2
@@ -106,10 +109,6 @@ def remote_display(fp, hostname, pad, vshift, brightness, psf, black, hshift, sc
         im.save(fp)
     elif black:
         assert fp is None
-        if screen_res:
-            shape = np.array(screen_res)[::-1]
-        else:
-            shape = np.array((1200, 1920))
         point_source = np.zeros(tuple(shape) + (3,))
         fp = "tmp_display.png"
         im = Image.fromarray(point_source.astype("uint8"), "RGB")
@@ -121,7 +120,7 @@ def remote_display(fp, hostname, pad, vshift, brightness, psf, black, hshift, sc
     os.system('scp %s "pi@%s:%s" ' % (fp, hostname, REMOTE_TMP_PATH))
 
     prep_command = f"{REMOTE_PYTHON} {REMOTE_IMAGE_PREP_SCRIPT} --fp {REMOTE_TMP_PATH} \
-        --pad {pad} --vshift {vshift} --hshift {hshift} --screen_res {screen_res[0]} {screen_res[1]} \
+        --pad {pad} --vshift {vshift} --hshift {hshift} --screen_res {shape[0]} {shape[1]} \
         --brightness {brightness} --output_path {REMOTE_DISPLAY_PATH} "
     print(f"COMMAND : {prep_command}")
     subprocess.Popen(
