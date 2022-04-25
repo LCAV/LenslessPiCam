@@ -36,17 +36,6 @@ import shutil
     help="Measure test set, otherwise do train.",
 )
 @click.option(
-    "--bayer",
-    is_flag=True,
-    help="Whether to save Bayer data (big!) or de-mosaiced and downsampled.",
-)
-@click.option(
-    "--downsample",
-    type=float,
-    default=128,
-    help="Amount to downsample.",
-)
-@click.option(
     "--runtime",
     type=float,
     default=None,
@@ -60,16 +49,13 @@ import shutil
 )
 @click.option("--start", type=int, default=0, help="Start index for measuring files.")
 @click.option("-v", "--verbose", is_flag=True)
-def collect_mnist(
-    input_dir, output_dir, n_files, verbose, test, bayer, downsample, runtime, progress, start
-):
+def collect_mnist(input_dir, output_dir, n_files, verbose, test, runtime, progress, start):
 
     assert output_dir is not None
 
     img_og_dim = (28, 28)
 
     # TODO use after measurement!!
-    output_dim = (np.array([4056, 3040]) / downsample).astype(int)
     interpolation = cv2.INTER_NEAREST
 
     if runtime:
@@ -136,7 +122,6 @@ def collect_mnist(
     framerate = 30
     camera_iso = 100
     camera = PiCamera(resolution=resolution, framerate=framerate)
-    # camera = PiCamera(resolution=output_dim, framerate=30)
     # Set ISO to the desired value
     camera.iso = camera_iso
     # Wait for the automatic gain control to settle
