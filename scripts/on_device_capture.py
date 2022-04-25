@@ -97,7 +97,7 @@ def capture(fn, exp, config_pause, sensor_mode, iso, sixteen, rgb, nbits_out, le
         # TODO : grayscale and downsample
         assert not rgb
         assert not gray
-        assert down is not None
+        assert down is None
 
         import subprocess
 
