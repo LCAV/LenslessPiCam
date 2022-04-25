@@ -3,7 +3,7 @@ This script will load the PSF data and raw measurement for the reconstruction
 that can implement afterwards.
 
 ```bash
-python scripts/reconstruction_template.py --psf_fp data/psf/tape_rgb.png \
+python scripts/recon/template.py --psf_fp data/psf/tape_rgb.png \
 --data_fp data/raw_data/thumbs_up_rgb.png
 ```
 
@@ -41,6 +41,13 @@ from lensless.io import load_data
     type=float,
     default=4,
     help="Downsampling factor.",
+)
+@click.option(
+    "--shape",
+    default=None,
+    nargs=2,
+    type=int,
+    help="Image shape (height, width) for reconstruction.",
 )
 @click.option(
     "--disp",
@@ -109,6 +116,7 @@ def reconstruction(
     save,
     no_plot,
     single_psf,
+    shape
 ):
     psf, data = load_data(
         psf_fp=psf_fp,
@@ -122,6 +130,7 @@ def reconstruction(
         gamma=gamma,
         gray=gray,
         single_psf=single_psf,
+        shape=shape
     )
 
     if save:

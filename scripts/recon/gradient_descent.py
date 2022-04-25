@@ -2,7 +2,7 @@
 Apply gradient descent.
 
 ```
-python scripts/gradient_descent.py --psf_fp data/psf/tape_rgb.png -\
+python scripts/recon/gradient_descent.py --psf_fp data/psf/tape_rgb.png -\
 -data_fp data/raw_data/thumbs_up_rgb.png --n_iter 300
 ```
 
@@ -52,7 +52,7 @@ from lensless import (
     default=None,
     nargs=2,
     type=int,
-    help="Image shape (width, height) for reconstruction.",
+    help="Image shape (height, width) for reconstruction.",
 )
 @click.option(
     "--method",

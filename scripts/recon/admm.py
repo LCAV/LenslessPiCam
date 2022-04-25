@@ -47,7 +47,7 @@ from lensless import ADMM
     default=None,
     nargs=2,
     type=int,
-    help="Image shape (width, height) for reconstruction.",
+    help="Image shape (height, width) for reconstruction.",
 )
 @click.option(
     "--disp",

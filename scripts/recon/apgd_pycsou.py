@@ -5,7 +5,7 @@ https://matthieumeo.github.io/pycsou/html/api/algorithms/pycsou.opt.proxalgs.htm
 
 Example
 ```
-python scripts/apgd_pycsou.py --psf_fp data/psf/tape_rgb.png \
+python scripts/recon/apgd_pycsou.py --psf_fp data/psf/tape_rgb.png \
 --data_fp data/raw_data/thumbs_up_rgb.png --real_conv
 ```
 Note that the `RealFFTConvolve2D` has to be implemented in `lensless/realfftconv.py`.
@@ -13,7 +13,7 @@ Note that the `RealFFTConvolve2D` has to be implemented in `lensless/realfftconv
 Otherwise, grayscale reconstruction with the non-optimized FFT convolution can
 be readily used (RGB is not supported):
 ```
-python scripts/apgd_pycsou.py --psf_fp data/psf/tape_rgb.png --data_fp \
+python scripts/recon/apgd_pycsou.py --psf_fp data/psf/tape_rgb.png --data_fp \
 data/raw_data/thumbs_up_rgb.png --gray
 ```
 
@@ -65,7 +65,7 @@ import pathlib as plib
     default=None,
     nargs=2,
     type=int,
-    help="Image shape (width, height) for reconstruction.",
+    help="Image shape (height, width) for reconstruction.",
 )
 @click.option(
     "--disp",
