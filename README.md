@@ -1,6 +1,12 @@
-# LenslessPiCam
+# LenslessPiCam : Lensless Imaging with a Raspberry Pi
 
-### _Lensless imaging with a Raspberry Pi and a piece of tape!_
+- [Setup](#setup).
+- [Data for examples](#data).
+- [Reconstruction](#recon).
+- [Evaluating on a dataset](#eval).
+- [Remote capture](#capture).
+- [Remote display](#display).
+- [Collecting MNIST](#mnist).
 
 ![Example PSF, raw data, and reconstruction.](scripts/recon/example.png)
 
@@ -32,7 +38,7 @@ course at EPFL, and therefore includes some exercises / code to complete:
 If you are an instructor, you can request access to the solutions [here](https://drive.google.com/drive/folders/1Y1scM8wVfjVAo5-8Nr2VfE4b6VHeDSia?usp=sharing) 
 or send an email to `eric[dot]bezzam[at]epfl[dot]ch`.
 
-## Setup
+## Setup <a name="setup"></a>
 The expected workflow is to have a local computer which interfaces remotely
 with a Raspberry Pi equipped with the HQ camera sensor (or V2 sensor as in the 
 original tutorial).
@@ -47,11 +53,11 @@ git clone git@github.com:LCAV/LenslessPiCam.git
 
 # install in virtual environment
 cd LenslessPiCam
-python3.9 -m venv lensless_env
+python3 -m venv lensless_env
 source lensless_env/bin/activate
 pip install -e .
 
-# -- extra dependencies for local local machine for plotting/reconstruction
+# -- extra dependencies for local machine for plotting/reconstruction
 pip install -r recon_requirements.txt
 
 # (optional) try reconstruction on local machine
@@ -89,7 +95,7 @@ and the Raspberry Pi. There are two possible solutions to this, as proposed in
 2. Comment `AcceptEnv LANG LC_*` in `/etc/ssh/sshd_config` on the Raspberry
 Pi.
 
-## Data for examples
+## Data for examples <a name="data"></a>
 
 You can download example PSFs and raw data that we've measured [here](https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww).
 We recommend placing this content in the `data` folder.
@@ -98,7 +104,7 @@ You can download a subset for the [DiffuserCam Lensless Mirflickr Dataset](https
 that we've prepared [here](https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE)
 with `scripts/prepare_mirflickr_subset.py`.
 
-## Reconstruction
+## Reconstruction <a name="recon"></a>
 
 The core algorithmic component of `LenslessPiCam` is the abstract class 
 `lensless.ReconstructionAlgorithm`. The three reconstruction strategies 
@@ -146,7 +152,7 @@ python scripts/recon/admm.py --psf_fp data/psf/tape_rgb.png \
 A template for applying a reconstruction algorithm (including loading the data)
 can be found in `scripts/recon/template.py`.
 
-## Evaluating on a dataset
+## Evaluating on a dataset <a name="eval"></a>
 
 You can run ADMM on the [DiffuserCam Lensless Mirflickr Dataset](https://waller-lab.github.io/LenslessLearning/dataset.html)
 with the following script.
@@ -174,7 +180,7 @@ python scripts/apply_admm_single_mirflickr.py \
 --fid 172
 ```
 
-## Remote capture
+## Remote capture <a name="capture"></a>
 
 You can remotely capture raw Bayer data with the following script.
 ```bash
@@ -184,7 +190,7 @@ where `<HOSTNAME>` is the hostname or IP address of your Raspberry Pi, `<FN>` is
 the name of the file to save the Bayer data, and the other arguments can be used
 to adjust camera settings.
 
-## Remote display
+## Remote display <a name="display"></a>
 
 For collecting images displayed on a screen, we have prepared some software to
 remotely display images on a Raspberry Pi installed with this software and
@@ -197,7 +203,7 @@ sudo apt-get install feh
 
 Then make a folder where we will create and read prepared images.
 ```bash
-mkdir LenslessPiCam_display
+mkdir ~/LenslessPiCam_display
 cp ~/LenslessPiCam/data/original/mnist_3.png ~/LenslessPiCam_display/test.png
 ```
 
@@ -217,16 +223,26 @@ the path on your local computer of the image you would like to display, and the
 other arguments can be used to adjust the positioning of the image and its
 brightness.
 
-## Formatting
-You can use `black` to format your code.
+## Collecting MNIST <a name="mnist"></a>
 
-First install the library.
+We provide a couple scripts to collect MNIST with the proposed camera.
+
+Script that can be launched from the Raspberry Pi:
 ```bash
-pip install black
+python scripts/collect_mnist_on_device.py --input_dir MNIST_original \
+--output_dir MNIST_meas
 ```
-Then run the formatting script we've prepared.
+If the MNIST dataset is not available at `MNIST_original` it will be downloaded
+from [here](http://yann.lecun.com/exdb/mnist/). The above command will measure 
+the training set. The `--test` flag can be used to measure the test set.
+It is recommended to run the script from a [`screen`](https://linuxize.com/post/how-to-use-linux-screen/) session as it takes a long time to go through all the
+files! The `--n_files <N_FILES>` option can be used to measure a user-specified
+amount of files.
+
+To remotely collect the MNIST dataset (although quite slow due to copying files
+back and forth):
 ```bash
-./format_code.sh
+python scripts/collect_mnist.py --hostname <IP_ADDRESS> --output_dir MNIST_meas
 ```
 
 ## References
