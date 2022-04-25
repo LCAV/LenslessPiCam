@@ -115,6 +115,7 @@ def load_psf(
     dtype=np.float32,
     nbits_out=None,
     single_psf=False,
+    shape=None,
 ):
     """
     Load and process PSF for analysis or for reconstruction.
@@ -189,8 +190,10 @@ def load_psf(
         bg = np.array(bg)
 
     # resize
-    if downsample != 1:
-        psf = resize(psf, 1 / downsample)
+    if shape:
+        psf = resize(psf, shape=shape)
+    elif downsample != 1:
+        psf = resize(psf, factor=1 / downsample)
 
     if single_psf:
         assert len(psf.shape) == 3
@@ -226,6 +229,7 @@ def load_data(
     gray=False,
     dtype=np.float32,
     single_psf=False,
+    shape=None,
 ):
     """
     Load data for image reconstruction.
@@ -287,6 +291,7 @@ def load_data(
         red_gain=red_gain,
         dtype=dtype,
         single_psf=single_psf,
+        shape=shape,
     )
 
     # load and process raw measurement
@@ -297,7 +302,7 @@ def load_data(
     data = np.clip(data, a_min=0, a_max=data.max())
     if data.shape != psf.shape:
         # in DiffuserCam dataset, images are already reshaped
-        data = resize(data, 1 / downsample)
+        data = resize(data, shape=psf.shape[:2])
     data /= np.linalg.norm(data.ravel())
 
     if gray:
