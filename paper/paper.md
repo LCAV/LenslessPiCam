@@ -155,7 +155,7 @@ to three steps:
 2. Setting the data.
 3. Applying the algorithm.
 
-For example, for ADMM (full example in `scripts/admm.py`):
+For example, for ADMM (full example in `scripts/recon/admm.py`):
 ```python
     recon = ADMM(psf)
     recon.set_data(data)
@@ -163,7 +163,7 @@ For example, for ADMM (full example in `scripts/admm.py`):
 ```
 
 A template for applying a reconstruction algorithm (including loading the data)
-can be found in `scripts/reconstruction_template.py`.
+can be found in `scripts/recon/template.py`.
 
 
 # Efficient reconstruction
