@@ -170,7 +170,6 @@ def collect_mnist(
         subdir = output_dir / "train"
     subdir.mkdir(exist_ok=True)
     labels = []
-    start_time = time.time()
     if start:
         print(f"Starting at {start}.")
     if start_time:
@@ -179,6 +178,7 @@ def collect_mnist(
         print(f"Starting measurement at: {start_datetime}")
         time.sleep(n_seconds_wait)
 
+    start_time = time.time()
     for i in range(start, n_files):
 
         if runtime:
