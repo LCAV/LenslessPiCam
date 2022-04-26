@@ -37,7 +37,7 @@ import datetime
     help="Measure test set, otherwise do train.",
 )
 @click.option(
-    "--start_time",
+    "--start_delay",
     type=float,
     default=None,
     help="In how many hours to start the measurement script.",
@@ -57,7 +57,7 @@ import datetime
 @click.option("--start", type=int, default=0, help="Start index for measuring files.")
 @click.option("-v", "--verbose", is_flag=True)
 def collect_mnist(
-    input_dir, output_dir, n_files, verbose, test, runtime, progress, start, start_time
+    input_dir, output_dir, n_files, verbose, test, runtime, progress, start, start_delay
 ):
 
     assert output_dir is not None
@@ -169,24 +169,24 @@ def collect_mnist(
         print(f"Starting at img index {start}.")
     start_datetime = datetime.datetime.now()
     print(f"\nCurrent time: {start_datetime}")
-    if start_time:
-        n_seconds_wait = start_time * 60 * 60
-        start_datetime = start_datetime + datetime.timedelta(hours=start_time)
+    if start_delay:
+        n_seconds_wait = start_delay * 60 * 60
+        start_datetime = start_datetime + datetime.timedelta(hours=start_delay)
         print(f"Starting measurement at: {start_datetime}")
     if runtime:
         end_datetime = start_datetime + datetime.timedelta(hours=runtime)
-        print(f"Ending script by: {runtime}")
+        print(f"Ending script by: {end_datetime}")
         # convert to seconds
         runtime = runtime * 60 * 60
 
-    if start_time:
+    if start_delay:
         time.sleep(n_seconds_wait)
 
-    start_time = time.time()
+    start_delay = time.time()
     for i in range(start, n_files):
 
         if runtime:
-            proc_time = time.time() - start_time
+            proc_time = time.time() - start_delay
             if proc_time > runtime:
                 print(f"-- measured {i} / {n_files} files")
                 break
@@ -247,14 +247,14 @@ def collect_mnist(
             camera.capture(str(output_fp))
 
         if (i + 1) % progress == 0:
-            proc_time = time.time() - start_time
+            proc_time = time.time() - start_delay
             print(f"\n{i+1} / {n_files}, {proc_time / 60.:.3f} minutes")
 
     with open(subdir / "labels.txt", "w") as f:
         for item in labels:
             f.write("%s\n" % item)
 
-    proc_time = time.time() - start_time
+    proc_time = time.time() - start_delay
     print(f"Finished, {proc_time/60.:.3f} minutes.")
 
 
