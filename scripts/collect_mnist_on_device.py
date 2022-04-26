@@ -67,11 +67,6 @@ def collect_mnist(
     # TODO use after measurement!!
     interpolation = cv2.INTER_NEAREST
 
-    if runtime:
-        print(f"Running script for {runtime} hours...")
-        # convert to seconds
-        runtime = runtime * 60 * 60
-
     # display param
     screen_res = np.array((1920, 1200))
     hshift = 0
@@ -171,11 +166,20 @@ def collect_mnist(
     subdir.mkdir(exist_ok=True)
     labels = []
     if start:
-        print(f"Starting at {start}.")
+        print(f"Starting at img index {start}.")
+    start_datetime = datetime.datetime.now()
+    print(f"\nCurrent time: {start_datetime}")
     if start_time:
         n_seconds_wait = start_time * 60 * 60
-        start_datetime = datetime.datetime.now() + datetime.timedelta(hours=start_time)
+        start_datetime = start_datetime + datetime.timedelta(hours=start_time)
         print(f"Starting measurement at: {start_datetime}")
+    if runtime:
+        end_datetime = start_datetime + datetime.timedelta(hours=runtime)
+        print(f"Ending script by: {runtime}")
+        # convert to seconds
+        runtime = runtime * 60 * 60
+
+    if start_time:
         time.sleep(n_seconds_wait)
 
     start_time = time.time()
