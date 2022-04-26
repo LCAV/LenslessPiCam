@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="lensless",
-    version="1.0.0",
+    version="1.0.1",
     author="Eric Bezzam",
     author_email="ebezzam@gmail.com",
     description="Package to control and image with a lensless camera running on a Raspberry Pi.",
