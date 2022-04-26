@@ -71,6 +71,11 @@ sudo apt-get install libimage-exiftool-perl
 sudo apt-get install libatlas-base-dev
 ```
 
+It is also possible to install the library via `pip`:
+```bash
+pip install lensless
+```
+
 Note that we highly recommend using Python 3.9, as its [end-of-life](https://endoflife.date/python) is Oct 2025. Some Python library versions may not be available with earlier versions of Python.
 
 For plotting on your local computer, you may also need to install [Tk](https://stackoverflow.com/questions/5459444/tkinter-python-may-not-be-configured-for-tk).

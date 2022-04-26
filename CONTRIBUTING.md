@@ -53,6 +53,7 @@ to run all tests.
 
 ## Release new version and deploy to PyPi
 
+After merging to the `main` branch and from the `main` branch (!):
 
 1. Edit the `version` field in `setup.py`.
 2. Create new tag.
