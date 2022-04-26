@@ -79,20 +79,12 @@ resource for researchers [@bezzam2017hardware] and students alike [@bezzam2019te
 
 [^2]: [www.raspberrypi.com/products/raspberry-pi-high-quality-camera/](https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera/).
 
-![ADMM reconstruction of thumbs-up on a phone 40 cm away.](compare_cams.png){#fig:compare_cams width=90%}
-
-<!-- | DiffuserCam   | `LenslessPiCam`   |
-|-------------  |---------------  |
-| ![](hq_cam.png){#fig:compare_cams width=45%} | ![](hq_cam.png){#fig:compare_cams width=45%} | -->
-
-
+![ADMM reconstruction of thumbs-up on a phone 40 cm away.](compare_cams.png){#fig:compare_cams width=80%}
 
 # Contributions
 
 With respect to the DiffuserCam tutorial [@diffusercam], we have made the following
-contributions.
-
-In terms of hardware, as shown in \autoref{fig:hardware}, we:
+contributions. In terms of hardware, as shown in \autoref{fig:hardware}, we:
 
 - make use of the HQ camera sensor ($50): 4056 x 3040 pixels (12.3 MP) and 7.9 mm 
 sensor diagonal, compared to 3280 × 2464 pixels (8.1 MP) and 4.6 mm sensor diagonal for the 
@@ -100,7 +92,7 @@ Camera Module 2 ($30),
 - provide the design and firmware for a cheap point source generator (needed 
 for calibration), which consists of an Arduino, a white LED, and a cardboard box.
   
-![(a) LenslessPiCam, (b) point source generator (inside), and (c) point source generator (outside).](hardware.png){#fig:hardware}
+![(a) LenslessPiCam, (b) point source generator (inside) and (c) (outside).](hardware.png){#fig:hardware width=95%}
 
 
 With respect to reconstruction algorithms, we:
@@ -128,6 +120,7 @@ We also provide functionality to:
 - quantitavely evaluate the point spread function (PSF) of the lensless camera,
 - remotely display data on an external monitor, which can be used to automate 
   raw data measurements to, e.g., gather a dataset,
+- collect MNIST remotely or from the Raspberry Pi,
 - evalute reconstructions on a variety of metrics: MSE, PSNR, SSIM, LPIPS [@zhang2018perceptual].
 
 Finally, we have written a set of Medium articles to guide users through the 
@@ -186,32 +179,6 @@ The DiffuserCam implementations can be found
 `lensless.APGD` and `lensless.ADMM` are used for `LenslessPiCam`. The 
 comparison is done on a Lenovo Thinkpad P15 with 16 GB RAM and a 2.70 GHz
 processor (6 cores, 12 threads), running Ubuntu 21.04.
-
-[comment]: <> (|               |   GD   |  APGD  |  APGD &#40;real&#41;  |  ADMM  |)
-
-[comment]: <> (|:-------------:|:------:|:------:|:------:|:------:|)
-
-[comment]: <> (|  DiffuserCam  |  215 s | - | - | 7.24 s |)
-
-[comment]: <> (| `LenslessPiCam` | 70.1 s | 93.2 s | 67.9 s | 2.76 s |)
-
-[comment]: <> (|               |   GD   |  GD &#40;real&#41;  |  ADMM  |)
-
-[comment]: <> (|:-------------:|:------:|:------:|:------:|)
-
-[comment]: <> (|  DiffuserCam  |  215 s | - | 7.24 s |)
-
-[comment]: <> (| `LenslessPiCam` | 93.2 s | 67.9 s | 2.76 s |)
-
-[comment]: <> (: Benchmark grayscale reconstruction. 300 iterations for gradient descent &#40;GD&#41;)
-
-[comment]: <> (and 5 iterations for alternating direction method of multipliers &#40;ADMM&#41;. )
-
-[comment]: <> (`lensless.apgd.APGD` is used in the case of `LenslessPiCam` and GD. For GD )
-
-[comment]: <> (&#40;real&#41;, the convolution in the Fourier domain exploits the fact that we are )
-
-[comment]: <> (dealing with real 2D signals.)
 
 |               |   GD   |  ADMM  |
 |:-------------:|:------:|:------:|
