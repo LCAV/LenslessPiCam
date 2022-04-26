@@ -50,3 +50,16 @@ to run all tests.
 7. Format the code (see above).
 8. Push your new branch to your fork.
 9. Open a pull request with the original repository.
+
+## Deploy new version to PyPi
+
+
+```
+# Create tag and upload
+git tag -a vX.X.X -m "Description."
+git push origin vX.X.X
+
+# Create package and upload to Pypi
+python setup.py sdist
+python -m twine upload  dist/lensless-1.0.1.tar.gz
+```
