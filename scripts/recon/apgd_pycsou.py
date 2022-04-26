@@ -1,22 +1,34 @@
 """
-This script will load the PSF data and raw measurement for the reconstruction
-that can implement afterwards.
+Apply Accelerated Proximal Gradient Descent (APDG) with a non-negativity prior
+for grayscale reconstruction. Example using Pycsou:
+https://matthieumeo.github.io/pycsou/html/api/algorithms/pycsou.opt.proxalgs.html?highlight=apgd#pycsou.opt.proxalgs.AcceleratedProximalGradientDescent
 
-```bash
-python scripts/reconstruction_template.py --psf_fp data/psf/tape_rgb.png \
---data_fp data/raw_data/thumbs_up_rgb.png
+Example
 ```
+python scripts/recon/apgd_pycsou.py --psf_fp data/psf/tape_rgb.png \
+--data_fp data/raw_data/thumbs_up_rgb.png --real_conv
+```
+Note that the `RealFFTConvolve2D` has to be implemented in `lensless/realfftconv.py`.
+
+Otherwise, grayscale reconstruction with the non-optimized FFT convolution can
+be readily used (RGB is not supported):
+```
+python scripts/recon/apgd_pycsou.py --psf_fp data/psf/tape_rgb.png --data_fp \
+data/raw_data/thumbs_up_rgb.png --gray
+```
+
 
 """
 
-import os
-import time
 import numpy as np
-import pathlib as plib
+import time
+from datetime import datetime
 import click
 import matplotlib.pyplot as plt
-from datetime import datetime
 from lensless.io import load_data
+from lensless import APGD, APGDPriors
+import os
+import pathlib as plib
 
 
 @click.command()
@@ -31,10 +43,16 @@ from lensless.io import load_data
     help="File name for raw measurement data.",
 )
 @click.option(
-    "--n_iter",
+    "--prior",
+    default=APGDPriors.NONNEG,
+    type=click.Choice(APGDPriors.all_values()),
+    help="Prior/penalty for APGD.",
+)
+@click.option(
+    "--max_iter",
     type=int,
-    default=500,
-    help="Number of iterations.",
+    default=300,
+    help="Maximum number of iterations.",
 )
 @click.option(
     "--downsample",
@@ -43,10 +61,17 @@ from lensless.io import load_data
     help="Downsampling factor.",
 )
 @click.option(
+    "--shape",
+    default=None,
+    nargs=2,
+    type=int,
+    help="Image shape (height, width) for reconstruction.",
+)
+@click.option(
     "--disp",
     default=50,
     type=int,
-    help="How many iterations to wait for intermediate plot/results. Set to negative value for no intermediate plots.",
+    help="How many iterations to wait for intermediate plot. Set to negative value for no intermediate plots.",
 )
 @click.option(
     "--flip",
@@ -71,7 +96,7 @@ from lensless.io import load_data
 @click.option(
     "--no_plot",
     is_flag=True,
-    help="Whether to no plot.",
+    help="Whether to not plot between iterations.",
 )
 @click.option(
     "--bg",
@@ -94,14 +119,20 @@ from lensless.io import load_data
     is_flag=True,
     help="Same PSF for all channels (sum) or unique PSF for RGB.",
 )
-def reconstruction(
+@click.option(
+    "--real_conv",
+    is_flag=True,
+    help="Whether to use real convolution linear operator.",
+)
+def apgd(
     psf_fp,
     data_fp,
-    n_iter,
+    prior,
+    gray,
+    max_iter,
     downsample,
     disp,
     flip,
-    gray,
     bayer,
     bg,
     rg,
@@ -109,7 +140,11 @@ def reconstruction(
     save,
     no_plot,
     single_psf,
+    real_conv,
+    shape
 ):
+
+    plot = not no_plot
     psf, data = load_data(
         psf_fp=psf_fp,
         data_fp=data_fp,
@@ -117,26 +152,35 @@ def reconstruction(
         bayer=bayer,
         blue_gain=bg,
         red_gain=rg,
-        plot=not no_plot,
+        plot=plot,
         flip=flip,
         gamma=gamma,
         gray=gray,
         single_psf=single_psf,
+        shape=shape
     )
 
     if save:
         save = os.path.basename(data_fp).split(".")[0]
-        timestamp = datetime.now().strftime("_%d%m%d%Y_%Hh%M")
-        save = "YOUR_RECONSTRUCTION_" + save + timestamp
+        timestamp = datetime.now().strftime("_%d%m%Y_%Hh%M")
+        save = "apgd_" + save + timestamp
         save = plib.Path(__file__).parent / save
         save.mkdir(exist_ok=False)
 
     start_time = time.time()
-    # TODO : setup for your reconstruction algorithm
+    if prior == APGDPriors.L2:
+        recon = APGD(
+            psf=psf, max_iter=max_iter, diff_penalty=prior, prox_penalty=None, realconv=real_conv
+        )
+    else:
+        recon = APGD(
+            psf=psf, max_iter=max_iter, diff_penalty=None, prox_penalty=prior, realconv=real_conv
+        )
+    recon.set_data(data)
     print(f"Setup time : {time.time() - start_time} s")
 
     start_time = time.time()
-    # TODO : apply your reconstruction
+    res = recon.apply(n_iter=max_iter, disp_iter=disp, save=save, gamma=gamma, plot=not no_plot)
     print(f"Processing time : {time.time() - start_time} s")
 
     if not no_plot:
@@ -147,4 +191,4 @@ def reconstruction(
 
 
 if __name__ == "__main__":
-    reconstruction()
+    apgd()

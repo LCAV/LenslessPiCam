@@ -1,34 +1,27 @@
 """
-Apply Accelerated Proximal Gradient Descent (APDG) with a non-negativity prior
-for grayscale reconstruction. Example using Pycsou:
-https://matthieumeo.github.io/pycsou/html/api/algorithms/pycsou.opt.proxalgs.html?highlight=apgd#pycsou.opt.proxalgs.AcceleratedProximalGradientDescent
+Apply gradient descent.
 
-Example
 ```
-python scripts/apgd_pycsou.py --psf_fp data/psf/tape_rgb.png \
---data_fp data/raw_data/thumbs_up_rgb.png --real_conv
+python scripts/recon/gradient_descent.py --psf_fp data/psf/tape_rgb.png -\
+-data_fp data/raw_data/thumbs_up_rgb.png --n_iter 300
 ```
-Note that the `RealFFTConvolve2D` has to be implemented in `lensless/realfftconv.py`.
-
-Otherwise, grayscale reconstruction with the non-optimized FFT convolution can
-be readily used (RGB is not supported):
-```
-python scripts/apgd_pycsou.py --psf_fp data/psf/tape_rgb.png --data_fp \
-data/raw_data/thumbs_up_rgb.png --gray
-```
-
 
 """
 
+import os
 import numpy as np
 import time
+import pathlib as plib
 from datetime import datetime
 import click
 import matplotlib.pyplot as plt
 from lensless.io import load_data
-from lensless import APGD, APGDPriors
-import os
-import pathlib as plib
+from lensless import (
+    GradientDescentUpdate,
+    GradientDescient,
+    NesterovGradientDescent,
+    FISTA,
+)
 
 
 @click.command()
@@ -43,16 +36,10 @@ import pathlib as plib
     help="File name for raw measurement data.",
 )
 @click.option(
-    "--prior",
-    default=APGDPriors.NONNEG,
-    type=click.Choice(APGDPriors.all_values()),
-    help="Prior/penalty for APGD.",
-)
-@click.option(
-    "--max_iter",
+    "--n_iter",
     type=int,
-    default=300,
-    help="Maximum number of iterations.",
+    default=100,
+    help="Number of iterations.",
 )
 @click.option(
     "--downsample",
@@ -61,13 +48,27 @@ import pathlib as plib
     help="Downsampling factor.",
 )
 @click.option(
+    "--shape",
+    default=None,
+    nargs=2,
+    type=int,
+    help="Image shape (height, width) for reconstruction.",
+)
+@click.option(
+    "--method",
+    default=GradientDescentUpdate.FISTA,
+    type=click.Choice(GradientDescentUpdate.all_values()),
+    help="Gradient descent update method.",
+)
+@click.option(
     "--disp",
-    default=50,
+    default=25,
     type=int,
     help="How many iterations to wait for intermediate plot. Set to negative value for no intermediate plots.",
 )
 @click.option(
     "--flip",
+    type=int,
     is_flag=True,
     help="Whether to flip image.",
 )
@@ -89,7 +90,7 @@ import pathlib as plib
 @click.option(
     "--no_plot",
     is_flag=True,
-    help="Whether to not plot between iterations.",
+    help="Whether to no plot.",
 )
 @click.option(
     "--bg",
@@ -112,20 +113,15 @@ import pathlib as plib
     is_flag=True,
     help="Same PSF for all channels (sum) or unique PSF for RGB.",
 )
-@click.option(
-    "--real_conv",
-    is_flag=True,
-    help="Whether to use real convolution linear operator.",
-)
-def apgd(
+def gradient_descent(
     psf_fp,
     data_fp,
-    prior,
-    gray,
-    max_iter,
+    n_iter,
     downsample,
+    method,
     disp,
     flip,
+    gray,
     bayer,
     bg,
     rg,
@@ -133,10 +129,9 @@ def apgd(
     save,
     no_plot,
     single_psf,
-    real_conv,
+    shape
 ):
 
-    plot = not no_plot
     psf, data = load_data(
         psf_fp=psf_fp,
         data_fp=data_fp,
@@ -144,34 +139,35 @@ def apgd(
         bayer=bayer,
         blue_gain=bg,
         red_gain=rg,
-        plot=plot,
+        plot=not no_plot,
         flip=flip,
         gamma=gamma,
         gray=gray,
         single_psf=single_psf,
+        shape=shape,
     )
 
+    if disp < 0:
+        disp = None
     if save:
         save = os.path.basename(data_fp).split(".")[0]
         timestamp = datetime.now().strftime("_%d%m%Y_%Hh%M")
-        save = "apgd_" + save + timestamp
+        save = "gd_" + save + timestamp
         save = plib.Path(__file__).parent / save
         save.mkdir(exist_ok=False)
 
     start_time = time.time()
-    if prior == APGDPriors.L2:
-        recon = APGD(
-            psf=psf, max_iter=max_iter, diff_penalty=prior, prox_penalty=None, realconv=real_conv
-        )
+    if method is GradientDescentUpdate.VANILLA:
+        recon = GradientDescient(psf)
+    elif method is GradientDescentUpdate.NESTEROV:
+        recon = NesterovGradientDescent(psf)
     else:
-        recon = APGD(
-            psf=psf, max_iter=max_iter, diff_penalty=None, prox_penalty=prior, realconv=real_conv
-        )
+        recon = FISTA(psf)
     recon.set_data(data)
     print(f"Setup time : {time.time() - start_time} s")
 
     start_time = time.time()
-    res = recon.apply(n_iter=max_iter, disp_iter=disp, save=save, gamma=gamma, plot=not no_plot)
+    res = recon.apply(n_iter=n_iter, disp_iter=disp, save=save, gamma=gamma, plot=not no_plot)
     print(f"Processing time : {time.time() - start_time} s")
 
     if not no_plot:
@@ -182,4 +178,4 @@ def apgd(
 
 
 if __name__ == "__main__":
-    apgd()
+    gradient_descent()

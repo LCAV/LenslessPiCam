@@ -1,27 +1,22 @@
 """
-Apply gradient descent.
+This script will load the PSF data and raw measurement for the reconstruction
+that can implement afterwards.
 
-```
-python scripts/gradient_descent.py --psf_fp data/psf/tape_rgb.png -\
--data_fp data/raw_data/thumbs_up_rgb.png --n_iter 300
+```bash
+python scripts/recon/template.py --psf_fp data/psf/tape_rgb.png \
+--data_fp data/raw_data/thumbs_up_rgb.png
 ```
 
 """
 
 import os
-import numpy as np
 import time
+import numpy as np
 import pathlib as plib
-from datetime import datetime
 import click
 import matplotlib.pyplot as plt
+from datetime import datetime
 from lensless.io import load_data
-from lensless import (
-    GradientDescentUpdate,
-    GradientDescient,
-    NesterovGradientDescent,
-    FISTA,
-)
 
 
 @click.command()
@@ -38,7 +33,7 @@ from lensless import (
 @click.option(
     "--n_iter",
     type=int,
-    default=100,
+    default=500,
     help="Number of iterations.",
 )
 @click.option(
@@ -48,20 +43,20 @@ from lensless import (
     help="Downsampling factor.",
 )
 @click.option(
-    "--method",
-    default=GradientDescentUpdate.FISTA,
-    type=click.Choice(GradientDescentUpdate.all_values()),
-    help="Gradient descent update method.",
+    "--shape",
+    default=None,
+    nargs=2,
+    type=int,
+    help="Image shape (height, width) for reconstruction.",
 )
 @click.option(
     "--disp",
-    default=25,
+    default=50,
     type=int,
-    help="How many iterations to wait for intermediate plot. Set to negative value for no intermediate plots.",
+    help="How many iterations to wait for intermediate plot/results. Set to negative value for no intermediate plots.",
 )
 @click.option(
     "--flip",
-    type=int,
     is_flag=True,
     help="Whether to flip image.",
 )
@@ -106,12 +101,11 @@ from lensless import (
     is_flag=True,
     help="Same PSF for all channels (sum) or unique PSF for RGB.",
 )
-def gradient_descent(
+def reconstruction(
     psf_fp,
     data_fp,
     n_iter,
     downsample,
-    method,
     disp,
     flip,
     gray,
@@ -122,8 +116,8 @@ def gradient_descent(
     save,
     no_plot,
     single_psf,
+    shape
 ):
-
     psf, data = load_data(
         psf_fp=psf_fp,
         data_fp=data_fp,
@@ -136,29 +130,22 @@ def gradient_descent(
         gamma=gamma,
         gray=gray,
         single_psf=single_psf,
+        shape=shape
     )
 
-    if disp < 0:
-        disp = None
     if save:
         save = os.path.basename(data_fp).split(".")[0]
-        timestamp = datetime.now().strftime("_%d%m%Y_%Hh%M")
-        save = "gd_" + save + timestamp
+        timestamp = datetime.now().strftime("_%d%m%d%Y_%Hh%M")
+        save = "YOUR_RECONSTRUCTION_" + save + timestamp
         save = plib.Path(__file__).parent / save
         save.mkdir(exist_ok=False)
 
     start_time = time.time()
-    if method is GradientDescentUpdate.VANILLA:
-        recon = GradientDescient(psf)
-    elif method is GradientDescentUpdate.NESTEROV:
-        recon = NesterovGradientDescent(psf)
-    else:
-        recon = FISTA(psf)
-    recon.set_data(data)
+    # TODO : setup for your reconstruction algorithm
     print(f"Setup time : {time.time() - start_time} s")
 
     start_time = time.time()
-    res = recon.apply(n_iter=n_iter, disp_iter=disp, save=save, gamma=gamma, plot=not no_plot)
+    # TODO : apply your reconstruction
     print(f"Processing time : {time.time() - start_time} s")
 
     if not no_plot:
@@ -169,4 +156,4 @@ def gradient_descent(
 
 
 if __name__ == "__main__":
-    gradient_descent()
+    reconstruction()

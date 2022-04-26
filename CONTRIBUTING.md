@@ -50,3 +50,21 @@ to run all tests.
 7. Format the code (see above).
 8. Push your new branch to your fork.
 9. Open a pull request with the original repository.
+
+## Release new version and deploy to PyPi
+
+
+1. Edit the `version` field in `setup.py`.
+2. Create new tag.
+    ```
+    git tag -a vX.X.X -m "Description."
+    git push origin vX.X.X
+3. Create package and upload to Pypi (`pip install twine` if not already done).
+    ```
+    python setup.py sdist
+    python -m twine upload  dist/lensless-X.X.X.tar.gz
+    ```
+4. On [GitHub](https://github.com/LCAV/LenslessPiCam/tags) set 
+the new tag clicking "..." and selecting "Create release", at top right
+selecting "Edit tag", and at the bottom pressing "Publish release".
+5. Update `CHANGELOG.md`!

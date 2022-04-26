@@ -2,7 +2,7 @@
 Apply ADMM reconstruction.
 
 ```
-python scripts/admm.py --psf_fp data/psf/tape_rgb.png \
+python scripts/recon/admm.py --psf_fp data/psf/tape_rgb.png \
 --data_fp data/raw_data/thumbs_up_rgb.png --n_iter 5
 ```
 
@@ -41,6 +41,13 @@ from lensless import ADMM
     type=float,
     default=4,
     help="Downsampling factor.",
+)
+@click.option(
+    "--shape",
+    default=None,
+    nargs=2,
+    type=int,
+    help="Image shape (height, width) for reconstruction.",
 )
 @click.option(
     "--disp",
@@ -109,6 +116,7 @@ def admm(
     save,
     no_plot,
     single_psf,
+    shape,
 ):
     psf, data = load_data(
         psf_fp=psf_fp,
@@ -122,6 +130,7 @@ def admm(
         gamma=gamma,
         gray=gray,
         single_psf=single_psf,
+        shape=shape,
     )
 
     if disp < 0:
