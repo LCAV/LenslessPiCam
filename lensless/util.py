@@ -8,7 +8,7 @@ SUPPORTED_BIT_DEPTH = np.array([8, 10, 12, 16])
 FLOAT_DTYPES = [np.float32, np.float64]
 
 
-def resize(img, factor, interpolation=cv2.INTER_CUBIC):
+def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
     """
     Resize by given factor.
 
@@ -18,6 +18,8 @@ def resize(img, factor, interpolation=cv2.INTER_CUBIC):
         Downsampled image.
     factor : int or float
         Resizing factor.
+    shape : tuple
+        (Height, width).
     interpolation : OpenCV interpolation method
         See https://docs.opencv.org/2.4/modules/imgproc/doc/geometric_transformations.html#cv2.resize
 
@@ -28,10 +30,16 @@ def resize(img, factor, interpolation=cv2.INTER_CUBIC):
     """
     min_val = img.min()
     max_val = img.max()
-    # new_shape = tuple((np.array(img.shape)[::-1] * factor).astype(int))
-    new_shape = tuple((np.array(img.shape)[:2] * factor).astype(int))
-    new_shape = new_shape[::-1]
-    resized = cv2.resize(img, dsize=new_shape, interpolation=interpolation)
+    img_shape = np.array(img.shape)[:2]
+    if shape is None:
+        assert factor is not None
+        new_shape = tuple((img_shape * factor).astype(int))
+        new_shape = new_shape[::-1]
+        resized = cv2.resize(img, dsize=new_shape, interpolation=interpolation)
+    else:
+        if np.array_equal(img_shape, shape[::-1]):
+            return img
+        resized = cv2.resize(img, dsize=shape[::-1], interpolation=interpolation)
     return np.clip(resized, min_val, max_val)
 
 

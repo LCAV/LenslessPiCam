@@ -1,6 +1,6 @@
 # LenslessPiCam: A Hardware and Software Platform for Lensless Computational Imaging with a Raspberry Pi
 
-![Example PSF, raw data, and reconstruction.](scripts/example_reconstruction.png)
+![Example PSF, raw data, and reconstruction.](scripts/recon/example.png)
 
 - [Setup](#setup).
 - [Data for examples](#data).
@@ -61,7 +61,7 @@ pip install -e .
 pip install -r recon_requirements.txt
 
 # (optional) try reconstruction on local machine
-python scripts/admm.py --psf_fp data/psf/tape_rgb.png \
+python scripts/recon/admm.py --psf_fp data/psf/tape_rgb.png \
 --data_fp data/raw_data/thumbs_up_rgb.png --n_iter 5
 ```
 
@@ -136,15 +136,21 @@ to three steps:
 2. Setting the data.
 3. Applying the algorithm.
 
-For example, for ADMM (full example in `scripts/admm.py`):
+For example, for ADMM:
 ```python
     recon = ADMM(psf)
     recon.set_data(data)
     res = recon.apply(n_iter=n_iter)
 ```
 
+A full running example can be run like so:
+```bash
+python scripts/recon/admm.py --psf_fp data/psf/tape_rgb.png \
+--data_fp data/raw_data/thumbs_up_rgb.png --n_iter 5
+```
+
 A template for applying a reconstruction algorithm (including loading the data)
-can be found in `scripts/reconstruction_template.py`.
+can be found in `scripts/recon/template.py`.
 
 ## Evaluating on a dataset <a name="eval"></a>
 
