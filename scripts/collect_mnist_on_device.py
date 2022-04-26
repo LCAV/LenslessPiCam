@@ -11,6 +11,7 @@ import json
 import requests
 import gzip
 import shutil
+import datetime
 
 
 @click.command()
@@ -36,6 +37,12 @@ import shutil
     help="Measure test set, otherwise do train.",
 )
 @click.option(
+    "--start_time",
+    type=float,
+    default=None,
+    help="In how many hours to start the measurement script.",
+)
+@click.option(
     "--runtime",
     type=float,
     default=None,
@@ -49,7 +56,9 @@ import shutil
 )
 @click.option("--start", type=int, default=0, help="Start index for measuring files.")
 @click.option("-v", "--verbose", is_flag=True)
-def collect_mnist(input_dir, output_dir, n_files, verbose, test, runtime, progress, start):
+def collect_mnist(
+    input_dir, output_dir, n_files, verbose, test, runtime, progress, start, start_time
+):
 
     assert output_dir is not None
 
@@ -164,6 +173,12 @@ def collect_mnist(input_dir, output_dir, n_files, verbose, test, runtime, progre
     start_time = time.time()
     if start:
         print(f"Starting at {start}.")
+    if start_time:
+        n_seconds_wait = start_time * 60 * 60
+        start_datetime = datetime.datetime.now() + datetime.timedelta(hours=start_time)
+        print(f"Starting measurement at: {start_datetime}")
+        time.sleep(n_seconds_wait)
+
     for i in range(start, n_files):
 
         if runtime:
