@@ -143,7 +143,7 @@ For example, for ADMM:
     res = recon.apply(n_iter=n_iter)
 ```
 
-A full running example can run like so:
+A full running example can be run like so:
 ```bash
 python scripts/recon/admm.py --psf_fp data/psf/tape_rgb.png \
 --data_fp data/raw_data/thumbs_up_rgb.png --n_iter 5
