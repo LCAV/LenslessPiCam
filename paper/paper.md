@@ -117,18 +117,18 @@ We also provide functionality to:
 
 - remotely capture Bayer data with the proposed camera,
 - convert Bayer data to RGB or grayscale,
-- quantitavely evaluate the point spread function (PSF) of the lensless camera,
+- quantitatively evaluate the point spread function (PSF) of the lensless camera,
 - remotely display data on an external monitor, which can be used to automate 
   raw data measurements to, e.g., gather a dataset,
 - collect MNIST remotely or from the Raspberry Pi,
-- evalute reconstructions on a variety of metrics: MSE, PSNR, SSIM, LPIPS [@zhang2018perceptual].
+- evaluate reconstructions on a variety of metrics: MSE, PSNR, SSIM, LPIPS [@zhang2018perceptual].
 
 Finally, we have written a set of Medium articles to guide users through the 
 process of building, using and/or teaching with the proposed lensless camera. An overview of these
 articles can be found [here](https://medium.com/@bezzam/a-complete-lensless-imaging-tutorial-hardware-software-and-algorithms-8873fa81a660).
 The articles also include a set of solved exercises and problems for teaching purposes (solutions available to instructors on request).
 
-In the following sections, we describe some of there contributions, and quantify them (where appropriate).
+In the following sections, we describe some of these contributions, and quantify them (where appropriate).
 
 # High-level functionality
 
