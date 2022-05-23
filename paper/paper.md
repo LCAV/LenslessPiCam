@@ -310,4 +310,11 @@ hope to investigate and incorporate:
 We acknowledge feedback from Julien Fageot and the students during the first 
 iteration of this project in our graduate course.
 
+This work was in part funded by the Swiss National Science Foundation (SNSF) 
+under grants CRSII5 193826 “AstroSignals - A New Window on the Universe, with 
+the New Generation of Large Radio-Astronomy Facilities” (M. Simeoni), 
+200 021 181 978/1 “SESAM - Sensing and Sampling: Theory and Algorithms” 
+(E. Bezzam) and CRSII5 180232 “FemtoLippmann - Digital twin for multispectral 
+imaging” (S. Kashani).
+
 # References
