@@ -218,7 +218,7 @@ def load_psf(
 def load_data(
     psf_fp,
     data_fp,
-    downsample,
+    downsample=None,
     bg_pix=(5, 25),
     plot=True,
     flip=False,
@@ -277,6 +277,8 @@ def load_data(
 
     assert os.path.isfile(psf_fp)
     assert os.path.isfile(data_fp)
+    if shape is None:
+        assert downsample is not None
 
     # load and process PSF data
     psf, bg = load_psf(
