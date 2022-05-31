@@ -4,11 +4,21 @@
 
 #### Added
 
-- Example of RGB reconstruction with complex-valued FFT: `scripts/recon/apgd_pycsou.py`
+-
 
 #### Changed
 
 - 
+
+#### Bugfix
+
+-
+
+## 1.0.2 - (2022-05-31)
+
+#### Added
+
+- Example of RGB reconstruction with complex-valued FFT: `scripts/recon/apgd_pycsou.py`
 
 #### Bugfix
 
