@@ -24,6 +24,7 @@ class ADMM(ReconstructionAlgorithm):
         psi=None,
         psi_adj=None,
         psi_gram=None,
+        **kwargs
     ):
         """
 
@@ -109,8 +110,9 @@ class ADMM(ReconstructionAlgorithm):
         """Convolution with frequency response."""
         return fft.ifftshift(
             fft.irfft2(
-                fft.rfft2(self._image_est, axes=(0, 1)) * self._H,
+                fft.rfft2(self._image_est, axes=(0, 1), s=self._padded_shape[:2]) * self._H,
                 axes=(0, 1),
+                s=self._padded_shape[:2],
             ),
             axes=(0, 1),
         )
@@ -118,17 +120,24 @@ class ADMM(ReconstructionAlgorithm):
     def _backward(self, x):
         """adjoint of forward / convolution"""
         return fft.ifftshift(
-            fft.irfft2(fft.rfft2(x, axes=(0, 1)) * np.conj(self._H), axes=(0, 1)),
+            fft.irfft2(
+                fft.rfft2(x, axes=(0, 1), s=self._padded_shape[:2]) * np.conj(self._H),
+                axes=(0, 1),
+                s=self._padded_shape[:2],
+            ),
             axes=(0, 1),
         )
 
     def reset(self):
         # spatial frequency response
-        self._H = fft.rfft2(self._pad(self._psf), axes=(0, 1)).astype(self._complex_dtype)
+        self._H = fft.rfft2(self._pad(self._psf), axes=(0, 1), s=self._padded_shape[:2]).astype(
+            self._complex_dtype
+        )
 
         self._X = np.zeros(self._padded_shape, dtype=self._dtype)
-        self._U = np.zeros(np.r_[self._padded_shape, [2]], dtype=self._dtype)
+        # self._U = np.zeros(np.r_[self._padded_shape, [2]], dtype=self._dtype)
         self._image_est = np.zeros_like(self._X)
+        self._U = np.zeros_like(self._Psi(self._image_est))
         self._W = np.zeros_like(self._X)
         if self._image_est.max():
             # if non-zero
@@ -160,8 +169,8 @@ class ADMM(ReconstructionAlgorithm):
             + self._PsiT(self._mu2 * self._U - self._eta)
             + self._backward(self._mu1 * self._X - self._xi)
         )
-        freq_space_result = self._R_divmat * fft.rfft2(rk, axes=(0, 1))
-        self._image_est = fft.irfft2(freq_space_result, axes=(0, 1))
+        freq_space_result = self._R_divmat * fft.rfft2(rk, axes=(0, 1), s=self._padded_shape[:2])
+        self._image_est = fft.irfft2(freq_space_result, axes=(0, 1), s=self._padded_shape[:2])
 
     def _W_update(self):
         """Non-negativity update"""

@@ -4,7 +4,7 @@
 
 #### Added
 
-- 
+- Example of RGB reconstruction with complex-valued FFT: `scripts/recon/apgd_pycsou.py`
 
 #### Changed
 
@@ -12,7 +12,7 @@
 
 #### Bugfix
 
-- 
+- Possible shape mismatch when using the real-valued FFT: forward and backward.
 
 ## 1.0.1 - (2022-04-26)
 

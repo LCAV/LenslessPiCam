@@ -47,6 +47,7 @@ class APGD(ReconstructionAlgorithm):
         diff_lambda=0.001,
         prox_lambda=0.001,
         realconv=True,
+        **kwargs
     ):
         """
         Wrapper for Pycsou's APGD (accelerated proximal gradient descent)

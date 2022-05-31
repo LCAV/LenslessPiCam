@@ -129,7 +129,7 @@ def gradient_descent(
     save,
     no_plot,
     single_psf,
-    shape
+    shape,
 ):
 
     psf, data = load_data(
