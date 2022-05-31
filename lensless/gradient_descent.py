@@ -41,7 +41,7 @@ def non_neg(xi):
 
 
 class GradientDescient(ReconstructionAlgorithm):
-    def __init__(self, psf, dtype=np.float32, proj=non_neg):
+    def __init__(self, psf, dtype=np.float32, proj=non_neg, **kwargs):
         """
         Object for applying projected gradient descent.
 
@@ -81,7 +81,9 @@ class GradientDescient(ReconstructionAlgorithm):
         self._image_est = self._pad(x)
 
         # spatial frequency response
-        self._H = fft.rfft2(self._pad(self._psf), norm="ortho", axes=(0, 1))
+        self._H = fft.rfft2(
+            self._pad(self._psf), norm="ortho", axes=(0, 1), s=self._padded_shape[:2]
+        )
         self._Hadj = np.conj(self._H)
 
         Hadj_flat = self._Hadj.reshape(-1, self._n_channels)
@@ -93,12 +95,18 @@ class GradientDescient(ReconstructionAlgorithm):
         return self._backward(diff)
 
     def _forward(self):
-        Vk = fft.rfft2(self._image_est, axes=(0, 1))
-        return self._crop(fft.ifftshift(fft.irfft2(self._H * Vk, axes=(0, 1)), axes=(0, 1)))
+        Vk = fft.rfft2(self._image_est, axes=(0, 1), s=self._padded_shape[:2])
+        return self._crop(
+            fft.ifftshift(
+                fft.irfft2(self._H * Vk, axes=(0, 1), s=self._padded_shape[:2]), axes=(0, 1)
+            )
+        )
 
     def _backward(self, x):
-        X = fft.rfft2(self._pad(x), axes=(0, 1))
-        return fft.ifftshift(fft.irfft2(self._Hadj * X, axes=(0, 1)), axes=(0, 1))
+        X = fft.rfft2(self._pad(x), axes=(0, 1), s=self._padded_shape[:2])
+        return fft.ifftshift(
+            fft.irfft2(self._Hadj * X, axes=(0, 1), s=self._padded_shape[:2]), axes=(0, 1)
+        )
 
     def _update(self):
         self._image_est -= self._alpha * self._grad()
@@ -117,7 +125,7 @@ class NesterovGradientDescent(GradientDescient):
 
     """
 
-    def __init__(self, psf, dtype=np.float32, proj=non_neg, p=0, mu=0.9):
+    def __init__(self, psf, dtype=np.float32, proj=non_neg, p=0, mu=0.9, **kwargs):
         self._p = p
         self._mu = mu
         super(NesterovGradientDescent, self).__init__(psf, dtype, proj)
@@ -143,7 +151,7 @@ class FISTA(GradientDescient):
 
     """
 
-    def __init__(self, psf, dtype=np.float32, proj=non_neg, tk=1):
+    def __init__(self, psf, dtype=np.float32, proj=non_neg, tk=1, **kwargs):
 
         super(FISTA, self).__init__(psf, dtype, proj)
         self._tk = tk

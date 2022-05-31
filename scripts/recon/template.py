@@ -116,7 +116,7 @@ def reconstruction(
     save,
     no_plot,
     single_psf,
-    shape
+    shape,
 ):
     psf, data = load_data(
         psf_fp=psf_fp,
@@ -130,7 +130,7 @@ def reconstruction(
         gamma=gamma,
         gray=gray,
         single_psf=single_psf,
-        shape=shape
+        shape=shape,
     )
 
     if save:
