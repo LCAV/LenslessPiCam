@@ -1,22 +1,28 @@
 """
-Apply Accelerated Proximal Gradient Descent (APDG) with a non-negativity prior
-for grayscale reconstruction. Example using Pycsou:
+Apply Accelerated Proximal Gradient Descent (APGD) with a desired prior. 
+
+Pycsou documentation of (APGD):
 https://matthieumeo.github.io/pycsou/html/api/algorithms/pycsou.opt.proxalgs.html?highlight=apgd#pycsou.opt.proxalgs.AcceleratedProximalGradientDescent
 
-Example
+Example (default to non-negativity prior):
+```
+python scripts/recon/apgd_pycsou.py --psf_fp data/psf/tape_rgb.png --data_fp \
+data/raw_data/thumbs_up_rgb.png
+```
+Note that RGB reconstruction will not plot intermediate results as each channel
+is solved separately.
+
+A faster approach can be applied by implementing `RealFFTConvolve2D` such that
+the real-valued FFT is used and the 2-D FFT simulateneously applied across
+channels
 ```
 python scripts/recon/apgd_pycsou.py --psf_fp data/psf/tape_rgb.png \
 --data_fp data/raw_data/thumbs_up_rgb.png --real_conv
 ```
-Note that the `RealFFTConvolve2D` has to be implemented in `lensless/realfftconv.py`.
+Note that `RealFFTConvolve2D` has to be implemented in `lensless/realfftconv.py`.
 
-Otherwise, grayscale reconstruction with the non-optimized FFT convolution can
-be readily used (RGB is not supported):
-```
-python scripts/recon/apgd_pycsou.py --psf_fp data/psf/tape_rgb.png --data_fp \
-data/raw_data/thumbs_up_rgb.png --gray
-```
-
+If you are an instructor and/or would like the solution, please send an email to 
+eric[dot]bezzam[at]epfl[dot]ch.
 
 """
 
@@ -26,6 +32,7 @@ from datetime import datetime
 import click
 import matplotlib.pyplot as plt
 from lensless.io import load_data
+from lensless.plot import plot_image
 from lensless import APGD, APGDPriors
 import os
 import pathlib as plib
@@ -141,7 +148,7 @@ def apgd(
     no_plot,
     single_psf,
     real_conv,
-    shape
+    shape,
 ):
 
     plot = not no_plot
@@ -157,7 +164,7 @@ def apgd(
         gamma=gamma,
         gray=gray,
         single_psf=single_psf,
-        shape=shape
+        shape=shape,
     )
 
     if save:
@@ -167,26 +174,73 @@ def apgd(
         save = plib.Path(__file__).parent / save
         save.mkdir(exist_ok=False)
 
-    start_time = time.time()
     if prior == APGDPriors.L2:
-        recon = APGD(
-            psf=psf, max_iter=max_iter, diff_penalty=prior, prox_penalty=None, realconv=real_conv
-        )
+        diff_penalty = prior
+        prox_penalty = None
     else:
-        recon = APGD(
-            psf=psf, max_iter=max_iter, diff_penalty=None, prox_penalty=prior, realconv=real_conv
-        )
-    recon.set_data(data)
-    print(f"Setup time : {time.time() - start_time} s")
+        diff_penalty = None
+        prox_penalty = prior
 
     start_time = time.time()
-    res = recon.apply(n_iter=max_iter, disp_iter=disp, save=save, gamma=gamma, plot=not no_plot)
-    print(f"Processing time : {time.time() - start_time} s")
+
+    if real_conv or gray:
+
+        # for `real_conv` parallelize RGB channels with custom operator
+        recon = APGD(
+            psf=psf,
+            max_iter=max_iter,
+            diff_penalty=diff_penalty,
+            prox_penalty=prox_penalty,
+            realconv=real_conv,
+        )
+        recon.set_data(data)
+        print(f"Setup time : {time.time() - start_time} s")
+
+        start_time = time.time()
+        res = recon.apply(n_iter=max_iter, disp_iter=disp, save=save, gamma=gamma, plot=not no_plot)
+        print(f"Processing time : {time.time() - start_time} s")
+
+        final_img = res[0]
+
+    else:
+
+        # loop over RGB channels (naive approach with complex-valued FFT)
+        recon = [
+            APGD(
+                psf=psf[:, :, i],
+                max_iter=max_iter,
+                diff_penalty=diff_penalty,
+                prox_penalty=prox_penalty,
+                realconv=real_conv,
+            )
+            for i in range(psf.shape[2])
+        ]
+        [recon[i].set_data(data[:, :, i]) for i in range(data.shape[2])]
+        print(f"Setup time : {time.time() - start_time} s")
+
+        start_time = time.time()
+        final_img = []
+        print("Looping over channels...")
+        for i in range(data.shape[2]):
+            print(f"-- channel {i}", end="")
+            final_img.append(
+                recon[i].apply(
+                    n_iter=max_iter, disp_iter=max_iter + 1, save=False, gamma=gamma, plot=False
+                )
+            )
+            print(f", {time.time() - start_time} s")
+        print(f"Processing time : {time.time() - start_time} s")
+
+        final_img = np.transpose(np.array(final_img), (1, 2, 0))
+        ax = plot_image(final_img, gamma=gamma)
+        ax.set_title("Final reconstruction after {} iterations".format(max_iter))
+        if save:
+            plt.savefig(plib.Path(save) / "final_reconstruction.png")
 
     if not no_plot:
         plt.show()
     if save:
-        np.save(plib.Path(save) / "final_reconstruction.npy", res[0])
+        np.save(plib.Path(save) / "final_reconstruction.npy", final_img)
         print(f"Files saved to : {save}")
 
 

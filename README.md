@@ -9,6 +9,7 @@
 - [Remote capture](#capture).
 - [Remote display](#display).
 - [Collecting MNIST](#mnist).
+- [Citing this work](#cite).
 
 This package provides functionalities to perform imaging with a lensless camera.
 We make use of a low-cost implementation of the DiffuserCam [[1]](#1) where we
@@ -248,6 +249,19 @@ To remotely collect the MNIST dataset (although quite slow due to copying files
 back and forth):
 ```bash
 python scripts/collect_mnist.py --hostname <IP_ADDRESS> --output_dir MNIST_meas
+```
+
+## Citing this work <a name="cite"></a>
+
+If you use these tools in your own research, please cite the following:
+```
+@misc{lenslesspicam,
+	url = {https://infoscience.epfl.ch/record/294041?&ln=en},
+	author = {Bezzam, Eric and Kashani, Sepand and Vetterli, Martin and Simeoni, Matthieu},
+	title = {Lensless{P}i{C}am: A Hardware and Software Platform for Lensless Computational Imaging with a {R}aspberry {P}i},
+	publisher = {Infoscience},
+	year = {2022},
+}
 ```
 
 ## References
