@@ -66,6 +66,5 @@ After merging to the `main` branch and from the `main` branch (!):
     python -m twine upload  dist/lensless-X.X.X.tar.gz
     ```
 4. On [GitHub](https://github.com/LCAV/LenslessPiCam/tags) set 
-the new tag clicking "..." and selecting "Create release", at top right
-selecting "Edit tag", and at the bottom pressing "Publish release".
-5. Update `CHANGELOG.md`!
+the new tag by (1) clicking "..." and selecting "Create release" and (2) at the bottom pressing "Publish release".
+5. Update `CHANGELOG.md` with new release version.
