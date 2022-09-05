@@ -226,12 +226,15 @@ the Raspberry Pi:
 python scripts/remote_display.py --fp <FP> --hostname <HOSTNAME> \
 --pad 80 --vshift 10 --brightness 90
 ```
-where `<HOSTNAME>` is the hostname or IP address of your Raspberry Pi, `<FN>` is
+where `<HOSTNAME>` is the hostname or IP address of your Raspberry Pi, `<FP>` is
 the path on your local computer of the image you would like to display, and the 
 other arguments can be used to adjust the positioning of the image and its
 brightness.
 
-## Collecting MNIST <a name="mnist"></a>
+When collecting a dataset, you can disable screen blanking (the screen from 
+entering power saving mode) by following these [steps](https://pimylifeup.com/raspberry-pi-disable-screen-blanking/).
+
+#### Collecting MNIST <a name="mnist"></a>
 
 We provide a couple scripts to collect MNIST with the proposed camera.
 
