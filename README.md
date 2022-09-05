@@ -190,7 +190,7 @@ python scripts/apply_admm_single_mirflickr.py \
 
 You can remotely capture raw Bayer data with the following script.
 ```bash
-python scripts/remote_capture.py --exp 0.1 --iso 100 --bayer --fp <FN> --hostname <HOSTNAME>
+python scripts/remote_capture.py --exp 0.1 --iso 100 --bayer --fn <FN> --hostname <HOSTNAME>
 ```
 where `<HOSTNAME>` is the hostname or IP address of your Raspberry Pi, `<FN>` is
 the name of the file to save the Bayer data, and the other arguments can be used
