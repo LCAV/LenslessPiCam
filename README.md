@@ -196,6 +196,8 @@ where `<HOSTNAME>` is the hostname or IP address of your Raspberry Pi, `<FN>` is
 the name of the file to save the Bayer data, and the other arguments can be used
 to adjust camera settings.
 
+Note if using the *Legacy Camera* on Bullseye OS, you should include the `--legacy` flag as well!
+
 ## Remote display <a name="display"></a>
 
 For collecting images displayed on a screen, we have prepared some software to
