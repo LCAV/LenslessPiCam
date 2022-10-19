@@ -9,16 +9,16 @@ from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEV
 
 
 def load_image(
-        fp,
-        verbose=False,
-        flip=False,
-        bayer=False,
-        black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
-        blue_gain=None,
-        red_gain=None,
-        ccm=RPI_HQ_CAMERA_CCM_MATRIX,
-        back=None,
-        nbits_out=None,
+    fp,
+    verbose=False,
+    flip=False,
+    bayer=False,
+    black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
+    blue_gain=None,
+    red_gain=None,
+    ccm=RPI_HQ_CAMERA_CCM_MATRIX,
+    back=None,
+    nbits_out=None,
 ):
     """
     Load image as numpy array.
@@ -103,20 +103,20 @@ def load_image(
 
 
 def load_psf(
-        fp,
-        downsample=1,
-        return_float=True,
-        bg_pix=(5, 25),
-        return_bg=False,
-        flip=False,
-        verbose=False,
-        bayer=False,
-        blue_gain=None,
-        red_gain=None,
-        dtype=np.float32,
-        nbits_out=None,
-        single_psf=False,
-        shape=None,
+    fp,
+    downsample=1,
+    return_float=True,
+    bg_pix=(5, 25),
+    return_bg=False,
+    flip=False,
+    verbose=False,
+    bayer=False,
+    blue_gain=None,
+    red_gain=None,
+    dtype=np.float32,
+    nbits_out=None,
+    single_psf=False,
+    shape=None,
 ):
     """
     Load and process PSF for analysis or for reconstruction.
@@ -231,20 +231,20 @@ def load_psf(
 
 
 def load_data(
-        psf_fp,
-        data_fp,
-        downsample=None,
-        bg_pix=(5, 25),
-        plot=True,
-        flip=False,
-        bayer=False,
-        blue_gain=None,
-        red_gain=None,
-        gamma=None,
-        gray=False,
-        dtype=np.float32,
-        single_psf=False,
-        shape=None,
+    psf_fp,
+    data_fp,
+    downsample=None,
+    bg_pix=(5, 25),
+    plot=True,
+    flip=False,
+    bayer=False,
+    blue_gain=None,
+    red_gain=None,
+    gamma=None,
+    gray=False,
+    dtype=np.float32,
+    single_psf=False,
+    shape=None,
 ):
     """
     Load data for image reconstruction.
