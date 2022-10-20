@@ -187,14 +187,14 @@ def load_psf(
     else:
         # grayscale
         if len(np.shape(psf)) < 3:
-            bg = np.mean(psf[bg_pix[0]: bg_pix[1], bg_pix[0]: bg_pix[1]])
+            bg = np.mean(psf[bg_pix[0] : bg_pix[1], bg_pix[0] : bg_pix[1]])
             psf -= bg
 
         # rgb
         else:
             bg = []
             for i in range(3):
-                bg_i = np.mean(psf[bg_pix[0]: bg_pix[1], bg_pix[0]: bg_pix[1], i])
+                bg_i = np.mean(psf[bg_pix[0] : bg_pix[1], bg_pix[0] : bg_pix[1], i])
                 psf[:, :, i] -= bg_i
                 bg.append(bg_i)
 
@@ -208,7 +208,7 @@ def load_psf(
         psf = resize(psf, factor=1 / downsample)
 
     if single_psf:
-        if(len(psf.shape) == 3):
+        if len(psf.shape) == 3:
             # TODO : in Lensless Learning, they sum channels --> `psf_diffuser = np.sum(psf_diffuser,2)`
             # https://github.com/Waller-Lab/LenslessLearning/blob/master/pre-trained%20reconstructions.ipynb
             psf = np.sum(psf, 2)
