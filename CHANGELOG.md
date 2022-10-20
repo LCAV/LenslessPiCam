@@ -12,7 +12,7 @@
 
 #### Bugfix
 
--
+- Loading grayscale PSFs would cause an dimension error when removing the background pixels
 
 ## 1.0.2 - (2022-05-31)
 
