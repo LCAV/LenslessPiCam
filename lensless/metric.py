@@ -72,8 +72,8 @@ def ssim(true, est, normalize=True, channel_axis=2, **kwargs):
     normalize : bool, optional
         Whether to normalize such that maximum value is 1.
     channel_axis : int or None, optional
-        If `None`, the image is assumed to be a grayscale (single channel) image. 
-        Otherwise, this parameter indicates which axis of the array corresponds 
+        If `None`, the image is assumed to be a grayscale (single channel) image.
+        Otherwise, this parameter indicates which axis of the array corresponds
         to channels.
 
     Returns
