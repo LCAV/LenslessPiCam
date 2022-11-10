@@ -20,7 +20,7 @@ setuptools.setup(
     python_requires=">=3.6",
     install_requires=[
         "opencv-python==4.5.1.48",
-        "numpy>=1.21",
+        "numpy==1.21",
         "scipy==1.7.0",
         "click==8.0.1",
         "image==1.5.33",

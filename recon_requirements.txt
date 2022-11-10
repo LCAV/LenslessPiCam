@@ -3,4 +3,5 @@ jedi==0.18.0
 rawpy==0.16.0
 lpips==0.1.4
 pycsou==1.0.6
+pylops==1.18.0
 scikit-image==0.19.0rc0
