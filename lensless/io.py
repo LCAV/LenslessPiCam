@@ -2,6 +2,7 @@ import os.path
 import rawpy
 import cv2
 import numpy as np
+import warnings
 from lensless.util import resize, bayer2rgb, rgb2gray, print_image_info
 from lensless.plot import plot_image
 from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
@@ -179,13 +180,24 @@ def load_psf(
     psf = np.array(psf, dtype=dtype)
 
     # subtract background, assume black edges
-    bg = np.zeros(3)
-    if bg_pix is not None:
-        bg = []
-        for i in range(3):
-            bg_i = np.mean(psf[bg_pix[0] : bg_pix[1], bg_pix[0] : bg_pix[1], i])
-            psf[:, :, i] -= bg_i
-            bg.append(bg_i)
+
+    if bg_pix is None:
+        bg = np.zeros(len(np.shape(psf)))
+
+    else:
+        # grayscale
+        if len(np.shape(psf)) < 3:
+            bg = np.mean(psf[bg_pix[0] : bg_pix[1], bg_pix[0] : bg_pix[1]])
+            psf -= bg
+
+        # rgb
+        else:
+            bg = []
+            for i in range(3):
+                bg_i = np.mean(psf[bg_pix[0] : bg_pix[1], bg_pix[0] : bg_pix[1], i])
+                psf[:, :, i] -= bg_i
+                bg.append(bg_i)
+
         psf = np.clip(psf, a_min=0, a_max=psf.max())
         bg = np.array(bg)
 
@@ -196,11 +208,14 @@ def load_psf(
         psf = resize(psf, factor=1 / downsample)
 
     if single_psf:
-        assert len(psf.shape) == 3
-        # TODO : in Lensless Learning, they sum channels --> `psf_diffuser = np.sum(psf_diffuser,2)`
-        # https://github.com/Waller-Lab/LenslessLearning/blob/master/pre-trained%20reconstructions.ipynb
-        psf = np.sum(psf, 2)
-        psf = psf[:, :, np.newaxis]
+        if len(psf.shape) == 3:
+            # TODO : in Lensless Learning, they sum channels --> `psf_diffuser = np.sum(psf_diffuser,2)`
+            # https://github.com/Waller-Lab/LenslessLearning/blob/master/pre-trained%20reconstructions.ipynb
+            psf = np.sum(psf, 2)
+            psf = psf[:, :, np.newaxis]
+        else:
+            warnings.warn("Notice : single_psf has no effect for grayscale psf")
+            single_psf = False
 
     # normalize
     if return_float:

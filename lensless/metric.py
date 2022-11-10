@@ -58,7 +58,7 @@ def psnr(true, est, normalize=True):
     return peak_signal_noise_ratio(image_true=true, image_test=est)
 
 
-def ssim(true, est, normalize=True):
+def ssim(true, est, normalize=True, channel_axis=2, **kwargs):
     """
     Compute the mean structural similarity index between two images. Values lie
     within [0, 1]. The closer to 1, the closer the match.
@@ -69,8 +69,12 @@ def ssim(true, est, normalize=True):
         Ground-truth image, same shape as `est`.
     est : :py:class:`~numpy.ndarray`
         Test image.
-    normalize : bool
+    normalize : bool, optional
         Whether to normalize such that maximum value is 1.
+    channel_axis : int or None, optional
+        If `None`, the image is assumed to be a grayscale (single channel) image.
+        Otherwise, this parameter indicates which axis of the array corresponds
+        to channels.
 
     Returns
     -------
@@ -81,7 +85,7 @@ def ssim(true, est, normalize=True):
     if normalize:
         true /= true.max()
         est /= est.max()
-    return structural_similarity(im1=true, im2=est, channel_axis=2)
+    return structural_similarity(im1=true, im2=est, channel_axis=channel_axis, **kwargs)
 
 
 def lpips(true, est, normalize=True):
