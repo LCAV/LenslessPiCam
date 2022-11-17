@@ -1,6 +1,7 @@
 import numpy as np
 import warnings
 import matplotlib.pyplot as plt
+from scipy.ndimage import zoom
 
 from lensless.util import FLOAT_DTYPES, get_max_val, gamma_correction
 
@@ -47,12 +48,34 @@ def plot_image(img, ax=None, gamma=None, normalize=True):
     if gamma and gamma > 1:
         img_norm = gamma_correction(img_norm, gamma=gamma)
 
-    if len(img.shape) == 3 and img.shape[2] == 3:
-        ax.imshow(img_norm)
-    elif len(img.shape) == 3 and img.shape[2] == 1:
-        ax.imshow(img_norm[:, :, 0], cmap="gray")
-    elif len(img.shape) == 2:
+    # full data format : [depth, width, height, color]
+    if len(img.shape) == 4:
+        if img.shape[3] == 3:  # 3d rgb
+            sum_img = np.sum(img_norm, axis=0)
+            ax.imshow(sum_img)
+
+        else:
+            assert img.shape[3] == 1  # 3d grayscale with color channel extended
+            sum_img = np.sum(img_norm[:, :, :, 0], axis=0)
+            ax.imshow(sum_img, cmap="gray")
+
+    # data of length 3 means we have to infer whethever depth or color is missing, based on shape.
+    elif len(img.shape) == 3:
+
+        if img.shape[2] == 3:  # 2D rgb
+            ax.imshow(img_norm)
+
+        elif img.shape[2] == 1:  # 2D grayscale with color channel extended
+            ax.imshow(img_norm[:, :, 0], cmap="gray")
+
+        else:  # 3D grayscale
+            sum_img = np.sum(img_norm, axis=0)
+            ax.imshow(sum_img, cmap="gray")
+
+    # data of length 2 means we have only width and height
+    elif len(img.shape) == 2:  # 2D grayscale
         ax.imshow(img_norm, cmap="gray")
+
     else:
         raise ValueError(f"Unexpected data shape : {img_norm.shape}")
 

@@ -91,12 +91,11 @@ class APGD(ReconstructionAlgorithm):
         self._apgd = None
         self._gen = None
 
-        super(APGD, self).__init__(psf, dtype)
-
+        super(APGD, self).__init__(psf, dtype, True)
         self._max_iter = max_iter
 
         # Convolution operator
-        if realconv:
+        if realconv:  # todo : add from drive
             self._H = RealFFTConvolve2D(self._psf, dtype=dtype)
         else:
             assert self._is_rgb is False, "RGB not supported for `Convolve2D`."
@@ -140,10 +139,7 @@ class APGD(ReconstructionAlgorithm):
              3D (RGB).
 
         """
-        if not self._is_rgb:
-            assert len(data.shape) == 2
-            data = data[:, :, np.newaxis]
-        assert len(self._psf_shape) == len(data.shape)
+        assert len(self._psf_shape) == len(data.shape) == 2
         self._data = data
 
         """ Set up problem """

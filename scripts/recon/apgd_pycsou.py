@@ -183,7 +183,7 @@ def apgd(
 
     start_time = time.time()
 
-    if real_conv or gray:
+    if False and (real_conv or gray):
 
         # for `real_conv` parallelize RGB channels with custom operator
         recon = APGD(
@@ -203,34 +203,47 @@ def apgd(
         final_img = res[0]
 
     else:
-
         # loop over RGB channels (naive approach with complex-valued FFT)
         recon = [
-            APGD(
-                psf=psf[:, :, i],
-                max_iter=max_iter,
-                diff_penalty=diff_penalty,
-                prox_penalty=prox_penalty,
-                realconv=real_conv,
-            )
-            for i in range(psf.shape[2])
+            [
+                APGD(
+                    psf=psf[dep, :, :, col],
+                    max_iter=max_iter,
+                    diff_penalty=diff_penalty,
+                    prox_penalty=prox_penalty,
+                    realconv=real_conv,
+                )
+                for col in range(psf.shape[3])
+            ]
+            for dep in range(psf.shape[0])
         ]
-        [recon[i].set_data(data[:, :, i]) for i in range(data.shape[2])]
+
+        [
+            [recon[dep][col].set_data(data[dep, :, :, col]) for col in range(data.shape[3])]
+            for dep in range(data.shape[0])
+        ]
         print(f"Setup time : {time.time() - start_time} s")
 
         start_time = time.time()
         final_img = []
-        print("Looping over channels...")
-        for i in range(data.shape[2]):
-            print(f"-- channel {i}", end="")
-            final_img.append(
-                recon[i].apply(
-                    n_iter=max_iter, disp_iter=max_iter + 1, save=False, gamma=gamma, plot=False
-                )
+        print("Looping over depths")
+        for dep in range(data.shape[0]):
+            print(
+                f"-- depth {dep}",
             )
-            print(f", {time.time() - start_time} s")
+            print("Looping over channels...")
+            for col in range(data.shape[3]):
+                print(f"-- channel {col}", end="")
+                final_img.append(
+                    recon[dep][col].apply(
+                        n_iter=max_iter, disp_iter=max_iter + 1, save=False, gamma=gamma, plot=False
+                    )
+                )
+                print(f", {time.time() - start_time} s")
+
         print(f"Processing time : {time.time() - start_time} s")
 
+        print(np.array(final_img).shape)
         final_img = np.transpose(np.array(final_img), (1, 2, 0))
         ax = plot_image(final_img, gamma=gamma)
         ax.set_title("Final reconstruction after {} iterations".format(max_iter))

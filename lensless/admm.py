@@ -98,41 +98,50 @@ class ADMM(ReconstructionAlgorithm):
         return finite_diff_adj(U)
 
     def _crop(self, x):
-        return x[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]]
+        return x[:, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1], :]
 
     def _pad(self, v):
         """adjoint of cropping"""
-        vpad = np.zeros(self._padded_shape).astype(v.dtype)
-        vpad[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]] = v
+        vpad = np.zeros(np.append(len(v), self._padded_shape[1:])).astype(
+            v.dtype
+        )  # we keep len(v) as fist axis as sometimes we want to pad original data and sometimes, 3d estimation
+        for i in range(vpad.shape[0]):
+            vpad[
+                i, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
+            ] = v[i, :, :]
         return vpad
 
     def _forward(self):
         """Convolution with frequency response."""
         return fft.ifftshift(
             fft.irfft2(
-                fft.rfft2(self._image_est, axes=(0, 1), s=self._padded_shape[:2]) * self._H,
-                axes=(0, 1),
-                s=self._padded_shape[:2],
+                fft.rfft2(self._image_est, axes=(0, 1, 2), s=self._padded_shape[:3]) * self._H,
+                axes=(0, 1, 2),
+                s=self._padded_shape[:3],
             ),
-            axes=(0, 1),
+            axes=(0, 1, 2),
         )
 
     def _backward(self, x):
         """adjoint of forward / convolution"""
         return fft.ifftshift(
             fft.irfft2(
-                fft.rfft2(x, axes=(0, 1), s=self._padded_shape[:2]) * np.conj(self._H),
-                axes=(0, 1),
-                s=self._padded_shape[:2],
+                fft.rfft2(x, axes=(0, 1, 2), s=self._padded_shape[:3]) * np.conj(self._H),
+                axes=(0, 1, 2),
+                s=self._padded_shape[:3],
             ),
-            axes=(0, 1),
+            axes=(0, 1, 2),
         )
 
     def reset(self):
         # spatial frequency response
-        self._H = fft.rfft2(self._pad(self._psf), axes=(0, 1), s=self._padded_shape[:2]).astype(
+        print("res psf :", np.array(self._psf).shape)
+        print("pad : ", self._pad(self._psf).shape)
+        print("padsh : ", self._padded_shape)
+        self._H = fft.rfft2(self._pad(self._psf), axes=(1, 2), s=self._padded_shape[1:3]).astype(
             self._complex_dtype
         )
+        print("res H :", np.array(self._H).shape)
 
         self._X = np.zeros(self._padded_shape, dtype=self._dtype)
         # self._U = np.zeros(np.r_[self._padded_shape, [2]], dtype=self._dtype)
@@ -169,8 +178,8 @@ class ADMM(ReconstructionAlgorithm):
             + self._PsiT(self._mu2 * self._U - self._eta)
             + self._backward(self._mu1 * self._X - self._xi)
         )
-        freq_space_result = self._R_divmat * fft.rfft2(rk, axes=(0, 1), s=self._padded_shape[:2])
-        self._image_est = fft.irfft2(freq_space_result, axes=(0, 1), s=self._padded_shape[:2])
+        freq_space_result = self._R_divmat * fft.rfft2(rk, axes=(0, 1, 2), s=self._padded_shape[:3])
+        self._image_est = fft.irfft2(freq_space_result, axes=(0, 1, 2), s=self._padded_shape[:3])
 
     def _W_update(self):
         """Non-negativity update"""
@@ -207,11 +216,8 @@ class ADMM(ReconstructionAlgorithm):
         return image.squeeze()
 
     def set_data(self, data):
-        if not self._is_rgb:
-            assert len(data.shape) == 2
-            data = data[:, :, np.newaxis]
-        assert len(self._psf_shape) == len(data.shape)
-        self._data = self._pad(data)
+        super(ADMM, self).set_data(data)
+        self._data = self._pad(self._data)
         self.reset()
 
 
@@ -223,19 +229,20 @@ def soft_thresh(x, thresh):
 def finite_diff(x):
     """Gradient of image estimate, approximated by finite difference. Space where image is assumed sparse."""
     return np.stack(
-        (np.roll(x, 1, axis=0) - x, np.roll(x, 1, axis=1) - x),
+        (np.roll(x, 1, axis=0) - x, np.roll(x, 1, axis=1) - x, np.roll(x, 1, axis=2) - x),
         axis=len(x.shape),
     )
 
 
 def finite_diff_adj(x):
-    diff1 = np.roll(x[..., 0], -1, axis=0) - x[..., 0]
-    diff2 = np.roll(x[..., 1], -1, axis=1) - x[..., 1]
-    return diff1 + diff2
+    diff0 = np.roll(x[..., 0], -1, axis=0) - x[..., 0]
+    diff1 = np.roll(x[..., 1], -1, axis=1) - x[..., 1]
+    diff2 = np.roll(x[..., 2], -1, axis=2) - x[..., 2]
+    return diff0 + diff1 + diff2
 
 
 def finite_diff_gram(shape, dtype=np.float32):
     gram = np.zeros(shape, dtype=dtype)
-    gram[0, 0] = 4
-    gram[0, 1] = gram[1, 0] = gram[0, -1] = gram[-1, 0] = -1
-    return fft.rfft2(gram, axes=(0, 1))
+    gram[0, 0, 0] = 4
+    gram[0, 0, 1] = gram[0, 1, 0] = gram[0, 0, -1] = gram[0, -1, 0] = -1
+    return fft.rfft2(gram, axes=(0, 1, 2))

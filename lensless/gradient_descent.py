@@ -48,8 +48,8 @@ class GradientDescient(ReconstructionAlgorithm):
         Parameters
         ----------
         psf : :py:class:`~numpy.ndarray`
-            Point spread function (PSF) that models forward propagation.
-            2D (grayscale) or 3D (RGB) data can be provided and the shape will
+            3D Point spread function (PSF) that models forward propagation.
+            3D (grayscale) or 4D (RGB) data can be provided and the shape will
             be used to determine which reconstruction (and allocate the
             appropriate memory).
         dtype : float32 or float64
@@ -64,30 +64,31 @@ class GradientDescient(ReconstructionAlgorithm):
         self._proj = proj
 
     def _crop(self, x):
-        return x[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]]
+        return x[:, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1], :]
 
     def _pad(self, v):
         vpad = np.zeros(self._padded_shape).astype(v.dtype)
-        vpad[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]] = v
+        for i in range(vpad.shape[0]):
+            vpad[
+                i, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
+            ] = v[i, :, :]
         return vpad
 
     def reset(self):
-
         # initial guess, half intensity image
         # for online approach could use last reconstruction
-        psf_flat = self._psf.reshape(-1, self._n_channels)
+        psf_flat = self._psf.reshape(-1, self._psf_shape[3])
         pixel_start = (np.max(psf_flat, axis=0) + np.min(psf_flat, axis=0)) / 2
         x = np.ones(self._psf_shape, dtype=self._dtype) * pixel_start
         self._image_est = self._pad(x)
-
         # spatial frequency response
         self._H = fft.rfft2(
-            self._pad(self._psf), norm="ortho", axes=(0, 1), s=self._padded_shape[:2]
+            self._pad(self._psf), norm="ortho", axes=(0, 1, 2), s=self._padded_shape[:3]
         )
         self._Hadj = np.conj(self._H)
 
-        Hadj_flat = self._Hadj.reshape(-1, self._n_channels)
-        H_flat = self._H.reshape(-1, self._n_channels)
+        Hadj_flat = self._Hadj.reshape(-1, self._psf_shape[3])
+        H_flat = self._H.reshape(-1, self._psf_shape[3])
         self._alpha = np.real(1.8 / np.max(Hadj_flat * H_flat, axis=0))
 
     def _grad(self):
@@ -95,17 +96,17 @@ class GradientDescient(ReconstructionAlgorithm):
         return self._backward(diff)
 
     def _forward(self):
-        Vk = fft.rfft2(self._image_est, axes=(0, 1), s=self._padded_shape[:2])
+        Vk = fft.rfft2(self._image_est, axes=(0, 1, 2), s=self._padded_shape[:3])
         return self._crop(
             fft.ifftshift(
-                fft.irfft2(self._H * Vk, axes=(0, 1), s=self._padded_shape[:2]), axes=(0, 1)
+                fft.irfft2(self._H * Vk, axes=(0, 1, 2), s=self._padded_shape[:3]), axes=(0, 1, 2)
             )
         )
 
     def _backward(self, x):
-        X = fft.rfft2(self._pad(x), axes=(0, 1), s=self._padded_shape[:2])
+        X = fft.rfft2(self._pad(x), axes=(0, 1, 2), s=self._padded_shape[:3])
         return fft.ifftshift(
-            fft.irfft2(self._Hadj * X, axes=(0, 1), s=self._padded_shape[:2]), axes=(0, 1)
+            fft.irfft2(self._Hadj * X, axes=(0, 1, 2), s=self._padded_shape[:3]), axes=(0, 1, 2)
         )
 
     def _update(self):
@@ -152,7 +153,6 @@ class FISTA(GradientDescient):
     """
 
     def __init__(self, psf, dtype=np.float32, proj=non_neg, tk=1, **kwargs):
-
         super(FISTA, self).__init__(psf, dtype, proj)
         self._tk = tk
         self._xk = self._image_est

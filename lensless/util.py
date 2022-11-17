@@ -63,7 +63,8 @@ def rgb2gray(rgb, weights=None):
     if weights is None:
         weights = np.array([0.299, 0.587, 0.114])
     assert len(weights) == 3
-    return np.tensordot(rgb, weights, axes=((2,), 0))
+    result = np.array([np.tensordot(layer, weights, axes=((2,), 0)) for layer in rgb])
+    return result[:, :, :, np.newaxis]
 
 
 def gamma_correction(vals, gamma=2.2):

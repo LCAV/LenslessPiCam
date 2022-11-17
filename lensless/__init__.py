@@ -7,6 +7,13 @@ from .gradient_descent import (
     GradientDescentUpdate,
 )
 
+from .gradient_descent import (
+    GradientDescient,
+    NesterovGradientDescent,
+    FISTA,
+    GradientDescentUpdate,
+)
+
 try:
     from .apgd import APGD, APGDPriors
 

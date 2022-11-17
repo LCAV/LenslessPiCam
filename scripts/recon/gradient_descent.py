@@ -131,7 +131,6 @@ def gradient_descent(
     single_psf,
     shape,
 ):
-
     psf, data = load_data(
         psf_fp=psf_fp,
         data_fp=data_fp,

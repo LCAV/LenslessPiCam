@@ -1,4 +1,6 @@
 import abc
+import warnings
+
 import numpy as np
 import pathlib as plib
 import matplotlib.pyplot as plt
@@ -39,7 +41,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
     """
 
-    def __init__(self, psf, dtype=np.float32):
+    def __init__(self, psf, dtype=np.float32, apgd=False):
         """
         Base constructor. Derived constructor may define new state variables
         here and also reset them in `reset`.
@@ -55,14 +57,18 @@ class ReconstructionAlgorithm(abc.ABC):
             Data type to use for optimization.
         """
 
-        self._is_rgb = True if len(psf.shape) == 3 else False
-        if self._is_rgb:
-            self._psf = psf
-            self._n_channels = 3
+        if apgd:
+            assert len(psf.shape) == 2
+            self._is_rgb = False
+            self._use_3d = False
         else:
-            self._psf = psf[:, :, np.newaxis]
-            self._n_channels = 1
-        self._psf_shape = np.array(self._psf.shape)
+            assert len(psf.shape) == 4
+            self._use_3d = psf.shape[0] != 1
+            self._is_rgb = psf.shape[3] == 3
+            assert self._is_rgb or psf.shape[3] == 1
+
+        self._psf = psf
+        self._psf_shape = np.array(psf.shape)
 
         if dtype:
             self._psf = self._psf.astype(dtype)
@@ -77,11 +83,18 @@ class ReconstructionAlgorithm(abc.ABC):
             raise ValueError(f"Unsupported dtype : {self._dtype}")
 
         # cropping / padding indices
-        self._padded_shape = 2 * self._psf_shape[:2] - 1
-        self._padded_shape = np.array([next_fast_len(i) for i in self._padded_shape])
-        self._padded_shape = np.r_[self._padded_shape, [self._n_channels]]
-        self._start_idx = (self._padded_shape[:2] - self._psf_shape[:2]) // 2
-        self._end_idx = self._start_idx + self._psf_shape[:2]
+        if apgd:
+            self._padded_shape = 2 * self._psf_shape - 1
+            self._padded_shape = np.array([next_fast_len(i) for i in self._padded_shape])
+            self._padded_shape = np.r_[self._padded_shape]
+            self._start_idx = (self._padded_shape - self._psf_shape) // 2
+            self._end_idx = self._start_idx + self._psf_shape
+        else:
+            self._padded_shape = 2 * self._psf_shape[1:3] - 1
+            self._padded_shape = np.array([next_fast_len(i) for i in self._padded_shape])
+            self._padded_shape = np.r_[self._psf_shape[0], self._padded_shape, self._psf_shape[3]]
+            self._start_idx = (self._padded_shape[1:3] - self._psf_shape[1:3]) // 2
+            self._end_idx = self._start_idx + self._psf_shape[1:3]
 
         # pre-compute operators / outputs
         self._image_est = None
@@ -116,10 +129,7 @@ class ReconstructionAlgorithm(abc.ABC):
              scene. Should match provide PSF, i.e. shape and 2D (grayscale) or
              3D (RGB).
         """
-        if not self._is_rgb:
-            assert len(data.shape) == 2
-            data = data[:, :, np.newaxis]
-        assert len(self._psf_shape) == len(data.shape)
+        assert len(self._psf_shape) == len(data.shape) == 4
         self._data = data
 
     def get_image_est(self):
