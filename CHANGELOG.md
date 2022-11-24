@@ -5,8 +5,8 @@
 #### Added
 
 - Support of 3D psfs, which have to be provided as .npy files.
-- 3D reconstriction works for gradient descent and ADMM but the regularizer term will probably need to be adapted
-- Uploaded 3D data from `https://github.com/Waller-Lab/DiffuserCam`
+- 3D reconstriction for gradient descent and ADMM
+- Script to export mat data for `https://github.com/Waller-Lab/DiffuserCam` to usable .npy
 
 #### Changed
 
