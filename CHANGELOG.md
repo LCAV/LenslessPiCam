@@ -6,14 +6,11 @@
 
 - Support of 3D psfs, which have to be provided as .npy files.
 - 3D reconstriction works for gradient descent and ADMM but the regularizer term will probably need to be adapted
-- The code will automatically perform 3D reconstruction when the provided psf is a .npy file, and perform 2D construction otherwise
 - Uploaded 3D data from `https://github.com/Waller-Lab/DiffuserCam`
-- Try it : `/scripts/recon/gradient_descent.py --psf_fp data/diffuser3D/psf.npy --data_fp data/diffuser3D/image.tiff --downsample 1 --disp 5 --n_iter 200`
 
 #### Changed
 
-- The data of images and psfs are now always stored as (depth, width, height, color) arrays in memory.
-- Each reconstruction algorith was adapted accordingly.
+- The data of images and psfs are now always stored as (depth, width, height, color) arrays in memory. Each reconstruction algorithm was adapted accordingly.
 
 #### Bugfix
 

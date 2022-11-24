@@ -183,7 +183,7 @@ def apgd(
 
     start_time = time.time()
 
-    if False and (real_conv or gray):
+    if False and (real_conv or gray): #TODO
 
         # for `real_conv` parallelize RGB channels with custom operator
         recon = APGD(
@@ -223,7 +223,7 @@ def apgd(
             for dep in range(data.shape[0])
         ]
         print(f"Setup time : {time.time() - start_time} s")
-
+        print(data.shape)
         start_time = time.time()
         final_img = []
         print("Looping over depths")

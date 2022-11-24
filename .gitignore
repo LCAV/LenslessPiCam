@@ -5,6 +5,7 @@ scripts/gd_*
 .DS_Store
 DiffuserCam_Mirflickr*
 paper/paper.pdf
+data/diffuser3D
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

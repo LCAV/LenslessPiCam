@@ -135,13 +135,9 @@ class ADMM(ReconstructionAlgorithm):
 
     def reset(self):
         # spatial frequency response
-        print("res psf :", np.array(self._psf).shape)
-        print("pad : ", self._pad(self._psf).shape)
-        print("padsh : ", self._padded_shape)
-        self._H = fft.rfft2(self._pad(self._psf), axes=(1, 2), s=self._padded_shape[1:3]).astype(
+        self._H = fft.rfft2(self._pad(self._psf), axes=(0, 1, 2), s=self._padded_shape[:3]).astype(
             self._complex_dtype
         )
-        print("res H :", np.array(self._H).shape)
 
         self._X = np.zeros(self._padded_shape, dtype=self._dtype)
         # self._U = np.zeros(np.r_[self._padded_shape, [2]], dtype=self._dtype)
@@ -243,6 +239,6 @@ def finite_diff_adj(x):
 
 def finite_diff_gram(shape, dtype=np.float32):
     gram = np.zeros(shape, dtype=dtype)
-    gram[0, 0, 0] = 4
-    gram[0, 0, 1] = gram[0, 1, 0] = gram[0, 0, -1] = gram[0, -1, 0] = -1
+    gram[0, 0, 0] = 6
+    gram[0, 0, 1] = gram[0, 1, 0] = gram[1, 0, 0] = gram[0, 0, -1] = gram[0, -1, 0] = gram[-1, 0, 0] = -1
     return fft.rfft2(gram, axes=(0, 1, 2))

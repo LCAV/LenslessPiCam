@@ -169,6 +169,7 @@ def load_psf(
     # load image data and extract necessary channels
     if use_3d:
         assert os.path.isfile(fp)
+        assert fp.endswith(".npy")
         psf = np.load(fp)
     else:
         psf = load_image(
@@ -229,6 +230,7 @@ def load_psf(
         psf = np.array([resize(p, factor=1 / downsample) for p in psf])
 
     # todo : ideally resize would need to keep dimensions, but it is used in other places of the code so I'd rather not change it for now
+    # todo : check
     if len(psf.shape) == 3:
         psf = np.array(psf[:, :, :, np.newaxis])
 
@@ -236,7 +238,7 @@ def load_psf(
             # TODO : in Lensless Learning, they sum channels --> `psf_diffuser = np.sum(psf_diffuser,2)`
             # https://github.com/Waller-Lab/LenslessLearning/blob/master/pre-trained%20reconstructions.ipynb
             psf = np.sum(psf, 3)
-            psf = psf[:, ::, np.newaxis]
+            psf = psf[:, :, :, np.newaxis]
         else:
             warnings.warn("Notice : single_psf has no effect for grayscale psf")
             single_psf = False
@@ -361,13 +363,12 @@ def load_data(
         data = data[np.newaxis, :, :, np.newaxis]
 
     if gray:
-        print(data.shape)
         data = np.array(rgb2gray(data), np.newaxis)
         psf = np.array(rgb2gray(psf), np.newaxis)
 
     if plot:
         ax = plot_image(psf[0], gamma=gamma)
-        ax.set_title("PSF")
+        ax.set_title("PSF of first depth")
         ax = plot_image(data[0], gamma=gamma)
         ax.set_title("Raw data")
 
