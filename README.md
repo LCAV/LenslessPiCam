@@ -42,7 +42,7 @@ or send an email to `eric[dot]bezzam[at]epfl[dot]ch`.
 ## Setup <a name="setup"></a>
 The expected workflow is to have a local computer which interfaces remotely
 with a Raspberry Pi equipped with the HQ camera sensor (or V2 sensor as in the 
-original tutorial).
+original tutorial). Instructions on building the camera can be found in [this Medium article](https://go.epfl.ch/lenslesspicam).
 
 The software from this repository has to be installed on your both your local 
 machine and the Raspberry Pi (from the `home` directory of the Pi). Below are
