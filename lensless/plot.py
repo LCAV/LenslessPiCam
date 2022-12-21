@@ -6,7 +6,7 @@ from lensless.util import FLOAT_DTYPES, get_max_val, gamma_correction
 
 try:
     from lensless.autocorr_sol import autocorr2d
-except NotImplemented:
+except Exception:
     from lensless.autocorr import autocorr2d
 
 

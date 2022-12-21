@@ -9,7 +9,7 @@ from copy import deepcopy
 
 try:
     from lensless.realfftconv_sol import RealFFTConvolve2D
-except NotImplemented:
+except Exception:
     from lensless.realfftconv import RealFFTConvolve2D
 
 
