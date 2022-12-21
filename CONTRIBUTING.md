@@ -11,14 +11,20 @@ itself.
 
 ## Coding style
 
-We use [Black](https://github.com/psf/black) to format the code. 
+We use [Black](https://github.com/psf/black) and [Flake8](https://flake8.pycqa.org/en/latest/)
+for code-formatting. 
 
-First install the library:
+We recommend setting up pre-hooks to check that you meet the style guide:
 ```bash
+# install inside virtual environment
+pip install pre-commit
 pip install black
+
+# Install git hooks in `.git/` directory
+pre-commit install
 ```
 
-You can then run the formatting script we've prepared:
+Otherwise you can manually run Black with the provided script:
 ```bash
 ./format_code.sh
 ```
