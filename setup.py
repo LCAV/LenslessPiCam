@@ -17,10 +17,10 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.6",
+    python_requires=">=3.8.1",
     install_requires=[
         "opencv-python==4.5.1.48",
-        "numpy==1.21",
+        "numpy>=1.22",
         "scipy==1.7.0",
         "click==8.0.1",
         "image==1.5.33",
