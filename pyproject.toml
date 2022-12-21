@@ -1,0 +1,11 @@
+[tool.black]
+line-length = 100
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \venv
+  | build
+  | dist
+)/
+'''

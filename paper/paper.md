@@ -305,7 +305,7 @@ hope to investigate and incorporate:
 - programmable masks,
 - data-driven, machine learning reconstruction techniques.
 
-# Acknowledgements
+# Acknowledgements and disclosure of funding
 
 We acknowledge feedback from Julien Fageot and the students during the first 
 iteration of this project in our graduate course.
