@@ -9,7 +9,7 @@ from copy import deepcopy
 
 try:
     from lensless.realfftconv_sol import RealFFTConvolve2D
-except:
+except Exception:
     from lensless.realfftconv import RealFFTConvolve2D
 
 
@@ -121,8 +121,8 @@ class APGD(ReconstructionAlgorithm):
             else:
                 try:
                     self._prox_penalty = prox_lambda * prox_penalty(dim=self._H.shape[1])
-                except:
-                    raise ValueError("Unexpected prior.")
+                except ValueError:
+                    print("Unexpected prior.")
         else:
             self._prox_penalty = None
 

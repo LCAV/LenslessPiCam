@@ -1,3 +1,4 @@
+from importlib.metadata import PackageNotFoundError
 from .recon import ReconstructionAlgorithm
 from .admm import ADMM
 from .gradient_descent import (
@@ -11,5 +12,5 @@ try:
     from .apgd import APGD, APGDPriors
 
     pycsou_available = True
-except:
+except Exception:
     pycsou_available = False

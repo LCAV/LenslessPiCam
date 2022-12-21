@@ -146,6 +146,7 @@ def reconstruction(
 
     start_time = time.time()
     # TODO : apply your reconstruction
+    res = None
     print(f"Processing time : {time.time() - start_time} s")
 
     if not no_plot:
