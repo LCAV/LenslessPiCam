@@ -24,6 +24,9 @@ pip install black
 pre-commit install
 ```
 
+When you do your first commit, the environments for Black and Flake8 will
+be initialized.
+
 Otherwise you can manually run Black with the provided script:
 ```bash
 ./format_code.sh
