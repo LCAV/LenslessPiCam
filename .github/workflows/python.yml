@@ -11,7 +11,7 @@ jobs:
       max-parallel: 12
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: [3.7, 3.8, 3.9, "3.10"]
+        python-version: [3.8, 3.9, "3.10"]
     steps:
     - uses: actions/checkout@v3
     - name: Checkout submodules
@@ -32,7 +32,7 @@ jobs:
       run: |
         pip install flake8
         # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=B,C,E,F,W,T4,B9 --show-source --statistics --max-complexity=18 --max-line-length=100 --ignore=E203,E266,E501,W503,F403,F401
+        flake8 . --count --select=B,C,E,F,W,T4,B9 --show-source --statistics --max-complexity=18 --max-line-length=100 --ignore=E203,E266,E501,W503,F403,F401,C901 --exclude=profile,scripts
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         # flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Format with black

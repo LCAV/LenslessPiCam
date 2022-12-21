@@ -181,7 +181,7 @@ def liveview(
             _val = "".join(res.split(":")[1:]).strip()
             result_dict[_key] = _val
         # result_dict = dict(map(lambda s: map(str.strip, s.split(":")), result))
-        print(f"COMMAND OUTPUT : ")
+        print("COMMAND OUTPUT : ")
         pprint(result_dict)
 
     if (

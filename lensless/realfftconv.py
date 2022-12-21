@@ -25,6 +25,7 @@ class RealFFTConvolve2D(LinearOperator):
         raise NotImplementedError
 
         # call parent class
+        shape = None
         super(RealFFTConvolve2D, self).__init__(shape=shape, dtype=dtype)
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
