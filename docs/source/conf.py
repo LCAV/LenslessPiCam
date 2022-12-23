@@ -6,7 +6,6 @@ from unittest import mock
 
 
 MOCK_MODULES = [
-    "numpy",
     "scipy",
     "pycsou",
     "matplotlib",

@@ -1,6 +1,4 @@
 sphinx==4.0.1
 sphinx_rtd_theme==0.4.3
-# sphinx==2.1.*
-# sphinx_rtd_theme==0.4.*
 docutils==0.16     # >0.17 doesn't render bullets
-# Jinja2>3.1
+numpy>=1.22      # so that default dtypes are correctly rendered

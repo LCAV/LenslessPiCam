@@ -19,7 +19,7 @@ strategies available in ``LenslessPiCam`` derive from this class:
    ``lensless.FISTA``.
 -  ``lensless.ADMM``: alternating direction method of multipliers (ADMM)
    with a non-negativity constraint and a total variation (TV)
-   regularizer. [1]_
+   regularizer [1]_.
 -  ``lensless.APGD``: accelerated proximal gradient descent with Pycsou
    as a backend. Any differentiable or proximal operator can be used as
    long as it is compatible with Pycsou, namely derives from one of
