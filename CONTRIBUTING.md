@@ -77,3 +77,23 @@ After merging to the `main` branch and from the `main` branch (!):
 4. On [GitHub](https://github.com/LCAV/LenslessPiCam/tags) set 
 the new tag by (1) clicking "..." and selecting "Create release" and (2) at the bottom pressing "Publish release".
 5. Update `CHANGELOG.md` with new release version.
+
+
+## Building documentation
+
+```bash
+# create virtual environment
+conda create --name lensless_docs python=3.9
+conda activate lensless_docs
+
+# install dependencies
+(lensless_docs) pip install -r docs/requirements.txt
+
+# build documentation
+(lensless_docs) python setup.py build_sphinx
+```
+
+To rebuild the documentation from scratch:
+```bash
+(lensless_docs) python setup.py build_sphinx -E -a
+```

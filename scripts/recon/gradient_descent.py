@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from lensless.io import load_data
 from lensless import (
     GradientDescentUpdate,
-    GradientDescient,
+    GradientDescent,
     NesterovGradientDescent,
     FISTA,
 )
@@ -158,7 +158,7 @@ def gradient_descent(
 
     start_time = time.time()
     if method is GradientDescentUpdate.VANILLA:
-        recon = GradientDescient(psf)
+        recon = GradientDescent(psf)
     elif method is GradientDescentUpdate.NESTEROV:
         recon = NesterovGradientDescent(psf)
     else:

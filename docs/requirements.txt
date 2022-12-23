@@ -1,0 +1,4 @@
+sphinx==4.0.1
+sphinx_rtd_theme==0.4.3
+docutils==0.16     # >0.17 doesn't render bullets
+numpy>=1.22      # so that default dtype are correctly rendered

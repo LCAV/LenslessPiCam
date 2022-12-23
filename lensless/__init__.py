@@ -1,8 +1,22 @@
-from importlib.metadata import PackageNotFoundError
+# #############################################################################
+# __init__.py
+# ===========
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# #############################################################################
+
+"""
+Lensless library
+===========================
+
+Package for designing, simulating, and imaging with lensless cameras.
+"""
+
+
 from .recon import ReconstructionAlgorithm
 from .admm import ADMM
 from .gradient_descent import (
-    GradientDescient,
+    GradientDescent,
     NesterovGradientDescent,
     FISTA,
     GradientDescentUpdate,
@@ -14,3 +28,5 @@ try:
     pycsou_available = True
 except Exception:
     pycsou_available = False
+
+from .version import __version__

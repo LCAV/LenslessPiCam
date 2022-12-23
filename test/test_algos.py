@@ -1,6 +1,6 @@
 import numpy as np
 from lensless.io import load_data
-from lensless import GradientDescient, NesterovGradientDescent, FISTA, ADMM, APGD
+from lensless import GradientDescent, NesterovGradientDescent, FISTA, ADMM, APGD
 
 
 psf_fp = "data/psf/tape_rgb.png"
@@ -11,7 +11,7 @@ disp = None
 
 
 def test_algo():
-    for algo in [GradientDescient, NesterovGradientDescent, FISTA, ADMM, APGD]:
+    for algo in [GradientDescent, NesterovGradientDescent, FISTA, ADMM, APGD]:
         for gray in [True, False]:
             for dtype in [np.float32, np.float64]:
                 psf, data = load_data(
