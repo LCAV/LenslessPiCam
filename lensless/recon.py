@@ -1,3 +1,75 @@
+# #############################################################################
+# reconstruction.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# #############################################################################
+
+"""
+Reconstruction
+==============
+
+The core algorithmic component of ``LenslessPiCam`` is the abstract
+class ``lensless.ReconstructionAlgorithm``. The three reconstruction
+strategies available in ``LenslessPiCam`` derive from this class:
+
+-  ``lensless.GradientDescient``: projected gradient descent with a
+   non-negativity constraint. Two accelerated approaches are also
+   available: ``lensless.NesterovGradientDescent`` and
+   ``lensless.FISTA``.
+-  ``lensless.ADMM``: alternating direction method of multipliers (ADMM)
+   with a non-negativity constraint and a total variation (TV)
+   regularizer. [1]_
+-  ``lensless.APGD``: accelerated proximal gradient descent with Pycsou
+   as a backend. Any differentiable or proximal operator can be used as
+   long as it is compatible with Pycsou, namely derives from one of
+   ``DifferentiableFunctional`` or ``ProximableFunctional``.
+
+New reconstruction algorithms can be conveniently implemented by
+deriving from the abstract class and defining the following abstract
+methods:
+
+-  the update step: ``_update``.
+-  a method to reset state variables: ``reset``.
+-  an image formation method: ``_form_image``.
+
+One advantage of deriving from ``lensless.ReconstructionAlgorithm`` is
+that functionality for iterating, saving, and visualization is already
+implemented. Consequently, using a reconstruction algorithm that derives
+from it boils down to three steps:
+
+1. Creating an instance of the reconstruction algorithm.
+2. Setting the data.
+3. Applying the algorithm.
+
+For example, for ADMM:
+
+.. code:: python
+
+       recon = ADMM(psf)
+       recon.set_data(data)
+       res = recon.apply(n_iter=n_iter)
+
+A full running example can be run like so:
+
+.. code:: bash
+
+        python scripts/recon/admm.py \\
+        --psf_fp data/psf/tape_rgb.png \\
+        --data_fp data/raw_data/thumbs_up_rgb.png \\
+        --n_iter 5
+
+A template for applying a reconstruction algorithm (including loading
+the data) can be found in ``scripts/recon/template.py``.
+
+
+**References**
+
+.. [1] Boyd, S., Parikh, N., & Chu, E. (2011). Distributed optimization and statistical learning via the alternating direction method of multipliers. Now Publishers Inc.
+
+"""
+
+
 import abc
 import numpy as np
 import pathlib as plib
@@ -11,31 +83,32 @@ class ReconstructionAlgorithm(abc.ABC):
     Abstract class for defining lensless imaging reconstruction algorithms.
 
     The following abstract methods need to be defined:
-    - `_update`: updating state variables at each iterations.
-    - `reset`: reset state variables.
-    - `_form_image`: any pre-processing that needs to be done in order to view
-    the image estimate, e.g. reshaping or clipping.
+
+    * ``_update``: updating state variables at each iterations.
+    * ``reset``: reset state variables.
+    * ``_form_image``: any pre-processing that needs to be done in order to view the image estimate, e.g. reshaping or clipping.
 
     One advantage of deriving from this abstract class is that functionality for
     iterating, saving, and visualization is already implemented, namely in the
-    `apply` method.
+    ``apply`` method.
 
     Consequently, using a reconstruction algorithm that derives from it boils down
     to three steps:
 
-    1. Creating an instance of the reconstruction algorithm.
-    2. Setting the data.
-    3. Applying the algorithm.
+    #. Creating an instance of the reconstruction algorithm.
+    #. Setting the data.
+    #. Applying the algorithm.
 
-    For example, for ADMM (full example in `scripts/admm.py`):
-    ```python
+    For example, for ADMM (full example in ``scripts/admm.py``):
+
+    .. code:: Python
+
         recon = ADMM(psf)
         recon.set_data(data)
         res = recon.apply(n_iter=n_iter)
-    ```
 
     A template for applying a reconstruction algorithm (including loading the
-    data) can be found in `scripts/reconstruction_template.py`.
+    data) can be found in ``scripts/reconstruction_template.py``.
 
     """
 
@@ -46,13 +119,14 @@ class ReconstructionAlgorithm(abc.ABC):
 
         Parameters
         ----------
-        psf : :py:class:`~numpy.ndarray`
-            Point spread function (PSF) that models forward propagation.
-            2D (grayscale) or 3D (RGB) data can be provided and the shape will
-            be used to determine which reconstruction (and allocate the
-            appropriate memory).
-        dtype : float32 or float64
-            Data type to use for optimization.
+
+            psf : :py:class:`~numpy.ndarray`
+                Point spread function (PSF) that models forward propagation.
+                2D (grayscale) or 3D (RGB) data can be provided and the shape will
+                be used to determine which reconstruction (and allocate the
+                appropriate memory).
+            dtype : float32 or float64
+                Data type to use for optimization.
         """
 
         self._is_rgb = True if len(psf.shape) == 3 else False
@@ -113,8 +187,8 @@ class ReconstructionAlgorithm(abc.ABC):
         ----------
         data : :py:class:`~numpy.ndarray`
             Lensless data on which to iterate to recover an estimate of the
-             scene. Should match provide PSF, i.e. shape and 2D (grayscale) or
-             3D (RGB).
+            scene. Should match provide PSF, i.e. shape and 2D (grayscale) or
+            3D (RGB).
         """
         if not self._is_rgb:
             assert len(data.shape) == 2

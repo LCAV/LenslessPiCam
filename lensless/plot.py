@@ -18,18 +18,17 @@ def plot_image(img, ax=None, gamma=None, normalize=True):
     ----------
     img : :py:class:`~numpy.ndarray`
         Data to plot.
-    ax :py:class:`~matplotlib.axes.Axes`, optional
+    ax : :py:class:`~matplotlib.axes.Axes`, optional
         `Axes` object to fill for plotting/saving, default is to create one.
     gamma : float, optional
-            Gamma correction factor to apply for plots. Default is None.
+        Gamma correction factor to apply for plots. Default is None.
     normalize : bool
         Whether to normalize data to maximum range. Default is True.
 
     Returns
     -------
-    ax :py:class:`~matplotlib.axes.Axes`, optional
-        `Axes` object to fill for plotting/saving, default is to create one.
-
+    ax : :py:class:`~matplotlib.axes.Axes`
+        Axes on which image is plot.
     """
 
     if ax is None:
@@ -77,6 +76,7 @@ def pixel_histogram(img, nbits=None, ax=None, log_scale=True):
     Return
     ------
     ax : :py:class:`~matplotlib.axes.Axes`
+        Axes on which histogram is plot.
     """
     if ax is None:
         _, ax = plt.subplots()
@@ -136,6 +136,7 @@ def plot_cross_section(
     Return
     ------
     ax : :py:class:`~matplotlib.axes.Axes`
+        Axes on which cross-section is plot.
     """
 
     if ax is None:
@@ -204,7 +205,9 @@ def plot_autocorr2d(vals, pad_mode="reflect", ax=None):
     Return
     ------
     ax : :py:class:`~matplotlib.axes.Axes`
+        Axes on which auto-correlation is plot.
     autocorr : py:class:`~numpy.ndarray`
+        Auto-correlation.
     """
 
     nbit_plot = 8

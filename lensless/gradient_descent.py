@@ -40,7 +40,7 @@ def non_neg(xi):
     return xi
 
 
-class GradientDescient(ReconstructionAlgorithm):
+class GradientDescent(ReconstructionAlgorithm):
     def __init__(self, psf, dtype=np.float32, proj=non_neg, **kwargs):
         """
         Object for applying projected gradient descent.
@@ -59,7 +59,7 @@ class GradientDescient(ReconstructionAlgorithm):
             non-negative.
         """
 
-        super(GradientDescient, self).__init__(psf, dtype)
+        super(GradientDescent, self).__init__(psf, dtype)
         assert callable(proj)
         self._proj = proj
 
@@ -116,7 +116,7 @@ class GradientDescient(ReconstructionAlgorithm):
         return self._proj(self._crop(self._image_est)).squeeze()
 
 
-class NesterovGradientDescent(GradientDescient):
+class NesterovGradientDescent(GradientDescent):
     """
     Object for applying projected gradient descent with Nesterov momentum for
     acceleration.
@@ -142,7 +142,7 @@ class NesterovGradientDescent(GradientDescient):
         self._image_est = self._proj(self._image_est)
 
 
-class FISTA(GradientDescient):
+class FISTA(GradientDescent):
     """
     Object for applying projected gradient descent with FISTA (Fast Iterative
     Shrinkage-Thresholding Algorithm) for acceleration.

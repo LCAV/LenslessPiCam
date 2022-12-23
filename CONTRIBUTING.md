@@ -77,3 +77,18 @@ After merging to the `main` branch and from the `main` branch (!):
 4. On [GitHub](https://github.com/LCAV/LenslessPiCam/tags) set 
 the new tag by (1) clicking "..." and selecting "Create release" and (2) at the bottom pressing "Publish release".
 5. Update `CHANGELOG.md` with new release version.
+
+
+## Building documentation
+
+```bash
+# install dependencies
+# -- bullets don't render for docutils>0.17
+pip install sphinx==4.0.1 sphinx_rtd_theme==0.4.3 docutils==0.16
+
+# build to documentation
+python setup.py build_sphinx
+
+# add the following flags to rebuild from scratch
+python setup.py build_sphinx -E -a
+```

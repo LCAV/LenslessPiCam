@@ -48,7 +48,7 @@ def load_image(
 
     Returns
     -------
-    img :py:class:`~numpy.ndarray`
+    img : :py:class:`~numpy.ndarray`
         RGB image of dimension (height, width, 3).
     """
     assert os.path.isfile(fp)
@@ -161,7 +161,7 @@ def load_psf(
 
     Returns
     -------
-    psf :py:class:`~numpy.ndarray`
+    psf : :py:class:`~numpy.ndarray`
         2-D array of PSF.
     """
 
@@ -284,9 +284,9 @@ def load_data(
 
     Returns
     -------
-    psf :py:class:`~numpy.ndarray`
+    psf : :py:class:`~numpy.ndarray`
         2-D array of PSF.
-    data :py:class:`~numpy.ndarray`
+    data : :py:class:`~numpy.ndarray`
         2-D array of raw measurement data.
     """
 

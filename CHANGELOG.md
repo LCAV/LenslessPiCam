@@ -4,11 +4,13 @@
 
 #### Added
 
--
+- Documentation files and configuration, using Sphinx.
 
 #### Changed
 
-- 
+- README.md to READ.rst for documentation.
+- Shorten README to separate contents in different pages of docs.
+- Fix typo in GradientDescent class name.
 
 #### Bugfix
 
