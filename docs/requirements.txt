@@ -3,3 +3,4 @@
 sphinx == 2.1.*
 sphinx_rtd_theme == 0.4.*
 docutils==0.16     # >0.17 doesn't render bullets
+Jinja2>=3.1
