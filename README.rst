@@ -22,7 +22,7 @@ LenslessPiCam
     :align: center
 
 This package provides functionalities to perform imaging with a lensless
-camera. We make use of a low-cost implementation of the DiffuserCam, [1]_
+camera. We make use of a low-cost implementation of DiffuserCam, [1]_
 where we use a piece of tape instead of the lens and the
 `Raspberry Pi HQ camera sensor <https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera>`__
 (the `V2 sensor <https://www.raspberrypi.com/products/camera-module-v2/>`__

@@ -6,8 +6,7 @@
 # #############################################################################
 
 
-"""
-
+r"""
 Evaluation
 ==========
 
@@ -26,11 +25,11 @@ The following script can be used to compute the above metrics for a single file,
 
 .. code:: bash
 
-   python scripts/compute_metrics_from_original.py \
-   --recon data/reconstruction/admm_thumbs_up_rgb.npy \
-   --original data/original/thumbs_up.png \
-   --vertical_crop 262 371 \
-   --horizontal_crop 438 527 \
+   python scripts/compute_metrics_from_original.py \\
+   --recon data/reconstruction/admm_thumbs_up_rgb.npy \\
+   --original data/original/thumbs_up.png \\
+   --vertical_crop 262 371 \\
+   --horizontal_crop 438 527 \\
    --rotation -0.5
 
 where:
@@ -68,8 +67,8 @@ possible to set the number of files.
 
 .. code:: bash
 
-   python scripts/evaluate_mirflickr_admm.py \
-   --data DiffuserCam_Mirflickr_200_3011302021_11h43_seed11 \
+   python scripts/evaluate_mirflickr_admm.py \\
+   --data DiffuserCam_Mirflickr_200_3011302021_11h43_seed11 \\
    --n_files 10 --save
 
 The ``--save`` flag will save a viewable image for each reconstruction.
@@ -79,8 +78,8 @@ reconstruction.
 
 .. code:: bash
 
-   python scripts/apply_admm_single_mirflickr.py \
-   --data DiffuserCam_Mirflickr_200_3011302021_11h43_seed11 \
+   python scripts/apply_admm_single_mirflickr.py \\
+   --data DiffuserCam_Mirflickr_200_3011302021_11h43_seed11 \\
    --fid 172
 
 """
@@ -94,7 +93,7 @@ from lensless.util import resize
 
 
 def mse(true, est, normalize=True):
-    """
+    r"""
     Compute the mean-squared error between two images. The closer to 0, the
     closer the match.
 
@@ -120,7 +119,7 @@ def mse(true, est, normalize=True):
 
 
 def psnr(true, est, normalize=True):
-    """
+    r"""
     Compute the peak signal to noise ratio (PSNR) for an image. The higher the
     value, the better the match.
 
@@ -146,7 +145,7 @@ def psnr(true, est, normalize=True):
 
 
 def ssim(true, est, normalize=True, channel_axis=2, **kwargs):
-    """
+    r"""
     Compute the mean structural similarity index between two images. Values lie
     within [0, 1]. The closer to 1, the closer the match.
 
@@ -165,7 +164,7 @@ def ssim(true, est, normalize=True, channel_axis=2, **kwargs):
 
     Returns
     -------
-    mssim : float
+    ssim : float
         The mean structural similarity index over the image.
 
     """
@@ -176,7 +175,7 @@ def ssim(true, est, normalize=True, channel_axis=2, **kwargs):
 
 
 def lpips(true, est, normalize=True):
-    """
+    r"""
     Compute a perceptual metric (LPIPS) between two images. Values lie within
     [0, 1]. The closer to 0, the closer the match.
 
@@ -215,7 +214,7 @@ def lpips(true, est, normalize=True):
 
 
 def extract(estimate, original, vertical_crop, horizontal_crop, rotation, verbose=False):
-    """
+    r"""
     Utility function to extract matching region in reconstruction and in original
     image. Later will also be resized to the same dimensions as the estimate.
 
