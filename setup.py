@@ -4,6 +4,7 @@ import setuptools
 __version__ = None
 with open("lensless/version.py") as f:
     exec(f.read())
+assert __version__ is not None
 
 with open("README.rst", "r") as fh:
     long_description = fh.read()
