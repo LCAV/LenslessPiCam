@@ -1,7 +1,13 @@
 # Configuration file for the Sphinx documentation builder.
 import datetime
+import os
 from lensless import __version__
 
+# # import version from file -> `__version__`
+# fp = os.path.dirname(os.path.abspath(__file__))
+# version_path = os.path.join(fp, "../../lensless/version.py")
+# with open(version_path) as f:
+#     exec(f.read())
 
 autodoc_mock_imports = ["numpy", "scipy", "cupy", "cupyx"]
 

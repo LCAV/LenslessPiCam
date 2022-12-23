@@ -1,11 +1,16 @@
 import setuptools
 
+# import version from file -> `__version__`
+__version__ = None
+with open("lensless/version.py") as f:
+    exec(f.read())
+
 with open("README.rst", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="lensless",
-    version="1.0.2",
+    version=__version__,
     author="Eric Bezzam",
     author_email="ebezzam@gmail.com",
     description="Package to control and image with a lensless camera running on a Raspberry Pi.",
