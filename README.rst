@@ -2,12 +2,17 @@
 LenslessPiCam
 =============
 
+.. image:: https://readthedocs.org/projects/lensless/badge/?version=latest
+    :target: http://pyroomacoustics.readthedocs.io/en/latest/
+    :alt: Documentation Status
+
 *A Hardware and Software Platform for Lensless Computational Imaging with a Raspberry Pi*
 -----------------------------------------------------------------------------------------
 
 .. image:: https://github.com/LCAV/LenslessPiCam/raw/main/scripts/recon/example.png
     :alt: Lensless imaging example
     :align: center
+
 
 This package provides functionalities to perform imaging with a lensless
 camera. We make use of a low-cost implementation of DiffuserCam [1]_, 
