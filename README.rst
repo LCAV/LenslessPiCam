@@ -1,21 +1,9 @@
-.. raw:: html
-
-   <style type="text/css">
-    .bolditalic {
-        font-weight: bold;
-        font-style: italic;
-    }
-   </style>
-
-.. role:: bolditalic
-  :class: bolditalic
-
 =============
 LenslessPiCam
 =============
 
-:bolditalic:`A Hardware and Software Platform for Lensless Computational Imaging with a Raspberry Pi`
------------------------------------------------------------------------------------------------------
+*A Hardware and Software Platform for Lensless Computational Imaging with a Raspberry Pi*
+-----------------------------------------------------------------------------------------
 
 .. image:: https://github.com/LCAV/LenslessPiCam/raw/main/scripts/recon/example.png
     :alt: Lensless imaging example
@@ -30,7 +18,7 @@ is also supported). However, the same principles can be used for a
 different diffuser/mask and a different sensor (although the capture
 script would change). 
 
-:bolditalic:`If you are interested in exploring reconstruction algorithms without building the camera, that is entirely possible!`
+*If you are interested in exploring reconstruction algorithms without building the camera, that is entirely possible!*
 The provided reconstruction algorithms can be used with :ref:`the provided data<Already available data>`
 or :ref:`simulated data<Simulating raw data>`.
 
