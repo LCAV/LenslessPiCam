@@ -82,13 +82,18 @@ the new tag by (1) clicking "..." and selecting "Create release" and (2) at the 
 ## Building documentation
 
 ```bash
+# create virtual environment
+conda create --name lensless_docs python=3.9
+conda activate lensless_docs
+
 # install dependencies
-# -- bullets don't render for docutils>0.17
-pip install sphinx==4.0.1 sphinx_rtd_theme==0.4.3 docutils==0.16
+(lensless_docs) pip install -r docs/requirements.txt
 
-# build to documentation
-python setup.py build_sphinx
+# build documentation
+(lensless_docs) python setup.py build_sphinx
+```
 
-# add the following flags to rebuild from scratch
-python setup.py build_sphinx -E -a
+To rebuild the documentation from scratch:
+```bash
+(lensless_docs) python setup.py build_sphinx -E -a
 ```

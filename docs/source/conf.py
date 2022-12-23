@@ -2,29 +2,38 @@
 import datetime
 import os
 import sys
+from unittest import mock
 
 
-# version_dir = os.path.join(os.path.abspath(__file__), "..", "..", "lensless")
-# sys.path.append(version_dir)
-# sys.path.insert(0, os.path.abspath(os.path.join("..", "..")))
-#
+MOCK_MODULES = [
+    "numpy",
+    "scipy",
+    "pycsou",
+    "matplotlib",
+    "matplotlib.pyplot",
+    "scipy.fftpack",
+    "cv2",
+    "rawpy",
+    "skimage.metrics",
+    "lpips",
+    "torch",
+    "scipy.ndimage",
+    "pycsou.core",
+    "pycsou.core.linop",
+    "pycsou.linop",
+    "pycsou.linop.conv",
+    "pycsou.func.loss",
+    "pycsou.func.penalty",
+    "pycsou.opt.proxalgs",
+    "lensless.APGD",
+]
+for mod_name in MOCK_MODULES:
+    sys.modules[mod_name] = mock.Mock()
 
-# # import version from file -> `__version__`
-# fp = os.path.dirname(os.path.abspath(__file__))
-# version_path = os.path.join(f)
-
-# __version__ = None
-# version_fp = os.path.join("..", "..", "lensless", "version.py")
-# with open(version_fp) as f:
-#     exec(f.read())
-# assert __version__ is not None
+# -- Project information
 
 sys.path.insert(0, os.path.abspath(os.path.join("..", "..")))
 from lensless import __version__
-
-autodoc_mock_imports = ["numpy", "scipy", "cupy", "cupyx"]
-
-# -- Project information
 
 project = "LenslessPiCam"
 copyright = f"{datetime.date.today().year}, Eric Bezzam"
