@@ -9,6 +9,7 @@ class ADMM(ReconstructionAlgorithm):
     a non-negativity constraint and a total variation (TV) prior.
 
     Paper about ADMM: https://web.stanford.edu/~boyd/papers/pdf/admm_distr_stats.pdf
+
     Slides about ADMM: https://web.stanford.edu/class/ee364b/lectures/admm_slides.pdf
 
     """

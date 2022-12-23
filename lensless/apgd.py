@@ -50,27 +50,25 @@ class APGD(ReconstructionAlgorithm):
         **kwargs
     ):
         """
-        Wrapper for Pycsou's APGD (accelerated proximal gradient descent)
-        applied to lensless imaging.
-
-        Pycsou APGD documentation: https://matthieumeo.github.io/pycsou/html/api/algorithms/pycsou.opt.proxalgs.html?highlight=apgd#pycsou.opt.proxalgs.AcceleratedProximalGradientDescent
+        Wrapper for `Pycsou's APGD <https://matthieumeo.github.io/pycsou/html/api/algorithms/pycsou.opt.proxalgs.html?highlight=apgd#pycsou.opt.proxalgs.AcceleratedProximalGradientDescent>`__
+        (accelerated proximal gradient descent) applied to lensless imaging.
 
         Parameters
         ----------
-        psf :py:class:`~numpy.ndarray`
+        psf : :py:class:`~numpy.ndarray`
             PSF that models forward propagation.
         max_iter : int, optional
             Maximal number of iterations.
         dtype : float32 or float64
             Data type to use for optimization.
-        diff_penalty : None or str or :py:class:`~pycsou.func.penalty`
+        diff_penalty : None or str or :py:class:`~pycsou.core.functional.DifferentiableFunctional`
             Differentiable functional to serve as prior / regularization term.
-            Default is None. See Pycsou documentation for available
-            penalties: https://matthieumeo.github.io/pycsou/html/api/functionals/pycsou.func.penalty.html?highlight=penalty#module-pycsou.func.penalty
-        prox_penalty : None or str or :py:class:`~pycsou.func.penalty`
+            Default is None. See `Pycsou documentation <https://matthieumeo.github.io/pycsou/html/api/functionals/pycsou.func.penalty.html?highlight=penalty#module-pycsou.func.penalty>`__
+            for available penalties.
+        prox_penalty : None or str or :py:class:`~pycsou.core.functional.ProximableFunctional`
             Proximal functional to serve as prior / regularization term. Default
-            is non-negative prior. See Pycsou documentation for available
-            penalties: https://matthieumeo.github.io/pycsou/html/api/functionals/pycsou.func.penalty.html?highlight=penalty#module-pycsou.func.penalty
+            is non-negative prior. See `Pycsou documentation <https://matthieumeo.github.io/pycsou/html/api/functionals/pycsou.func.penalty.html?highlight=penalty#module-pycsou.func.penalty>`__
+            for available penalties.
         acceleration : [None, 'BT', 'CD']
             Which acceleration scheme should be used (None for no acceleration).
             "BT" (Beck and Teboule) has convergence `O(1/k^2)`, while "CD"
@@ -130,7 +128,7 @@ class APGD(ReconstructionAlgorithm):
 
     def set_data(self, data):
         """
-        For `APGD`, we use data to initialize problem for Pycsou.
+        For ``APGD``, we use data to initialize problem for Pycsou.
 
         Parameters
         ----------
