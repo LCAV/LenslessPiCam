@@ -19,8 +19,7 @@ different diffuser/mask and a different sensor (although the capture
 script would change). 
 
 *If you are interested in exploring reconstruction algorithms without building the camera, that is entirely possible!*
-The provided reconstruction algorithms can be used with :ref:`the provided data<Already available data>`
-or :ref:`simulated data<Simulating raw data>`.
+The provided reconstruction algorithms can be used with the provided data or simulated data.
 
 We've also written a few Medium articles to guide users through the process
 of building the camera, measuring data with it, and reconstruction.
