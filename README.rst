@@ -6,7 +6,7 @@ LenslessPiCam
     :target: http://pyroomacoustics.readthedocs.io/en/latest/
     :alt: Documentation Status
 
-*A Hardware and Software Platform for Lensless Computational Imaging with a Raspberry Pi*
+*A Hardware and Software Toolkit for Lensless Computational Imaging with a Raspberry Pi*
 -----------------------------------------------------------------------------------------
 
 .. image:: https://github.com/LCAV/LenslessPiCam/raw/main/scripts/recon/example.png
@@ -14,14 +14,13 @@ LenslessPiCam
     :align: center
 
 
-This package provides functionalities to perform imaging with a lensless
+This toolkit has everything you need to perform imaging with a lensless
 camera. We make use of a low-cost implementation of DiffuserCam [1]_, 
 where we use a piece of tape instead of the lens and the
 `Raspberry Pi HQ camera sensor <https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera>`__
 (the `V2 sensor <https://www.raspberrypi.com/products/camera-module-v2/>`__
-is also supported). However, the same principles can be used for a
-different diffuser/mask and a different sensor (although the capture
-script would change). 
+is also supported). Similar principles and methods can be used for a
+different lensless encoder and a different sensor. 
 
 *If you are interested in exploring reconstruction algorithms without building the camera, that is entirely possible!*
 The provided reconstruction algorithms can be used with the provided data or simulated data.
