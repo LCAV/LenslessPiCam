@@ -13,6 +13,7 @@ Added
 ~~~~~
 
 -  Documentation files and configuration, using Sphinx.
+-  Implementations for ``autocorr2d`` and ``RealFFTConvolve2D``.
 
 Changed
 ~~~~~~~

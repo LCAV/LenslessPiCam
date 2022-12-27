@@ -1,16 +1,15 @@
 from lensless.recon import ReconstructionAlgorithm
 import inspect
 import numpy as np
-from pycsou.linop.conv import Convolve2D
 from pycsou.func.loss import SquaredL2Loss
 from pycsou.func.penalty import NonNegativeOrthant, SquaredL2Norm, L1Norm
 from pycsou.opt.proxalgs import APGD as APGD_pyc
 from copy import deepcopy
-
-try:
-    from lensless.realfftconv_sol import RealFFTConvolve2D
-except Exception:
-    from lensless.realfftconv import RealFFTConvolve2D
+from pycsou.core.linop import LinearOperator
+from typing import Union, Optional
+from numbers import Number
+from scipy import fft
+from scipy.fftpack import next_fast_len
 
 
 class APGDPriors:
@@ -35,6 +34,74 @@ class APGDPriors:
         return vals
 
 
+class RealFFTConvolve2D(LinearOperator):
+    def __init__(self, filter, dtype: Optional[type] = None):
+        """
+        Linear operator that performs convolution in Fourier domain, and assumes
+        real-valued signals.
+
+        Parameters
+        ----------
+        filter :py:class:`~numpy.ndarray`
+            2D filter to use. Must be of shape (height, width, channels) even if
+            only one channel.
+        dtype : float32 or float64
+            Data type to use for optimization.
+        """
+
+        assert len(filter.shape) == 3
+        self._filter_shape = np.array(filter.shape)
+        self._n_channels = filter.shape[2]
+
+        # cropping / padding indices
+        self._padded_shape = 2 * self._filter_shape[:2] - 1
+        self._padded_shape = np.array([next_fast_len(i) for i in self._padded_shape])
+        self._padded_shape = np.r_[self._padded_shape, [self._n_channels]]
+        self._start_idx = (self._padded_shape[:2] - self._filter_shape[:2]) // 2
+        self._end_idx = self._start_idx + self._filter_shape[:2]
+
+        # precompute filter in frequency domain
+        self._H = fft.rfft2(self._pad(filter), axes=(0, 1))
+        self._Hadj = np.conj(self._H)
+        self._padded_data = np.zeros(self._padded_shape).astype(dtype)
+
+        shape = (int(np.prod(self._filter_shape)), int(np.prod(self._filter_shape)))
+        super(RealFFTConvolve2D, self).__init__(shape=shape, dtype=dtype)
+
+    def _crop(self, x):
+        return x[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]]
+
+    def _pad(self, v):
+        vpad = np.zeros(self._padded_shape).astype(v.dtype)
+        vpad[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]] = v
+        return vpad
+
+    def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        # like here: https://github.com/PyLops/pylops/blob/3e7eb22a62ec60e868ccdd03bc4b54806851cb26/pylops/signalprocessing/ConvolveND.py#L103
+        self._padded_data[
+            self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
+        ] = np.reshape(x, self._filter_shape)
+        y = self._crop(
+            fft.ifftshift(
+                fft.irfft2(fft.rfft2(self._padded_data, axes=(0, 1)) * self._H, axes=(0, 1)),
+                axes=(0, 1),
+            )
+        )
+        return y.ravel()
+
+    def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+        self._padded_data[
+            self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
+        ] = np.reshape(y, self._filter_shape)
+        x = self._crop(
+            fft.ifftshift(
+                fft.irfft2(fft.rfft2(self._padded_data, axes=(0, 1)) * self._Hadj, axes=(0, 1)),
+                axes=(0, 1),
+            )
+        )
+        return x.ravel()
+
+
 class APGD(ReconstructionAlgorithm):
     def __init__(
         self,
@@ -46,7 +113,6 @@ class APGD(ReconstructionAlgorithm):
         acceleration="BT",
         diff_lambda=0.001,
         prox_lambda=0.001,
-        realconv=True,
         **kwargs
     ):
         """
@@ -78,8 +144,6 @@ class APGD(ReconstructionAlgorithm):
             Weight of differentiable penalty.
         prox_lambda : float
             Weight of proximal penalty.
-        realconv : bool
-            Whether to apply convolution for real signals (if available).
         """
 
         # PSF and data are the same size / shape
@@ -94,11 +158,7 @@ class APGD(ReconstructionAlgorithm):
         self._max_iter = max_iter
 
         # Convolution operator
-        if realconv:
-            self._H = RealFFTConvolve2D(self._psf, dtype=dtype)
-        else:
-            assert self._is_rgb is False, "RGB not supported for `Convolve2D`."
-            self._H = Convolve2D(size=psf.size, filter=psf, shape=psf.shape, dtype=dtype)
+        self._H = RealFFTConvolve2D(self._psf, dtype=dtype)
         self._H.compute_lipschitz_cst()
 
         # initialize solvers which will be created when data is set

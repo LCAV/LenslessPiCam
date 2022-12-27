@@ -14,7 +14,7 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
 
     Parameters
     ----------
-    img :py:class:`~numpy.ndarray`
+    img : :py:class:`~numpy.ndarray`
         Downsampled image.
     factor : int or float
         Resizing factor.
@@ -25,7 +25,7 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
 
     Returns
     -------
-    img :py:class:`~numpy.ndarray`
+    img : :py:class:`~numpy.ndarray`
         Resized image.
     """
     min_val = img.min()
@@ -68,28 +68,21 @@ def rgb2gray(rgb, weights=None):
 
 def gamma_correction(vals, gamma=2.2):
     """
-    Tutorials
-    - https://www.cambridgeincolour.com/tutorials/gamma-correction.htm
-    - (code, for images) https://www.pyimagesearch.com/2015/10/05/opencv-gamma-correction/
-        https://lindevs.com/apply-gamma-correction-to-an-image-using-opencv/
-    - (code) http://www.fourmilab.ch/documents/specrend/specrend.c
+    Apply `gamma correction <https://www.cambridgeincolour.com/tutorials/gamma-correction.htm>`__.
 
     Parameters
     ----------
-    vals : array_like
+    vals : :py:class:`~numpy.ndarray`
         RGB values to gamma correct.
     gamma : float, optional
-            Gamma correction factor to apply for plots. Default is None.
+        Gamma correction factor.
 
     Returns
     -------
-    vals : array_like
+    vals : :py:class:`~numpy.ndarray`
         Gamma-corrected data.
 
     """
-
-    # simple approach
-    # return np.power(vals, 1 / gamma)
 
     # Rec. 709 gamma correction
     # http://www.fourmilab.ch/documents/specrend/specrend.c
@@ -100,7 +93,21 @@ def gamma_correction(vals, gamma=2.2):
 
 
 def get_max_val(img, nbits=None):
-    """For uint image"""
+    """
+    For uint image.
+
+    Parameters
+    ----------
+    img : :py:class:`~numpy.ndarray`
+        Image array.
+    nbits : int, optional
+        Number of bits per pixel. Detect if not provided.
+
+    Returns
+    -------
+    max_val : int
+        Maximum pixel value.
+    """
     assert img.dtype not in FLOAT_DTYPES
     if nbits is None:
         nbits = int(np.ceil(np.log2(img.max())))
@@ -126,11 +133,12 @@ def bayer2rgb(
 ):
     """
     Convert raw Bayer data to RGB with the following steps:
-    - Demosaic with bi-linear interpolation, mapping the Bayer array to RGB.
-    - Black level removal.
-    - White balancing, applying gains to red and blue channels.
-    - Color correction matrix.
-    - Clip
+
+    #. Demosaic with bi-linear interpolation, mapping the Bayer array to RGB.
+    #. Black level removal.
+    #. White balancing, applying gains to red and blue channels.
+    #. Color correction matrix.
+    #. Clip.
 
     Parameters
     ----------
@@ -180,6 +188,14 @@ def bayer2rgb(
 
 
 def get_distro():
+    """
+    Get current OS distribution.
+
+    Returns
+    -------
+    result : str
+        Name and version of OS.
+    """
     # https://majornetwork.net/2019/11/get-linux-distribution-name-and-version-with-python/
     RELEASE_DATA = {}
     with open("/etc/os-release") as f:
@@ -199,8 +215,45 @@ def get_distro():
 
 
 def print_image_info(img):
+    """
+    Print dimensions, data type, max, min, mean.
+    """
     print("dimensions : {}".format(img.shape))
     print("data type : {}".format(img.dtype))
     print("max  : {}".format(img.max()))
     print("min  : {}".format(img.min()))
     print("mean : {}".format(img.mean()))
+
+
+def autocorr2d(vals, pad_mode="reflect"):
+    """
+    Compute 2-D autocorrelation of image via the FFT.
+
+    Parameters
+    ----------
+    vals : :py:class:`~numpy.ndarray`
+        2-D image.
+    pad_mode : str
+        Desired padding. See NumPy documentation: https://numpy.org/doc/stable/reference/generated/numpy.pad.html
+
+    Return
+    ------
+    autocorr : :py:class:`~numpy.ndarray`
+    """
+
+    shape = vals.shape
+    assert len(shape) == 2
+
+    # pad
+    vals_padded = np.pad(
+        vals,
+        pad_width=((shape[0] // 2, shape[0] // 2), (shape[1] // 2, shape[1] // 2)),
+        mode=pad_mode,
+    )
+
+    # compute autocorrelation via DFT
+    X = np.fft.rfft2(vals_padded)
+    autocorr = np.fft.ifftshift(np.fft.irfft2(X * X.conj()))
+
+    # remove padding
+    return autocorr[shape[0] // 2 : -shape[0] // 2, shape[1] // 2 : -shape[1] // 2]
