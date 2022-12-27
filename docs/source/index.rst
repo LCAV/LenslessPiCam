@@ -19,11 +19,24 @@ Contents
 --------
 
 .. toctree::
+   :caption: From A to Z
 
    building
    measurement
-   simulation
-   data
    reconstruction
    evaluation
    utilities
+
+
+.. toctree::
+   :caption: Data
+
+   simulation
+   data
+
+.. toctree::
+   :hidden:
+   :caption: Development
+
+   contributing
+   changelog
