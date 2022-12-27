@@ -38,8 +38,8 @@
 
    .. autofunction:: lensless.admm.finite_diff_gram
 
-   Accelerated Proximal Gradient Descent API
-   -----------------------------------------
+   Accelerated Proximal Gradient Descent (APGD) API
+   ------------------------------------------------
 
    .. autoclass:: lensless.APGD
       :special-members: __init__

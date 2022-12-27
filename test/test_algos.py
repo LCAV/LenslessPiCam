@@ -22,10 +22,7 @@ def test_algo():
                     gray=gray,
                     dtype=dtype,
                 )
-                if algo == APGD:
-                    if not gray:
-                        continue
-                recon = algo(psf, dtype=dtype, realconv=False)
+                recon = algo(psf, dtype=dtype)
                 recon.set_data(data)
                 res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
                 if gray:
