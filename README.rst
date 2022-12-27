@@ -29,17 +29,6 @@ We've also written a few Medium articles to guide users through the process
 of building the camera, measuring data with it, and reconstruction.
 They are all laid out in `this post <https://medium.com/@bezzam/a-complete-lensless-imaging-tutorial-hardware-software-and-algorithms-8873fa81a660>`__.
 
-Note that this material has been used for our graduate signal processing
-course at EPFL, and therefore includes some exercises / code to
-complete: 
-
-* ``lensless.autocorr.autocorr2d``: to compute a 2D autocorrelation in the frequency domain;
-* ``lensless.realfftconv.RealFFTConvolve2D``: to pre-compute the PSF's Fourier transform, perform a convolution in the frequency domain with the real-valued FFT, and vectorize operations for RGB.
-
-If you are an instructor, you can request access to the solutions
-`here <https://drive.google.com/drive/folders/1Y1scM8wVfjVAo5-8Nr2VfE4b6VHeDSia?usp=sharing>`__
-or send an email to ``eric[dot]bezzam[at]epfl[dot]ch``.
-
 Setup 
 -----
 
