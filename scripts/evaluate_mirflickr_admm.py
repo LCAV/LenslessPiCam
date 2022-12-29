@@ -1,20 +1,19 @@
 """
 
-Download data from here: https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE
+Download subset from here: https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE
 Or full dataset here: https://github.com/Waller-Lab/LenslessLearning
 
 ```
-python scripts/evaluate_mirflickr_admm.py \
---data DiffuserCam_Mirflickr_200_3011302021_11h43_seed11 \
---n_files 10 --save
+python scripts/evaluate_mirflickr_admm.py
 ```
 
 """
 
+import hydra
+from hydra.utils import to_absolute_path
 import glob
 import os
 import pathlib as plib
-import click
 from datetime import datetime
 from lensless.io import load_psf
 import numpy as np
@@ -24,36 +23,14 @@ from lensless.mirflickr import ADMM_MIRFLICKR, postprocess
 from lensless.metric import mse, psnr, ssim, lpips
 
 
-@click.command()
-@click.option(
-    "--data",
-    type=str,
-    help="Dataset to work on.",
-)
-@click.option(
-    "--n_files",
-    type=int,
-    default=None,
-    help="Number of files to apply reconstruction on. Default is apply on all.",
-)
-@click.option(
-    "--n_iter",
-    type=int,
-    default=100,
-    help="Number of iterations.",
-)
-@click.option(
-    "--single_psf",
-    is_flag=True,
-    help="Whether to take PSF as sum of RGB channels.",
-)
-@click.option(
-    "--save",
-    is_flag=True,
-    help="Whether to save reconstructions.",
-)
-def mirflickr_dataset(data, n_files, n_iter, single_psf, save):
-    assert data is not None
+@hydra.main(version_base=None, config_path="../configs", config_name="evaluate_mirflickr_admm")
+def mirflickr_dataset(config):
+
+    data = to_absolute_path(config.dataset)
+    n_files = config.n_files
+    single_psf = config.preprocess.single_psf
+    save = config.save
+    n_iter = config.admm.n_iter
 
     dataset_dir = os.path.join(data, "dataset")
     if os.path.isdir(dataset_dir):
@@ -91,7 +68,7 @@ def mirflickr_dataset(data, n_files, n_iter, single_psf, save):
         save.mkdir(exist_ok=False)
 
     # -- create ADMM object
-    recon = ADMM_MIRFLICKR(psf_float)
+    recon = ADMM_MIRFLICKR(psf_float, **config.admm)
     print("\nLooping through files...")
     mse_scores = []
     psnr_scores = []
