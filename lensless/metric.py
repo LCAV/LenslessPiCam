@@ -6,7 +6,7 @@
 # #############################################################################
 
 
-r"""
+"""
 Evaluation
 ==========
 
@@ -18,29 +18,35 @@ quality of the reconstruction. To this end, four metrics are made available:
 * **Structural similarity index measure (SSIM)**: higher is better with a maximum of 1.
 * **Learned Perceptual Image Patch Similarity (LPIPS)**: perceptual metrics that used a pre-trained neural network on patches. Lower is better with a minimum of 0. *NB: only for RGB!*
 
+Note that in the examples below, YAML configuration files are read from the ``configs`` directory.
+``--help`` can be used to see the available options.
+
 On a single file
 ----------------
 
-The following script can be used to compute the above metrics for a single file, given a reference file:
+The script ``scripts/compute_metrics_from_original.py`` shows how to compute the above metrics for a
+single file by (1) extraction a region of interest and (2) comparing it to a reference file.
+
+After downloading the example files:
+
+* `Thumbs up reconstruction <https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Freconstruction>`__;
+* `Original thumbs up <https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Foriginal>`__,
+
+And placing them in (respectively):
+
+* ``data/reconstruction``
+* ``data/original``
+
+The script can be run with:
 
 .. code:: bash
 
-   python scripts/compute_metrics_from_original.py \
-   --recon data/reconstruction/admm_thumbs_up_rgb.npy \
-   --original data/original/thumbs_up.png \
-   --vertical_crop 262 371 \
-   --horizontal_crop 438 527 \
-   --rotation -0.5
+    python scripts/compute_metrics_from_original.py
 
-where:
 
-*  ``recon`` is the path to the reconstructed file;
-*  ``original`` is the path to the reconstructed file;
-*  ``vertical_crop`` specifies the vertical section to crop from the reconstruction;
-*  ``horizontal_crop`` specifies the horizontal section to crop from the reconstruction;
-*  ``rotation`` specifies a rotate in degrees to align the reconstruction with the original.
+Default parameters will be used from the ``configs/compute_metrics_from_original.yaml`` file.
 
-More information with an example can be found in
+More information can be found in
 `this Medium article <https://medium.com/@bezzam/image-similarity-metrics-applied-to-diffusercam-21998967af8d>`__.
 
 
@@ -52,35 +58,35 @@ comes with (lensed, lensless) image pairs, namely an image that is captured
 with a conventional lensed camera and a corresponding image that is captured
 with the diffuser-based camera.
 
-You can run ADMM on DLMD with the following script.
+The original dataset is quite large (25000 files, 100 GB). So we've prepared
+`this subset <https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE>`__
+(200 files, 725 MB).
+
+After downloading the data, you can run ADMM on the subset with the following script.
 
 .. code:: bash
 
-   python scripts/evaluate_mirflickr_admm.py --data <FP>
+   python scripts/evaluate_mirflickr_admm.py
 
-where ``<FP>`` is the path to the dataset.
+The default parameters can be found in the ``configs/evaluate_mirflickr_admm.yaml`` file.
 
-However, the original dataset is quite large (25000 files, 100 GB). So
-we've prepared `this subset <https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE>`__
-(200 files, 725 MB) which you can also pass to the script. It is also
-possible to set the number of files.
+It is also possible to set the number of files.
 
 .. code:: bash
 
-   python scripts/evaluate_mirflickr_admm.py \
-   --data DiffuserCam_Mirflickr_200_3011302021_11h43_seed11 \
-   --n_files 10 --save
+   python scripts/evaluate_mirflickr_admm.py n_files=10 save=True
 
-The ``--save`` flag will save a viewable image for each reconstruction.
+
+The ``save`` option will save a viewable image for each reconstruction.
 
 You can also apply ADMM on a single image and visualize the iterative
 reconstruction.
 
 .. code:: bash
 
-   python scripts/apply_admm_single_mirflickr.py \
-   --data DiffuserCam_Mirflickr_200_3011302021_11h43_seed11 \
-   --fid 172
+   python scripts/apply_admm_single_mirflickr.py
+
+The default parameters can be found in the ``configs/apply_admm_single_mirflickr.yaml`` file.
 
 """
 
@@ -93,7 +99,7 @@ from lensless.util import resize
 
 
 def mse(true, est, normalize=True):
-    r"""
+    """
     Compute the mean-squared error between two images. The closer to 0, the
     closer the match.
 
@@ -119,7 +125,7 @@ def mse(true, est, normalize=True):
 
 
 def psnr(true, est, normalize=True):
-    r"""
+    """
     Compute the peak signal to noise ratio (PSNR) for an image. The higher the
     value, the better the match.
 
@@ -145,7 +151,7 @@ def psnr(true, est, normalize=True):
 
 
 def ssim(true, est, normalize=True, channel_axis=2, **kwargs):
-    r"""
+    """
     Compute the mean structural similarity index between two images. Values lie
     within [0, 1]. The closer to 1, the closer the match.
 
@@ -175,7 +181,7 @@ def ssim(true, est, normalize=True, channel_axis=2, **kwargs):
 
 
 def lpips(true, est, normalize=True):
-    r"""
+    """
     Compute a perceptual metric (LPIPS) between two images. Values lie within
     [0, 1]. The closer to 0, the closer the match.
 
@@ -214,7 +220,7 @@ def lpips(true, est, normalize=True):
 
 
 def extract(estimate, original, vertical_crop, horizontal_crop, rotation, verbose=False):
-    r"""
+    """
     Utility function to extract matching region in reconstruction and in original
     image. Later will also be resized to the same dimensions as the estimate.
 

@@ -5,6 +5,8 @@ scripts/gd_*
 .DS_Store
 DiffuserCam_Mirflickr*
 paper/paper.pdf
+# from hydra
+outputs/*     
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

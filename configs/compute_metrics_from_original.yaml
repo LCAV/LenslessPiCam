@@ -1,0 +1,12 @@
+files:
+  # Can be downloaded here: https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Freconstruction
+  recon: data/reconstruction/admm_thumbs_up_rgb.npy
+  # Can be downloaded here: https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Foriginal
+  original: data/original/thumbs_up.png
+
+alignment:
+  vertical_crop: [262, 371]
+  horizontal_crop: [438, 527]
+  rotation: -0.5
+
+verbose: False

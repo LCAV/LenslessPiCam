@@ -1,20 +1,22 @@
 """
+After downloading the example files:
+- Reconstrution: https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Freconstruction
+- Original: https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Foriginal
 
-Example usage:
+And placing in (respectively):
+- data/reconstruction
+- data/original
+
+The script can be run with:
 ```
-python scripts/compute_metrics_from_original.py \
---recon data/reconstruction/admm_thumbs_up_rgb.npy \
---original data/original/thumbs_up.png \
---vertical_crop 262 371 \
---horizontal_crop 438 527 \
---rotation -0.5
+python scripts/compute_metrics_from_original.py
 ```
-you can get examples files from SWITCHDrive: https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww
 
 """
 
+import hydra
+from hydra.utils import to_absolute_path
 import numpy as np
-import click
 import matplotlib.pyplot as plt
 from lensless.plot import plot_image
 from lensless.io import load_image
@@ -25,26 +27,17 @@ font = {"family": "DejaVu Sans", "size": 18}
 matplotlib.rc("font", **font)
 
 
-@click.command()
-@click.option(
-    "--recon",
-    type=str,
-    help="File path to reconstruction.",
+@hydra.main(
+    version_base=None, config_path="../configs", config_name="compute_metrics_from_original"
 )
-@click.option(
-    "--original",
-    type=str,
-    help="File path to original file.",
-)
-@click.option(
-    "--vertical_crop", type=(int, int), help="Cropping for vertical dimension.", default=(0, -1)
-)
-@click.option(
-    "--horizontal_crop", type=(int, int), help="Cropping for horizontal dimension.", default=(0, -1)
-)
-@click.option("--rotation", type=float, help="Degrees to rotate reconstruction.", default=0)
-@click.option("-v", "--verbose", count=True)
-def compute_metrics(recon, original, vertical_crop, horizontal_crop, rotation, verbose):
+def compute_metrics(config):
+
+    recon = to_absolute_path(config.files.recon)
+    original = to_absolute_path(config.files.original)
+    vertical_crop = config.alignment.vertical_crop
+    horizontal_crop = config.alignment.horizontal_crop
+    rotation = config.alignment.rotation
+    verbose = config.verbose
 
     # load estimate
     est = np.load(recon)

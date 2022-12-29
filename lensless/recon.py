@@ -23,7 +23,8 @@ strategies available in ``LenslessPiCam`` derive from this class:
 -  ``lensless.APGD``: accelerated proximal gradient descent with Pycsou
    as a backend. Any differentiable or proximal operator can be used as
    long as it is compatible with Pycsou, namely derives from one of
-   ``DifferentiableFunctional`` or ``ProximableFunctional``.
+   :py:class:`~pycsou.core.functional.DifferentiableFunctional` or
+   :py:class:`~pycsou.core.functional.ProximableFunctional`.
 
 New reconstruction algorithms can be conveniently implemented by
 deriving from the abstract class and defining the following abstract
@@ -42,6 +43,10 @@ from it boils down to three steps:
 2. Setting the data.
 3. Applying the algorithm.
 
+
+ADMM example
+------------
+
 For example, for ADMM:
 
 .. code:: python
@@ -50,17 +55,70 @@ For example, for ADMM:
        recon.set_data(data)
        res = recon.apply(n_iter=n_iter)
 
-A full running example can be run like so:
+A full running example can found in ``scripts/recon/admm.py`` and run as:
 
 .. code:: bash
 
-        python scripts/recon/admm.py \\
-        --psf_fp data/psf/tape_rgb.png \\
-        --data_fp data/raw_data/thumbs_up_rgb.png \\
-        --n_iter 5
+    python scripts/recon/admm.py
 
-A template for applying a reconstruction algorithm (including loading
-the data) can be found in ``scripts/recon/template.py``.
+Note that a YAML configuration script is defined in ``configs/admm_thumbs_up.yaml``,
+which is used by default. Individual parameters can be configured as such:
+
+.. code:: bash
+
+    python scripts/recon/admm.py admm.n_iter=10 preprocess.gray=True
+
+``--help`` can be used to view all available parameters.
+
+.. code::
+
+    >> python scripts/recon/admm.py --help
+
+    ...
+
+    == Config ==
+    Override anything in the config (foo.bar=value)
+
+    files:
+        psf: data/psf/tape_rgb.png
+        data: data/raw_data/thumbs_up_rgb.png
+    preprocess:
+        downsample: 4
+        shape: null
+        flip: false
+        bayer: false
+        blue_gain: null
+        red_gain: null
+        single_psf: false
+        gray: false
+    display:
+        disp: 1
+        plot: true
+        gamma: null
+    save: false
+    admm:
+        n_iter: 5
+        mu1: 1.0e-06
+        mu2: 1.0e-05
+        mu3: 4.0e-05
+        tau: 0.0001
+
+    ...
+
+
+Alternatively, a new configuration file can be defined in the ``configs`` folder and
+passed to the script:
+
+.. code:: bash
+
+    python scripts/recon/admm.py -cn <CONFIG_FILENAME_WITHOUT_YAML_EXT>
+
+
+Other approaches
+----------------
+
+Scripts for other reconstruction algorithms can be found in ``scripts/recon`` and their
+corresponding configurations in ``configs``.
 
 
 **References**
@@ -99,16 +157,6 @@ class ReconstructionAlgorithm(abc.ABC):
     #. Setting the data.
     #. Applying the algorithm.
 
-    For example, for ADMM (full example in ``scripts/admm.py``):
-
-    .. code:: Python
-
-        recon = ADMM(psf)
-        recon.set_data(data)
-        res = recon.apply(n_iter=n_iter)
-
-    A template for applying a reconstruction algorithm (including loading the
-    data) can be found in ``scripts/reconstruction_template.py``.
 
     """
 

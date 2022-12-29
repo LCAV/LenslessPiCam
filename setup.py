@@ -28,6 +28,7 @@ setuptools.setup(
         "opencv-python>=4.5.1.48",
         "numpy>=1.22",
         "scipy>=1.7.0",
+        "hydra-core",
         "click>=8.0.1",
         "image>=1.5.33",
         "picamerax>=20.9.1",
