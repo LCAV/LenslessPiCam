@@ -8,7 +8,8 @@ fid: 172
 
 preprocess:
   # Same PSF for all channels (sum) or unique PSF for RGB.
-  single_psf: False
+  # True in LenslessLearning
+  single_psf: True
 
 
 display:
