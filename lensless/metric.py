@@ -219,7 +219,9 @@ def lpips(true, est, normalize=True):
     return loss_fn.forward(true, est).squeeze().item()
 
 
-def extract(estimate, original, vertical_crop, horizontal_crop, rotation, verbose=False):
+def extract(
+    estimate, original, vertical_crop=None, horizontal_crop=None, rotation=0, verbose=False
+):
     """
     Utility function to extract matching region in reconstruction and in original
     image. Later will also be resized to the same dimensions as the estimate.
@@ -247,6 +249,11 @@ def extract(estimate, original, vertical_crop, horizontal_crop, rotation, verbos
         Original image resized that the dimensions of `estimate`.
 
     """
+
+    if vertical_crop is None:
+        vertical_crop = (0, estimate.shape[0])
+    if horizontal_crop is None:
+        horizontal_crop = (0, estimate.shape[1])
 
     # crop and rotate estimate image
     estimate = rotate(
