@@ -4,12 +4,13 @@ Apply ADMM on a single image from DiffuserCam dataset: https://github.com/Waller
 Or download a subset here: https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE
 
 ```
-python scripts/apply_admm_single_mirflickr.py \
---data DiffuserCam_Mirflickr_200_3011302021_11h43_seed11 \
---fid 172
+python scripts/apply_admm_single_mirflickr.py
 ```
 
 """
+
+import hydra
+from hydra.utils import to_absolute_path
 import glob
 import numpy as np
 from lensless.util import print_image_info
@@ -20,7 +21,8 @@ from datetime import datetime
 import pathlib as plib
 import os
 import random
-import click
+
+# import click
 import time
 from lensless.mirflickr import ADMM_MIRFLICKR, postprocess
 from lensless.metric import mse, psnr, ssim, lpips
@@ -30,47 +32,19 @@ font = {"family": "DejaVu Sans", "size": 18}
 matplotlib.rc("font", **font)
 
 
-@click.command()
-@click.option(
-    "--data",
-    type=str,
-    help="Path to dataset.",
-)
-@click.option(
-    "--fid",
-    type=str,
-    help="ID of data to reconstruct. If not provided select at random.",
-)
-@click.option(
-    "--gamma",
-    default=None,
-    type=float,
-    help="Gamma factor for plotting.",
-)
-@click.option(
-    "--single_psf",
-    is_flag=True,
-    help="Same PSF for all channels (sum) or unique PSF for RGB.",
-)
-@click.option(
-    "--n_iter",
-    type=int,
-    default=100,
-    help="Number of iterations.",
-)
-@click.option(
-    "--disp",
-    default=10,
-    type=int,
-    help="How many iterations to wait for intermediate plot. Set to negative value for no intermediate plots.",
-)
-@click.option(
-    "--save",
-    is_flag=True,
-    help="Whether to save reconstructions.",
-)
-def apply_admm(data, fid, gamma, single_psf, n_iter, disp, save):
+@hydra.main(version_base=None, config_path="../configs", config_name="apply_admm_single_mirflickr")
+def apply_admm(config):
+
+    data = to_absolute_path(config.dataset)
+    fid = config.fid
+    gamma = config.display.gamma
+    single_psf = config.preprocess.single_psf
+    disp = config.display.disp
+    save = config.save
+    admm_param = config.admm
+
     if fid is None:
+        # random pick file
         fn = glob.glob(os.path.join(os.path.join(data, "diffuser"), "*.npy"))
         fn = [_fn.split("im")[1] for _fn in fn]
         fn = [int(_fn.split(".")[0]) for _fn in fn]
@@ -138,13 +112,13 @@ def apply_admm(data, fid, gamma, single_psf, n_iter, disp, save):
         save = "admm_" + save + timestamp
         save = plib.Path(__file__).parent / save
         save.mkdir(exist_ok=False)
-    recon = ADMM_MIRFLICKR(psf_float)
+    recon = ADMM_MIRFLICKR(psf_float, **admm_param)
     recon.set_data(diffuser_prep)
     start_time = time.time()
-    recon.apply(n_iter=n_iter, disp_iter=disp, save=save, gamma=gamma, ax=ax[1, 1])
+    recon.apply(n_iter=admm_param["n_iter"], disp_iter=disp, save=save, gamma=gamma, ax=ax[1, 1])
     proc_time = time.time() - start_time
     print(f"Processing time : {proc_time} seconds")
-    ax[1, 1].set_title(f"ADMM ({n_iter} iterations)")
+    ax[1, 1].set_title(f"ADMM ({admm_param.n_iter} iterations)")
 
     # -- compute metrics
     print("\nReconstruction")

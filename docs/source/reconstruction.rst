@@ -1,16 +1,21 @@
 .. automodule:: lensless.recon
 
 
-   Abstract Class API
-   ------------------
+   API
+   ---
+
+
+   Abstract Class
+   ~~~~~~~~~~~~~~
+   
 
    .. autoclass:: lensless.ReconstructionAlgorithm
       :members:
       :special-members: __init__, set_data, apply, _update, reset, _form_image, get_image_est
 
 
-   Gradient Descent API
-   --------------------
+   Gradient Descent
+   ~~~~~~~~~~~~~~~~
 
    .. autoclass:: lensless.GradientDescent
       :special-members: __init__
@@ -24,8 +29,8 @@
    .. autofunction:: lensless.gradient_descent.non_neg
 
 
-   ADMM API
-   --------
+   ADMM
+   ~~~~
 
    .. autoclass:: lensless.ADMM
       :special-members: __init__
@@ -38,8 +43,8 @@
 
    .. autofunction:: lensless.admm.finite_diff_gram
 
-   Accelerated Proximal Gradient Descent (APGD) API
-   ------------------------------------------------
+   Accelerated Proximal Gradient Descent (APGD)
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
    .. autoclass:: lensless.APGD
       :special-members: __init__

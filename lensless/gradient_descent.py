@@ -88,6 +88,8 @@ class GradientDescent(ReconstructionAlgorithm):
 
         Hadj_flat = self._Hadj.reshape(-1, self._n_channels)
         H_flat = self._H.reshape(-1, self._n_channels)
+
+        # set step size as < 2 / lipschitz
         self._alpha = np.real(1.8 / np.max(Hadj_flat * H_flat, axis=0))
 
     def _grad(self):

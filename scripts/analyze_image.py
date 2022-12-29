@@ -7,9 +7,8 @@ Analyze PSF of lensless camera, namely looking at autocorrelations:
 ```python
 python scripts/analyze_image.py --fp data/psf/tape_rgb.png --gamma 2.2 --lensless
 ```
-Note that the autocorrelation functions needs to be completed in `lensless/autocorr.py`.
 
-Example usage
+Example usage (data can be downloaded here: https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww)
 ```bash
 python scripts/analyze_image.py --fp data/psf/lens_cardboard.png --plot_width 100 --lens
 python scripts/analyze_image.py --fp data/psf/lens_iris.png --plot_width 100 --lens
@@ -165,6 +164,7 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
             )
             if i > 0:
                 ax.set_ylabel("")
+
     elif lensless:
         # plot autocorrelations and width
         # -- grey

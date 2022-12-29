@@ -1,0 +1,46 @@
+files:
+  # File path for recorded PSF
+  psf: data/psf/tape_rgb.png
+  # File path for raw data  
+  data: data/raw_data/thumbs_up_rgb.png
+
+preprocess:
+  # Downsampling factor along X and Y
+  downsample: 4
+  # Image shape (height, width) for reconstruction.
+  shape: null
+  # Whether to flip image.
+  flip: False
+  # Whether image is raw bayer data.
+  bayer: False
+  blue_gain: null
+  red_gain: null
+  # Same PSF for all channels (sum) or unique PSF for RGB.
+  single_psf: False
+  # Whether to perform construction in grayscale.
+  gray: False
+
+
+display:
+  # How many iterations to wait for intermediate plot. 
+  # Set to negative value for no intermediate plots.
+  disp: 50
+  # Whether to plot results.
+  plot: True
+  # Gamma factor for plotting.
+  gamma: null
+
+# Whether to save intermediate and final reconstructions.
+save: False
+
+gradient_descent:
+  # Number of iterations
+  n_iter: 300
+  # Method: vanilla, nesterov, fista
+  method: fista
+  # Hyperparameters for each method
+  nesterov:
+    p: 0
+    mu: 0.9
+  fista:
+    tk: 1
