@@ -7,7 +7,8 @@ n_files: 100
 
 preprocess:
   # Same PSF for all channels (sum) or unique PSF for RGB.
-  single_psf: False
+  # True in LenslessLearning
+  single_psf: True
 
 # Whether to save reconstructions.
 save: False
