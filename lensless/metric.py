@@ -119,6 +119,8 @@ def mse(true, est, normalize=True):
 
     """
     if normalize:
+        true = np.array(true, dtype=np.float32)
+        est = np.array(est, dtype=np.float32)
         true /= true.max()
         est /= est.max()
     return mean_squared_error(image0=true, image1=est)
@@ -145,6 +147,8 @@ def psnr(true, est, normalize=True):
 
     """
     if normalize:
+        true = np.array(true, dtype=np.float32)
+        est = np.array(est, dtype=np.float32)
         true /= true.max()
         est /= est.max()
     return peak_signal_noise_ratio(image_true=true, image_test=est)
@@ -175,6 +179,8 @@ def ssim(true, est, normalize=True, channel_axis=2, **kwargs):
 
     """
     if normalize:
+        true = np.array(true, dtype=np.float32)
+        est = np.array(est, dtype=np.float32)
         true /= true.max()
         est /= est.max()
     return structural_similarity(im1=true, im2=est, channel_axis=channel_axis, **kwargs)
@@ -198,11 +204,13 @@ def lpips(true, est, normalize=True):
 
     Returns
     -------
-    mssim : float
+    lpips : float
         The LPIPS metric.
 
     """
     if normalize:
+        true = np.array(true, dtype=np.float32)
+        est = np.array(est, dtype=np.float32)
         true /= true.max()
         est /= est.max()
     loss_fn = lpips_lib.LPIPS(net="alex", verbose=False)
