@@ -1,6 +1,7 @@
 import os.path
 import rawpy
 import cv2
+from PIL import Image
 import numpy as np
 import warnings
 from lensless.util import resize, bayer2rgb, rgb2gray, print_image_info
@@ -336,3 +337,16 @@ def load_data(
     data = np.array(data, dtype=dtype)
 
     return psf, data
+
+
+def save_image(img, fp, max_val=255):
+    """Save as uint8 image."""
+
+    if img.dtype == np.float64 or img.dtype == np.float32:
+        img -= img.min()
+        img /= img.max()
+        img *= max_val
+        img = img.astype(np.uint8)
+
+    img = Image.fromarray(img)
+    img.save(fp)

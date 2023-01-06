@@ -1,0 +1,33 @@
+# RGB simulation and reconstruction
+# python scripts/sim/single_file.py -cn simulate_single_file_face
+
+
+files:
+  # Can be downloaded here: https://drive.switch.ch/index.php/s/Q5OdDQMwhucIlt8
+  original: data/celeba_mini/000001.jpg
+  psf: data/psf/tape_rgb.png
+
+simulation:
+  object_height: 0.25
+  # these distance parameters are typically fixed for a given PSF
+  scene2mask: 40e-2
+  mask2sensor: 4e-3
+  # see waveprop.devices
+  sensor: "rpi_hq"
+  snr_db: 40
+  # Downsampling for PSF
+  downsample: 8
+  grayscale: False
+  # max val in simulated measured (quantized 8 bits)
+  max_val: 230
+
+save: True
+
+admm:
+  n_iter: 50
+  disp_iter: 1
+  # Hyperparameters
+  mu1: 1e-6
+  mu2: 1e-5
+  mu3: 4e-5
+  tau: 0.0001
