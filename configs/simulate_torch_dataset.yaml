@@ -1,0 +1,31 @@
+# RGB simulation and reconstruction
+
+files:
+  dataset: "mnist"   # "mnist" or "fashion_mnist" or "cifar10"
+  n_files: 1000    # null to use all
+  batch_size: 16
+  psf: data/psf/tape_rgb.png
+
+device_conv: "cuda"    # "cuda" or "cpu"
+target: "label"    # "original" or "object_plane" or "label"
+
+simulation:
+  grayscale: False
+  # random variations
+  object_height: [0.1, 0.4]   # range for random height or scalar
+  random_shift: True
+  random_vflip: 0.5
+  random_hflip: 0.5
+  random_rotate: 90
+  # these distance parameters are typically fixed for a given PSF
+  scene2mask: 40e-2
+  mask2sensor: 4e-3
+  # see waveprop.devices
+  sensor: "rpi_hq"
+  snr_db: 40
+  # simulate different sensor resolution
+  output_dim: [24, 32]    # [H, W] or null
+  # Downsampling for PSF
+  downsample: 8
+  # max val in simulated measured (quantized 8 bits)
+  max_val: 230

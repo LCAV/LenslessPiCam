@@ -1,0 +1,30 @@
+# Grayscale simulation and reconstruction
+
+files:
+  original: data/original/mnist_3.png
+  psf: data/psf/tape_rgb.png
+
+simulation:
+  object_height: 0.12
+  # these distance parameters are typically fixed for a given PSF
+  scene2mask: 40e-2
+  mask2sensor: 4e-3
+  # see waveprop.devices
+  sensor: "rpi_hq"
+  snr_db: 40
+  # Downsampling for PSF
+  downsample: 8
+  grayscale: True
+  # max val in simulated measured (quantized 8 bits)
+  max_val: 230
+
+save: True
+
+admm:
+  n_iter: 10
+  disp_iter: 2
+  # Hyperparameters
+  mu1: 1e-6
+  mu2: 1e-5
+  mu3: 4e-5
+  tau: 0.0001
