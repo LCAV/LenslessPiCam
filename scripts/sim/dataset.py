@@ -10,11 +10,11 @@ This script shows:
 import hydra
 from hydra.utils import to_absolute_path
 from lensless.io import load_image, load_psf, save_image
-from lensless.util import rgb2gray
+from lensless.util import rgb2gray, resize
 import numpy as np
 from lensless import ADMM
-from lensless.metric import mse, psnr, ssim, lpips
-from waveprop.simulation import ConvolutionWithPSF
+from lensless.metric import mse, psnr, ssim, lpips, LPIPS_MIN_DIM
+from waveprop.simulation import FarFieldSimulator
 import glob
 import os
 from tqdm import tqdm
@@ -24,7 +24,12 @@ from tqdm import tqdm
 def simulate(config):
 
     dataset = to_absolute_path(config.files.dataset)
+    assert os.path.exists(
+        dataset
+    ), f"Dataset {dataset} does not exist. Download from `celeb_mini` from: https://drive.switch.ch/index.php/s/Q5OdDQMwhucIlt8"
     psf_fp = to_absolute_path(config.files.psf)
+    assert os.path.exists(psf_fp), f"PSF {psf_fp} does not exist."
+
     if config.save.bool:
         save_dir = to_absolute_path(config.save.dir)
         if not os.path.exists(save_dir):
@@ -42,7 +47,7 @@ def simulate(config):
         print(f"Downsampled to {psf.shape}.")
 
     # prepare simulator object
-    simulator = ConvolutionWithPSF(psf=psf, **config.simulation)
+    simulator = FarFieldSimulator(psf=psf, **config.simulation)
 
     # loop over files in dataset
     print("\nSimulating dataset...")
@@ -74,6 +79,14 @@ def simulate(config):
     if config.admm.bool:
 
         print("\nReconstructing lensless measurements...")
+
+        output_dim = image_plane.shape
+        if config.simulation.output_dim is not None:
+            # best would be to incorporate downsampling in the reconstruction
+            # for now downsample the PSF
+            print("-- Resizing PSF to", config.simulation.output_dim, "for reconstruction.")
+            psf = resize(psf, shape=config.simulation.output_dim)
+
         # -- initialize reconstruction object
         recon = ADMM(psf, **config.admm)
 
@@ -81,8 +94,10 @@ def simulate(config):
         mse_vals = []
         psnr_vals = []
         ssim_vals = []
-        if not config.simulation.grayscale:
+        if not config.simulation.grayscale and np.min(output_dim[:2]) >= LPIPS_MIN_DIM:
             lpips_vals = []
+        else:
+            lpips_vals = None
 
         # -- loop over files in dataset
         files = glob.glob(os.path.join(save_dir, "sensor_plane", "*.png"))
@@ -105,18 +120,25 @@ def simulate(config):
             object_plane_fp = os.path.join(save_dir, "object_plane", os.path.basename(fp))
             object_plane = load_image(object_plane_fp)
 
+            if config.simulation.output_dim is not None:
+                # best would be to incorporate downsampling in the reconstruction
+                # for now downsample the PSF
+                # print("-- Resizing object plane to", config.simulation.output_dim, "for metric.")
+                object_plane = resize(object_plane, shape=config.simulation.output_dim)
+
             mse_vals.append(mse(object_plane, recovered))
             psnr_vals.append(psnr(object_plane, recovered))
             if config.simulation.grayscale:
                 ssim_vals.append(ssim(object_plane, recovered, channel_axis=None))
             else:
                 ssim_vals.append(ssim(object_plane, recovered))
+            if lpips_vals is not None:
                 lpips_vals.append(lpips(object_plane, recovered))
 
     print("\nMSE (avg)", np.mean(mse_vals))
     print("PSNR (avg)", np.mean(psnr_vals))
     print("SSIM (avg)", np.mean(ssim_vals))
-    if not config.simulation.grayscale:
+    if lpips_vals is not None:
         print("LPIPS (avg)", np.mean(lpips_vals))
 
 

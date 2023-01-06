@@ -76,8 +76,7 @@ install the library locally.
    pip install -r recon_requirements.txt
 
    # (optional) try reconstruction on local machine
-   python scripts/recon/admm.py --psf_fp data/psf/tape_rgb.png \
-   --data_fp data/raw_data/thumbs_up_rgb.png --n_iter 5
+   python scripts/recon/admm.py
 
 
 **Raspberry Pi**
@@ -124,7 +123,7 @@ the work that has inspired this toolkit:
 
 
 
-Citing this work 
+Citing this work
 ----------------
 
 If you use these tools in your own research, please cite the following:

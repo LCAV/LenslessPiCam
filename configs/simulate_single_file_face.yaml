@@ -1,4 +1,6 @@
 # RGB simulation and reconstruction
+# python scripts/sim/single_file.py -cn simulate_single_file_face
+
 
 files:
   # Can be downloaded here: https://drive.switch.ch/index.php/s/Q5OdDQMwhucIlt8

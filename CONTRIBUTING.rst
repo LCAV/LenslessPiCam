@@ -12,6 +12,34 @@ Ways to contribute
    opening an “Issue”.
 -  Opening a “Pull request” (see below).
 
+Developer installation
+----------------------
+
+.. code:: bash
+
+   # clone repository
+   git clone git@github.com:LCAV/LenslessPiCam.git
+   cd LenslessPiCam
+
+   # install in virtual environment
+   conda create --name lensless python=3.9
+   conda activate lensless
+
+   # install library and dependencies
+   (lensless) pip install -e .
+
+   # run an example reconstruction
+   python scripts/recon/admm.py
+
+   # run unit tests
+   (lensless) pip install pytest pycsou
+   (lensless) pytest test/
+
+   # additional requirements for reconstructions and metrics
+   # separated due to heavy installs for `lpips` and `pycsou` 
+   # which may not be needed on the Raspberry Pi
+   (lensless) pip install -r recon_requirements.txt
+
 Coding style
 ------------
 
@@ -24,11 +52,11 @@ guide:
 .. code:: bash
 
    # install inside virtual environment
-   pip install pre-commit
-   pip install black
+   (lensless) pip install pre-commit
+   (lensless) pip install black
 
    # Install git hooks in `.git/` directory
-   pre-commit install
+   (lensless) pre-commit install
 
 When you do your first commit, the environments for Black and Flake8
 will be initialized.

@@ -1,48 +1,79 @@
-from waveprop.dataset_util import Propagated
-import numpy as np
+from waveprop.dataset_util import SimulatedPytorchDataset
+import hydra
+from hydra.utils import to_absolute_path
+import os
 from lensless.io import load_psf
+from lensless.util import rgb2gray
 import torch
-from torchvision.transforms import ToTensor
+import time
+import numpy as np
+from torchvision import transforms, datasets
+from tqdm import tqdm
 
 
-batch_size = 4
-ds_path = "data/celeba_mini"
-psf_fp = "data/psf/tape_rgb.png"
-image_ext = "jpg"
-downsample = 8
-random_vflip = 0.5
-random_hflip = 0.5
-random_rotate = 90
-random_shift = True
-object_height = [0.4, 0.4]
+@hydra.main(version_base=None, config_path="../../configs", config_name="simulate_torch_dataset")
+def simulate(config):
+
+    # load dataset
+    transforms_list = [transforms.ToTensor()]
+    if config.simulation.grayscale:
+        transforms_list.append(transforms.Grayscale())
+    transform = transforms.Compose(transforms_list)
+    if config.files.dataset == "mnist":
+        ds = datasets.MNIST(root="data", train=True, download=True, transform=transform)
+    elif config.files.dataset == "fashion_mnist":
+        ds = datasets.FashionMNIST(root="data", train=True, download=True, transform=transform)
+    elif config.files.dataset == "cifar10":
+        ds = datasets.CIFAR10(root="data", train=True, download=True, transform=transform)
+    else:
+        raise NotImplementedError(f"Dataset {config.files.dataset} not implemented.")
+
+    # load PSF
+    if config.files.psf is not None:
+        psf_fp = to_absolute_path(config.files.psf)
+        assert os.path.exists(psf_fp), f"PSF {psf_fp} does not exist."
+        psf = load_psf(psf_fp, downsample=config.simulation.downsample)
+        if config.simulation.grayscale:
+            psf = rgb2gray(psf)
+        psf = transforms.ToTensor()(psf)
+    else:
+        assert config.simulation.output_dim is not None
+        psf = None
+
+    # batch_size = config.files.batch_size
+    batch_size = config.files.batch_size
+    n_files = config.files.n_files
+    device_conv = config.device_conv
+    target = config.target
+
+    # check if gpu is available
+    if device_conv == "cuda" and torch.cuda.is_available():
+        print("Using GPU for convolution.")
+        device_conv = "cuda"
+    else:
+        print("Using CPU for convolution.")
+        device_conv = "cpu"
+
+    # create Pytorch dataset and dataloader
+    if n_files is not None:
+        ds = torch.utils.data.Subset(ds, np.arange(n_files))
+    ds_prop = SimulatedPytorchDataset(
+        dataset=ds, psf=psf, device_conv=device_conv, target=target, **config.simulation
+    )
+    ds_loader = torch.utils.data.DataLoader(dataset=ds_prop, batch_size=batch_size, shuffle=True)
+
+    # loop over batches
+    start_time = time.time()
+    for i, (x, target) in enumerate(tqdm(ds_loader)):
+
+        if i == 0:
+            print("Batch shape : ", x.shape)
+            print("Target shape : ", target.shape)
+            print("Batch device : ", x.device)
+
+    print("Time per batch : ", (time.time() - start_time) / len(ds_loader))
+    print(f"Went through {len(ds_loader)} batches.")
 
 
-psf = load_psf(psf_fp, downsample=downsample)
-psf = ToTensor()(psf)
-
-ds = Propagated(
-    path=ds_path,
-    image_ext=image_ext,
-    object_height=object_height,
-    scene2mask=40e-2,
-    mask2sensor=4e-3,
-    sensor="rpi_hq",
-    psf=psf,
-    snr_db=40,
-    max_val=255,
-    target="original",  # "original" or "object_plane"
-    random_vflip=random_vflip,
-    random_hflip=random_hflip,
-    random_rotate=random_rotate,
-    random_shift=random_shift,
-)
-
-ds_loader = torch.utils.data.DataLoader(dataset=ds, batch_size=batch_size, shuffle=True)
-
-for i, (x, target) in enumerate(ds_loader):
-
-    if i == 0:
-        print("Batch shape : ", x.shape)
-        print("Target shape : ", target.shape)
-
-print(f"Went through {len(ds_loader)} batches.")
+if __name__ == "__main__":
+    simulate()

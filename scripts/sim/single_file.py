@@ -19,14 +19,17 @@ import matplotlib.pyplot as plt
 from lensless import ADMM
 from lensless.plot import plot_image
 from lensless.metric import mse, psnr, ssim, lpips
-from waveprop.simulation import ConvolutionWithPSF
+from waveprop.simulation import FarFieldSimulator
+import os
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="simulate_single_file")
 def simulate(config):
 
     fp = to_absolute_path(config.files.original)
+    assert os.path.exists(fp), f"File {fp} does not exist."
     psf_fp = to_absolute_path(config.files.psf)
+    assert os.path.exists(psf_fp), f"PSF {psf_fp} does not exist."
 
     # simulation parameters
     object_height = config.simulation.object_height
@@ -53,7 +56,7 @@ def simulate(config):
         print(f"Downsampled to {psf.shape}.")
 
     """ Simulation"""
-    simulator = ConvolutionWithPSF(
+    simulator = FarFieldSimulator(
         psf=psf,
         object_height=object_height,
         scene2mask=scene2mask,
@@ -84,6 +87,8 @@ def simulate(config):
     ax[0].set_title("Reconstruction")
     plot_image(object_plane, ax=ax[1])
     ax[1].set_title("Original")
+    if config.save:
+        save_image(recovered, "reconstruction.png")
 
     print("\nEvaluation:")
     print("MSE", mse(object_plane, recovered))

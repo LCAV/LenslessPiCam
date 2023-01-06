@@ -186,6 +186,9 @@ def ssim(true, est, normalize=True, channel_axis=2, **kwargs):
     return structural_similarity(im1=true, im2=est, channel_axis=channel_axis, **kwargs)
 
 
+LPIPS_MIN_DIM = 31
+
+
 def lpips(true, est, normalize=True):
     """
     Compute a perceptual metric (LPIPS) between two images. Values lie within
@@ -208,6 +211,10 @@ def lpips(true, est, normalize=True):
         The LPIPS metric.
 
     """
+    if np.min(true.shape[:2]) < LPIPS_MIN_DIM:
+        raise ValueError(
+            f"LPIPS requires images to be at least {LPIPS_MIN_DIM}x{LPIPS_MIN_DIM} pixels."
+        )
     if normalize:
         true = np.array(true, dtype=np.float32)
         est = np.array(est, dtype=np.float32)
