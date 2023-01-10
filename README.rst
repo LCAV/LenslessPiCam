@@ -3,7 +3,7 @@ LenslessPiCam
 =============
 
 .. image:: https://readthedocs.org/projects/lensless/badge/?version=latest
-    :target: http://pyroomacoustics.readthedocs.io/en/latest/
+    :target: http://lensless.readthedocs.io/en/latest/
     :alt: Documentation Status
 
 *A Hardware and Software Toolkit for Lensless Computational Imaging with a Raspberry Pi*
