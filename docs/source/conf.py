@@ -25,6 +25,7 @@ MOCK_MODULES = [
     "pycsou.func.penalty",
     "pycsou.opt.proxalgs",
     "lensless.APGD",
+    "PIL"
 ]
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
