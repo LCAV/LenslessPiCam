@@ -52,16 +52,18 @@ def gradient_descent(
 
     save = config["save"]
     if save:
-        save = os.path.basename(config["files"]["data"]).split(".")[0]
-        timestamp = datetime.now().strftime("_%d%m%d%Y_%Hh%M")
-        save = "gd_" + save + timestamp
-        save = plib.Path(__file__).parent / save
-        save.mkdir(exist_ok=False)
+        save = os.getcwd()
 
     start_time = time.time()
-    if config["gradient_descent"]["method"] is GradientDescentUpdate.VANILLA:
+    if config.torch:
+        import torch
+
+        psf = torch.from_numpy(psf).type(torch.float32).to(config.torch_device)
+        data = torch.from_numpy(data).type(torch.float32).to(config.torch_device)
+
+    if config["gradient_descent"]["method"] == GradientDescentUpdate.VANILLA:
         recon = GradientDescent(psf)
-    elif config["gradient_descent"]["method"] is GradientDescentUpdate.NESTEROV:
+    elif config["gradient_descent"]["method"] == GradientDescentUpdate.NESTEROV:
         recon = NesterovGradientDescent(
             psf,
             p=config["gradient_descent"]["nesterov"]["p"],
@@ -72,6 +74,7 @@ def gradient_descent(
             psf,
             tk=config["gradient_descent"]["fista"]["tk"],
         )
+
     recon.set_data(data)
     print(f"Setup time : {time.time() - start_time} s")
 
@@ -85,10 +88,15 @@ def gradient_descent(
     )
     print(f"Processing time : {time.time() - start_time} s")
 
+    if config.torch:
+        img = res[0].cpu().numpy()
+    else:
+        img = res[0]
+
     if config["display"]["plot"]:
         plt.show()
     if save:
-        np.save(plib.Path(save) / "final_reconstruction.npy", res[0])
+        np.save(plib.Path(save) / "final_reconstruction.npy", img)
         print(f"Files saved to : {save}")
 
 
