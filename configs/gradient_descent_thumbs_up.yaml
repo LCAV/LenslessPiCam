@@ -1,3 +1,7 @@
+hydra:
+  job:
+    chdir: True    # change to output folder
+
 files:
   # File path for recorded PSF
   psf: data/psf/tape_rgb.png
