@@ -1,6 +1,26 @@
 import numpy as np
 from lensless.io import load_data
-from lensless import GradientDescent, NesterovGradientDescent, FISTA, ADMM, APGD
+
+try:
+    import pycsou
+    from lensless import GradientDescent, NesterovGradientDescent, FISTA, ADMM, APGD
+
+    pycsou_available = True
+    algos = [GradientDescent, NesterovGradientDescent, FISTA, ADMM, APGD]
+
+except ImportError:
+    from lensless import GradientDescent, NesterovGradientDescent, FISTA, ADMM
+
+    pycsou_available = False
+    algos = [GradientDescent, NesterovGradientDescent, FISTA, ADMM]
+
+
+try:
+    import torch
+
+    torch_vals = [True, False]
+except ImportError:
+    torch_vals = [False]
 
 
 psf_fp = "data/psf/tape_rgb.png"
@@ -11,11 +31,11 @@ disp = None
 
 
 def test_algo():
-    for algo in [GradientDescent, NesterovGradientDescent, FISTA, ADMM, APGD]:
+    for algo in algos:
         for gray in [True, False]:
             for dtype in ["float32", "float64"]:
-                for torch in [True, False]:
-                    if algo == APGD and torch:
+                for torch_data in torch_vals:
+                    if pycsou_available and algo == APGD and torch_data:
                         continue
                     psf, data = load_data(
                         psf_fp=psf_fp,
@@ -24,7 +44,7 @@ def test_algo():
                         plot=False,
                         gray=gray,
                         dtype=dtype,
-                        torch=torch,
+                        torch=torch_data,
                     )
                     recon = algo(psf, dtype=dtype)
                     recon.set_data(data)
