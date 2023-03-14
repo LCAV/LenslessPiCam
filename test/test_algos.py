@@ -13,23 +13,27 @@ disp = None
 def test_algo():
     for algo in [GradientDescent, NesterovGradientDescent, FISTA, ADMM, APGD]:
         for gray in [True, False]:
-            for dtype in [np.float32, np.float64]:
-                psf, data = load_data(
-                    psf_fp=psf_fp,
-                    data_fp=data_fp,
-                    downsample=downsample,
-                    plot=False,
-                    gray=gray,
-                    dtype=dtype,
-                )
-                recon = algo(psf, dtype=dtype)
-                recon.set_data(data)
-                res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
-                if gray:
-                    assert len(psf.shape) == 2
-                else:
-                    assert len(psf.shape) == 3
-                assert res.dtype == dtype, f"Got {res.dtype}, expected {dtype}"
+            for dtype in ["float32", "float64"]:
+                for torch in [True, False]:
+                    if algo == APGD and torch:
+                        continue
+                    psf, data = load_data(
+                        psf_fp=psf_fp,
+                        data_fp=data_fp,
+                        downsample=downsample,
+                        plot=False,
+                        gray=gray,
+                        dtype=dtype,
+                        torch=torch,
+                    )
+                    recon = algo(psf, dtype=dtype)
+                    recon.set_data(data)
+                    res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
+                    if gray:
+                        assert len(psf.shape) == 2
+                    else:
+                        assert len(psf.shape) == 3
+                    assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
 
 
 test_algo()

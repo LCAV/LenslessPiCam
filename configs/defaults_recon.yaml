@@ -2,11 +2,15 @@ hydra:
   job:
     chdir: True    # change to output folder
 
-files:
+input:
   # File path for recorded PSF
   psf: data/psf/tape_rgb.png
   # File path for raw data  
   data: data/raw_data/thumbs_up_rgb.png
+  dtype: float32
+
+torch: False
+torch_device: 'cpu'
 
 preprocess:
   # Downsampling factor along X and Y
@@ -35,7 +39,7 @@ display:
   gamma: null
 
 # Whether to save intermediate and final reconstructions.
-save: False
+save: True
 
 gradient_descent:
   # Number of iterations
@@ -48,3 +52,12 @@ gradient_descent:
     mu: 0.9
   fista:
     tk: 1
+
+admm:
+  # Number of iterations
+  n_iter: 5
+  # Hyperparameters
+  mu1: 1e-6
+  mu2: 1e-5
+  mu3: 4e-5
+  tau: 0.0001
