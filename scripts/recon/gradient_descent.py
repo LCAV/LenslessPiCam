@@ -24,16 +24,15 @@ from lensless import (
 )
 
 
-@hydra.main(
-    version_base=None, config_path="../../configs", config_name="gradient_descent_thumbs_up"
-)
+@hydra.main(version_base=None, config_path="../../configs", config_name="defaults_recon")
 def gradient_descent(
     config,
 ):
 
     psf, data = load_data(
-        psf_fp=to_absolute_path(config["files"]["psf"]),
-        data_fp=to_absolute_path(config["files"]["data"]),
+        psf_fp=to_absolute_path(config.input.psf),
+        data_fp=to_absolute_path(config.input.data),
+        dtype=config.input.dtype,
         downsample=config["preprocess"]["downsample"],
         bayer=config["preprocess"]["bayer"],
         blue_gain=config["preprocess"]["blue_gain"],
@@ -44,6 +43,8 @@ def gradient_descent(
         gray=config["preprocess"]["gray"],
         single_psf=config["preprocess"]["single_psf"],
         shape=config["preprocess"]["shape"],
+        torch=config.torch,
+        torch_device=config.torch_device,
     )
 
     disp = config["display"]["disp"]
@@ -55,11 +56,6 @@ def gradient_descent(
         save = os.getcwd()
 
     start_time = time.time()
-    if config.torch:
-        import torch
-
-        psf = torch.from_numpy(psf).type(torch.float32).to(config.torch_device)
-        data = torch.from_numpy(data).type(torch.float32).to(config.torch_device)
 
     if config["gradient_descent"]["method"] == GradientDescentUpdate.VANILLA:
         recon = GradientDescent(psf)

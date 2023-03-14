@@ -134,6 +134,7 @@ import pathlib as plib
 import matplotlib.pyplot as plt
 from scipy.fftpack import next_fast_len
 from lensless.plot import plot_image
+from lensless.rfft_convolve import RealFFTConvolve2D
 
 try:
     import torch
@@ -167,7 +168,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
     """
 
-    def __init__(self, psf, dtype=None):
+    def __init__(self, psf, dtype=None, pad=True, **kwargs):
         """
         Base constructor. Derived constructor may define new state variables
         here and also reset them in `reset`.
@@ -187,7 +188,7 @@ class ReconstructionAlgorithm(abc.ABC):
         if torch_available:
             self.is_torch = isinstance(psf, torch.Tensor)
 
-        # prepate shapes for reconstruction
+        # prepare shapes for reconstruction
         self._is_rgb = len(psf.shape) == 3
         if self._is_rgb:
             self._psf = psf
@@ -203,6 +204,11 @@ class ReconstructionAlgorithm(abc.ABC):
                 dtype = torch.float32
             else:
                 dtype = np.float32
+        else:
+            if self.is_torch:
+                dtype = torch.float32 if dtype == "float32" else torch.float64
+            else:
+                dtype = np.float32 if dtype == "float32" else np.float64
 
         if self.is_torch:
 
@@ -232,12 +238,8 @@ class ReconstructionAlgorithm(abc.ABC):
             else:
                 raise ValueError(f"Unsupported dtype : {self._dtype}")
 
-        # cropping / padding indices
-        self._padded_shape = 2 * self._psf_shape[:2] - 1
-        self._padded_shape = np.array([next_fast_len(i) for i in self._padded_shape])
-        self._padded_shape = list(np.r_[self._padded_shape, [self._n_channels]])
-        self._start_idx = (self._padded_shape[:2] - self._psf_shape[:2]) // 2
-        self._end_idx = self._start_idx + self._psf_shape[:2]
+        self._convolver = RealFFTConvolve2D(psf, dtype=dtype, pad=pad, **kwargs)
+        self._padded_shape = self._convolver._padded_shape
 
         # pre-compute operators / outputs
         self._image_est = None
