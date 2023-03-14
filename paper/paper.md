@@ -72,8 +72,9 @@ In terms of hardware, as shown in \autoref{fig:hardware}, we:
 
 With respect to reconstruction algorithms, we:
 
-- provide significantly faster implementations of GD and ADMM, i.e. around 3x reduction in computation time;
+- provide significantly faster implementations of GD and ADMM;
 - extend the above reconstructions to RGB;
+- PyTorch / GPU support;
 - provide an object-oriented structure that is easy to extend for exploring new algorithms;
 - provide an object-oriented interface to Pycsou for solving lensless imaging inverse problems. Pycsou is a Python package for solving inverse problems of the form
 \begin{equation}\label{eq:fourier}
@@ -128,20 +129,26 @@ In the table below, we compare the processing time of DiffuserCam's and `Lensles
 2. ADMM with a non-negativity constraint and a TV regularizer.
 
 The DiffuserCam implementations can be found [here](https://github.com/Waller-Lab/DiffuserCam-Tutorial), while `lensless.APGD` and `lensless.ADMM` are used for `LenslessPiCam`. 
-The comparison is done on a Lenovo Thinkpad P15 with 16 GB RAM and a 2.70 GHz processor (6 cores, 12 threads), running Ubuntu 21.04.
+The comparison is done on 
+a Dell Precision 5820 Tower X-Series (08B1) machine with an Intel i9-10900X 3.70 GHz processor (10 cores, 20 threads), running Ubuntu 20.04.5 LTS and (when applicable) an NVIDIA RTX A5000 GPU.
+<!-- a Lenovo Thinkpad P15 with 16 GB RAM and a 2.70 GHz processor (6 cores, 12 threads), running Ubuntu 21.04. -->
 
 |               |   GD   |  ADMM  |
 |:-------------:|:------:|:------:|
-|  DiffuserCam  |  215 s | 7.24 s |
-| `LenslessPiCam` | 67.9 s | 2.76 s |
+|  DiffuserCam  |  246 s | 6.81 s |
+| `LenslessPiCam` (`numpy`) | 21.1 s | 1.26 s |
+| `LenslessPiCam` (`torch`, CPU) | 4.32 s | 272 ms |
+| `LenslessPiCam` (`torch`, GPU) | 274 ms | 2.88 ms |
 : Benchmark grayscale reconstruction. 300 iterations for gradient descent (GD)
 and 5 iterations for alternating direction method of multipliers (ADMM).
 
-From the above table, we observe a 3.1x reduction in computation time for GD and a 2.6x reduction for ADMM. 
+From the above table, we observe an 11.7x reduction in computation time for GD and a 2.4x reduction for ADMM. 
 This comes from:
 
 - our object-oriented implementation of the algorithms, which allocates all the necessary memory beforehand and pre-computes data-independent terms, such as forward operators from the point spread function (PSF);
 - our use of the real-valued FFT, which is possible since we are working with image intensities.
+
+When using a GPU (through PyTorch), we observe a significant reduction in computation time: 898x and 2360x reduction for GD and ADMM respectively.
 
 \autoref{fig:grayscale} shows the corresponding grayscale reconstruction for FISTA and ADMM, which are equivalent for both DiffuserCam and `LenslessPiCam` implementations.
 
