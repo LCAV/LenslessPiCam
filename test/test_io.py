@@ -8,7 +8,7 @@ downsample = 8
 
 def test_load_data():
     for gray in [True, False]:
-        for dtype in [np.float32, np.float64]:
+        for dtype in ["float32", "float64"]:
             psf, data = load_data(
                 psf_fp=psf_fp,
                 data_fp=data_fp,

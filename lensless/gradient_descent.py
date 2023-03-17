@@ -3,6 +3,13 @@ from lensless.recon import ReconstructionAlgorithm
 import inspect
 from scipy import fft
 
+try:
+    import torch
+
+    torch_available = True
+except ImportError:
+    torch_available = False
+
 
 class GradientDescentUpdate:
     """Gradient descent update techniques."""
@@ -36,24 +43,26 @@ def non_neg(xi):
         Non-negative projection of input.
 
     """
-    xi = np.maximum(xi, 0)
-    return xi
+    if torch_available and isinstance(xi, torch.Tensor):
+        return torch.maximum(xi, torch.zeros_like(xi))
+    else:
+        return np.maximum(xi, 0)
 
 
 class GradientDescent(ReconstructionAlgorithm):
-    def __init__(self, psf, dtype=np.float32, proj=non_neg, **kwargs):
+    def __init__(self, psf, dtype=None, proj=non_neg, **kwargs):
         """
         Object for applying projected gradient descent.
 
         Parameters
         ----------
-        psf : :py:class:`~numpy.ndarray`
+        psf : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
             Point spread function (PSF) that models forward propagation.
             2D (grayscale) or 3D (RGB) data can be provided and the shape will
             be used to determine which reconstruction (and allocate the
             appropriate memory).
         dtype : float32 or float64
-            Data type to use for optimization.
+            Data type to use for optimization. Default is float32.
         proj : :py:class:`function`
             Projection function to apply at each iteration. Default is
             non-negative.
@@ -63,59 +72,46 @@ class GradientDescent(ReconstructionAlgorithm):
         assert callable(proj)
         self._proj = proj
 
-    def _crop(self, x):
-        return x[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]]
-
-    def _pad(self, v):
-        vpad = np.zeros(self._padded_shape).astype(v.dtype)
-        vpad[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]] = v
-        return vpad
-
     def reset(self):
 
-        # initial guess, half intensity image
-        # for online approach could use last reconstruction
-        psf_flat = self._psf.reshape(-1, self._n_channels)
-        pixel_start = (np.max(psf_flat, axis=0) + np.min(psf_flat, axis=0)) / 2
-        x = np.ones(self._psf_shape, dtype=self._dtype) * pixel_start
-        self._image_est = self._pad(x)
+        if self.is_torch:
 
-        # spatial frequency response
-        self._H = fft.rfft2(
-            self._pad(self._psf), norm="ortho", axes=(0, 1), s=self._padded_shape[:2]
-        )
-        self._Hadj = np.conj(self._H)
+            # initial guess, half intensity image
+            # for online approach could use last reconstruction
+            psf_flat = self._psf.reshape(-1, self._n_channels)
+            pixel_start = (
+                torch.max(psf_flat, axis=0).values + torch.min(psf_flat, axis=0).values
+            ) / 2
+            self._image_est = torch.ones_like(self._psf) * pixel_start
 
-        Hadj_flat = self._Hadj.reshape(-1, self._n_channels)
-        H_flat = self._H.reshape(-1, self._n_channels)
+            # set step size as < 2 / lipschitz
+            Hadj_flat = self._convolver._Hadj.reshape(-1, self._n_channels)
+            H_flat = self._convolver._H.reshape(-1, self._n_channels)
+            self._alpha = torch.real(1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values)
 
-        # set step size as < 2 / lipschitz
-        self._alpha = np.real(1.8 / np.max(Hadj_flat * H_flat, axis=0))
+        else:
+
+            # initial guess, half intensity image
+            # for online approach could use last reconstruction
+            psf_flat = self._psf.reshape(-1, self._n_channels)
+            pixel_start = (np.max(psf_flat, axis=0) + np.min(psf_flat, axis=0)) / 2
+            self._image_est = np.ones(self._psf_shape, dtype=self._dtype) * pixel_start
+
+            # set step size as < 2 / lipschitz
+            Hadj_flat = self._convolver._Hadj.reshape(-1, self._n_channels)
+            H_flat = self._convolver._H.reshape(-1, self._n_channels)
+            self._alpha = np.real(1.8 / np.max(Hadj_flat * H_flat, axis=0))
 
     def _grad(self):
-        diff = self._forward() - self._data
-        return self._backward(diff)
-
-    def _forward(self):
-        Vk = fft.rfft2(self._image_est, axes=(0, 1), s=self._padded_shape[:2])
-        return self._crop(
-            fft.ifftshift(
-                fft.irfft2(self._H * Vk, axes=(0, 1), s=self._padded_shape[:2]), axes=(0, 1)
-            )
-        )
-
-    def _backward(self, x):
-        X = fft.rfft2(self._pad(x), axes=(0, 1), s=self._padded_shape[:2])
-        return fft.ifftshift(
-            fft.irfft2(self._Hadj * X, axes=(0, 1), s=self._padded_shape[:2]), axes=(0, 1)
-        )
+        diff = self._convolver.convolve(self._image_est) - self._data
+        return self._convolver.deconvolve(diff)
 
     def _update(self):
         self._image_est -= self._alpha * self._grad()
         self._image_est = self._proj(self._image_est)
 
     def _form_image(self):
-        return self._proj(self._crop(self._image_est)).squeeze()
+        return self._proj(self._image_est).squeeze()
 
 
 class NesterovGradientDescent(GradientDescent):
@@ -127,7 +123,7 @@ class NesterovGradientDescent(GradientDescent):
 
     """
 
-    def __init__(self, psf, dtype=np.float32, proj=non_neg, p=0, mu=0.9, **kwargs):
+    def __init__(self, psf, dtype=None, proj=non_neg, p=0, mu=0.9, **kwargs):
         self._p = p
         self._mu = mu
         super(NesterovGradientDescent, self).__init__(psf, dtype, proj)
@@ -153,7 +149,7 @@ class FISTA(GradientDescent):
 
     """
 
-    def __init__(self, psf, dtype=np.float32, proj=non_neg, tk=1, **kwargs):
+    def __init__(self, psf, dtype=None, proj=non_neg, tk=1, **kwargs):
 
         super(FISTA, self).__init__(psf, dtype, proj)
         self._tk = tk

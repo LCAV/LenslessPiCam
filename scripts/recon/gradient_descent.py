@@ -24,16 +24,15 @@ from lensless import (
 )
 
 
-@hydra.main(
-    version_base=None, config_path="../../configs", config_name="gradient_descent_thumbs_up"
-)
+@hydra.main(version_base=None, config_path="../../configs", config_name="defaults_recon")
 def gradient_descent(
     config,
 ):
 
     psf, data = load_data(
-        psf_fp=to_absolute_path(config["files"]["psf"]),
-        data_fp=to_absolute_path(config["files"]["data"]),
+        psf_fp=to_absolute_path(config.input.psf),
+        data_fp=to_absolute_path(config.input.data),
+        dtype=config.input.dtype,
         downsample=config["preprocess"]["downsample"],
         bayer=config["preprocess"]["bayer"],
         blue_gain=config["preprocess"]["blue_gain"],
@@ -44,6 +43,8 @@ def gradient_descent(
         gray=config["preprocess"]["gray"],
         single_psf=config["preprocess"]["single_psf"],
         shape=config["preprocess"]["shape"],
+        torch=config.torch,
+        torch_device=config.torch_device,
     )
 
     disp = config["display"]["disp"]
@@ -52,16 +53,13 @@ def gradient_descent(
 
     save = config["save"]
     if save:
-        save = os.path.basename(config["files"]["data"]).split(".")[0]
-        timestamp = datetime.now().strftime("_%d%m%d%Y_%Hh%M")
-        save = "gd_" + save + timestamp
-        save = plib.Path(__file__).parent / save
-        save.mkdir(exist_ok=False)
+        save = os.getcwd()
 
     start_time = time.time()
-    if config["gradient_descent"]["method"] is GradientDescentUpdate.VANILLA:
+
+    if config["gradient_descent"]["method"] == GradientDescentUpdate.VANILLA:
         recon = GradientDescent(psf)
-    elif config["gradient_descent"]["method"] is GradientDescentUpdate.NESTEROV:
+    elif config["gradient_descent"]["method"] == GradientDescentUpdate.NESTEROV:
         recon = NesterovGradientDescent(
             psf,
             p=config["gradient_descent"]["nesterov"]["p"],
@@ -72,6 +70,7 @@ def gradient_descent(
             psf,
             tk=config["gradient_descent"]["fista"]["tk"],
         )
+
     recon.set_data(data)
     print(f"Setup time : {time.time() - start_time} s")
 
@@ -85,10 +84,15 @@ def gradient_descent(
     )
     print(f"Processing time : {time.time() - start_time} s")
 
+    if config.torch:
+        img = res[0].cpu().numpy()
+    else:
+        img = res[0]
+
     if config["display"]["plot"]:
         plt.show()
     if save:
-        np.save(plib.Path(save) / "final_reconstruction.npy", res[0])
+        np.save(plib.Path(save) / "final_reconstruction.npy", img)
         print(f"Files saved to : {save}")
 
 

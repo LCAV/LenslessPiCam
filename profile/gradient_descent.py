@@ -12,6 +12,7 @@ data_fp = "data/raw_data/thumbs_up_rgb.png"
 n_iter = 300
 downsample = 4
 gray = True
+dtype = "float32"
 n_trials = 3
 
 psf, data = load_data(
@@ -20,6 +21,7 @@ psf, data = load_data(
     downsample=downsample,
     plot=False,
     gray=gray,
+    dtype=dtype,
 )
 
 save = "profile_gradient_descent"
@@ -27,7 +29,7 @@ save = plib.Path(__file__).parent / save
 save.mkdir(exist_ok=True)
 
 """ LenslessPiCam """
-recon = FISTA(psf)
+recon = FISTA(psf, dtype=dtype)
 recon.set_data(data)
 # res = recon.apply(n_iter=n_iter, save=save, disp_iter=None)
 # recon.reset()
@@ -86,3 +88,50 @@ start_time = time.time()
 for _ in range(n_trials):
     grad_descent(psf, data, n_iter=n_iter, update_method=method, disp_iter=None)
 print(f"DiffuserCam : {(time.time() - start_time) / n_trials} s")
+
+""" PyTorch CPU """
+psf, data = load_data(
+    psf_fp=psf_fp,
+    data_fp=data_fp,
+    downsample=downsample,
+    plot=False,
+    gray=gray,
+    dtype=dtype,
+    torch=True,
+)
+
+recon = FISTA(psf, dtype=dtype)
+recon.set_data(data)
+res = recon.apply(n_iter=n_iter, save=save, disp_iter=None, plot=False)
+recon.reset()
+total_time = 0
+for _ in range(n_trials):
+    start_time = time.time()
+    res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
+    total_time += time.time() - start_time
+    recon.reset()
+print(f"LenslessPiCam, PyTorch CPU (avg) : {total_time / n_trials} s")
+
+""" PyTorch GPU """
+psf, data = load_data(
+    psf_fp=psf_fp,
+    data_fp=data_fp,
+    downsample=downsample,
+    plot=False,
+    gray=gray,
+    dtype=dtype,
+    torch=True,
+    torch_device="cuda",
+)
+
+recon = FISTA(psf, dtype=dtype)
+recon.set_data(data)
+res = recon.apply(n_iter=n_iter, save=save, disp_iter=None, plot=False)
+recon.reset()
+total_time = 0
+for _ in range(n_trials):
+    start_time = time.time()
+    res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
+    total_time += time.time() - start_time
+    recon.reset()
+print(f"LenslessPiCam, PyTorch GPU (avg) : {total_time / n_trials} s")
