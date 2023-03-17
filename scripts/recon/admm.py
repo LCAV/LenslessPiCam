@@ -18,12 +18,13 @@ from lensless.io import load_data
 from lensless import ADMM
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="admm_thumbs_up")
+@hydra.main(version_base=None, config_path="../../configs", config_name="defaults_recon")
 def admm(config):
 
     psf, data = load_data(
-        psf_fp=to_absolute_path(config["files"]["psf"]),
-        data_fp=to_absolute_path(config["files"]["data"]),
+        psf_fp=to_absolute_path(config.input.psf),
+        data_fp=to_absolute_path(config.input.data),
+        dtype=config.input.dtype,
         downsample=config["preprocess"]["downsample"],
         bayer=config["preprocess"]["bayer"],
         blue_gain=config["preprocess"]["blue_gain"],
@@ -34,6 +35,8 @@ def admm(config):
         gray=config["preprocess"]["gray"],
         single_psf=config["preprocess"]["single_psf"],
         shape=config["preprocess"]["shape"],
+        torch=config.torch,
+        torch_device=config.torch_device,
     )
 
     disp = config["display"]["disp"]
@@ -42,11 +45,7 @@ def admm(config):
 
     save = config["save"]
     if save:
-        save = os.path.basename(config["files"]["data"]).split(".")[0]
-        timestamp = datetime.now().strftime("_%d%m%d%Y_%Hh%M")
-        save = "admm_" + save + timestamp
-        save = plib.Path(__file__).parent / save
-        save.mkdir(exist_ok=False)
+        save = os.getcwd()
 
     start_time = time.time()
     recon = ADMM(
@@ -69,10 +68,15 @@ def admm(config):
     )
     print(f"Processing time : {time.time() - start_time} s")
 
+    if config.torch:
+        img = res[0].cpu().numpy()
+    else:
+        img = res[0]
+
     if config["display"]["plot"]:
         plt.show()
     if save:
-        np.save(plib.Path(save) / "final_reconstruction.npy", res[0])
+        np.save(plib.Path(save) / "final_reconstruction.npy", img)
         print(f"Files saved to : {save}")
 
 

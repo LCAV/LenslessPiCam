@@ -134,6 +134,14 @@ import pathlib as plib
 import matplotlib.pyplot as plt
 from scipy.fftpack import next_fast_len
 from lensless.plot import plot_image
+from lensless.rfft_convolve import RealFFTConvolve2D
+
+try:
+    import torch
+
+    torch_available = True
+except ImportError:
+    torch_available = False
 
 
 class ReconstructionAlgorithm(abc.ABC):
@@ -160,7 +168,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
     """
 
-    def __init__(self, psf, dtype=np.float32):
+    def __init__(self, psf, dtype=None, pad=True, **kwargs):
         """
         Base constructor. Derived constructor may define new state variables
         here and also reset them in `reset`.
@@ -168,7 +176,7 @@ class ReconstructionAlgorithm(abc.ABC):
         Parameters
         ----------
 
-            psf : :py:class:`~numpy.ndarray`
+            psf : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
                 Point spread function (PSF) that models forward propagation.
                 2D (grayscale) or 3D (RGB) data can be provided and the shape will
                 be used to determine which reconstruction (and allocate the
@@ -176,34 +184,62 @@ class ReconstructionAlgorithm(abc.ABC):
             dtype : float32 or float64
                 Data type to use for optimization.
         """
+        self.is_torch = False
+        if torch_available:
+            self.is_torch = isinstance(psf, torch.Tensor)
 
-        self._is_rgb = True if len(psf.shape) == 3 else False
+        # prepare shapes for reconstruction
+        self._is_rgb = len(psf.shape) == 3
         if self._is_rgb:
             self._psf = psf
             self._n_channels = 3
         else:
-            self._psf = psf[:, :, np.newaxis]
+            self._psf = psf[:, :, None]
             self._n_channels = 1
         self._psf_shape = np.array(self._psf.shape)
 
-        if dtype:
-            self._psf = self._psf.astype(dtype)
-            self._dtype = dtype
+        # set dtype
+        if dtype is None:
+            if self.is_torch:
+                dtype = torch.float32
+            else:
+                dtype = np.float32
         else:
-            self._dtype = self._psf.dtype
-        if self._dtype == np.float32 or dtype == "float32":
-            self._complex_dtype = np.complex64
-        elif self._dtype == np.float64 or dtype == "float64":
-            self._complex_dtype = np.complex128
-        else:
-            raise ValueError(f"Unsupported dtype : {self._dtype}")
+            if self.is_torch:
+                dtype = torch.float32 if dtype == "float32" else torch.float64
+            else:
+                dtype = np.float32 if dtype == "float32" else np.float64
 
-        # cropping / padding indices
-        self._padded_shape = 2 * self._psf_shape[:2] - 1
-        self._padded_shape = np.array([next_fast_len(i) for i in self._padded_shape])
-        self._padded_shape = np.r_[self._padded_shape, [self._n_channels]]
-        self._start_idx = (self._padded_shape[:2] - self._psf_shape[:2]) // 2
-        self._end_idx = self._start_idx + self._psf_shape[:2]
+        if self.is_torch:
+
+            if dtype:
+                self._psf = self._psf.type(dtype)
+                self._dtype = dtype
+            else:
+                self._dtype = self._psf.dtype
+            if self._dtype == torch.float32 or dtype == "float32":
+                self._complex_dtype = torch.complex64
+            elif self._dtype == torch.float64 or dtype == "float64":
+                self._complex_dtype = torch.complex128
+            else:
+                raise ValueError(f"Unsupported dtype : {self._dtype}")
+
+        else:
+
+            if dtype:
+                self._psf = self._psf.astype(dtype)
+                self._dtype = dtype
+            else:
+                self._dtype = self._psf.dtype
+            if self._dtype == np.float32 or dtype == "float32":
+                self._complex_dtype = np.complex64
+            elif self._dtype == np.float64 or dtype == "float64":
+                self._complex_dtype = np.complex128
+            else:
+                raise ValueError(f"Unsupported dtype : {self._dtype}")
+
+        self._convolver = RealFFTConvolve2D(psf, dtype=dtype, pad=pad, **kwargs)
+        self._padded_shape = self._convolver._padded_shape
 
         # pre-compute operators / outputs
         self._image_est = None
@@ -238,9 +274,14 @@ class ReconstructionAlgorithm(abc.ABC):
             scene. Should match provide PSF, i.e. shape and 2D (grayscale) or
             3D (RGB).
         """
+        if self.is_torch:
+            assert isinstance(data, torch.Tensor)
+        else:
+            assert isinstance(data, np.ndarray)
+
         if not self._is_rgb:
             assert len(data.shape) == 2
-            data = data[:, :, np.newaxis]
+            data = data[:, :, None]
         assert len(self._psf_shape) == len(data.shape)
         self._data = data
 
@@ -254,6 +295,25 @@ class ReconstructionAlgorithm(abc.ABC):
         in reconstruction.
         """
         return
+
+    def _get_numpy_data(self, data):
+        """
+        Extract data from torch or numpy array.
+
+        Parameters
+        ----------
+        data : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
+            Data to extract.
+
+        Returns
+        -------
+        :py:class:`~numpy.ndarray`
+            Extracted data.
+        """
+        if self.is_torch:
+            return data.detach().cpu().numpy()
+        else:
+            return data
 
     def apply(
         self, n_iter=100, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None
@@ -296,7 +356,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
         if (plot or save) and disp_iter is not None:
             if ax is None:
-                ax = plot_image(self._data, gamma=gamma)
+                ax = plot_image(self._get_numpy_data(self._data), gamma=gamma)
         else:
             ax = None
             disp_iter = n_iter + 1
@@ -307,7 +367,7 @@ class ReconstructionAlgorithm(abc.ABC):
             if (plot or save) and (i + 1) % disp_iter == 0:
                 self._progress()
                 img = self._form_image()
-                ax = plot_image(img, ax=ax, gamma=gamma)
+                ax = plot_image(self._get_numpy_data(img), ax=ax, gamma=gamma)
                 ax.set_title("Reconstruction after iteration {}".format(i + 1))
                 if save:
                     plt.savefig(plib.Path(save) / f"{i + 1}.png")
@@ -317,7 +377,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
         final_im = self._form_image()
         if plot or save:
-            ax = plot_image(final_im, ax=ax, gamma=gamma)
+            ax = plot_image(self._get_numpy_data(final_im), ax=ax, gamma=gamma)
             ax.set_title("Final reconstruction after {} iterations".format(n_iter))
             if save:
                 plt.savefig(plib.Path(save) / f"{n_iter}.png")

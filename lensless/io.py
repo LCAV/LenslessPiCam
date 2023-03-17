@@ -243,9 +243,11 @@ def load_data(
     red_gain=None,
     gamma=None,
     gray=False,
-    dtype=np.float32,
+    dtype=None,
     single_psf=False,
     shape=None,
+    torch=False,
+    torch_device="cpu",
 ):
     """
     Load data for image reconstruction.
@@ -276,7 +278,7 @@ def load_data(
         Optional gamma factor to apply, ONLY for plotting. Default is None.
     gray : bool
         Whether to load as grayscale or RGB.
-    dtype : float32 or float64
+    dtype : float32 or float64, default float32
         Data type of returned data.
     single_psf : bool
         Whether to sum RGB channels into single PSF, same across channels. Done
@@ -295,6 +297,15 @@ def load_data(
     assert os.path.isfile(data_fp)
     if shape is None:
         assert downsample is not None
+
+    if dtype is None:
+        dtype = np.float32
+    elif dtype == "float32":
+        dtype = np.float32
+    elif dtype == "float64":
+        dtype = np.float64
+    else:
+        raise ValueError("dtype must be float32 or float64")
 
     # load and process PSF data
     psf, bg = load_psf(
@@ -335,6 +346,16 @@ def load_data(
 
     psf = np.array(psf, dtype=dtype)
     data = np.array(data, dtype=dtype)
+    if torch:
+        import torch
+
+        if dtype == np.float32:
+            torch_dtype = torch.float32
+        elif dtype == np.float64:
+            torch_dtype = torch.float64
+
+        psf = torch.from_numpy(psf).type(torch_dtype).to(torch_device)
+        data = torch.from_numpy(data).type(torch_dtype).to(torch_device)
 
     return psf, data
 
