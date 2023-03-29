@@ -91,24 +91,21 @@ directory):
 
 .. code:: bash
 
+   # dependencies
+   sudo apt-get install -y libimage-exiftool-perl libatlas-base-dev \
+   python3-numpy python3-scipy python3-opencv
+   sudo pip3 install -U virtualenv
+
    # download from GitHub
-   git clone git@github.com:LCAV/LenslessPiCam.git
+   git clone https://github.com/LCAV/LenslessPiCam.git
 
    # install in virtual environment
    cd LenslessPiCam
-   python3 -m venv lensless_env
+   virtualenv --system-site-packages -p python3 lensless_env
    source lensless_env/bin/activate
-   pip install -e .
-
-
-You may also have to install the following:
-
-.. code:: bash
-
-   sudo apt-get install libimage-exiftool-perl
-   sudo apt-get install libatlas-base-dev
-
-
+   pip install --no-deps -e .
+   pip install -r rpi_requirements.txt
+   
 
 Acknowledgements
 ----------------
