@@ -118,6 +118,7 @@ def load_psf(
     nbits_out=None,
     single_psf=False,
     shape=None,
+    use_3d=False,
 ):
     """
     Load and process PSF for analysis or for reconstruction.
@@ -167,36 +168,59 @@ def load_psf(
     """
 
     # load image data and extract necessary channels
-    psf = load_image(
-        fp,
-        verbose=verbose,
-        flip=flip,
-        bayer=bayer,
-        blue_gain=blue_gain,
-        red_gain=red_gain,
-        nbits_out=nbits_out,
-    )
+    if use_3d:
+        assert os.path.isfile(fp)
+        assert fp.endswith(".npy")
+        psf = np.load(fp)
+    else:
+        psf = load_image(
+            fp,
+            verbose=verbose,
+            flip=flip,
+            bayer=bayer,
+            blue_gain=blue_gain,
+            red_gain=red_gain,
+            nbits_out=nbits_out,
+        )
 
     original_dtype = psf.dtype
     psf = np.array(psf, dtype=dtype)
 
-    # subtract background, assume black edges
+    if use_3d:
+        if len(psf.shape) == 3:
+            grayscale = True
+            psf = psf[:, :, :, np.newaxis]
+        else:
+            grayscale = False
+    else:
+        if len(psf.shape) == 3:
+            grayscale = False
+            psf = psf[np.newaxis, :, :, :]
+        else:
+            grayscale = True
+            psf = psf[np.newaxis, :, :, np.newaxis]
 
+    assert len(psf.shape) == 4
+    # check that all depths of the psf have the same shape.
+    for i in range(len(psf)):
+        assert psf[0].shape == psf[i].shape
+
+    # subtract background, assume black edges
     if bg_pix is None:
         bg = np.zeros(len(np.shape(psf)))
 
     else:
         # grayscale
-        if len(np.shape(psf)) < 3:
-            bg = np.mean(psf[bg_pix[0] : bg_pix[1], bg_pix[0] : bg_pix[1]])
+        if grayscale:
+            bg = np.mean(psf[:, bg_pix[0] : bg_pix[1], bg_pix[0] : bg_pix[1], :])
             psf -= bg
 
         # rgb
         else:
             bg = []
             for i in range(3):
-                bg_i = np.mean(psf[bg_pix[0] : bg_pix[1], bg_pix[0] : bg_pix[1], i])
-                psf[:, :, i] -= bg_i
+                bg_i = np.mean(psf[:, bg_pix[0] : bg_pix[1], bg_pix[0] : bg_pix[1], i])
+                psf[:, :, :, i] -= bg_i
                 bg.append(bg_i)
 
         psf = np.clip(psf, a_min=0, a_max=psf.max())
@@ -204,16 +228,16 @@ def load_psf(
 
     # resize
     if shape:
-        psf = resize(psf, shape=shape)
+        psf = np.array([resize(p, shape=shape) for p in psf])   # TODO : parallelize it
     elif downsample != 1:
-        psf = resize(psf, factor=1 / downsample)
+        psf = np.array([resize(p, factor=1 / downsample) for p in psf])  # TODO : parallelize it
 
     if single_psf:
-        if len(psf.shape) == 3:
+        if psf.shape[3] > 1:
             # TODO : in Lensless Learning, they sum channels --> `psf_diffuser = np.sum(psf_diffuser,2)`
             # https://github.com/Waller-Lab/LenslessLearning/blob/master/pre-trained%20reconstructions.ipynb
-            psf = np.sum(psf, 2)
-            psf = psf[:, :, np.newaxis]
+            psf = np.sum(psf, 3)
+            psf = psf[:, :, :, np.newaxis]
         else:
             warnings.warn("Notice : single_psf has no effect for grayscale psf")
             single_psf = False
@@ -307,6 +331,8 @@ def load_data(
     else:
         raise ValueError("dtype must be float32 or float64")
 
+    use_3d = psf_fp.endswith(".npy")
+
     # load and process PSF data
     psf, bg = load_psf(
         psf_fp,
@@ -321,6 +347,7 @@ def load_data(
         dtype=dtype,
         single_psf=single_psf,
         shape=shape,
+        use_3d=use_3d,
     )
 
     # load and process raw measurement
@@ -331,17 +358,24 @@ def load_data(
     data = np.clip(data, a_min=0, a_max=data.max())
     if data.shape != psf.shape:
         # in DiffuserCam dataset, images are already reshaped
-        data = resize(data, shape=psf.shape[:2])
+        data = resize(data, shape=psf.shape[1:3])
     data /= np.linalg.norm(data.ravel())
 
+    # Todo : psf.shape shoulg have len() of 4, and data shape is resized just before. Is this necessary ?
+    if len(data.shape) == 3:
+        data = data[np.newaxis, :, :, :]
+    elif len(data.shape) == 2:
+        data = data[np.newaxis, :, :, np.newaxis]
+
     if gray:
-        psf = rgb2gray(psf)
-        data = rgb2gray(data)
+        psf = np.array(rgb2gray(psf), np.newaxis)
+        data = np.array(rgb2gray(data), np.newaxis)
 
     if plot:
-        ax = plot_image(psf, gamma=gamma)
-        ax.set_title("PSF")
-        ax = plot_image(data, gamma=gamma)
+        ax = plot_image(psf[0], gamma=gamma)
+        ax.set_title("PSF of the first depth")
+        print("now we print data[0] min mean max :", np.min(data[0]), np.mean(data[0]), np.max(data[0]))
+        ax = plot_image(data[0], gamma=gamma)
         ax.set_title("Raw data")
 
     psf = np.array(psf, dtype=dtype)

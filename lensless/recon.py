@@ -188,15 +188,11 @@ class ReconstructionAlgorithm(abc.ABC):
         if torch_available:
             self.is_torch = isinstance(psf, torch.Tensor)
 
-        # prepare shapes for reconstruction
-        self._is_rgb = len(psf.shape) == 3
-        if self._is_rgb:
-            self._psf = psf
-            self._n_channels = 3
-        else:
-            self._psf = psf[:, :, None]
-            self._n_channels = 1
+        assert len(psf.shape) == 4  # depth, width, height, channel
+        assert psf.shape[3] == 3 or psf.shape[3] == 1   # either rgb or grayscale
+        self._psf = psf
         self._psf_shape = np.array(self._psf.shape)
+
 
         # set dtype
         if dtype is None:
@@ -279,10 +275,7 @@ class ReconstructionAlgorithm(abc.ABC):
         else:
             assert isinstance(data, np.ndarray)
 
-        if not self._is_rgb:
-            assert len(data.shape) == 2
-            data = data[:, :, None]
-        assert len(self._psf_shape) == len(data.shape)
+        assert len(data.shape) == 4
         self._data = data
 
     def get_image_est(self):
