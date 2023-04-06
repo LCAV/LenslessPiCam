@@ -97,7 +97,7 @@ directory):
    sudo pip3 install -U virtualenv
 
    # download from GitHub
-   git clone https://github.com/LCAV/LenslessPiCam.git
+   git clone git@github.com:LCAV/LenslessPiCam.git
 
    # install in virtual environment
    cd LenslessPiCam
