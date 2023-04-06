@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from lensless.util import FLOAT_DTYPES, get_max_val, gamma_correction, autocorr2d
 
 
-def plot_image(img, ax=None, gamma=None, normalize=True):
+def plot_image(img, ax=None, gamma=None, normalize=True, axis=0):
     """
     Plot image data.
 
@@ -19,6 +19,8 @@ def plot_image(img, ax=None, gamma=None, normalize=True):
         Gamma correction factor to apply for plots. Default is None.
     normalize : bool
         Whether to normalize data to maximum range. Default is True.
+    axis : int
+        For 3D data, the axis on which to project the data
 
     Returns
     -------
@@ -41,14 +43,36 @@ def plot_image(img, ax=None, gamma=None, normalize=True):
     if gamma and gamma > 1:
         img_norm = gamma_correction(img_norm, gamma=gamma)
 
-    if len(img.shape) == 3 and img.shape[2] == 3:
-        ax.imshow(img_norm)
-    elif len(img.shape) == 3 and img.shape[2] == 1:
-        ax.imshow(img_norm[:, :, 0], cmap="gray")
-    elif len(img.shape) == 2:
-        ax.imshow(img_norm, cmap="gray")
-    else:
-        raise ValueError(f"Unexpected data shape : {img_norm.shape}")
+        # full data format : [depth, width, height, color]
+        if len(img.shape) == 4:
+            if img.shape[3] == 3:  # 3d rgb
+                sum_img = np.sum(img_norm, axis=axis)
+                ax.imshow(sum_img)
+
+            else:
+                assert img.shape[3] == 1  # 3d grayscale with color channel extended
+                sum_img = np.sum(img_norm[:, :, :, 0], axis=axis)
+                ax.imshow(sum_img, cmap="gray")
+
+        # data of length 3 means we have to infer whichever depth or color is missing, based on shape.
+        elif len(img.shape) == 3:
+
+            if img.shape[2] == 3:  # 2D rgb
+                ax.imshow(img_norm)
+
+            elif img.shape[2] == 1:  # 2D grayscale with color channel extended
+                ax.imshow(img_norm[:, :, 0], cmap="gray")
+
+            else:  # 3D grayscale
+                sum_img = np.sum(img_norm, axis=axis)
+                ax.imshow(sum_img, cmap="gray")
+
+        # data of length 2 means we have only width and height
+        elif len(img.shape) == 2:  # 2D grayscale
+            ax.imshow(img_norm, cmap="gray")
+
+        else:
+            raise ValueError(f"Unexpected data shape : {img_norm.shape}")
 
     return ax
 

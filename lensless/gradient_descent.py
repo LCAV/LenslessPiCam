@@ -1,7 +1,7 @@
 import numpy as np
 from lensless.recon import ReconstructionAlgorithm
 import inspect
-from scipy import fft
+import warnings
 
 try:
     import torch
@@ -50,7 +50,7 @@ def non_neg(xi):
 
 
 class GradientDescent(ReconstructionAlgorithm):
-    def __init__(self, psf, dtype=None, proj=non_neg, **kwargs):
+    def __init__(self, psf, dtype=None, proj=non_neg, initial_est=None, **kwargs):
         """
         Object for applying projected gradient descent.
 
@@ -66,8 +66,11 @@ class GradientDescent(ReconstructionAlgorithm):
         proj : :py:class:`function`
             Projection function to apply at each iteration. Default is
             non-negative.
+        initial_est : :py:class:`~numpy.ndarray`
+            Initial estimation for the reconstruction. If none, will create
+            a plain gray estimation.
         """
-
+        self._initial_est = initial_est
         super(GradientDescent, self).__init__(psf, dtype)
         assert callable(proj)
         self._proj = proj
@@ -75,31 +78,48 @@ class GradientDescent(ReconstructionAlgorithm):
     def reset(self):
 
         if self.is_torch:
-
+            if self._initial_est is not None:
+                warnings.warn("Error : use of initial estimations is not supported with Pytorch yet")
             # initial guess, half intensity image
             # for online approach could use last reconstruction
-            psf_flat = self._psf.reshape(-1, self._n_channels)
+            psf_flat = self._psf.reshape(-1, self._psf_shape[3])
             pixel_start = (
                 torch.max(psf_flat, axis=0).values + torch.min(psf_flat, axis=0).values
             ) / 2
             self._image_est = torch.ones_like(self._psf) * pixel_start
 
             # set step size as < 2 / lipschitz
-            Hadj_flat = self._convolver._Hadj.reshape(-1, self._n_channels)
-            H_flat = self._convolver._H.reshape(-1, self._n_channels)
+            Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
+            H_flat = self._convolver._H.reshape(-1, self._psf_shape[3])
             self._alpha = torch.real(1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values)
 
         else:
+            # try to determine the type of the inital estimation, if provided
+            if self._initial_est is not None:
+                if len(self._initial_est.shape) == 3:  # if input we gave is under-dimensioned, determine its type
+                    if self._initial_est.shape[0] == 1:
+                        self._image_est = np.array(self._initial_est[:, :, :, np.newaxis])
+                    elif self._initial_est.shape[2] == 3:  # 2d rgb
+                        self._image_est = np.array(self._initial_est[np.newaxis, :, :, :])
+                    else:
+                        warnings.warn("Error : could not infer data type for initial estimation")
+                        self._image_est = None
+                elif len(self._initial_est.shape) == 2:  # grayscale 2d
+                    self._image_est = np.array(self._initial_est[np.newaxis, :, :, np.newaxis])
 
-            # initial guess, half intensity image
-            # for online approach could use last reconstruction
-            psf_flat = self._psf.reshape(-1, self._n_channels)
+            # if no initial estimation is provided, will use half intensity image
+            if self._image_est is None:
+                self._image_est = np.ones(self._psf_shape, dtype=self._dtype)
+            else:
+                assert self._initial_est.shape == self._psf_shape
+
+            psf_flat = self._psf.reshape(-1, self._psf_shape[3])
             pixel_start = (np.max(psf_flat, axis=0) + np.min(psf_flat, axis=0)) / 2
-            self._image_est = np.ones(self._psf_shape, dtype=self._dtype) * pixel_start
+            self._image_est *= pixel_start
 
             # set step size as < 2 / lipschitz
-            Hadj_flat = self._convolver._Hadj.reshape(-1, self._n_channels)
-            H_flat = self._convolver._H.reshape(-1, self._n_channels)
+            Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
+            H_flat = self._convolver._H.reshape(-1, self._psf_shape[3])
             self._alpha = np.real(1.8 / np.max(Hadj_flat * H_flat, axis=0))
 
     def _grad(self):
