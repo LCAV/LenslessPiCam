@@ -42,6 +42,11 @@ SENSOR_MODES = [
     help="File name for recorded image.",
 )
 @click.option(
+    "--username",
+    type=str,
+    default="pi",
+)
+@click.option(
     "--hostname",
     type=str,
     help="Hostname or IP address.",
@@ -118,6 +123,7 @@ SENSOR_MODES = [
 @click.option("--down", type=float, help="Factor by which to downsample output.", default=None)
 def liveview(
     fn,
+    username,
     hostname,
     exp,
     iso,
@@ -157,7 +163,7 @@ def liveview(
         pic_command += f" --down {down}"
     print(f"COMMAND : {pic_command}")
     ssh = subprocess.Popen(
-        ["ssh", "pi@%s" % hostname, pic_command],
+        ["ssh", "%s@%s" % (username, hostname), pic_command],
         shell=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -193,7 +199,7 @@ def liveview(
         remotefile = f"~/{remote_fn}.dng"
         localfile = f"{fn}.dng"
         print(f"\nCopying over picture as {localfile}...")
-        os.system('scp "pi@%s:%s" %s' % (hostname, remotefile, localfile))
+        os.system('scp "%s@%s:%s" %s' % (username, hostname, remotefile, localfile))
         raw = rawpy.imread(localfile)
 
         # https://letmaik.github.io/rawpy/api/rawpy.Params.html#rawpy.Params
@@ -236,7 +242,7 @@ def liveview(
         remotefile = f"~/{remote_fn}.png"
         localfile = f"{fn}.png"
         print(f"\nCopying over picture as {localfile}...")
-        os.system('scp "pi@%s:%s" %s' % (hostname, remotefile, localfile))
+        os.system('scp "%s@%s:%s" %s' % (username, hostname, remotefile, localfile))
 
         if rgb or gray:
 
