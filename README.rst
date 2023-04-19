@@ -79,6 +79,11 @@ install the library locally.
    python scripts/recon/admm.py
 
 
+Note (as of 19-04-2023), there may be a problem setting up Pycsou via ``pip`` as 
+the setup uses asterisks with greater than or equal requirements is no longer
+supported. Therefore it (``pycsou>=1.0.6``) has been removed from
+``recon_requirements.txt``.
+
 **Raspberry Pi**
 
 After `flashing your Raspberry Pi with SSH enabled <https://medium.com/@bezzam/setting-up-a-raspberry-pi-without-a-monitor-headless-9a3c2337f329>`__, 
