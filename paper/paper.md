@@ -95,6 +95,8 @@ A [ReadTheDocs](https://lensless.readthedocs.io) page also provides an overview 
 
 In the following sections, we describe some of these contributions, and quantify them (where appropriate).
 
+![Experimental field-of-view (FOV) of tape-based LenslessPiCam.](tape_fov.png){#fig:metric width=80%}
+
 # High-level, modular functionality for reconstructions
 
 The core algorithmic component of `LenslessPiCam` is the abstract class `lensless.ReconstructionAlgorithm`. 
