@@ -13,7 +13,9 @@ from tqdm import tqdm
 
 
 class Real_Dataset(Dataset):
-    """Face Landmarks dataset."""
+    """
+    Dataset consisting on mesure images with both a lensless and a lensed setup.
+    """
 
     def __init__(
         self,
@@ -23,6 +25,24 @@ class Real_Dataset(Dataset):
         transform_diffuser=None,
         transform_lensed=None,
     ):
+        """
+
+        Parameters
+        ----------
+        root_dir : str
+            Path to the test dataset.
+            It is expected to contained a file psf.tiff and two folder :
+              diffuser and lensed containing each pair of test image (lensless and lensed) with the same name as a .npy file.
+        n_files : int or None, optional
+            Metrics will be computed only on the first n_files images.
+            If None, all images are used, by default False
+        background : torch.Tensor or None, optional
+            If not None, background is removed from lensless images, by default None
+        transform_diffuser : torch.Transform or None, optional
+            Transform to apply to the lensless images, by default None
+        transform_lensed : torch.Transform or None, optional
+            Transform to apply to the lensed images, by default None
+        """
 
         self.root_dir = root_dir
         self.diffuser_dir = os.path.join(root_dir, "diffuser")
@@ -62,7 +82,29 @@ class Real_Dataset(Dataset):
 
 
 def benchmark(model, data, downsample=4, n_files=100, batchsize=1, **kwargs):
+    """
+    Compute multiple metrics for a reconstruction algorithm.
 
+    Parameters
+    ----------
+    model : class:ReconstructionAlgorithm
+        Reconstruction algorithm to benchmark
+    data : str
+        Path to the test dataset.
+        It is expected to contained a file psf.tiff and two folder :
+          diffuser and lensed containing each pair of test image (lensless and lensed) with the same name as a .npy file.
+    downsample : int, optional
+        By how mush the psf and image should be downsample, by default 4
+    n_files : int, optional
+        Metrics will be computed only on the first n_files images, by default 100
+    batchsize : int, optional
+        Batch size for processing. For maximum compatibility use 1 (batchsize above 1 are not supported on all algorithm), by default 1
+
+    Returns
+    -------
+    Dict[str, float]
+        A dictionnary containing the metrics name and average value
+    """
     assert isinstance(model._psf, torch.Tensor), "model need to be constructed with torch support"
     device = model._psf.device
 
@@ -92,6 +134,7 @@ def benchmark(model, data, downsample=4, n_files=100, batchsize=1, **kwargs):
         diffuser = diffuser.to(device).squeeze()
         lensed = lensed.to(device).permute(0, 3, 1, 2)
 
+        # compute predictions
         with torch.no_grad():
             if batchsize == 1:
                 model.set_data(diffuser)
@@ -101,9 +144,16 @@ def benchmark(model, data, downsample=4, n_files=100, batchsize=1, **kwargs):
             else:
                 prediction = model.batch_call(plot=False, save=False, **kwargs).permute(0, 3, 1, 2)
 
+        # normalization
+        prediction_max = torch.amax(prediction, dim=(1, 2, 3), keepdim=True)
+        prediction = prediction / prediction_max
+        lensed_max = torch.amax(lensed, dim=(1, 2, 3), keepdim=True)
+        lensed = lensed / lensed_max
+        # compute metrics
         for metric in metrics:
             metrics_values[metric] += metrics[metric](prediction, lensed).cpu().item()
 
+    # average metrics
     for metric in metrics:
         metrics_values[metric] /= len(dataloader)
 
