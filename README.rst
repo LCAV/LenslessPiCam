@@ -79,10 +79,26 @@ install the library locally.
    python scripts/recon/admm.py
 
 
-Note (as of 19-04-2023), there is a problem setting up Pycsou via ``pip`` as 
-the `setup file <https://github.com/matthieumeo/pycsou/blob/master/requirements.txt>`__
-uses asterisks with greater than or equal requirements, which is no longer supported.
-Therefore ``pycsou>=1.0.6`` has been removed from ``recon_requirements.txt``.
+Note (25-04-2023): Pycsou V2 is installed by ``recon_requirements.txt``. If PyTorch
+is installed, you will need to be sure to have PyTorch 2.0 or higher, as Pycsou V2
+is not compatible with earlier version of PyTorch.
+
+Setup for PyTorch 2.0:
+
+.. code:: bash
+
+   # GPU
+   pip install numpy --pre torch --force-reinstall --extra-index-url https://download.pytorch.org/whl/nightly/cu117
+
+   # CPU
+   pip install --pre torch --extra-index-url https://download.pytorch.org/whl/nightly/cpu
+
+
+Moreover, ``numba`` (requirement for Pycsou V2) may require an older version of NumPy:
+
+.. code:: bash
+
+   pip install numpy==1.23.5
 
 **Raspberry Pi**
 
