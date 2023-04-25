@@ -1,18 +1,30 @@
+"""
+
+Download subset from here: https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE
+Or full dataset here: https://github.com/Waller-Lab/LenslessLearning
+
+To use integrated test function rename the downloaded folder 'DiffuserCam_Mirflickr' and place it inside the data folder.
+"""
+
 import glob
 import os
 import pathlib as plib
 from datetime import datetime
 from lensless.io import load_psf
 import numpy as np
-import torch
-from torch.utils.data import Dataset, DataLoader
-from torch.nn import MSELoss, L1Loss
-from torchmetrics import StructuralSimilarityIndexMeasure
-from torchmetrics.image import lpip, psnr
 from tqdm import tqdm
 
+try:
+    import torch
+    from torch.utils.data import Dataset, DataLoader
+    from torch.nn import MSELoss, L1Loss
+    from torchmetrics import StructuralSimilarityIndexMeasure
+    from torchmetrics.image import lpip, psnr
+except ImportError:
+    raise ImportError("Torch and torchmetrics are needed to benchmark reconstruction algorithm")
 
-class Real_Dataset(Dataset):
+
+class RealDataset(Dataset):
     """
     Dataset consisting on mesure images with both a lensless and a lensed setup.
     """
@@ -118,7 +130,7 @@ def benchmark(model, data, downsample=4, n_files=100, batchsize=1, **kwargs):
     )
     background = torch.from_numpy(background)
 
-    dataset = Real_Dataset(data, n_files=n_files, background=background)
+    dataset = RealDataset(data, n_files=n_files, background=background)
     dataloader = DataLoader(dataset, batch_size=batchsize, pin_memory=(device != "cpu"))
 
     metrics = {
@@ -166,7 +178,7 @@ if __name__ == "__main__":
     downsample = 4
     device = "cpu"
 
-    data = "data/DiffuserCam"
+    data = "data/DiffuserCam_Mirflickr"
     psf_fp = os.path.join(data, "psf.tiff")
     psf_float, background = load_psf(
         psf_fp,
