@@ -79,7 +79,8 @@ install the library locally.
    python scripts/recon/admm.py
 
 
-Note (25-04-2023): for using the Pycsou models V2 has to be installed:
+Note (25-04-2023): for using reconstruction method based on Pycsou ``lensless.apgd.APGD``,
+V2 has to be installed:
 
 .. code:: bash
 
