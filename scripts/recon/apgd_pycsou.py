@@ -29,7 +29,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="apgd_thumbs_up")
+@hydra.main(version_base=None, config_path="../../configs", config_name="defaults_recon")
 def apgd(
     config,
 ):
@@ -37,6 +37,7 @@ def apgd(
     psf, data = load_data(
         psf_fp=to_absolute_path(config["input"]["psf"]),
         data_fp=to_absolute_path(config["input"]["data"]),
+        dtype=config.input.dtype,
         downsample=config["preprocess"]["downsample"],
         bayer=config["preprocess"]["bayer"],
         blue_gain=config["preprocess"]["blue_gain"],
@@ -58,15 +59,7 @@ def apgd(
         save = os.getcwd()
 
     start_time = time.time()
-    recon = APGD(
-        psf=psf,
-        max_iter=config["apgd"]["max_iter"],
-        acceleration=config["apgd"]["acceleration"],
-        diff_penalty=config["apgd"]["diff_penalty"],
-        diff_lambda=config["apgd"]["diff_lambda"],
-        prox_penalty=config["apgd"]["prox_penalty"],
-        prox_lambda=config["apgd"]["prox_lambda"],
-    )
+    recon = APGD(psf=psf, **config.apgd)
     recon.set_data(data)
     print(f"Setup time : {time.time() - start_time} s")
 

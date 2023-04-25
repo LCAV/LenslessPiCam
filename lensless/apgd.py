@@ -116,11 +116,13 @@ class APGD(ReconstructionAlgorithm):
         dtype=np.float32,
         diff_penalty=None,
         prox_penalty=APGDPriors.NONNEG,
-        acceleration="BT",
+        acceleration=True,
         diff_lambda=0.001,
         prox_lambda=0.001,
         disp=100,
         rel_error=1e-6,
+        lipschitz_tight=True,
+        lipschitz_tol=1.0,
         **kwargs
     ):
         """
@@ -143,15 +145,20 @@ class APGD(ReconstructionAlgorithm):
             Proximal functional to serve as prior / regularization term. Default
             is non-negative prior. See `Pycsou documentation <https://matthieumeo.github.io/pycsou/html/api/functionals/pycsou.func.penalty.html?highlight=penalty#module-pycsou.func.penalty>`__
             for available penalties.
-        acceleration : [None, 'BT', 'CD']
-            Which acceleration scheme should be used (None for no acceleration).
-            "BT" (Beck and Teboule) has convergence `O(1/k^2)`, while "CD"
-            (Chambolle and Dossal) has convergence `o(1/K^2)`. So "CD" should be
-            faster. but from our experience "BT" gives better results.
+        acceleration : bool, optional
+            Whether to use acceleration or not. Default is True.
         diff_lambda : float
             Weight of differentiable penalty.
         prox_lambda : float
             Weight of proximal penalty.
+        disp : int, optional
+            Display frequency. Default is 100.
+        rel_error : float, optional
+            Relative error to stop optimization. Default is 1e-6.
+        lipschitz_tight : bool, optional
+            Whether to use tight Lipschitz constant or not. Default is True.
+        lipschitz_tol : float, optional
+            Tolerance to compute Lipschitz constant. Default is 1.
         """
 
         # PSF and data are the same size / shape
@@ -168,6 +175,7 @@ class APGD(ReconstructionAlgorithm):
 
         # Convolution operator
         self._H = RealFFTConvolve2D(self._psf, dtype=dtype)
+        self._H.lipschitz(tol=lipschitz_tol, tight=lipschitz_tight)
 
         # initialize solvers which will be created when data is set
         if diff_penalty is not None:
@@ -229,7 +237,7 @@ class APGD(ReconstructionAlgorithm):
             stop_crit=self._stop_crit,
             track_objective=True,
             mode=pyca.solver.Mode.MANUAL,
-            acceleration=True,
+            acceleration=self._acc,
         )
 
     def reset(self):
