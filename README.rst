@@ -79,24 +79,16 @@ install the library locally.
    python scripts/recon/admm.py
 
 
-Note (25-04-2023): Pycsou V2 is installed by ``recon_requirements.txt``. If PyTorch is installed, you will 
-need to be sure to have PyTorch 2.0 or higher, as Pycsou V2 is not compatible with earlier
-version of PyTorch. Moreover, Pycsou requires Python within 
-`[3.9, 3.11) <https://github.com/matthieumeo/pycsou/blob/v2-dev/setup.cfg#L28>`__.
-
-Setup for PyTorch 2.0:
+Note (25-04-2023): for using the Pycsou models V2 has to be installed:
 
 .. code:: bash
 
-   # default should be PyTorch 2.0
-   pip install torch torchvision torchaudio
+   pip install git+https://github.com/matthieumeo/pycsou.git@v2-dev
 
-   # nightly build for GPU
-   pip install numpy --pre torch --force-reinstall --extra-index-url https://download.pytorch.org/whl/nightly/cu117
-
-   # nightly build for  CPU
-   pip install --pre torch --extra-index-url https://download.pytorch.org/whl/nightly/cpu
-
+If PyTorch is installed, you will need to be sure to have PyTorch 2.0 or higher, 
+as Pycsou V2 is not compatible with earlier versions of PyTorch. Moreover, 
+Pycsou requires Python within 
+`[3.9, 3.11) <https://github.com/matthieumeo/pycsou/blob/v2-dev/setup.cfg#L28>`__.
 
 Moreover, ``numba`` (requirement for Pycsou V2) may require an older version of NumPy:
 
