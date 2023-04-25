@@ -11,7 +11,7 @@ jobs:
       max-parallel: 12
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: [3.8, 3.9, "3.10", "3.11"]
+        python-version: [3.9, "3.10"]
     steps:
     - uses: actions/checkout@v3
     - name: Checkout submodules
@@ -48,5 +48,5 @@ jobs:
       run: |
         pip install -U pytest
         pip install -r recon_requirements.txt
-        pip uninstall pycsou
+        pip install git+https://github.com/matthieumeo/pycsou.git@v2-dev
         pytest
