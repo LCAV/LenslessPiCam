@@ -54,7 +54,7 @@ class RealFFTConvolve2D:
         # cropping / padding indexes
         self._padded_shape = 2 * self._psf_shape[1:3] - 1
         self._padded_shape = np.array([next_fast_len(i) for i in self._padded_shape])
-        self._padded_shape = np.r_[self._psf_shape[0], self._padded_shape, self._psf_shape[3]]
+        self._padded_shape = list(np.r_[self._psf_shape[0], self._padded_shape, self._psf_shape[3]])
         self._start_idx = (self._padded_shape[1:3] - self._psf_shape[1:3]) // 2
         self._end_idx = self._start_idx + self._psf_shape[1:3]
         self.pad = pad  # Whether necessary to pad provided data
@@ -77,7 +77,6 @@ class RealFFTConvolve2D:
 
     def _pad(self, v):
         if self.is_torch:
-            #Todo : check that it has the same behaviour now that we added dimensions (it should)
             vpad = torch.zeros(size=self._padded_shape, dtype=v.dtype, device=v.device)
         else:
             vpad = np.zeros(self._padded_shape).astype(v.dtype)

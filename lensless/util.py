@@ -28,18 +28,23 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
     img : :py:class:`~numpy.ndarray`
         Resized image.
     """
+    assert len(img.shape) == 4, "Image must be of shape (depth, height, width, color)"
     min_val = img.min()
     max_val = img.max()
-    img_shape = np.array(img.shape)[:2]
-    if shape is None:
-        assert factor is not None
-        new_shape = tuple((img_shape * factor).astype(int))
-        new_shape = new_shape[::-1]
-        resized = cv2.resize(img, dsize=new_shape, interpolation=interpolation)
-    else:
-        if np.array_equal(img_shape, shape[::-1]):
-            return img
-        resized = cv2.resize(img, dsize=shape[::-1], interpolation=interpolation)
+    img_shape = np.array(img.shape)[1:3]
+
+    assert not ((factor is None) and (shape is None)), "Must specify either factor or shape"
+    new_shape = tuple((img_shape * factor).astype(int)) if (shape is None) else shape[1:3]
+
+    if np.array_equal(img_shape, new_shape):
+        return img
+
+    resized = np.array([cv2.resize(img[i], dsize=new_shape[::-1], interpolation=interpolation) for i in range(img.shape[0])])
+
+    # OpenCV discards channel dimension if it is 1, put it back
+    if len(resized.shape) == 3:
+        resized = resized[:, :, :, np.newaxis]
+
     return np.clip(resized, min_val, max_val)
 
 

@@ -32,6 +32,8 @@ class ADMM(ReconstructionAlgorithm):
         psi=None,
         psi_adj=None,
         psi_gram=None,
+        pad=False,
+        norm="backward",
         **kwargs
     ):
         """
@@ -61,15 +63,23 @@ class ADMM(ReconstructionAlgorithm):
             Adjoint of `psi`.
         psi_gram : :py:class:`function`
             Function to compute gram of `psi`.
+        pad : bool
+            Whether to pad the image with zeros before applying the PSF.
+        norm : str
+            Normalization to use for the convolution. Options are "forward",
+            "backward", and "ortho". Default is "backward".
         """
         self._mu1 = mu1
         self._mu2 = mu2
         self._mu3 = mu3
         self._tau = tau
 
+        #3D ADMM is not supported yet
+        if len(psf.shape[0]) > 1:
+            raise NotImplementedError("3D ADMM is not supported yet, use gradient descent or APGD instead.")
+
         # call reset() to initialize matrices
-        super(ADMM, self).__init__(psf, dtype, pad=False, norm="backward")
-        # super(ADMM, self).__init__(psf, dtype, pad=False, norm="ortho")
+        super(ADMM, self).__init__(psf, dtype, pad=pad, norm=norm)
 
         # set prior
         if psi is None:
@@ -288,8 +298,14 @@ def finite_diff_gram(shape, dtype=None, is_torch=False):
             dtype = np.float32
         gram = np.zeros(shape, dtype=dtype)
 
-    gram[0, 0] = 4
-    gram[0, 1] = gram[1, 0] = gram[0, -1] = gram[-1, 0] = -1
+    if shape[0] == 1:
+        gram[0, 0, 0] = 4
+        gram[0, 0, 1] = gram[0, 0, -1] = gram[0, 1, 0] = gram[0, -1, 0] = -1
+    else:
+        gram[0, 0, 0] = 6
+        gram[0, 0, 1] = gram[0, 0, -1] = gram[0, 1, 0] = gram[0, -1, 0] = gram[1, 0, 0] = gram[
+            -1, 0, 0
+        ] = -1
 
     if is_torch:
         return torch.fft.rfft2(gram, dim=(0, 1))

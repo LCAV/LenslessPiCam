@@ -72,6 +72,7 @@ def gradient_descent(
         )
 
     recon.set_data(data)
+    print("Torch : ", config.torch, "Device : ", config.torch_device)
     print(f"Setup time : {time.time() - start_time} s")
 
     start_time = time.time()
