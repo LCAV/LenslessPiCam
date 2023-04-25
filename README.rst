@@ -79,10 +79,23 @@ install the library locally.
    python scripts/recon/admm.py
 
 
-Note (as of 19-04-2023), there is a problem setting up Pycsou via ``pip`` as 
-the `setup file <https://github.com/matthieumeo/pycsou/blob/master/requirements.txt>`__
-uses asterisks with greater than or equal requirements, which is no longer supported.
-Therefore ``pycsou>=1.0.6`` has been removed from ``recon_requirements.txt``.
+Note (25-04-2023): for using reconstruction method based on Pycsou ``lensless.apgd.APGD``,
+V2 has to be installed:
+
+.. code:: bash
+
+   pip install git+https://github.com/matthieumeo/pycsou.git@v2-dev
+
+If PyTorch is installed, you will need to be sure to have PyTorch 2.0 or higher, 
+as Pycsou V2 is not compatible with earlier versions of PyTorch. Moreover, 
+Pycsou requires Python within 
+`[3.9, 3.11) <https://github.com/matthieumeo/pycsou/blob/v2-dev/setup.cfg#L28>`__.
+
+Moreover, ``numba`` (requirement for Pycsou V2) may require an older version of NumPy:
+
+.. code:: bash
+
+   pip install numpy==1.23.5
 
 **Raspberry Pi**
 
