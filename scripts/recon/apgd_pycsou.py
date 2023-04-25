@@ -23,14 +23,20 @@ import os
 import pathlib as plib
 
 
+import logging
+
+# A logger for this file
+log = logging.getLogger(__name__)
+
+
 @hydra.main(version_base=None, config_path="../../configs", config_name="apgd_thumbs_up")
 def apgd(
     config,
 ):
 
     psf, data = load_data(
-        psf_fp=to_absolute_path(config["files"]["psf"]),
-        data_fp=to_absolute_path(config["files"]["data"]),
+        psf_fp=to_absolute_path(config["input"]["psf"]),
+        data_fp=to_absolute_path(config["input"]["data"]),
         downsample=config["preprocess"]["downsample"],
         bayer=config["preprocess"]["bayer"],
         blue_gain=config["preprocess"]["blue_gain"],
@@ -49,11 +55,7 @@ def apgd(
 
     save = config["save"]
     if save:
-        save = os.path.basename(config["files"]["data"]).split(".")[0]
-        timestamp = datetime.now().strftime("_%d%m%d%Y_%Hh%M")
-        save = "apgd_" + save + timestamp
-        save = plib.Path(__file__).parent / save
-        save.mkdir(exist_ok=False)
+        save = os.getcwd()
 
     start_time = time.time()
     recon = APGD(

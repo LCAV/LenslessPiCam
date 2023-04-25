@@ -1,43 +1,25 @@
-files:
-  # File path for recorded PSF
-  psf: data/psf/tape_rgb.png
-  # File path for raw data  
-  data: data/raw_data/thumbs_up_rgb.png
+# python scripts/recon/apgd_pycsou.py
+defaults:
+  - defaults_recon
+  - _self_
 
 preprocess:
   # Downsampling factor along X and Y
   downsample: 4
-  # Image shape (height, width) for reconstruction.
-  shape: null
-  # Whether to flip image.
-  flip: False
-  # Whether image is raw bayer data.
-  bayer: False
-  blue_gain: null
-  red_gain: null
-  # Same PSF for all channels (sum) or unique PSF for RGB.
-  single_psf: False
-  # Whether to perform construction in grayscale.
-  gray: False
-
 
 display:
   # How many iterations to wait for intermediate plot. 
   # Set to negative value for no intermediate plots.
-  disp: 50
+  disp: 100
   # Whether to plot results.
   plot: True
   # Gamma factor for plotting.
   gamma: null
 
-# Whether to save intermediate and final reconstructions.
-save: False
-
 apgd:
   # Maximum number of iterations
-  max_iter: 300
-  # acceleration: BT, CD, null
-  acceleration: BT     
+  max_iter: 2000
+  acceleration: True     
   # Differentiable prior / regularization: l2, null
   diff_penalty: null
   diff_lambda: 0.001

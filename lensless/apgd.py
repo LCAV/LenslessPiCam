@@ -1,15 +1,18 @@
 from lensless.recon import ReconstructionAlgorithm
 import inspect
 import numpy as np
-from pycsou.func.loss import SquaredL2Loss
-from pycsou.func.penalty import NonNegativeOrthant, SquaredL2Norm, L1Norm
-from pycsou.opt.proxalgs import APGD as APGD_pyc
-from copy import deepcopy
-from pycsou.core.linop import LinearOperator
-from typing import Union, Optional
-from numbers import Number
+from typing import Optional
 from scipy import fft
 from scipy.fftpack import next_fast_len
+
+
+import pycsou.abc as pyca
+import pycsou.operator.func as func
+import pycsou.opt.solver as solver
+import pycsou.opt.stop as stop
+import pycsou.runtime as pycrt
+import pycsou.util as pycu
+import pycsou.util.ptype as pyct
 
 
 class APGDPriors:
@@ -34,8 +37,8 @@ class APGDPriors:
         return vals
 
 
-class RealFFTConvolve2D(LinearOperator):
-    def __init__(self, filter, dtype: Optional[type] = None):
+class RealFFTConvolve2D(pyca.LinOp):
+    def __init__(self, filter: pyct.NDArray, dtype: Optional[type] = None):
         """
         Linear operator that performs convolution in Fourier domain, and assumes
         real-valued signals.
@@ -66,7 +69,7 @@ class RealFFTConvolve2D(LinearOperator):
         self._padded_data = np.zeros(self._padded_shape).astype(dtype)
 
         shape = (int(np.prod(self._filter_shape)), int(np.prod(self._filter_shape)))
-        super(RealFFTConvolve2D, self).__init__(shape=shape, dtype=dtype)
+        super(RealFFTConvolve2D, self).__init__(shape=shape)
 
     def _crop(self, x):
         return x[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]]
@@ -76,8 +79,9 @@ class RealFFTConvolve2D(LinearOperator):
         vpad[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]] = v
         return vpad
 
-    def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
-        # like here: https://github.com/PyLops/pylops/blob/3e7eb22a62ec60e868ccdd03bc4b54806851cb26/pylops/signalprocessing/ConvolveND.py#L103
+    @pycrt.enforce_precision(i="x")
+    @pycu.vectorize(i="x")
+    def apply(self, x: pyct.NDArray) -> pyct.NDArray:
         self._padded_data[
             self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
         ] = np.reshape(x, self._filter_shape)
@@ -89,7 +93,9 @@ class RealFFTConvolve2D(LinearOperator):
         )
         return y.ravel()
 
-    def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+    @pycrt.enforce_precision(i="y")
+    @pycu.vectorize(i="y")
+    def adjoint(self, y: pyct.NDArray) -> pyct.NDArray:
         self._padded_data[
             self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
         ] = np.reshape(y, self._filter_shape)
@@ -113,6 +119,8 @@ class APGD(ReconstructionAlgorithm):
         acceleration="BT",
         diff_lambda=0.001,
         prox_lambda=0.001,
+        disp=100,
+        rel_error=1e-6,
         **kwargs
     ):
         """
@@ -155,16 +163,16 @@ class APGD(ReconstructionAlgorithm):
 
         super(APGD, self).__init__(psf, dtype)
 
-        self._max_iter = max_iter
+        self._stop_crit = stop.RelError(eps=rel_error) | stop.MaxIter(max_iter)
+        self._disp = disp
 
         # Convolution operator
         self._H = RealFFTConvolve2D(self._psf, dtype=dtype)
-        self._H.compute_lipschitz_cst()
 
         # initialize solvers which will be created when data is set
         if diff_penalty is not None:
             if diff_penalty == APGDPriors.L2:
-                self._diff_penalty = diff_lambda * SquaredL2Norm(dim=self._H.shape[1])
+                self._diff_penalty = diff_lambda * func.SquaredL2Norm(dim=self._H.shape[1])
             else:
                 assert hasattr(diff_penalty, "jacobianT")
                 self._diff_penalty = diff_lambda * diff_penalty(dim=self._H.shape[1])
@@ -173,9 +181,9 @@ class APGD(ReconstructionAlgorithm):
 
         if prox_penalty is not None:
             if prox_penalty == APGDPriors.L1:
-                self._prox_penalty = prox_lambda * L1Norm(dim=self._H.shape[1])
+                self._prox_penalty = prox_lambda * func.L1Norm(dim=self._H.shape[1])
             elif prox_penalty == APGDPriors.NONNEG:
-                self._prox_penalty = prox_lambda * NonNegativeOrthant(dim=self._H.shape[1])
+                self._prox_penalty = prox_lambda * func.PositiveOrthant(dim=self._H.shape[1])
             else:
                 try:
                     self._prox_penalty = prox_lambda * prox_penalty(dim=self._H.shape[1])
@@ -206,48 +214,30 @@ class APGD(ReconstructionAlgorithm):
 
         """ Set up problem """
         # Cost function
-        loss = (1 / 2) * SquaredL2Loss(dim=self._H.shape[0], data=self._data.ravel())
+        loss = (1 / 2) * func.SquaredL2Norm(dim=self._H.shape[0]).asloss(self._data.ravel())
         F = loss * self._H
         if self._diff_penalty is not None:
             F += self._diff_penalty
 
-        if self._prox_penalty is not None:
-            G = self._prox_penalty
-            dim = G.shape[1]
-        else:
-            G = None
-            dim = self._data.size
+        self._apgd = solver.PGD(
+            f=F, g=self._prox_penalty, show_progress=False, verbosity=self._disp
+        )
 
-        self._apgd = APGD_pyc(dim=dim, F=F, G=G, acceleration=self._acc)
-
-        # -- setup to print progress report
-        self._apgd.old_iterand = deepcopy(self._apgd.init_iterand)
-        self._apgd.update_diagnostics()
-        self._gen = self._apgd.iterates(n=self._max_iter)
+        self._apgd.fit(
+            x0=np.zeros(F.shape[1]),
+            # x0=rng.normal(size=F.dim),
+            stop_crit=self._stop_crit,
+            track_objective=True,
+            mode=pyca.solver.Mode.MANUAL,
+            acceleration=True,
+        )
 
     def reset(self):
         self._image_est = np.zeros(self._original_size, dtype=self._dtype)
-        if self._apgd is not None:
-            self._apgd.reset()
-
-            # -- setup to print progress report
-            self._apgd.old_iterand = deepcopy(self._apgd.init_iterand)
-            self._apgd.update_diagnostics()
-            self._gen = self._apgd.iterates(n=self._max_iter)
-
-    def _progress(self):
-        """
-        Pycsou has functionality for printing progress that we will make use of
-        here.
-
-        """
-        self._apgd.update_diagnostics()
-        self._apgd.old_iterand = deepcopy(self._apgd.iterand)
-        self._apgd.print_diagnostics()
 
     def _update(self):
-        next(self._gen)
-        self._image_est[:] = self._apgd.iterand["iterand"]
+        res = next(self._apgd.steps())
+        self._image_est[:] = res["x"]
 
     def _form_image(self):
         image = self._image_est.reshape(self._original_shape)
