@@ -1,5 +1,4 @@
-# This script is used to export the .mat paf from https://github.com/Waller-Lab/DiffuserCam/tree/master/example_data
-# The output consists of the usable .npy file as well as tiff images for user visualisation
+# This script is used to export each depth of a .npy 3D reconstruction into single tiff files for visualisation.
 
 import os
 import sys

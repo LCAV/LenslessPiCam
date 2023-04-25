@@ -15,3 +15,10 @@ library is used with the following simulation steps:
 #. **Quantize** according to the bit depth of the sensor.
 
 PyTorch support is available to speed up simulation on GPU, and to create Dataset and DataLoader objects for training and testing!
+
+Simulating 3D data
+------------------
+
+Check out `this other Medium post <https://medium.com/@julien.sahli/3d-imaging-with-lensless-camera-822983618455>`__.
+
+The corresponding code will likely be added soon in waveprop.
