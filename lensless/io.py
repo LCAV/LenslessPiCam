@@ -227,10 +227,7 @@ def load_psf(
         bg = np.array(bg)
 
     # resize
-    if shape:
-        psf = np.array([resize(p, shape=shape) for p in psf])   # TODO : parallelize it
-    elif downsample != 1:
-        psf = np.array([resize(p, factor=1 / downsample) for p in psf])  # TODO : parallelize it
+    psf = resize(psf, shape=shape, factor=1/downsample)
 
     if single_psf:
         if psf.shape[3] > 1:
@@ -356,16 +353,16 @@ def load_data(
 
     data -= bg
     data = np.clip(data, a_min=0, a_max=data.max())
-    if data.shape != psf.shape:
-        # in DiffuserCam dataset, images are already reshaped
-        data = resize(data, shape=psf.shape[1:3])
-    data /= np.linalg.norm(data.ravel())
 
-    # Todo : psf.shape shoulg have len() of 4, and data shape is resized just before. Is this necessary ?
     if len(data.shape) == 3:
         data = data[np.newaxis, :, :, :]
     elif len(data.shape) == 2:
         data = data[np.newaxis, :, :, np.newaxis]
+
+    if data.shape != psf.shape:
+        # in DiffuserCam dataset, images are already reshaped
+        data = resize(data, shape=psf.shape)
+    data /= np.linalg.norm(data.ravel())
 
     if gray:
         psf = np.array(rgb2gray(psf), np.newaxis)
@@ -374,7 +371,6 @@ def load_data(
     if plot:
         ax = plot_image(psf[0], gamma=gamma)
         ax.set_title("PSF of the first depth")
-        print("now we print data[0] min mean max :", np.min(data[0]), np.mean(data[0]), np.max(data[0]))
         ax = plot_image(data[0], gamma=gamma)
         ax.set_title("Raw data")
 
