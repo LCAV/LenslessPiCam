@@ -2,9 +2,7 @@ from lensless.recon import ReconstructionAlgorithm
 import inspect
 import numpy as np
 from typing import Optional
-from scipy import fft
-from scipy.fftpack import next_fast_len
-
+from lensless.rfft_convolve import RealFFTConvolve2D as Convolver
 
 import pycsou.abc as pyca
 import pycsou.operator.func as func
@@ -19,8 +17,6 @@ class APGDPriors:
     """
     Priors (compatible with Pycsou) for APGD.
 
-    See Pycsou documentation for available penalties:
-    https://matthieumeo.github.io/pycsou/html/api/functionals/pycsou.func.penalty.html?highlight=penalty#module-pycsou.func.penalty
     """
 
     L2 = "l2"
@@ -38,7 +34,9 @@ class APGDPriors:
 
 
 class RealFFTConvolve2D(pyca.LinOp):
-    def __init__(self, filter: pyct.NDArray, dtype: Optional[type] = None):
+    def __init__(
+        self, filter: pyct.NDArray, dtype: Optional[type] = None, norm: str = "ortho", **kwargs
+    ):
         """
         Linear operator that performs convolution in Fourier domain, and assumes
         real-valued signals.
@@ -50,61 +48,27 @@ class RealFFTConvolve2D(pyca.LinOp):
             only one channel.
         dtype : float32 or float64
             Data type to use for optimization.
+        norm : str
+            Normalization to use for convolution. See :py:class:`~lensless.rfft_convolve.RealFFTConvolve2D`
         """
 
         assert len(filter.shape) == 3
         self._filter_shape = np.array(filter.shape)
-        self._n_channels = filter.shape[2]
-
-        # cropping / padding indices
-        self._padded_shape = 2 * self._filter_shape[:2] - 1
-        self._padded_shape = np.array([next_fast_len(i) for i in self._padded_shape])
-        self._padded_shape = np.r_[self._padded_shape, [self._n_channels]]
-        self._start_idx = (self._padded_shape[:2] - self._filter_shape[:2]) // 2
-        self._end_idx = self._start_idx + self._filter_shape[:2]
-
-        # precompute filter in frequency domain
-        self._H = fft.rfft2(self._pad(filter), axes=(0, 1))
-        self._Hadj = np.conj(self._H)
-        self._padded_data = np.zeros(self._padded_shape).astype(dtype)
+        self._convolver = Convolver(filter, dtype=dtype, norm=norm)
 
         shape = (int(np.prod(self._filter_shape)), int(np.prod(self._filter_shape)))
         super(RealFFTConvolve2D, self).__init__(shape=shape)
 
-    def _crop(self, x):
-        return x[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]]
-
-    def _pad(self, v):
-        vpad = np.zeros(self._padded_shape).astype(v.dtype)
-        vpad[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]] = v
-        return vpad
-
     @pycrt.enforce_precision(i="x")
     @pycu.vectorize(i="x")
     def apply(self, x: pyct.NDArray) -> pyct.NDArray:
-        self._padded_data[
-            self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
-        ] = np.reshape(x, self._filter_shape)
-        y = self._crop(
-            fft.ifftshift(
-                fft.irfft2(fft.rfft2(self._padded_data, axes=(0, 1)) * self._H, axes=(0, 1)),
-                axes=(0, 1),
-            )
-        )
+        y = self._convolver.convolve(np.reshape(x, self._filter_shape))
         return y.ravel()
 
     @pycrt.enforce_precision(i="y")
     @pycu.vectorize(i="y")
     def adjoint(self, y: pyct.NDArray) -> pyct.NDArray:
-        self._padded_data[
-            self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
-        ] = np.reshape(y, self._filter_shape)
-        x = self._crop(
-            fft.ifftshift(
-                fft.irfft2(fft.rfft2(self._padded_data, axes=(0, 1)) * self._Hadj, axes=(0, 1)),
-                axes=(0, 1),
-            )
-        )
+        x = self._convolver.deconvolve(np.reshape(y, self._filter_shape))
         return x.ravel()
 
 
