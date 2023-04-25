@@ -3,7 +3,7 @@
 Download subset from here: https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE
 Or full dataset here: https://github.com/Waller-Lab/LenslessLearning
 
-To use integrated test function rename the downloaded folder 'DiffuserCam_Mirflickr' and place it inside the data folder.
+To use integrated test function place the downloaded folder inside the data folder.
 """
 
 import glob
@@ -24,7 +24,7 @@ except ImportError:
     raise ImportError("Torch and torchmetrics are needed to benchmark reconstruction algorithm")
 
 
-class RealDataset(Dataset):
+class ParallelDataset(Dataset):
     """
     Dataset consisting on mesure images with both a lensless and a lensed setup.
     """
@@ -34,7 +34,7 @@ class RealDataset(Dataset):
         root_dir,
         n_files=False,
         background=None,
-        transform_diffuser=None,
+        transform_lensless=None,
         transform_lensed=None,
     ):
         """
@@ -50,23 +50,23 @@ class RealDataset(Dataset):
             If None, all images are used, by default False
         background : torch.Tensor or None, optional
             If not None, background is removed from lensless images, by default None
-        transform_diffuser : torch.Transform or None, optional
+        transform_lensless : torch.Transform or None, optional
             Transform to apply to the lensless images, by default None
         transform_lensed : torch.Transform or None, optional
             Transform to apply to the lensed images, by default None
         """
 
         self.root_dir = root_dir
-        self.diffuser_dir = os.path.join(root_dir, "diffuser")
+        self.lensless_dir = os.path.join(root_dir, "diffuser")
         self.lensed_dir = os.path.join(root_dir, "lensed")
-        files = glob.glob(self.diffuser_dir + "/*.npy")
-        print(self.diffuser_dir)
+        files = glob.glob(self.lensless_dir + "/*.npy")
+        print(self.lensless_dir)
         if n_files:
             files = files[:n_files]
         self.files = [os.path.basename(fn) for fn in files]
 
         self.background = background
-        self.transform_diffuser = transform_diffuser
+        self.transform_lensless = transform_lensless
         self.transform_lensed = transform_lensed
 
     def __len__(self):
@@ -76,21 +76,21 @@ class RealDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        diffuser_fp = os.path.join(self.diffuser_dir, self.files[idx])
+        lensless_fp = os.path.join(self.lensless_dir, self.files[idx])
         lensed_fp = os.path.join(self.lensed_dir, self.files[idx])
-        diffuser = torch.from_numpy(np.load(diffuser_fp))
+        lensless = torch.from_numpy(np.load(lensless_fp))
         lensed = torch.from_numpy(np.load(lensed_fp))
 
         if self.background is not None:
-            diffuser = diffuser - self.background
+            lensless = lensless - self.background
 
-        if self.transform_diffuser:
-            diffuser = self.transform_diffuser(diffuser)
+        if self.transform_lensless:
+            lensless = self.transform_lensless(lensless)
 
         if self.transform_lensed:
             lensed = self.transform_lensed(lensed)
 
-        return diffuser, lensed
+        return lensless, lensed
 
 
 def benchmark(model, data, downsample=4, n_files=100, batchsize=1, **kwargs):
@@ -130,7 +130,7 @@ def benchmark(model, data, downsample=4, n_files=100, batchsize=1, **kwargs):
     )
     background = torch.from_numpy(background)
 
-    dataset = RealDataset(data, n_files=n_files, background=background)
+    dataset = ParallelDataset(data, n_files=n_files, background=background)
     dataloader = DataLoader(dataset, batch_size=batchsize, pin_memory=(device != "cpu"))
 
     metrics = {
@@ -142,14 +142,14 @@ def benchmark(model, data, downsample=4, n_files=100, batchsize=1, **kwargs):
     }
     metrics_values = {key: 0.0 for key in metrics}
 
-    for diffuser, lensed in tqdm(dataloader):
-        diffuser = diffuser.to(device).squeeze()
+    for lensless, lensed in tqdm(dataloader):
+        lensless = lensless.to(device).squeeze()
         lensed = lensed.to(device).permute(0, 3, 1, 2)
 
         # compute predictions
         with torch.no_grad():
             if batchsize == 1:
-                model.set_data(diffuser)
+                model.set_data(lensless)
                 prediction = model.apply(plot=False, save=False, **kwargs)[None, :, :, :].permute(
                     0, 3, 1, 2
                 )
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     downsample = 4
     device = "cpu"
 
-    data = "data/DiffuserCam_Mirflickr"
+    data = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
     psf_fp = os.path.join(data, "psf.tiff")
     psf_float, background = load_psf(
         psf_fp,
