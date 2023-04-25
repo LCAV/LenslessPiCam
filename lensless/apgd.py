@@ -48,20 +48,20 @@ class RealFFTConvolve2D(LinearOperator):
         dtype : float32 or float64
             Data type to use for optimization.
         """
-
-        assert len(filter.shape) == 3
+        raise NotImplementedError("Needs to be updated to work with 4D data")
+        assert len(filter.shape) == 4
         self._filter_shape = np.array(filter.shape)
-        self._n_channels = filter.shape[2]
+        self._n_channels = filter.shape[3]
 
         # cropping / padding indices
-        self._padded_shape = 2 * self._filter_shape[:2] - 1
+        self._padded_shape = 2 * self._filter_shape[1:3] - 1
         self._padded_shape = np.array([next_fast_len(i) for i in self._padded_shape])
         self._padded_shape = np.r_[self._padded_shape, [self._n_channels]]
-        self._start_idx = (self._padded_shape[:2] - self._filter_shape[:2]) // 2
-        self._end_idx = self._start_idx + self._filter_shape[:2]
+        self._start_idx = (self._padded_shape[1:3] - self._filter_shape[1:3]) // 2
+        self._end_idx = self._start_idx + self._filter_shape[1:3]
 
         # precompute filter in frequency domain
-        self._H = fft.rfft2(self._pad(filter), axes=(0, 1))
+        self._H = fft.rfft2(self._pad(filter), axes=(1, 2))
         self._Hadj = np.conj(self._H)
         self._padded_data = np.zeros(self._padded_shape).astype(dtype)
 
@@ -69,34 +69,34 @@ class RealFFTConvolve2D(LinearOperator):
         super(RealFFTConvolve2D, self).__init__(shape=shape, dtype=dtype)
 
     def _crop(self, x):
-        return x[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]]
+        return x[:, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]]
 
     def _pad(self, v):
         vpad = np.zeros(self._padded_shape).astype(v.dtype)
-        vpad[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]] = v
+        vpad[:, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]] = v
         return vpad
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
         # like here: https://github.com/PyLops/pylops/blob/3e7eb22a62ec60e868ccdd03bc4b54806851cb26/pylops/signalprocessing/ConvolveND.py#L103
         self._padded_data[
-            self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
+            :, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
         ] = np.reshape(x, self._filter_shape)
         y = self._crop(
             fft.ifftshift(
-                fft.irfft2(fft.rfft2(self._padded_data, axes=(0, 1)) * self._H, axes=(0, 1)),
-                axes=(0, 1),
+                fft.irfft2(fft.rfft2(self._padded_data, axes=(1, 2)) * self._H, axes=(1, 2)),
+                axes=(1, 2),
             )
         )
         return y.ravel()
 
     def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
         self._padded_data[
-            self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
+            :, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
         ] = np.reshape(y, self._filter_shape)
         x = self._crop(
             fft.ifftshift(
-                fft.irfft2(fft.rfft2(self._padded_data, axes=(0, 1)) * self._Hadj, axes=(0, 1)),
-                axes=(0, 1),
+                fft.irfft2(fft.rfft2(self._padded_data, axes=(1, 2)) * self._Hadj, axes=(1, 2)),
+                axes=(1, 2),
             )
         )
         return x.ravel()
@@ -164,21 +164,21 @@ class APGD(ReconstructionAlgorithm):
         # initialize solvers which will be created when data is set
         if diff_penalty is not None:
             if diff_penalty == APGDPriors.L2:
-                self._diff_penalty = diff_lambda * SquaredL2Norm(dim=self._H.shape[1])
+                self._diff_penalty = diff_lambda * SquaredL2Norm(dim=self._H.shape[2])
             else:
                 assert hasattr(diff_penalty, "jacobianT")
-                self._diff_penalty = diff_lambda * diff_penalty(dim=self._H.shape[1])
+                self._diff_penalty = diff_lambda * diff_penalty(dim=self._H.shape[2])
         else:
             self._diff_penalty = None
 
         if prox_penalty is not None:
             if prox_penalty == APGDPriors.L1:
-                self._prox_penalty = prox_lambda * L1Norm(dim=self._H.shape[1])
+                self._prox_penalty = prox_lambda * L1Norm(dim=self._H.shape[2])
             elif prox_penalty == APGDPriors.NONNEG:
-                self._prox_penalty = prox_lambda * NonNegativeOrthant(dim=self._H.shape[1])
+                self._prox_penalty = prox_lambda * NonNegativeOrthant(dim=self._H.shape[2])
             else:
                 try:
-                    self._prox_penalty = prox_lambda * prox_penalty(dim=self._H.shape[1])
+                    self._prox_penalty = prox_lambda * prox_penalty(dim=self._H.shape[2])
                 except ValueError:
                     print("Unexpected prior.")
         else:
@@ -198,6 +198,7 @@ class APGD(ReconstructionAlgorithm):
              3D (RGB).
 
         """
+        print("setting data,", data.shape)
         if not self._is_rgb:
             assert len(data.shape) == 2
             data = data[:, :, np.newaxis]
