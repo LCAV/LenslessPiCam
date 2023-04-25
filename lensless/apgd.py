@@ -1,4 +1,5 @@
 from lensless.recon import ReconstructionAlgorithm
+from lensless.rfft_convolve import RealFFTConvolve2D as Convolver
 import inspect
 import numpy as np
 from pycsou.func.loss import SquaredL2Loss
@@ -8,8 +9,6 @@ from copy import deepcopy
 from pycsou.core.linop import LinearOperator
 from typing import Union, Optional
 from numbers import Number
-from scipy import fft
-from scipy.fftpack import next_fast_len
 
 
 class APGDPriors:
@@ -35,7 +34,7 @@ class APGDPriors:
 
 
 class RealFFTConvolve2D(LinearOperator):
-    def __init__(self, filter, dtype: Optional[type] = None):
+    def __init__(self, filter, dtype: Optional[type] = None, norm: str = "ortho", **kwargs):
         """
         Linear operator that performs convolution in Fourier domain, and assumes
         real-valued signals.
@@ -48,57 +47,22 @@ class RealFFTConvolve2D(LinearOperator):
         dtype : float32 or float64
             Data type to use for optimization.
         """
-        raise NotImplementedError("Needs to be updated to work with 4D data")
         assert len(filter.shape) == 4
         self._filter_shape = np.array(filter.shape)
-        self._n_channels = filter.shape[3]
-
-        # cropping / padding indices
-        self._padded_shape = 2 * self._filter_shape[1:3] - 1
-        self._padded_shape = np.array([next_fast_len(i) for i in self._padded_shape])
-        self._padded_shape = np.r_[self._padded_shape, [self._n_channels]]
-        self._start_idx = (self._padded_shape[1:3] - self._filter_shape[1:3]) // 2
-        self._end_idx = self._start_idx + self._filter_shape[1:3]
-
-        # precompute filter in frequency domain
-        self._H = fft.rfft2(self._pad(filter), axes=(1, 2))
-        self._Hadj = np.conj(self._H)
-        self._padded_data = np.zeros(self._padded_shape).astype(dtype)
+        self._convolver = Convolver(filter, dtype=dtype, norm=norm)
 
         shape = (int(np.prod(self._filter_shape)), int(np.prod(self._filter_shape)))
         super(RealFFTConvolve2D, self).__init__(shape=shape, dtype=dtype)
 
-    def _crop(self, x):
-        return x[:, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]]
 
-    def _pad(self, v):
-        vpad = np.zeros(self._padded_shape).astype(v.dtype)
-        vpad[:, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]] = v
-        return vpad
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
         # like here: https://github.com/PyLops/pylops/blob/3e7eb22a62ec60e868ccdd03bc4b54806851cb26/pylops/signalprocessing/ConvolveND.py#L103
-        self._padded_data[
-            :, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
-        ] = np.reshape(x, self._filter_shape)
-        y = self._crop(
-            fft.ifftshift(
-                fft.irfft2(fft.rfft2(self._padded_data, axes=(1, 2)) * self._H, axes=(1, 2)),
-                axes=(1, 2),
-            )
-        )
+        y = self._convolver.convolve(np.reshape(x, self._filter_shape))
         return y.ravel()
 
     def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
-        self._padded_data[
-            :, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
-        ] = np.reshape(y, self._filter_shape)
-        x = self._crop(
-            fft.ifftshift(
-                fft.irfft2(fft.rfft2(self._padded_data, axes=(1, 2)) * self._Hadj, axes=(1, 2)),
-                axes=(1, 2),
-            )
-        )
+        x = self._convolver.deconvolve(np.reshape(y, self._filter_shape))
         return x.ravel()
 
 
@@ -157,8 +121,11 @@ class APGD(ReconstructionAlgorithm):
 
         self._max_iter = max_iter
 
+        print("now creating realfftconvolve2d with a psf", self._psf.shape)
         # Convolution operator
-        self._H = RealFFTConvolve2D(self._psf, dtype=dtype)
+        self._H = RealFFTConvolve2D(self._psf, dtype=dtype) # TODO : it's there !
+        print("thonk")
+        print(self._H.shape)
         self._H.compute_lipschitz_cst()
 
         # initialize solvers which will be created when data is set
@@ -172,6 +139,8 @@ class APGD(ReconstructionAlgorithm):
             self._diff_penalty = None
 
         if prox_penalty is not None:
+            print("prox_penalty", prox_penalty)
+            print("H : ", self._H.shape)
             if prox_penalty == APGDPriors.L1:
                 self._prox_penalty = prox_lambda * L1Norm(dim=self._H.shape[2])
             elif prox_penalty == APGDPriors.NONNEG:
