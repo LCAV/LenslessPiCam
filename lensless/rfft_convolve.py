@@ -32,13 +32,14 @@ class RealFFTConvolve2D:
             self.is_torch = True
 
         # prepare shapes for reconstruction
-        self._is_rgb = len(psf.shape) == 3
-        if self._is_rgb:
+        self._is_rgb = False
+        if len(psf.shape) == 3:
+            if psf.shape[2] == 3:
+                self._is_rgb = True
             self._psf = psf
-            self._n_channels = 3
         else:
             self._psf = psf[:, :, None]
-            self._n_channels = 1
+        self._n_channels = self._psf.shape[2]
         self._psf_shape = np.array(self._psf.shape)
 
         # set dtype
