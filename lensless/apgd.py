@@ -84,7 +84,7 @@ class APGD(ReconstructionAlgorithm):
         diff_lambda=0.001,
         prox_lambda=0.001,
         disp=100,
-        rel_error=1e-6,
+        rel_error=None,
         lipschitz_tight=True,
         lipschitz_tol=1.0,
         **kwargs
@@ -134,7 +134,9 @@ class APGD(ReconstructionAlgorithm):
 
         super(APGD, self).__init__(psf, dtype)
 
-        self._stop_crit = stop.RelError(eps=rel_error) | stop.MaxIter(max_iter)
+        self._stop_crit = stop.MaxIter(max_iter)
+        if rel_error is not None:
+            self._stop_crit = self._stop_crit | stop.RelError(eps=rel_error)
         self._disp = disp
 
         # Convolution operator
@@ -146,7 +148,7 @@ class APGD(ReconstructionAlgorithm):
             if diff_penalty == APGDPriors.L2:
                 self._diff_penalty = diff_lambda * func.SquaredL2Norm(dim=self._H.shape[1])
             else:
-                assert hasattr(diff_penalty, "jacobianT")
+                assert hasattr(diff_penalty, "jacobian")
                 self._diff_penalty = diff_lambda * diff_penalty(dim=self._H.shape[1])
         else:
             self._diff_penalty = None
@@ -197,7 +199,7 @@ class APGD(ReconstructionAlgorithm):
 
         self._apgd.fit(
             x0=np.zeros(F.shape[1]),
-            # x0=rng.normal(size=F.dim),
+            # x0=np.random.normal(size=F.shape[1]),
             stop_crit=self._stop_crit,
             track_objective=True,
             mode=pyca.solver.Mode.MANUAL,
