@@ -26,7 +26,7 @@ except ImportError:
 
 class ParallelDataset(Dataset):
     """
-    Dataset consisting on mesure images with both a lensless and a lensed setup.
+    Dataset consisting of lensless and corresponding lensed image.
     """
 
     def __init__(
@@ -179,6 +179,19 @@ if __name__ == "__main__":
     device = "cpu"
 
     data = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
+    if not os.path.isdir(data):
+        print("No dataset found for benchmarking.")
+        try:
+            from torchvision.datasets.utils import download_and_extract_archive
+        except ImportError:
+            exit()
+        msg = "Do you want to automaticaly download the standard benchmark dataset"
+        valid = input("%s (y/N) " % msg).lower() == "y"
+        if valid:
+            url = "https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE/download"
+            filename = "DiffuserCam_Mirflickr_200_3011302021_11h43_seed11.zip"
+            download_and_extract_archive(url, "data/", filename=filename, remove_finished=True)
+
     psf_fp = os.path.join(data, "psf.tiff")
     psf_float, background = load_psf(
         psf_fp,
