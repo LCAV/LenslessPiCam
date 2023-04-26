@@ -121,7 +121,7 @@ The three reconstruction strategies available in `LenslessPiCam` derive from thi
 
 - `lensless.GradientDescient`: projected GD with a non-negativity constraint. Two accelerated approaches are also available: `lensless.NesterovGradientDescent` [@nesterov1983method] and `lensless.FISTA` [@beck2009fast];
 - `lensless.ADMM`: ADMM with a non-negativity constraint and a TV regularizer;
-- `lensless.APGD`: accelerated proximal GD with Pycsou as a backend. Any differentiable or proximal operator can be used as long as it is compatible with Pycsou, namely derives from one of `DifferentiableFunctional` or `ProximableFunctional`.
+- `lensless.APGD`: accelerated proximal GD with Pycsou as a backend. Any differentiable or proximal operator can be used as long as it is compatible with Pycsou, namely derives from one of [`DiffFunc`](https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/abc/operator.py#L980) or [`ProxFunc`](https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/abc/operator.py#L741).
   
 One major advantage of deriving from `lensless.ReconstructionAlgorithm` is that code duplication across algorithm can be minimized as it handles most of the common functionality, i.e. efficiently computing 2D Fourier transforms (needed to solve \autoref{eq:fourier}), iteration logic, saving intermediate outputs, and visualization. 
 Using a reconstruction algorithm that derives from it boils down to three steps:
