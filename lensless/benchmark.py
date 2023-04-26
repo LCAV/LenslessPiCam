@@ -11,6 +11,7 @@ import os
 import pathlib as plib
 from datetime import datetime
 from lensless.io import load_psf
+from lensless.util import resize
 import numpy as np
 from tqdm import tqdm
 
@@ -34,6 +35,8 @@ class ParallelDataset(Dataset):
         root_dir,
         n_files=False,
         background=None,
+        downsample=4,
+        flip=False,
         transform_lensless=None,
         transform_lensed=None,
     ):
@@ -66,6 +69,8 @@ class ParallelDataset(Dataset):
         self.files = [os.path.basename(fn) for fn in files]
 
         self.background = background
+        self.downsample = downsample / 4
+        self.flip = flip
         self.transform_lensless = transform_lensless
         self.transform_lensed = transform_lensed
 
@@ -78,12 +83,23 @@ class ParallelDataset(Dataset):
 
         lensless_fp = os.path.join(self.lensless_dir, self.files[idx])
         lensed_fp = os.path.join(self.lensed_dir, self.files[idx])
-        lensless = torch.from_numpy(np.load(lensless_fp))
-        lensed = torch.from_numpy(np.load(lensed_fp))
+        lensless = np.load(lensless_fp)
+        lensed = np.load(lensed_fp)
+
+        if self.downsample != 1.0:
+            lensless = resize(lensless, factor=1 / self.downsample)
+            lensed = resize(lensed, factor=1 / self.downsample)
+
+        lensless = torch.from_numpy(lensless)
+        lensed = torch.from_numpy(lensed)
 
         if self.background is not None:
             lensless = lensless - self.background
 
+        # flip image x and y if needed
+        if self.flip:
+            lensless = torch.rot90(lensless, dims=(-3, -2))
+            lensed = torch.rot90(lensed, dims=(-3, -2))
         if self.transform_lensless:
             lensless = self.transform_lensless(lensless)
 
@@ -93,7 +109,7 @@ class ParallelDataset(Dataset):
         return lensless, lensed
 
 
-def benchmark(model, data, downsample=4, n_files=100, batchsize=1, **kwargs):
+def benchmark(model, data, downsample=4, n_files=100, batchsize=1, flip=False, **kwargs):
     """
     Compute multiple metrics for a reconstruction algorithm.
 
@@ -130,7 +146,9 @@ def benchmark(model, data, downsample=4, n_files=100, batchsize=1, **kwargs):
     )
     background = torch.from_numpy(background)
 
-    dataset = ParallelDataset(data, n_files=n_files, background=background)
+    dataset = ParallelDataset(
+        data, n_files=n_files, background=background, downsample=downsample, flip=flip
+    )
     dataloader = DataLoader(dataset, batch_size=batchsize, pin_memory=(device != "cpu"))
 
     metrics = {
@@ -141,7 +159,7 @@ def benchmark(model, data, downsample=4, n_files=100, batchsize=1, **kwargs):
         "SSIM": StructuralSimilarityIndexMeasure().to(device),
     }
     metrics_values = {key: 0.0 for key in metrics}
-
+    model.reset()
     for lensless, lensed in tqdm(dataloader):
         lensless = lensless.to(device).squeeze()
         lensed = lensed.to(device).permute(0, 3, 1, 2)
@@ -154,7 +172,7 @@ def benchmark(model, data, downsample=4, n_files=100, batchsize=1, **kwargs):
                     0, 3, 1, 2
                 )
             else:
-                prediction = model.batch_call(plot=False, save=False, **kwargs).permute(0, 3, 1, 2)
+                prediction = model.batch_call(lensless, **kwargs).permute(0, 3, 1, 2)
 
         # normalization
         prediction_max = torch.amax(prediction, dim=(1, 2, 3), keepdim=True)
