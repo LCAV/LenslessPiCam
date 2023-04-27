@@ -194,7 +194,12 @@ if __name__ == "__main__":
     from lensless import ADMM
 
     downsample = 4
-    device = "cpu"
+
+    # check if GPU is available
+    if torch.cuda.is_available():
+        device = "cuda"
+    else:
+        device = "cpu"
 
     data = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
     if not os.path.isdir(data):
@@ -203,8 +208,10 @@ if __name__ == "__main__":
             from torchvision.datasets.utils import download_and_extract_archive
         except ImportError:
             exit()
-        msg = "Do you want to automaticaly download the standard benchmark dataset"
-        valid = input("%s (y/N) " % msg).lower() == "y"
+        msg = "Do you want to download the sample dataset (725MB)?"
+
+        # default to yes if no input is given
+        valid = input("%s (Y/n) " % msg).lower() != "n"
         if valid:
             url = "https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE/download"
             filename = "DiffuserCam_Mirflickr_200_3011302021_11h43_seed11.zip"
