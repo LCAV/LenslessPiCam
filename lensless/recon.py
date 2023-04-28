@@ -188,6 +188,7 @@ class ReconstructionAlgorithm(abc.ABC):
                 Maximum number of iterations.
         """
         self.is_torch = False
+
         if torch_available:
             self.is_torch = isinstance(psf, torch.Tensor)
 
@@ -291,7 +292,9 @@ class ReconstructionAlgorithm(abc.ABC):
         assert len(self._psf_shape) == len(data.shape)
 
         # assert same shapes
-        assert np.all(self._psf_shape[:2] == np.array(data.shape)[:2]), "PSF and data shape mismatch"
+        assert np.all(
+            self._psf_shape[:2] == np.array(data.shape)[:2]
+        ), "PSF and data shape mismatch"
 
         self._data = data
 
