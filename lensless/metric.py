@@ -89,7 +89,6 @@ reconstruction.
 The default parameters can be found in the ``configs/apply_admm_single_mirflickr.yaml`` file.
 
 
-
 Benchmarking with PyTorch
 -------------------------
 
@@ -97,8 +96,8 @@ It may be useful to benchmark reconstruction algorithms with PyTorch, e.g.
 with a *parallel* dataset of lensless and corresponding lensed images.
 
 :py:class:`~lensless.benchmark.ParallelDataset` is a PyTorch :py:class:`~torch.utils.data.Dataset` object that can be used
-to load a parallel dataset of lensless and corresponding lensed images. The 
-function :py:func:`~lensless.benchmark.benchmark` can be used to evaluate a reconstruction
+to load a parallel dataset of lensless and corresponding lensed images.
+The function :py:func:`~lensless.benchmark.benchmark` can be used to evaluate a reconstruction
 algorithm on a parallel dataset in batches.
 
 Running the following file will evaluate ADMM on a subset of DLMD:
@@ -106,7 +105,6 @@ Running the following file will evaluate ADMM on a subset of DLMD:
 .. code:: bash
 
     python lensless/benchmark.py
-
 
 """
 
