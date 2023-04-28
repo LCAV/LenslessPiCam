@@ -15,6 +15,7 @@ Added
 -  Documentation files and configuration, using Sphinx.
 -  Implementations for ``autocorr2d`` and ``RealFFTConvolve2D``.
 -  Benchmarking tool for ReconstructionAlgorithm
+-  ``n_iter`` parameter for ReconstructionAlgorithm constructor, so don't need to pass to ``apply``.
 
 Changed
 ~~~~~~~

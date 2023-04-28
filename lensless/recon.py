@@ -167,7 +167,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
     """
 
-    def __init__(self, psf, dtype=None, pad=True, max_iter=1000, **kwargs):
+    def __init__(self, psf, dtype=None, pad=True, n_iter=100, **kwargs):
         """
         Base constructor. Derived constructor may define new state variables
         here and also reset them in `reset`.
@@ -184,15 +184,16 @@ class ReconstructionAlgorithm(abc.ABC):
                 Data type to use for optimization.
             pad : bool, optional
                 Whether to pad the PSF to avoid spatial aliasing.
-            max_iter : int, optional
-                Maximum number of iterations.
+            n_iter : int, optional
+                Number of iterations to run algorithm for. Can be overridden in
+                `apply`.
         """
         self.is_torch = False
 
         if torch_available:
             self.is_torch = isinstance(psf, torch.Tensor)
 
-        self._max_iter = max_iter
+        self._n_iter = n_iter
 
         # prepare shapes for reconstruction
         self._is_rgb = len(psf.shape) == 3
@@ -338,7 +339,7 @@ class ReconstructionAlgorithm(abc.ABC):
         Parameters
         ----------
         n_iter : int, optional
-            Number of iterations. If not provided, default to `self._max_iter`.
+            Number of iterations. If not provided, default to `self._n_iter`.
         disp_iter : int
             How often to display and/or intermediate reconstruction (in number
             of iterations). If `None` OR `plot` or `save` are False, no
@@ -368,7 +369,7 @@ class ReconstructionAlgorithm(abc.ABC):
         assert self._data is not None, "Must set data with `set_data()`"
 
         if n_iter is None:
-            n_iter = self._max_iter
+            n_iter = self._n_iter
 
         if (plot or save) and disp_iter is not None:
             if ax is None:
