@@ -16,6 +16,10 @@ MOCK_MODULES = [
     "skimage.metrics",
     "lpips",
     "torch",
+    "torch.utils.data",
+    "torch.nn",
+    "torchmetrics",
+    "torchmetrics.image",
     "scipy.ndimage",
     "pycsou.core",
     "pycsou.core.linop",
@@ -63,6 +67,7 @@ intersphinx_mapping = {
     "SciPy [latest]": ("https://docs.scipy.org/doc/scipy/reference", None),
     "matplotlib": ("http://matplotlib.sourceforge.net/", None),
     "pycsou": ("https://matthieumeo.github.io/pycsou/html/", None),
+    "torch": ("https://pytorch.org/docs/stable/", None),
 }
 intersphinx_disabled_domains = ["std"]
 

@@ -1,8 +1,8 @@
 .. automodule:: lensless.recon
 
 
-   API
-   ---
+   Reconstruction API
+   ------------------
 
 
    Abstract Class
