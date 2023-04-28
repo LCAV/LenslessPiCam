@@ -1,7 +1,7 @@
 jedi==0.18.0
 lpips==0.1.4
 pylops==1.18.0
-scikit-image==0.19.0rc0
+scikit-image>=0.19.0rc0
 hydra-core
 click>=8.0.1
 waveprop>=0.0.3     # for simulation
