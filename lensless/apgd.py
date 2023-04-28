@@ -133,7 +133,7 @@ class APGD(ReconstructionAlgorithm):
         self._apgd = None
         self._gen = None
 
-        super(APGD, self).__init__(psf, dtype, max_iter=max_iter, **kwargs)
+        super(APGD, self).__init__(psf, dtype, n_iter=max_iter, **kwargs)
 
         self._stop_crit = stop.RelError(eps=rel_error) | stop.MaxIter(max_iter)
         self._disp = disp
