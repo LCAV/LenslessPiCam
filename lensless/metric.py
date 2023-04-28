@@ -29,13 +29,13 @@ single file by (1) extraction a region of interest and (2) comparing it to a ref
 
 After downloading the example files:
 
-* `Thumbs up reconstruction <https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Freconstruction>`__;
-* `Original thumbs up <https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Foriginal>`__,
+.. code:: bash
 
-And placing them in (respectively):
-
-* ``data/reconstruction``
-* ``data/original``
+    wget https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww/download -O data.zip
+    unzip data.zip -d data
+    cp -r data/*/* data/
+    rm -rf data/LenslessPiCam_GitHub_data
+    rm data.zip
 
 The script can be run with:
 
