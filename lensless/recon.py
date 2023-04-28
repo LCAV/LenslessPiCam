@@ -132,7 +132,6 @@ import abc
 import numpy as np
 import pathlib as plib
 import matplotlib.pyplot as plt
-from scipy.fftpack import next_fast_len
 from lensless.plot import plot_image
 from lensless.rfft_convolve import RealFFTConvolve2D
 
@@ -168,7 +167,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
     """
 
-    def __init__(self, psf, dtype=None, pad=True, **kwargs):
+    def __init__(self, psf, dtype=None, pad=True, max_iter=1000, **kwargs):
         """
         Base constructor. Derived constructor may define new state variables
         here and also reset them in `reset`.
@@ -183,10 +182,16 @@ class ReconstructionAlgorithm(abc.ABC):
                 appropriate memory).
             dtype : float32 or float64
                 Data type to use for optimization.
+            pad : bool, optional
+                Whether to pad the PSF to avoid spatial aliasing.
+            max_iter : int, optional
+                Maximum number of iterations.
         """
         self.is_torch = False
         if torch_available:
             self.is_torch = isinstance(psf, torch.Tensor)
+
+        self._max_iter = max_iter
 
         # prepare shapes for reconstruction
         self._is_rgb = len(psf.shape) == 3
@@ -274,6 +279,7 @@ class ReconstructionAlgorithm(abc.ABC):
             scene. Should match provide PSF, i.e. shape and 2D (grayscale) or
             3D (RGB).
         """
+
         if self.is_torch:
             assert isinstance(data, torch.Tensor)
         else:
@@ -283,6 +289,10 @@ class ReconstructionAlgorithm(abc.ABC):
             assert len(data.shape) == 2
             data = data[:, :, None]
         assert len(self._psf_shape) == len(data.shape)
+
+        # assert same shapes
+        assert np.all(self._psf_shape[:2] == np.array(data.shape)[:2]), "PSF and data shape mismatch"
+
         self._data = data
 
     def get_image_est(self):
@@ -316,7 +326,7 @@ class ReconstructionAlgorithm(abc.ABC):
             return data
 
     def apply(
-        self, n_iter=100, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None
+        self, n_iter=None, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None
     ):
         """
         Method for performing iterative reconstruction. Note that `set_data`
@@ -324,8 +334,8 @@ class ReconstructionAlgorithm(abc.ABC):
 
         Parameters
         ----------
-        n_iter : int
-            Number of iterations.
+        n_iter : int, optional
+            Number of iterations. If not provided, default to `self._max_iter`.
         disp_iter : int
             How often to display and/or intermediate reconstruction (in number
             of iterations). If `None` OR `plot` or `save` are False, no
@@ -360,6 +370,9 @@ class ReconstructionAlgorithm(abc.ABC):
         else:
             ax = None
             disp_iter = n_iter + 1
+
+        if n_iter is None:
+            n_iter = self._max_iter
 
         for i in range(n_iter):
             self._update()
