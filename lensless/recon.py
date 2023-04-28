@@ -10,31 +10,31 @@ Reconstruction
 ==============
 
 The core algorithmic component of ``LenslessPiCam`` is the abstract
-class ``lensless.ReconstructionAlgorithm``. The three reconstruction
+class :py:class:`~lensless.ReconstructionAlgorithm`. The three reconstruction
 strategies available in ``LenslessPiCam`` derive from this class:
 
--  ``lensless.GradientDescient``: projected gradient descent with a
+-  :py:class:`~lensless.GradientDescent`: projected gradient descent with a
    non-negativity constraint. Two accelerated approaches are also
-   available: ``lensless.NesterovGradientDescent`` and
-   ``lensless.FISTA``.
--  ``lensless.ADMM``: alternating direction method of multipliers (ADMM)
+   available: :py:class:`~lensless.NesterovGradientDescent` and
+   :py:class:`~lensless.FISTA`.
+-  :py:class:`~lensless.ADMM`: alternating direction method of multipliers (ADMM)
    with a non-negativity constraint and a total variation (TV)
    regularizer [1]_.
--  ``lensless.APGD``: accelerated proximal gradient descent with Pycsou
+-  :py:class:`~lensless.APGD`: accelerated proximal gradient descent with Pycsou
    as a backend. Any differentiable or proximal operator can be used as
    long as it is compatible with Pycsou, namely derives from one of
-   :py:class:`~pycsou.core.functional.DifferentiableFunctional` or
-   :py:class:`~pycsou.core.functional.ProximableFunctional`.
+   `DiffFunc <https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/abc/operator.py#L980>`_
+   or `ProxFunc <https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/abc/operator.py#L741>`_.
 
 New reconstruction algorithms can be conveniently implemented by
 deriving from the abstract class and defining the following abstract
 methods:
 
--  the update step: ``_update``.
--  a method to reset state variables: ``reset``.
--  an image formation method: ``_form_image``.
+-  the update step: :py:class:`~lensless.ReconstructionAlgorithm._update`.
+-  a method to reset state variables: :py:class:`~lensless.ReconstructionAlgorithm.reset`.
+-  an image formation method: :py:class:`~lensless.ReconstructionAlgorithm._form_image`.
 
-One advantage of deriving from ``lensless.ReconstructionAlgorithm`` is
+One advantage of deriving from :py:class:`~lensless.ReconstructionAlgorithm` is
 that functionality for iterating, saving, and visualization is already
 implemented. Consequently, using a reconstruction algorithm that derives
 from it boils down to three steps:
@@ -149,9 +149,9 @@ class ReconstructionAlgorithm(abc.ABC):
 
     The following abstract methods need to be defined:
 
-    * ``_update``: updating state variables at each iterations.
-    * ``reset``: reset state variables.
-    * ``_form_image``: any pre-processing that needs to be done in order to view the image estimate, e.g. reshaping or clipping.
+    * :py:class:`~lensless.ReconstructionAlgorithm._update`: updating state variables at each iterations.
+    * :py:class:`~lensless.ReconstructionAlgorithm.reset`: reset state variables.
+    * :py:class:`~lensless.ReconstructionAlgorithm._form_image`: any pre-processing that needs to be done in order to view the image estimate, e.g. reshaping or clipping.
 
     One advantage of deriving from this abstract class is that functionality for
     iterating, saving, and visualization is already implemented, namely in the
@@ -255,12 +255,16 @@ class ReconstructionAlgorithm(abc.ABC):
 
     @abc.abstractmethod
     def reset(self):
-        """Reset state variables."""
+        """
+        Reset state variables.
+        """
         return
 
     @abc.abstractmethod
     def _update(self):
-        """Update state variables."""
+        """
+        Update state variables.
+        """
         return
 
     @abc.abstractmethod

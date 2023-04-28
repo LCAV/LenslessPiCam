@@ -91,7 +91,7 @@ class APGD(ReconstructionAlgorithm):
         **kwargs
     ):
         """
-        Wrapper for `Pycsou's APGD <https://matthieumeo.github.io/pycsou/html/api/algorithms/pycsou.opt.proxalgs.html?highlight=apgd#pycsou.opt.proxalgs.AcceleratedProximalGradientDescent>`__
+        Wrapper for `Pycsou's PGD <https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/opt/solver/pgd.py#L17>`__
         (accelerated proximal gradient descent) applied to lensless imaging.
 
         Parameters
@@ -102,14 +102,12 @@ class APGD(ReconstructionAlgorithm):
             Maximal number of iterations.
         dtype : float32 or float64
             Data type to use for optimization.
-        diff_penalty : None or str or :py:class:`~pycsou.core.functional.DifferentiableFunctional`
+        diff_penalty : None or str or `DiffFunc`
             Differentiable functional to serve as prior / regularization term.
-            Default is None. See `Pycsou documentation <https://matthieumeo.github.io/pycsou/html/api/functionals/pycsou.func.penalty.html?highlight=penalty#module-pycsou.func.penalty>`__
-            for available penalties.
-        prox_penalty : None or str or :py:class:`~pycsou.core.functional.ProximableFunctional`
+            Default is None. See `DiffFunc <https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/abc/operator.py#L980>`_.
+        prox_penalty : None or str or `ProxFunc`
             Proximal functional to serve as prior / regularization term. Default
-            is non-negative prior. See `Pycsou documentation <https://matthieumeo.github.io/pycsou/html/api/functionals/pycsou.func.penalty.html?highlight=penalty#module-pycsou.func.penalty>`__
-            for available penalties.
+            is non-negative prior. See `ProxFunc <https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/abc/operator.py#L741>`_.
         acceleration : bool, optional
             Whether to use acceleration or not. Default is True.
         diff_lambda : float

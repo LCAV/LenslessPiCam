@@ -11,7 +11,8 @@
 
    .. autoclass:: lensless.ReconstructionAlgorithm
       :members:
-      :special-members: __init__, set_data, apply, _update, reset, _form_image, get_image_est
+      :private-members: _update, _form_image
+      :special-members: __init__, set_data, apply, reset, get_image_est
 
 
    Gradient Descent
