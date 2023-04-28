@@ -16,15 +16,18 @@ MOCK_MODULES = [
     "skimage.metrics",
     "lpips",
     "torch",
+    "torch.utils.data",
+    "torch.nn",
+    "torchmetrics",
+    "torchmetrics.image",
     "scipy.ndimage",
-    "pycsou.core",
-    "pycsou.core.linop",
-    "pycsou.linop",
-    "pycsou.linop.conv",
-    "pycsou.func.loss",
-    "pycsou.func.penalty",
-    "pycsou.opt.proxalgs",
-    "lensless.APGD",
+    "pycsou.abc",
+    "pycsou.operator.func",
+    "pycsou.opt.solver",
+    "pycsou.opt.stop",
+    "pycsou.runtime",
+    "pycsou.util",
+    "pycsou.util.ptype",
     "PIL"
 ]
 for mod_name in MOCK_MODULES:
@@ -55,6 +58,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
     "sphinx.ext.viewcode",
+    
 ]
 
 intersphinx_mapping = {
@@ -63,6 +67,7 @@ intersphinx_mapping = {
     "SciPy [latest]": ("https://docs.scipy.org/doc/scipy/reference", None),
     "matplotlib": ("http://matplotlib.sourceforge.net/", None),
     "pycsou": ("https://matthieumeo.github.io/pycsou/html/", None),
+    "torch": ("https://pytorch.org/docs/stable/", None),
 }
 intersphinx_disabled_domains = ["std"]
 

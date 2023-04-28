@@ -4,6 +4,7 @@ scripts/admm_*
 scripts/gd_*
 .DS_Store
 DiffuserCam_Mirflickr*
+DiffuserCam_Mirflickr_200_3011302021_11h43_seed11*
 paper/paper.pdf
 data/*
 # from hydra
