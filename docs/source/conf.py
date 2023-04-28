@@ -21,14 +21,13 @@ MOCK_MODULES = [
     "torchmetrics",
     "torchmetrics.image",
     "scipy.ndimage",
-    "pycsou.core",
-    "pycsou.core.linop",
-    "pycsou.linop",
-    "pycsou.linop.conv",
-    "pycsou.func.loss",
-    "pycsou.func.penalty",
-    "pycsou.opt.proxalgs",
-    "lensless.APGD",
+    "pycsou.abc",
+    "pycsou.operator.func",
+    "pycsou.opt.solver",
+    "pycsou.opt.stop",
+    "pycsou.runtime",
+    "pycsou.util",
+    "pycsou.util.ptype",
     "PIL"
 ]
 for mod_name in MOCK_MODULES:
