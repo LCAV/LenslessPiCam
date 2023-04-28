@@ -13,7 +13,6 @@ import os
 import numpy as np
 import time
 import pathlib as plib
-from datetime import datetime
 import matplotlib.pyplot as plt
 from lensless.io import load_data
 from lensless import (

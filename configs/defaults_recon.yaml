@@ -61,3 +61,18 @@ admm:
   mu2: 1e-5
   mu3: 4e-5
   tau: 0.0001
+
+apgd:
+  # Stopping criteria
+  max_iter: 1000
+  rel_error: 1e-6
+  acceleration: True     
+  # Differentiable prior / regularization: l2, null
+  diff_penalty: null
+  diff_lambda: 0.001
+  # Proximal prior / regularization: nonneg, l1, null
+  prox_penalty: nonneg
+  prox_lambda: 0.001
+  # Lipschitz
+  lipschitz_tight: True
+  lipschitz_tol: 1.0

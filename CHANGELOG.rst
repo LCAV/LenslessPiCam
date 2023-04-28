@@ -23,11 +23,12 @@ Changed
 -  CONTRIBUTING and CHANGELOG, to .rst for documentation.
 -  Shorten README to separate contents in different pages of docs.
 -  Fix typo in GradientDescent class name.
+-  Updated to Pycsou V2, as ``pip install pycsou`` (Pycsou V1) may not work on some machines.
 
 Bugfix
 ~~~~~~
 
--  Loading grayscale PSFs would cause an dimension error when removing the background pixels
+-  Loading grayscale PSFs would cause an dimension error when removing the background pixels.
 
 1.0.2 - (2022-05-31)
 --------------------
