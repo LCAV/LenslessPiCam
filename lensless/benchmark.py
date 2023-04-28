@@ -47,7 +47,7 @@ class ParallelDataset(Dataset):
         **kwargs,
     ):
         """
-        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the DiffuserCam 
+        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the DiffuserCam
         Lensless Mirflickr Dataset (DLMD).
 
         Parameters
@@ -79,7 +79,6 @@ class ParallelDataset(Dataset):
         self.lensless_dir = os.path.join(root_dir, lensless_fn)
         self.lensed_dir = os.path.join(root_dir, lensed_fn)
         self.image_ext = image_ext.lower()
-
 
         files = glob.glob(os.path.join(self.lensless_dir, "*." + image_ext))
         if n_files:
@@ -180,7 +179,7 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
             "SSIM": StructuralSimilarityIndexMeasure().to(device),
         }
     metrics_values = {key: 0.0 for key in metrics}
-    
+
     # loop over batches
     dataloader = DataLoader(dataset, batch_size=batchsize, pin_memory=(device != "cpu"))
     model.reset()

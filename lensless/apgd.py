@@ -25,6 +25,7 @@ class APGDPriors:
 
     @staticmethod
     def all_values():
+
         vals = []
         for i in inspect.getmembers(APGDPriors):
             # remove private and protected functions, and this function
