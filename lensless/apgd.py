@@ -153,9 +153,7 @@ class APGD(ReconstructionAlgorithm):
         self._apgd = None
         self._gen = None
 
-        super(APGD, self).__init__(psf, dtype)
-
-        self._max_iter = max_iter
+        super(APGD, self).__init__(psf, dtype, max_iter=max_iter, **kwargs)
 
         # Convolution operator
         self._H = RealFFTConvolve2D(self._psf, dtype=dtype)
