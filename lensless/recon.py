@@ -367,15 +367,15 @@ class ReconstructionAlgorithm(abc.ABC):
         """
         assert self._data is not None, "Must set data with `set_data()`"
 
+        if n_iter is None:
+            n_iter = self._max_iter
+
         if (plot or save) and disp_iter is not None:
             if ax is None:
                 ax = plot_image(self._get_numpy_data(self._data), gamma=gamma)
         else:
             ax = None
             disp_iter = n_iter + 1
-
-        if n_iter is None:
-            n_iter = self._max_iter
 
         for i in range(n_iter):
             self._update()
