@@ -1,6 +1,16 @@
 name: lensless
 
-on: [push, pull_request]
+on: 
+  push:
+    paths:
+      - 'lensless/**'
+      - 'setup.py'
+      - 'recon_requirements.txt'
+  pull_request:
+    paths:
+      - 'lensless/**'
+      - 'setup.py'
+      - 'recon_requirements.txt'
 
 jobs:
   build:
