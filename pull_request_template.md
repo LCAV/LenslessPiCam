@@ -3,10 +3,10 @@ Thank you for submitting a pull request (PR)! Before hitting the submit button, 
 Please also refer to the doc on [contributing](https://lensless.readthedocs.io/en/latest/contributing.html) for more details. 
 
 - [ ] Have you run the tests by running `pytest` from the repository root? See the [documentation](https://lensless.readthedocs.io/en/latest/contributing.html#unit-tests) for more details.
-- [ ] Do you follow the code formatting for this project? This can be done by setting up pre-commit hookrs as described in the [documentation](https://lensless.readthedocs.io/en/latest/contributing.html#coding-style).
+- [ ] Do you follow the code formatting for this project? This can be done by setting up pre-commit hooks as described in the [documentation](https://lensless.readthedocs.io/en/latest/contributing.html#coding-style).
 - [ ] Is there a unit test for the proposed code modification? If the PR addresses an issue, the test should make sure the issue is fixed.
 - [ ] Are there docstrings? Do they follow the [numpydoc](https://numpydoc.readthedocs.io/en/latest/format.html#docstring-standard) style?
-- [ ] Have you checked that the doc builds properly and that any new RST file has been added to the repo? How to do that is covered in the [documentation](https://numpydoc.readthedocs.io/en/latest/format.html#docstring-standard).
+- [ ] Have you checked that the doc builds properly and that any new RST file has been added to the repo? How to do that is covered in the [documentation](https://lensless.readthedocs.io/en/latest/contributing.html#building-documentation).
 - [ ] Did you document the proposed change in the CHANGELOG file? It should go under "Unreleased".
 
 Happy PR :smiley:
