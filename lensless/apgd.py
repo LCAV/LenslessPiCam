@@ -47,13 +47,20 @@ class RealFFTConvolve2D(LinearOperator):
         dtype : float32 or float64
             Data type to use for optimization.
         """
-        assert len(filter.shape) == 4
+        assert len(filter.shape) == 4, "Filter must be of shape (depth, height, width, channels)"
         self._filter_shape = np.array(filter.shape)
         self._convolver = Convolver(filter, dtype=dtype, norm=norm)
 
         shape = (int(np.prod(self._filter_shape)), int(np.prod(self._filter_shape)))
         super(RealFFTConvolve2D, self).__init__(shape=shape, dtype=dtype)
 
+    def custom_lipschitz_cst(self):
+        for layer in range:
+            pass
+            """
+            H = RealFFTConvolve2D(layer, dtype=dtype)
+            H.compute_lipschitz_cst()
+            self._H.append(H)"""
 
 
     def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
@@ -121,33 +128,28 @@ class APGD(ReconstructionAlgorithm):
 
         self._max_iter = max_iter
 
-        print("now creating realfftconvolve2d with a psf", self._psf.shape)
         # Convolution operator
-        self._H = RealFFTConvolve2D(self._psf, dtype=dtype) # TODO : it's there !
-        print("thonk")
-        print(self._H.shape)
+        self._H = RealFFTConvolve2D(psf, dtype=dtype)
         self._H.compute_lipschitz_cst()
 
         # initialize solvers which will be created when data is set
         if diff_penalty is not None:
             if diff_penalty == APGDPriors.L2:
-                self._diff_penalty = diff_lambda * SquaredL2Norm(dim=self._H.shape[2])
+                self._diff_penalty = diff_lambda * SquaredL2Norm(dim=self._H.shape[1])
             else:
                 assert hasattr(diff_penalty, "jacobianT")
-                self._diff_penalty = diff_lambda * diff_penalty(dim=self._H.shape[2])
+                self._diff_penalty = diff_lambda * diff_penalty(dim=self._H.shape[1])
         else:
             self._diff_penalty = None
 
         if prox_penalty is not None:
-            print("prox_penalty", prox_penalty)
-            print("H : ", self._H.shape)
             if prox_penalty == APGDPriors.L1:
-                self._prox_penalty = prox_lambda * L1Norm(dim=self._H.shape[2])
+                self._prox_penalty = prox_lambda * L1Norm(dim=self._H.shape[1])
             elif prox_penalty == APGDPriors.NONNEG:
-                self._prox_penalty = prox_lambda * NonNegativeOrthant(dim=self._H.shape[2])
+                self._prox_penalty = prox_lambda * NonNegativeOrthant(dim=self._H.shape[1])
             else:
                 try:
-                    self._prox_penalty = prox_lambda * prox_penalty(dim=self._H.shape[2])
+                    self._prox_penalty = prox_lambda * prox_penalty(dim=self._H.shape[1])
                 except ValueError:
                     print("Unexpected prior.")
         else:
@@ -167,12 +169,7 @@ class APGD(ReconstructionAlgorithm):
              3D (RGB).
 
         """
-        print("setting data,", data.shape)
-        if not self._is_rgb:
-            assert len(data.shape) == 2
-            data = data[:, :, np.newaxis]
-        assert len(self._psf_shape) == len(data.shape)
-        self._data = data
+        super(APGD, self).set_data(np.repeat(data, self._original_shape[0],axis=0)) # we repeat the data to match the size of the PSF
 
         """ Set up problem """
         # Cost function
