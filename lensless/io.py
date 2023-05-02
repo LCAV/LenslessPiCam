@@ -369,5 +369,11 @@ def save_image(img, fp, max_val=255):
         img *= max_val
         img = img.astype(np.uint8)
 
+    elif img.dtype == np.uint16:
+        img = img.astype(np.float32)
+        img /= img.max()
+        img *= max_val
+        img = img.astype(np.uint8)
+
     img = Image.fromarray(img)
     img.save(fp)
