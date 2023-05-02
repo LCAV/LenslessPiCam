@@ -10,31 +10,31 @@ Reconstruction
 ==============
 
 The core algorithmic component of ``LenslessPiCam`` is the abstract
-class ``lensless.ReconstructionAlgorithm``. The three reconstruction
+class :py:class:`~lensless.ReconstructionAlgorithm`. The three reconstruction
 strategies available in ``LenslessPiCam`` derive from this class:
 
--  ``lensless.GradientDescient``: projected gradient descent with a
+-  :py:class:`~lensless.GradientDescent`: projected gradient descent with a
    non-negativity constraint. Two accelerated approaches are also
-   available: ``lensless.NesterovGradientDescent`` and
-   ``lensless.FISTA``.
--  ``lensless.ADMM``: alternating direction method of multipliers (ADMM)
+   available: :py:class:`~lensless.NesterovGradientDescent` and
+   :py:class:`~lensless.FISTA`.
+-  :py:class:`~lensless.ADMM`: alternating direction method of multipliers (ADMM)
    with a non-negativity constraint and a total variation (TV)
    regularizer [1]_.
--  ``lensless.APGD``: accelerated proximal gradient descent with Pycsou
+-  :py:class:`~lensless.APGD`: accelerated proximal gradient descent with Pycsou
    as a backend. Any differentiable or proximal operator can be used as
    long as it is compatible with Pycsou, namely derives from one of
-   :py:class:`~pycsou.core.functional.DifferentiableFunctional` or
-   :py:class:`~pycsou.core.functional.ProximableFunctional`.
+   `DiffFunc <https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/abc/operator.py#L980>`_
+   or `ProxFunc <https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/abc/operator.py#L741>`_.
 
 New reconstruction algorithms can be conveniently implemented by
 deriving from the abstract class and defining the following abstract
 methods:
 
--  the update step: ``_update``.
--  a method to reset state variables: ``reset``.
--  an image formation method: ``_form_image``.
+-  the update step: :py:class:`~lensless.ReconstructionAlgorithm._update`.
+-  a method to reset state variables: :py:class:`~lensless.ReconstructionAlgorithm.reset`.
+-  an image formation method: :py:class:`~lensless.ReconstructionAlgorithm._form_image`.
 
-One advantage of deriving from ``lensless.ReconstructionAlgorithm`` is
+One advantage of deriving from :py:class:`~lensless.ReconstructionAlgorithm` is
 that functionality for iterating, saving, and visualization is already
 implemented. Consequently, using a reconstruction algorithm that derives
 from it boils down to three steps:
@@ -132,7 +132,6 @@ import abc
 import numpy as np
 import pathlib as plib
 import matplotlib.pyplot as plt
-from scipy.fftpack import next_fast_len
 from lensless.plot import plot_image
 from lensless.rfft_convolve import RealFFTConvolve2D
 
@@ -150,9 +149,9 @@ class ReconstructionAlgorithm(abc.ABC):
 
     The following abstract methods need to be defined:
 
-    * ``_update``: updating state variables at each iterations.
-    * ``reset``: reset state variables.
-    * ``_form_image``: any pre-processing that needs to be done in order to view the image estimate, e.g. reshaping or clipping.
+    * :py:class:`~lensless.ReconstructionAlgorithm._update`: updating state variables at each iterations.
+    * :py:class:`~lensless.ReconstructionAlgorithm.reset`: reset state variables.
+    * :py:class:`~lensless.ReconstructionAlgorithm._form_image`: any pre-processing that needs to be done in order to view the image estimate, e.g. reshaping or clipping.
 
     One advantage of deriving from this abstract class is that functionality for
     iterating, saving, and visualization is already implemented, namely in the
@@ -168,7 +167,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
     """
 
-    def __init__(self, psf, dtype=None, pad=True, **kwargs):
+    def __init__(self, psf, dtype=None, pad=True, n_iter=100, **kwargs):
         """
         Base constructor. Derived constructor may define new state variables
         here and also reset them in `reset`.
@@ -183,14 +182,23 @@ class ReconstructionAlgorithm(abc.ABC):
                 appropriate memory).
             dtype : float32 or float64
                 Data type to use for optimization.
+            pad : bool, optional
+                Whether to pad the PSF to avoid spatial aliasing.
+            n_iter : int, optional
+                Number of iterations to run algorithm for. Can be overridden in
+                `apply`.
         """
         self.is_torch = False
+
         if torch_available:
             self.is_torch = isinstance(psf, torch.Tensor)
+
 
         assert len(psf.shape) == 4  # depth, width, height, channel
         assert psf.shape[3] == 3 or psf.shape[3] == 1   # either rgb or grayscale
         self._psf = psf
+        self._n_iter = n_iter
+
         self._psf_shape = np.array(self._psf.shape)
 
 
@@ -244,12 +252,16 @@ class ReconstructionAlgorithm(abc.ABC):
 
     @abc.abstractmethod
     def reset(self):
-        """Reset state variables."""
+        """
+        Reset state variables.
+        """
         return
 
     @abc.abstractmethod
     def _update(self):
-        """Update state variables."""
+        """
+        Update state variables.
+        """
         return
 
     @abc.abstractmethod
@@ -270,12 +282,20 @@ class ReconstructionAlgorithm(abc.ABC):
             scene. Should match provide PSF, i.e. shape and 2D (grayscale) or
             3D (RGB).
         """
+
         if self.is_torch:
             assert isinstance(data, torch.Tensor)
         else:
             assert isinstance(data, np.ndarray)
 
         assert len(data.shape) == 4
+        assert len(self._psf_shape) == 4
+
+        # assert same shapes
+        assert np.all(
+            self._psf_shape[1:3] == np.array(data.shape)[1:3]
+        ), "PSF and data shape mismatch"
+
         self._data = data
 
     def get_image_est(self):
@@ -309,7 +329,7 @@ class ReconstructionAlgorithm(abc.ABC):
             return data
 
     def apply(
-        self, n_iter=100, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None
+        self, n_iter=None, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None
     ):
         """
         Method for performing iterative reconstruction. Note that `set_data`
@@ -317,8 +337,8 @@ class ReconstructionAlgorithm(abc.ABC):
 
         Parameters
         ----------
-        n_iter : int
-            Number of iterations.
+        n_iter : int, optional
+            Number of iterations. If not provided, default to `self._n_iter`.
         disp_iter : int
             How often to display and/or intermediate reconstruction (in number
             of iterations). If `None` OR `plot` or `save` are False, no
@@ -346,6 +366,9 @@ class ReconstructionAlgorithm(abc.ABC):
 
         """
         assert self._data is not None, "Must set data with `set_data()`"
+
+        if n_iter is None:
+            n_iter = self._n_iter
 
         if (plot or save) and disp_iter is not None:
             if ax is None:

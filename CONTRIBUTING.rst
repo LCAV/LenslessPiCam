@@ -93,7 +93,7 @@ How to make a clean pull request (PR)
 
 1. Create a personal fork of the project.
 2. Clone the fork on your local machine.
-3. Create a new branch to work on. Give it a new that reflects the bug /
+3. Create a new branch to work on. Give it a new name that reflects the bug /
    feature you will work on. It is recommended to keep the main branch
    “clean” and in sync with the original repository's main branch!
 4. Implement / fix your feature, comment your code.
