@@ -1,14 +1,30 @@
 .. automodule:: lensless.metric
 
-    Metrics API
-    -----------
 
-    .. autofunction:: lensless.metric.mse
+   Evaluation API
+   --------------
 
-    .. autofunction:: lensless.metric.psnr
+   Metrics
+   ~~~~~~~
 
-    .. autofunction:: lensless.metric.ssim
+   .. autofunction:: lensless.metric.mse
 
-    .. autofunction:: lensless.metric.lpips
+   .. autofunction:: lensless.metric.psnr
 
-    .. autofunction:: lensless.metric.extract
+   .. autofunction:: lensless.metric.ssim
+
+   .. autofunction:: lensless.metric.lpips
+
+   .. autofunction:: lensless.metric.extract
+
+
+   Benchmarking
+   ~~~~~~~~~~~~
+
+   .. automodule:: lensless.benchmark
+
+   .. autoclass:: lensless.benchmark.ParallelDataset
+      :members:
+      :special-members: __init__
+
+   .. autofunction:: lensless.benchmark.benchmark

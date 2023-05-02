@@ -2,21 +2,22 @@ from lensless.recon import ReconstructionAlgorithm
 from lensless.rfft_convolve import RealFFTConvolve2D as Convolver
 import inspect
 import numpy as np
-from pycsou.func.loss import SquaredL2Loss
-from pycsou.func.penalty import NonNegativeOrthant, SquaredL2Norm, L1Norm
-from pycsou.opt.proxalgs import APGD as APGD_pyc
-from copy import deepcopy
-from pycsou.core.linop import LinearOperator
-from typing import Union, Optional
-from numbers import Number
+from typing import Optional
+from lensless.rfft_convolve import RealFFTConvolve2D as Convolver
+
+import pycsou.abc as pyca
+import pycsou.operator.func as func
+import pycsou.opt.solver as solver
+import pycsou.opt.stop as stop
+import pycsou.runtime as pycrt
+import pycsou.util as pycu
+import pycsou.util.ptype as pyct
 
 
 class APGDPriors:
     """
     Priors (compatible with Pycsou) for APGD.
 
-    See Pycsou documentation for available penalties:
-    https://matthieumeo.github.io/pycsou/html/api/functionals/pycsou.func.penalty.html?highlight=penalty#module-pycsou.func.penalty
     """
 
     L2 = "l2"
@@ -25,6 +26,7 @@ class APGDPriors:
 
     @staticmethod
     def all_values():
+
         vals = []
         for i in inspect.getmembers(APGDPriors):
             # remove private and protected functions, and this function
@@ -33,8 +35,11 @@ class APGDPriors:
         return vals
 
 
-class RealFFTConvolve2D(LinearOperator):
-    def __init__(self, filter, dtype: Optional[type] = None, norm: str = "ortho", **kwargs):
+
+class RealFFTConvolve2D(pyca.LinOp):
+    def __init__(
+        self, filter: pyct.NDArray, dtype: Optional[type] = None, norm: str = "ortho", **kwargs
+    ):
         """
         Linear operator that performs convolution in Fourier domain, and assumes
         real-valued signals.
@@ -46,29 +51,26 @@ class RealFFTConvolve2D(LinearOperator):
             only one channel.
         dtype : float32 or float64
             Data type to use for optimization.
+        norm : str
+            Normalization to use for convolution. See :py:class:`~lensless.rfft_convolve.RealFFTConvolve2D`
         """
         assert len(filter.shape) == 4, "Filter must be of shape (depth, height, width, channels)"
         self._filter_shape = np.array(filter.shape)
         self._convolver = Convolver(filter, dtype=dtype, norm=norm)
 
         shape = (int(np.prod(self._filter_shape)), int(np.prod(self._filter_shape)))
-        super(RealFFTConvolve2D, self).__init__(shape=shape, dtype=dtype)
+        super(RealFFTConvolve2D, self).__init__(shape=shape)
 
-    def custom_lipschitz_cst(self):
-        for layer in range:
-            pass
-            """
-            H = RealFFTConvolve2D(layer, dtype=dtype)
-            H.compute_lipschitz_cst()
-            self._H.append(H)"""
-
-
-    def __call__(self, x: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
-        # like here: https://github.com/PyLops/pylops/blob/3e7eb22a62ec60e868ccdd03bc4b54806851cb26/pylops/signalprocessing/ConvolveND.py#L103
+    @pycrt.enforce_precision(i="x")
+    @pycu.vectorize(i="x")
+    def apply(self, x: pyct.NDArray) -> pyct.NDArray:
         y = self._convolver.convolve(np.reshape(x, self._filter_shape))
         return y.ravel()
 
-    def adjoint(self, y: Union[Number, np.ndarray]) -> Union[Number, np.ndarray]:
+    @pycrt.enforce_precision(i="y")
+    @pycu.vectorize(i="y")
+    def adjoint(self, y: pyct.NDArray) -> pyct.NDArray:
+
         x = self._convolver.deconvolve(np.reshape(y, self._filter_shape))
         return x.ravel()
 
@@ -81,13 +83,17 @@ class APGD(ReconstructionAlgorithm):
         dtype=np.float32,
         diff_penalty=None,
         prox_penalty=APGDPriors.NONNEG,
-        acceleration="BT",
+        acceleration=True,
         diff_lambda=0.001,
         prox_lambda=0.001,
+        disp=100,
+        rel_error=None,
+        lipschitz_tight=True,
+        lipschitz_tol=1.0,
         **kwargs
     ):
         """
-        Wrapper for `Pycsou's APGD <https://matthieumeo.github.io/pycsou/html/api/algorithms/pycsou.opt.proxalgs.html?highlight=apgd#pycsou.opt.proxalgs.AcceleratedProximalGradientDescent>`__
+        Wrapper for `Pycsou's PGD <https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/opt/solver/pgd.py#L17>`__
         (accelerated proximal gradient descent) applied to lensless imaging.
 
         Parameters
@@ -98,23 +104,26 @@ class APGD(ReconstructionAlgorithm):
             Maximal number of iterations.
         dtype : float32 or float64
             Data type to use for optimization.
-        diff_penalty : None or str or :py:class:`~pycsou.core.functional.DifferentiableFunctional`
+        diff_penalty : None or str or `DiffFunc`
             Differentiable functional to serve as prior / regularization term.
-            Default is None. See `Pycsou documentation <https://matthieumeo.github.io/pycsou/html/api/functionals/pycsou.func.penalty.html?highlight=penalty#module-pycsou.func.penalty>`__
-            for available penalties.
-        prox_penalty : None or str or :py:class:`~pycsou.core.functional.ProximableFunctional`
+            Default is None. See `DiffFunc <https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/abc/operator.py#L980>`_.
+        prox_penalty : None or str or `ProxFunc`
             Proximal functional to serve as prior / regularization term. Default
-            is non-negative prior. See `Pycsou documentation <https://matthieumeo.github.io/pycsou/html/api/functionals/pycsou.func.penalty.html?highlight=penalty#module-pycsou.func.penalty>`__
-            for available penalties.
-        acceleration : [None, 'BT', 'CD']
-            Which acceleration scheme should be used (None for no acceleration).
-            "BT" (Beck and Teboule) has convergence `O(1/k^2)`, while "CD"
-            (Chambolle and Dossal) has convergence `o(1/K^2)`. So "CD" should be
-            faster. but from our experience "BT" gives better results.
+            is non-negative prior. See `ProxFunc <https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/abc/operator.py#L741>`_.
+        acceleration : bool, optional
+            Whether to use acceleration or not. Default is True.
         diff_lambda : float
             Weight of differentiable penalty.
         prox_lambda : float
             Weight of proximal penalty.
+        disp : int, optional
+            Display frequency. Default is 100.
+        rel_error : float, optional
+            Relative error to stop optimization. Default is 1e-6.
+        lipschitz_tight : bool, optional
+            Whether to use tight Lipschitz constant or not. Default is True.
+        lipschitz_tol : float, optional
+            Tolerance to compute Lipschitz constant. Default is 1.
         """
 
         # PSF and data are the same size / shape
@@ -124,29 +133,33 @@ class APGD(ReconstructionAlgorithm):
         self._apgd = None
         self._gen = None
 
-        super(APGD, self).__init__(psf, dtype)
+        super(APGD, self).__init__(psf, dtype, n_iter=max_iter, **kwargs)
 
-        self._max_iter = max_iter
+        self._stop_crit = stop.MaxIter(max_iter)
+        if rel_error is not None:
+            self._stop_crit = self._stop_crit | stop.RelError(eps=rel_error)
+        self._disp = disp
 
         # Convolution operator
-        self._H = RealFFTConvolve2D(psf, dtype=dtype)
-        self._H.compute_lipschitz_cst()
+
+        self._H = RealFFTConvolve2D(self._psf, dtype=dtype)
+        self._H.lipschitz(tol=lipschitz_tol, tight=lipschitz_tight)
 
         # initialize solvers which will be created when data is set
         if diff_penalty is not None:
             if diff_penalty == APGDPriors.L2:
-                self._diff_penalty = diff_lambda * SquaredL2Norm(dim=self._H.shape[1])
+                self._diff_penalty = diff_lambda * func.SquaredL2Norm(dim=self._H.shape[1])
             else:
-                assert hasattr(diff_penalty, "jacobianT")
+                assert hasattr(diff_penalty, "jacobian")
                 self._diff_penalty = diff_lambda * diff_penalty(dim=self._H.shape[1])
         else:
             self._diff_penalty = None
 
         if prox_penalty is not None:
             if prox_penalty == APGDPriors.L1:
-                self._prox_penalty = prox_lambda * L1Norm(dim=self._H.shape[1])
+                self._prox_penalty = prox_lambda * func.L1Norm(dim=self._H.shape[1])
             elif prox_penalty == APGDPriors.NONNEG:
-                self._prox_penalty = prox_lambda * NonNegativeOrthant(dim=self._H.shape[1])
+                self._prox_penalty = prox_lambda * func.PositiveOrthant(dim=self._H.shape[1])
             else:
                 try:
                     self._prox_penalty = prox_lambda * prox_penalty(dim=self._H.shape[1])
@@ -173,48 +186,30 @@ class APGD(ReconstructionAlgorithm):
 
         """ Set up problem """
         # Cost function
-        loss = (1 / 2) * SquaredL2Loss(dim=self._H.shape[0], data=self._data.ravel())
+        loss = (1 / 2) * func.SquaredL2Norm(dim=self._H.shape[0]).asloss(self._data.ravel())
         F = loss * self._H
         if self._diff_penalty is not None:
             F += self._diff_penalty
 
-        if self._prox_penalty is not None:
-            G = self._prox_penalty
-            dim = G.shape[1]
-        else:
-            G = None
-            dim = self._data.size
+        self._apgd = solver.PGD(
+            f=F, g=self._prox_penalty, show_progress=False, verbosity=self._disp
+        )
 
-        self._apgd = APGD_pyc(dim=dim, F=F, G=G, acceleration=self._acc)
-
-        # -- setup to print progress report
-        self._apgd.old_iterand = deepcopy(self._apgd.init_iterand)
-        self._apgd.update_diagnostics()
-        self._gen = self._apgd.iterates(n=self._max_iter)
+        self._apgd.fit(
+            x0=np.zeros(F.shape[1]),
+            # x0=np.random.normal(size=F.shape[1]),
+            stop_crit=self._stop_crit,
+            track_objective=True,
+            mode=pyca.solver.Mode.MANUAL,
+            acceleration=self._acc,
+        )
 
     def reset(self):
         self._image_est = np.zeros(self._original_size, dtype=self._dtype)
-        if self._apgd is not None:
-            self._apgd.reset()
-
-            # -- setup to print progress report
-            self._apgd.old_iterand = deepcopy(self._apgd.init_iterand)
-            self._apgd.update_diagnostics()
-            self._gen = self._apgd.iterates(n=self._max_iter)
-
-    def _progress(self):
-        """
-        Pycsou has functionality for printing progress that we will make use of
-        here.
-
-        """
-        self._apgd.update_diagnostics()
-        self._apgd.old_iterand = deepcopy(self._apgd.iterand)
-        self._apgd.print_diagnostics()
 
     def _update(self):
-        next(self._gen)
-        self._image_est[:] = self._apgd.iterand["iterand"]
+        res = next(self._apgd.steps())
+        self._image_est[:] = res["x"]
 
     def _form_image(self):
         image = self._image_est.reshape(self._original_shape)

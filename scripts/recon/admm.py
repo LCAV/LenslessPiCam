@@ -12,7 +12,6 @@ import os
 import time
 import pathlib as plib
 import matplotlib.pyplot as plt
-from datetime import datetime
 import numpy as np
 from lensless.io import load_data
 from lensless import ADMM
@@ -48,13 +47,7 @@ def admm(config):
         save = os.getcwd()
 
     start_time = time.time()
-    recon = ADMM(
-        psf,
-        mu1=config["admm"]["mu1"],
-        mu2=config["admm"]["mu2"],
-        mu3=config["admm"]["mu3"],
-        tau=config["admm"]["tau"],
-    )
+    recon = ADMM(psf, **config.admm)
     recon.set_data(data)
     print(f"Setup time : {time.time() - start_time} s")
 

@@ -79,6 +79,24 @@ install the library locally.
    python scripts/recon/admm.py
 
 
+Note (25-04-2023): for using reconstruction method based on Pycsou ``lensless.apgd.APGD``,
+V2 has to be installed:
+
+.. code:: bash
+
+   pip install git+https://github.com/matthieumeo/pycsou.git@v2-dev
+
+If PyTorch is installed, you will need to be sure to have PyTorch 2.0 or higher, 
+as Pycsou V2 is not compatible with earlier versions of PyTorch. Moreover, 
+Pycsou requires Python within 
+`[3.9, 3.11) <https://github.com/matthieumeo/pycsou/blob/v2-dev/setup.cfg#L28>`__.
+
+Moreover, ``numba`` (requirement for Pycsou V2) may require an older version of NumPy:
+
+.. code:: bash
+
+   pip install numpy==1.23.5
+
 **Raspberry Pi**
 
 After `flashing your Raspberry Pi with SSH enabled <https://medium.com/@bezzam/setting-up-a-raspberry-pi-without-a-monitor-headless-9a3c2337f329>`__, 
@@ -91,24 +109,21 @@ directory):
 
 .. code:: bash
 
+   # dependencies
+   sudo apt-get install -y libimage-exiftool-perl libatlas-base-dev \
+   python3-numpy python3-scipy python3-opencv
+   sudo pip3 install -U virtualenv
+
    # download from GitHub
    git clone git@github.com:LCAV/LenslessPiCam.git
 
    # install in virtual environment
    cd LenslessPiCam
-   python3 -m venv lensless_env
+   virtualenv --system-site-packages -p python3 lensless_env
    source lensless_env/bin/activate
-   pip install -e .
-
-
-You may also have to install the following:
-
-.. code:: bash
-
-   sudo apt-get install libimage-exiftool-perl
-   sudo apt-get install libatlas-base-dev
-
-
+   pip install --no-deps -e .
+   pip install -r rpi_requirements.txt
+   
 
 Acknowledgements
 ----------------

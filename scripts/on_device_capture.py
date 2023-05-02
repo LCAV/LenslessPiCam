@@ -1,6 +1,10 @@
 """
 Capture raw Bayer data or post-processed RGB data.
 
+```
+python scripts/on_device_capture.py --legacy --exp 0.02 --rgb --sensor_mode 1
+```
+
 See these code snippets for setting camera settings and post-processing
 - https://github.com/scivision/pibayer/blob/1bb258c0f3f8571d6ded5491c0635686b59a5c4f/pibayer/base.py#L56
 - https://picamera.readthedocs.io/en/release-1.13/recipes1.html#capturing-consistent-images
@@ -87,7 +91,7 @@ def capture(fn, exp, config_pause, sensor_mode, iso, sixteen, rgb, nbits_out, le
     # https://www.raspberrypi.com/documentation/accessories/camera.html#maximum-exposure-times
     # TODO : check which camera
     assert exp <= 230
-    assert exp > 0
+    assert exp >= 0.02
     sensor_mode = int(sensor_mode)
 
     distro = get_distro()
@@ -173,7 +177,7 @@ def capture(fn, exp, config_pause, sensor_mode, iso, sixteen, rgb, nbits_out, le
                 n_bits = 12  # assuming Raspberry Pi HQ
             else:
                 n_bits = 8
-            output = bayer2rgb(
+            output_rgb = bayer2rgb(
                 output,
                 nbits=n_bits,
                 blue_gain=blue_gain,
@@ -184,15 +188,15 @@ def capture(fn, exp, config_pause, sensor_mode, iso, sixteen, rgb, nbits_out, le
             )
 
             if down:
-                output = resize(output, 1 / down, interpolation=cv2.INTER_CUBIC)
+                output_rgb = resize(output_rgb, 1 / down, interpolation=cv2.INTER_CUBIC)
 
             # need OpenCV to save 16-bit RGB image
             if gray:
-                output_gray = rgb2gray(output)
+                output_gray = rgb2gray(output_rgb)
                 output_gray = output_gray.astype(output.dtype)
                 cv2.imwrite(fn, output_gray)
             else:
-                cv2.imwrite(fn, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
+                cv2.imwrite(fn, cv2.cvtColor(output_rgb, cv2.COLOR_RGB2BGR))
         else:
             img = Image.fromarray(output)
             img.save(fn)

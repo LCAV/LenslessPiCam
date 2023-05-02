@@ -32,10 +32,13 @@ class RealFFTConvolve2D:
             self.is_torch = True
 
         # prepare shapes for reconstruction
+
         assert len(psf.shape) == 4
         self._use_3d = psf.shape[0] != 1
         self._is_rgb = psf.shape[3] == 3
         assert self._is_rgb or psf.shape[3] == 1
+        self._psf_shape = np.array(self._psf.shape) #is it still used ?
+
 
         # set dtype
         if dtype is None:

@@ -26,12 +26,9 @@ setuptools.setup(
     python_requires=">=3.8.1",
     install_requires=[
         "opencv-python>=4.5.1.48",
-        "numpy>=1.22",
+        "numpy>=1.22, <=1.23.5",
         "scipy>=1.7.0",
-        "hydra-core",
-        "click>=8.0.1",
         "image>=1.5.33",
-        "picamerax>=20.9.1",
         "matplotlib>=3.4.2",
         "rawpy>=0.16.0",
     ],
