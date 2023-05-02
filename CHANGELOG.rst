@@ -17,6 +17,28 @@ Added
 -  Benchmarking tool for ReconstructionAlgorithm
 -  ``n_iter`` parameter for ReconstructionAlgorithm constructor, so don't need to pass to ``apply``.
 
+- Recon comparaison with/without Pytorch in 2D and in 3D
+	Gradient Descent, 2D
+
+	Default : ~140 s
+	python scripts/recon/gradient_descent.py
+
+	Torch, CPU : ~70 s
+	python scripts/recon/gradient_descent.py torch=True
+
+	Torch, cuda:0 : ~22 s
+	python scripts/recon/gradient_descent.py -cn pytorch
+	Gradient Descent, 3D
+
+	Default : ~135 s
+	python scripts/recon/gradient_descent.py input.psf="data/psf/diffuser_cam.npy" input.data="data/raw_data/diffuser_cam.tiff" preprocess.downsample=1
+
+	Torch, CPU : ~105 s
+	python scripts/recon/gradient_descent.py torch=True input.psf="data/psf/diffuser_cam.npy" input.data="data/raw_data/diffuser_cam.tiff" preprocess.downsample=1
+
+	Torch, cuda:0 : ~27 s
+	python scripts/recon/gradient_descent.py -cn pytorch input.psf="data/psf/diffuser_cam.npy" input.data="data/raw_data/diffuser_cam.tiff" preprocess.downsample=1
+
 Changed
 ~~~~~~~
 
