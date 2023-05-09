@@ -67,13 +67,13 @@ def rgb2gray(rgb, weights=None):
     Returns
     -------
     img :py:class:`~numpy.ndarray`
-        Grayscale image of dimension (height, width).
+        Grayscale image of dimension (depth, height, width, 1).
 
     """
     if weights is None:
         weights = np.array([0.299, 0.587, 0.114])
     assert len(weights) == 3
-    return np.tensordot(rgb, weights, axes=((2,), 0))
+    return np.tensordot(rgb, weights, axes=((3,), 0))[:, :, :, np.newaxis]
 
 
 def gamma_correction(vals, gamma=2.2):
