@@ -50,7 +50,6 @@ import shutil
 @click.option("--start", type=int, default=0, help="Start index for measuring files.")
 @click.option("-v", "--verbose", is_flag=True)
 def collect_mnist(input_dir, output_dir, n_files, verbose, test, runtime, progress, start):
-
     assert output_dir is not None
 
     img_og_dim = (28, 28)
@@ -165,7 +164,6 @@ def collect_mnist(input_dir, output_dir, n_files, verbose, test, runtime, progre
     if start:
         print(f"Starting at {start}.")
     for i in range(start, n_files):
-
         if runtime:
             proc_time = time.time() - start_time
             if proc_time > runtime:
@@ -180,7 +178,6 @@ def collect_mnist(input_dir, output_dir, n_files, verbose, test, runtime, progre
         # TODO check if measurement already exists
         output_fp = subdir / f"img{i}.png"
         if not os.path.isfile(output_fp):
-
             # reshape and normalize
             img = X[i]
             img = np.reshape(img, img_og_dim)

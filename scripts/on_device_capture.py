@@ -97,7 +97,6 @@ def capture(fn, exp, config_pause, sensor_mode, iso, sixteen, rgb, nbits_out, le
     distro = get_distro()
     print("RPi distribution : {}".format(distro))
     if "bullseye" in distro and not legacy:
-
         # TODO : grayscale and downsample
         assert not rgb
         assert not gray

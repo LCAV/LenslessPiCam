@@ -227,7 +227,7 @@ def load_psf(
         bg = np.array(bg)
 
     # resize
-    psf = resize(psf, shape=shape, factor=1/downsample)
+    psf = resize(psf, shape=shape, factor=1 / downsample)
 
     if single_psf:
         if psf.shape[3] > 1:
