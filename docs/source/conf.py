@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.abspath(os.path.join("..", "..")))
 from lensless import __version__
 
 project = "LenslessPiCam"
-copyright = f"{datetime.date.today().year}, Eric Bezzam"
+copyright = f"{datetime.date.today().year}, Eric Bezzam, Julien Sahli"
 author = "Eric Bezzam"
 version = __version__
 release = version

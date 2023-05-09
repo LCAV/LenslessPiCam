@@ -16,28 +16,7 @@ Added
 -  Implementations for ``autocorr2d`` and ``RealFFTConvolve2D``.
 -  Benchmarking tool for ReconstructionAlgorithm
 -  ``n_iter`` parameter for ReconstructionAlgorithm constructor, so don't need to pass to ``apply``.
-
-- Recon comparaison with/without Pytorch in 2D and in 3D
-	Gradient Descent, 2D
-
-	Default : ~140 s
-	python scripts/recon/gradient_descent.py
-
-	Torch, CPU : ~70 s
-	python scripts/recon/gradient_descent.py torch=True
-
-	Torch, cuda:0 : ~22 s
-	python scripts/recon/gradient_descent.py -cn pytorch
-	Gradient Descent, 3D
-
-	Default : ~135 s
-	python scripts/recon/gradient_descent.py input.psf="data/psf/diffuser_cam.npy" input.data="data/raw_data/diffuser_cam.tiff" preprocess.downsample=1
-
-	Torch, CPU : ~105 s
-	python scripts/recon/gradient_descent.py torch=True input.psf="data/psf/diffuser_cam.npy" input.data="data/raw_data/diffuser_cam.tiff" preprocess.downsample=1
-
-	Torch, cuda:0 : ~27 s
-	python scripts/recon/gradient_descent.py -cn pytorch input.psf="data/psf/diffuser_cam.npy" input.data="data/raw_data/diffuser_cam.tiff" preprocess.downsample=1
+-  Support of 3D reconstruction for Gradient Descent and APGD, with and without Pytorch
 
 Changed
 ~~~~~~~
@@ -47,6 +26,8 @@ Changed
 -  Shorten README to separate contents in different pages of docs.
 -  Fix typo in GradientDescent class name.
 -  Updated to Pycsou V2, as ``pip install pycsou`` (Pycsou V1) may not work on some machines.
+-  Data and PSF are now always stored as 4D Data [depth, width, height, color]
+-  Grayscale data has a color axis of length 1 and 2D data has a depth axis of length 1
 
 Bugfix
 ~~~~~~

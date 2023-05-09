@@ -21,4 +21,9 @@ Simulating 3D data
 
 Check out `this other Medium post <https://medium.com/@julien.sahli/3d-imaging-with-lensless-camera-822983618455>`__.
 
-The corresponding code will likely be added soon in waveprop.
+In short, the process is divided in the following steps :
+
+- Generate the different PSFs corresponding to the normal map of the surface of the diffuser to simulate, with light sources at different depths, or take existing ones
+- Split the scene to render in different depth layers corresponding to the light sources we used to simulate the PSFs. Convolve the radiance coming from each layer with the corresponding PSF and sum the result on a single image.
+
+The corresponding code will likely be added soon in `waveprop <https://pypi.org/project/waveprop/>`__.
