@@ -125,7 +125,6 @@ class RealFFTConvolve2D:
             self._padded_data[:] = y
 
         if self.is_torch:
-
             deconv_output = torch.fft.ifftshift(
                 torch.fft.irfft2(
                     torch.fft.rfft2(self._padded_data, dim=(1, 2)) * self._Hadj, dim=(1, 2)
@@ -134,7 +133,6 @@ class RealFFTConvolve2D:
             )
 
         else:
-
             deconv_output = fft.ifftshift(
                 fft.irfft2(fft.rfft2(self._padded_data, axes=(1, 2)) * self._Hadj, axes=(1, 2)),
                 axes=(1, 2),

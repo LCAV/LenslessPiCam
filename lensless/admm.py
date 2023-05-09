@@ -74,9 +74,11 @@ class ADMM(ReconstructionAlgorithm):
         self._mu3 = mu3
         self._tau = tau
 
-        #3D ADMM is not supported yet
+        # 3D ADMM is not supported yet
         if psf.shape[0] > 1:
-            raise NotImplementedError("3D ADMM is not supported yet, use gradient descent or APGD instead.")
+            raise NotImplementedError(
+                "3D ADMM is not supported yet, use gradient descent or APGD instead."
+            )
 
         # call reset() to initialize matrices
         super(ADMM, self).__init__(psf, dtype, pad=pad, norm=norm)
@@ -98,7 +100,6 @@ class ADMM(ReconstructionAlgorithm):
 
         # precompute_R_divmat (self._H computed by constructor with reset())
         if self.is_torch:
-
             self._PsiTPsi = self._PsiTPsi.to(self._psf.device)
             self._R_divmat = 1.0 / (
                 self._mu1 * (torch.abs(self._convolver._Hadj * self._convolver._H))
@@ -126,9 +127,7 @@ class ADMM(ReconstructionAlgorithm):
         return finite_diff_adj(U)
 
     def reset(self):
-
         if self.is_torch:
-
             # TODO initialize without padding
             self._image_est = torch.zeros(self._padded_shape, dtype=self._dtype).to(
                 self._psf.device
@@ -155,7 +154,6 @@ class ADMM(ReconstructionAlgorithm):
             # self._X_divmat = 1.0 / (torch.ones_like(self._psf) + self._mu1)
 
         else:
-
             self._X = np.zeros(self._padded_shape, dtype=self._dtype)
             # self._U = np.zeros(np.r_[self._padded_shape, [2]], dtype=self._dtype)
             self._image_est = np.zeros_like(self._X)
@@ -230,7 +228,6 @@ class ADMM(ReconstructionAlgorithm):
         self._rho += self._mu3 * (self._image_est - self._W)
 
     def _update(self):
-
         self._U_update()
         self._X_update()
         self._image_update()

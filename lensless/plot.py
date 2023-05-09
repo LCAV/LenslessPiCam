@@ -56,7 +56,6 @@ def plot_image(img, ax=None, gamma=None, normalize=True, axis=0):
 
     # data of length 3 means we have to infer whichever depth or color is missing, based on shape.
     elif len(img.shape) == 3:
-
         if img.shape[2] == 3:  # 2D rgb
             ax.imshow(img_norm)
 

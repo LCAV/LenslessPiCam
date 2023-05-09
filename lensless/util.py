@@ -39,7 +39,12 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
     if np.array_equal(img_shape, new_shape):
         return img
     # TODO : Use pytorch.resize if available
-    resized = np.array([cv2.resize(img[i], dsize=new_shape[::-1], interpolation=interpolation) for i in range(img.shape[0])])
+    resized = np.array(
+        [
+            cv2.resize(img[i], dsize=new_shape[::-1], interpolation=interpolation)
+            for i in range(img.shape[0])
+        ]
+    )
 
     # OpenCV discards channel dimension if it is 1, put it back
     if len(resized.shape) == 3:

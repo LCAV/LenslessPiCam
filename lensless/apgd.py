@@ -1,5 +1,4 @@
 from lensless.recon import ReconstructionAlgorithm
-from lensless.rfft_convolve import RealFFTConvolve2D as Convolver
 import inspect
 import numpy as np
 from typing import Optional
@@ -26,14 +25,12 @@ class APGDPriors:
 
     @staticmethod
     def all_values():
-
         vals = []
         for i in inspect.getmembers(APGDPriors):
             # remove private and protected functions, and this function
             if not i[0].startswith("_") and not callable(i[1]):
                 vals.append(i[1])
         return vals
-
 
 
 class RealFFTConvolve2D(pyca.LinOp):
@@ -70,7 +67,6 @@ class RealFFTConvolve2D(pyca.LinOp):
     @pycrt.enforce_precision(i="y")
     @pycu.vectorize(i="y")
     def adjoint(self, y: pyct.NDArray) -> pyct.NDArray:
-
         x = self._convolver.deconvolve(np.reshape(y, self._filter_shape))
         return x.ravel()
 
@@ -182,7 +178,9 @@ class APGD(ReconstructionAlgorithm):
              3D (RGB).
 
         """
-        super(APGD, self).set_data(np.repeat(data, self._original_shape[0],axis=0)) # we repeat the data to match the size of the PSF
+        super(APGD, self).set_data(
+            np.repeat(data, self._original_shape[0], axis=0)
+        )  # we repeat the data to match the size of the PSF
 
         """ Set up problem """
         # Cost function

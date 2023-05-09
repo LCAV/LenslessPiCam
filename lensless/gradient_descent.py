@@ -76,10 +76,11 @@ class GradientDescent(ReconstructionAlgorithm):
         self._proj = proj
 
     def reset(self):
-
         if self.is_torch:
             if self._initial_est is not None:
-                warnings.warn("Error : use of initial estimations is not supported with Pytorch yet")
+                warnings.warn(
+                    "Error : use of initial estimations is not supported with Pytorch yet"
+                )
             # initial guess, half intensity image
             # for online approach could use last reconstruction
             psf_flat = self._psf.reshape(-1, self._psf_shape[3])
@@ -96,7 +97,9 @@ class GradientDescent(ReconstructionAlgorithm):
         else:
             # try to determine the type of the inital estimation, if provided
             if self._initial_est is not None:
-                if len(self._initial_est.shape) == 3:  # if input we gave is under-dimensioned, determine its type
+                if (
+                    len(self._initial_est.shape) == 3
+                ):  # if input we gave is under-dimensioned, determine its type
                     if self._initial_est.shape[0] == 1:
                         self._image_est = np.array(self._initial_est[:, :, :, np.newaxis])
                     elif self._initial_est.shape[2] == 3:  # 2d rgb
@@ -170,7 +173,6 @@ class FISTA(GradientDescent):
     """
 
     def __init__(self, psf, dtype=None, proj=non_neg, tk=1, **kwargs):
-
         super(FISTA, self).__init__(psf, dtype, proj)
         self._tk = tk
         self._xk = self._image_est

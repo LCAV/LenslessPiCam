@@ -233,7 +233,6 @@ class ReconstructionAlgorithm(abc.ABC):
                 dtype = np.float32 if dtype == "float32" else np.float64
 
         if self.is_torch:
-
             if dtype:
                 self._psf = self._psf.type(dtype)
                 self._dtype = dtype
@@ -247,7 +246,6 @@ class ReconstructionAlgorithm(abc.ABC):
                 raise ValueError(f"Unsupported dtype : {self._dtype}")
 
         else:
-
             if dtype:
                 self._psf = self._psf.astype(dtype)
                 self._dtype = dtype
