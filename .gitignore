@@ -1,4 +1,6 @@
+scripts/recon/outputs/
 .idea/
+
 *_sol.py
 scripts/admm_*
 scripts/gd_*
@@ -123,6 +125,7 @@ env.bak/
 venv.bak/
 diffcam_env/
 lensless_env/
+lensless_docs/
 
 # Spyder project settings
 .spyderproject
