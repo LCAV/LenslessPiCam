@@ -37,6 +37,11 @@ use the correct PSF file for the data you're using!
     python scripts/recon/gradient_descent.py -cn in_the_wild \
     input.data=data/raw_data/thumbs_up_rgb.png \
     input.psf=data/psf/tape_rgb.png
+	
+	# 3D LCAV logo
+	python scripts/recon/radient_descent-py \
+	input.data=data/raw_data/3d_sim.png
+	input.psf=data/psf/3d_sim.npz
 
 
 Dataset collected by other people
@@ -55,9 +60,6 @@ dataset (200 files, 725 MB). It was prepared with the following script:
     python scripts/prepare_mirflickr_subset.py \
     --data ~/Documents/DiffuserCam/DiffuserCam_Mirflickr_Dataset
 
-
-3D data
--------
 
 You can download example 3D PSF and raw data from the Waller lab
 `here  <https://github.com/Waller-Lab/DiffuserCam/tree/master/example_data>`__.
