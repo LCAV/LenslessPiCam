@@ -3,6 +3,13 @@ import csv
 import numpy as np
 from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
+try:
+    import torch
+    import torchvision.transforms as tf
+
+    torch_available = True
+except ImportError:
+    torch_available = False
 
 SUPPORTED_BIT_DEPTH = np.array([8, 10, 12, 16])
 FLOAT_DTYPES = [np.float32, np.float64]
@@ -38,17 +45,25 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
 
     if np.array_equal(img_shape, new_shape):
         return img
-    # TODO : Use pytorch.resize if available
-    resized = np.array(
-        [
-            cv2.resize(img[i], dsize=new_shape[::-1], interpolation=interpolation)
-            for i in range(img.shape[0])
-        ]
-    )
 
-    # OpenCV discards channel dimension if it is 1, put it back
-    if len(resized.shape) == 3:
-        resized = resized[:, :, :, np.newaxis]
+    if torch_available:
+        # torch resize expects an input of form [color, depth, width, height]
+        tmp = np.moveaxis(img, 3, 0)
+        resized = tf.Resize(size=new_shape, interpolation=interpolation)(
+            torch.from_numpy(tmp)
+        ).numpy()
+        resized = np.moveaxis(resized, 0, 3)
+
+    else:
+        resized = np.array(
+            [
+                cv2.resize(img[i], dsize=new_shape[::-1], interpolation=interpolation)
+                for i in range(img.shape[0])
+            ]
+        )
+        # OpenCV discards channel dimension if it is 1, put it back
+        if len(resized.shape) == 3:
+            resized = resized[:, :, :, np.newaxis]
 
     return np.clip(resized, min_val, max_val)
 

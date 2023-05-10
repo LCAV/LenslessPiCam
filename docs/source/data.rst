@@ -79,9 +79,9 @@ This can be done with the following script :
 
 You may also want to export it into a wavefront .obj file
 for it to be displayed in 3D rendering softwares with the following
-scrpit. It mostly exists to allow the user to preview it and is not
+script. It mostly exists to allow the user to preview it and is not
 totally accurate as the problem of converting discrete pixels in a
-"continuous" wavefront object is subject to interpreatation :
+"continuous" wavefront object is subject to interpretation :
 
 .. code:: bash
 
