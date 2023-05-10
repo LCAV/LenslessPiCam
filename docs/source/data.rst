@@ -38,10 +38,10 @@ use the correct PSF file for the data you're using!
     input.data=data/raw_data/thumbs_up_rgb.png \
     input.psf=data/psf/tape_rgb.png
 	
-	# 3D LCAV logo
-	python scripts/recon/radient_descent-py \
-	input.data=data/raw_data/3d_sim.png
-	input.psf=data/psf/3d_sim.npz
+    # 3D LCAV logo
+    python scripts/recon/gradient_descent.py \
+    input.data=data/raw_data/3d_sim.png
+    input.psf=data/psf/3d_sim.npz
 
 
 Dataset collected by other people
