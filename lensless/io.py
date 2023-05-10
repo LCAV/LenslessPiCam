@@ -164,7 +164,7 @@ def load_psf(
     Returns
     -------
     psf : :py:class:`~numpy.ndarray`
-        2-D array of PSF.
+        4-D array of PSF.
     """
 
     # load image data and extract necessary channels

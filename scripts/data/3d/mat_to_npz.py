@@ -1,5 +1,6 @@
 """
 This script is used to export the .mat paf from https://github.com/Waller-Lab/DiffuserCam/tree/master/example_data
+The output consists of a compressed .npz archive containing a single file (https://numpy.org/doc/stable/reference/generated/numpy.savez_compressed.html)ZZ
 """
 
 import os
@@ -26,4 +27,4 @@ img = img / np.max(img)
 img = np.swapaxes(img, 0, -1)
 img = np.swapaxes(img, 1, 2)
 
-np.save("psf.npy", img)
+np.savez_compressed("psf.npz", img)
