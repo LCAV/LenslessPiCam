@@ -170,8 +170,17 @@ def load_psf(
     # load image data and extract necessary channels
     if use_3d:
         assert os.path.isfile(fp)
-        assert fp.endswith(".npy")
-        psf = np.load(fp)
+        if fp.endswith(".npy"):
+            psf = np.load(fp)
+        elif fp.endswith(".npz"):
+            archive = np.load(fp)
+            if len(archive.files) > 1:
+                print("Warning: more than one array in .npz archive, using first")
+            elif len(archive.files) == 0:
+                raise ValueError("No arrays in .npz archive")
+            psf = np.load(fp)[archive.files[0]]
+        else:
+            raise ValueError("File format not supported")
     else:
         psf = load_image(
             fp,
@@ -328,7 +337,7 @@ def load_data(
     else:
         raise ValueError("dtype must be float32 or float64")
 
-    use_3d = psf_fp.endswith(".npy")
+    use_3d = psf_fp.endswith(".npy") or psf_fp.endswith(".npz")
 
     # load and process PSF data
     psf, bg = load_psf(
