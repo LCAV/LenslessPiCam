@@ -364,6 +364,21 @@ def load_data(
         data = resize(data, shape=psf.shape)
     data /= np.linalg.norm(data.ravel())
 
+    if data.shape[3] > 1 and psf.shape[3] == 1:
+        print("Warning : loadad a grayscale PSF with RGB data. Repeating PSF across channels.")
+        print("This may be an error as the PSF and the data are likely from different datasets.")
+        psf = np.repeat(psf, data.shape[3], axis=3)
+
+    if data.shape[3] == 1 and psf.shape[3] > 1:
+        print("Warning : loaded a RGB PSF with grayscale data. Repeating data across channels.")
+        print("This may be an error as the PSF and the data are likely from different datasets.")
+        data = np.repeat(data, psf.shape[3], axis=3)
+
+    if data.shape[3] != psf.shape[3]:
+        raise ValueError(
+            "PSF and data must have same number of channels, check that they are from the same dataset."
+        )
+
     if gray:
         psf = np.array(rgb2gray(psf), np.newaxis)
         data = np.array(rgb2gray(data), np.newaxis)
