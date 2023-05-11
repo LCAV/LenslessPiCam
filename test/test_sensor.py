@@ -41,7 +41,7 @@ def test_virtual_image_from_rgb_file():
     rgb > rgb
     rgb > gray
     """
-    fp = os.path.join(os.path.dirname(__file__), "..", "data", "original", "thumbs_up.png")
+    fp = os.path.join(os.path.dirname(__file__), "..", "data", "original", "tree.png")
     for sensor_name in SensorOptions.values():
         sensor = VirtualSensor.from_name(sensor_name)
 
@@ -75,7 +75,7 @@ def test_virtual_image_from_gray_file():
 
 
 def test_virtual_image_from_rgb_data():
-    fp = os.path.join(os.path.dirname(__file__), "..", "data", "original", "thumbs_up.png")
+    fp = os.path.join(os.path.dirname(__file__), "..", "data", "original", "tree.png")
 
     # provided normalized float data
     img = load_image(fp)
@@ -93,13 +93,13 @@ def test_virtual_image_from_rgb_data():
                 img_cap.max() <= 2**bit_depth - 1
             ), f"Sensor {sensor_name} image max value is {img_cap.max()}, while expected max value is {2**bit_depth - 1}."
 
-        # save file
-        save_image(img_cap, f"test_{sensor_name}.png")
-        print(sensor_name, img_cap.shape)
+        # # save file
+        # save_image(img_cap, f"test_{sensor_name}.png")
+        # print(sensor_name, img_cap.shape)
 
 
 def test_virtual_image_from_gray_data():
-    fp = os.path.join(os.path.dirname(__file__), "..", "data", "original", "thumbs_up.png")
+    fp = os.path.join(os.path.dirname(__file__), "..", "data", "original", "tree.png")
 
     # provided normalized float data
     img = load_image(fp)
@@ -117,10 +117,6 @@ def test_virtual_image_from_gray_data():
             assert (
                 img_cap.max() <= 2**bit_depth - 1
             ), f"Sensor {sensor_name} image max value is {img_cap.max()}, while expected max value is {2**bit_depth - 1}."
-
-        # # save file
-        # save_image(img_cap, f"test_{sensor_name}.png")
-        # print(sensor_name, img_cap.shape)
 
 
 if __name__ == "__main__":
