@@ -115,10 +115,9 @@ class GradientDescent(ReconstructionAlgorithm):
                 self._image_est = np.ones(self._psf_shape, dtype=self._dtype)
             else:
                 assert self._initial_est.shape == self._psf_shape
-
-            psf_flat = self._psf.reshape(-1, self._psf_shape[3])
-            pixel_start = (np.max(psf_flat, axis=0) + np.min(psf_flat, axis=0)) / 2
-            self._image_est *= pixel_start
+                psf_flat = self._psf.reshape(-1, self._psf_shape[3])
+                pixel_start = (np.max(psf_flat, axis=0) + np.min(psf_flat, axis=0)) / 2
+                self._image_est *= pixel_start
 
             # set step size as < 2 / lipschitz
             Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
