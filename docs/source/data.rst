@@ -40,7 +40,7 @@ use the correct PSF file for the data you're using!
 	
     # 3D LCAV logo
     python scripts/recon/gradient_descent.py \
-    input.data=data/raw_data/3d_sim.png
+    input.data=data/raw_data/3d_sim.png \
     input.psf=data/psf/3d_sim.npz
 
 
