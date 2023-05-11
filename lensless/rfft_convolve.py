@@ -33,7 +33,7 @@ class RealFFTConvolve2D:
 
         # prepare shapes for reconstruction
 
-        assert len(psf.shape) == 4
+        assert len(psf.shape) == 4, "Expected 4D PSF of shape (depth, width, height, channels)"
         self._use_3d = psf.shape[0] != 1
         self._is_rgb = psf.shape[3] == 3
         assert self._is_rgb or psf.shape[3] == 1
@@ -53,23 +53,25 @@ class RealFFTConvolve2D:
         self._psf_shape = np.array(self._psf.shape)
 
         # cropping / padding indexes
-        self._padded_shape = 2 * self._psf_shape[1:3] - 1
+        self._padded_shape = 2 * self._psf_shape[-3:-1] - 1
         self._padded_shape = np.array([next_fast_len(i) for i in self._padded_shape])
-        self._padded_shape = list(np.r_[self._psf_shape[0], self._padded_shape, self._psf_shape[3]])
-        self._start_idx = (self._padded_shape[1:3] - self._psf_shape[1:3]) // 2
-        self._end_idx = self._start_idx + self._psf_shape[1:3]
+        self._padded_shape = list(
+            np.r_[self._psf_shape[-4], self._padded_shape, self._psf_shape[-1]]
+        )
+        self._start_idx = (self._padded_shape[-3:-1] - self._psf_shape[-3:-1]) // 2
+        self._end_idx = self._start_idx + self._psf_shape[-3:-1]
         self.pad = pad  # Whether necessary to pad provided data
 
         # precompute filter in frequency domain
         if self.is_torch:
             self._H = torch.fft.rfft2(
-                self._pad(self._psf), norm=norm, dim=(1, 2), s=self._padded_shape[1:3]
+                self._pad(self._psf), norm=norm, dim=(-3, -2), s=self._padded_shape[-3:-1]
             )
             self._Hadj = torch.conj(self._H)
             self._padded_data = torch.zeros(size=self._padded_shape, dtype=dtype, device=psf.device)
 
         else:
-            self._H = fft.rfft2(self._pad(self._psf), axes=(1, 2), norm=norm)
+            self._H = fft.rfft2(self._pad(self._psf), axes=(-3, -2), norm=norm)
             self._Hadj = np.conj(self._H)
             self._padded_data = np.zeros(self._padded_shape).astype(dtype)
 
@@ -98,15 +100,15 @@ class RealFFTConvolve2D:
         if self.is_torch:
             conv_output = torch.fft.ifftshift(
                 torch.fft.irfft2(
-                    torch.fft.rfft2(self._padded_data, dim=(1, 2)) * self._H, dim=(1, 2)
+                    torch.fft.rfft2(self._padded_data, dim=(-3, -2)) * self._H, dim=(-3, -2)
                 ),
-                dim=(1, 2),
+                dim=(-3, -2),
             )
 
         else:
             conv_output = fft.ifftshift(
-                fft.irfft2(fft.rfft2(self._padded_data, axes=(1, 2)) * self._H, axes=(1, 2)),
-                axes=(1, 2),
+                fft.irfft2(fft.rfft2(self._padded_data, axes=(-3, -2)) * self._H, axes=(-3, -2)),
+                axes=(-3, -2),
             )
         if self.pad:
             return self._crop(conv_output)
@@ -127,15 +129,15 @@ class RealFFTConvolve2D:
         if self.is_torch:
             deconv_output = torch.fft.ifftshift(
                 torch.fft.irfft2(
-                    torch.fft.rfft2(self._padded_data, dim=(1, 2)) * self._Hadj, dim=(1, 2)
+                    torch.fft.rfft2(self._padded_data, dim=(-3, -2)) * self._Hadj, dim=(-3, -2)
                 ),
-                dim=(1, 2),
+                dim=(-3, -2),
             )
 
         else:
             deconv_output = fft.ifftshift(
-                fft.irfft2(fft.rfft2(self._padded_data, axes=(1, 2)) * self._Hadj, axes=(1, 2)),
-                axes=(1, 2),
+                fft.irfft2(fft.rfft2(self._padded_data, axes=(-3, -2)) * self._Hadj, axes=(-3, -2)),
+                axes=(-3, -2),
             )
 
         if self.pad:
