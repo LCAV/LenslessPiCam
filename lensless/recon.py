@@ -117,21 +117,24 @@ passed to the script:
 3D example
 ----------
 
-It is also possible to reconstruct 3D scenes using Gradient Descent or APGD. ADMM doesn't supports 3D reconstruction yet.
-This requires to use a 3D PSF as an input in the form of a .npy file, which actually is a set of 2D PSFs corresponding to the same diffuser sampeled with light sources from different depths.
-The input data  for 3D reconstructions is still a 2D image, as collected by the camera. The reconstruction will be able to separate which part of the lensless data corresponds to which 2D PSF,
-and therefore to which depth, effectively generating a 3D reconstruction, which will be outputed in the form of a .npy file as well as a 2D projection on the depth axis to be displayed to the
-user as an image.
+It is also possible to reconstruct 3D scenes using :py:class:`~lensless.GradientDescent` or :py:class:`~lensless.APGD`. :py:class:`~lensless.ADMM` doesn't supports 3D reconstruction yet.
+This requires to use a 3D PSF as an input in the form of an .npy or .npz file, which actually is a set of 2D PSFs corresponding to the same diffuser sampled with light sources from different depths.
+The input data for 3D reconstructions is still a 2D image, as collected by the camera. The reconstruction will be able to separate which part of the lensless data corresponds to which 2D PSF,
+and therefore to which depth, effectively generating a 3D reconstruction, which will be outputed in the form of an .npy file. A 2D projection on the depth axis is also displayed to the user.
 
 As for the 2D ADMM reconstuction, scripts for 3D reconstruction can be found in ``scripts/recon/gradient_descent.py`` and ``scripts/recon/apgd_pycsou.py``.
 Outside of the input data and PSF, no special argument has to be given to the script for it to operate a 3D reconstruction, as actually, the 2D reconstuction is internally
 viewed as a 3D reconstruction which has only one depth level. It is also the case for ADMM although for now, the reconstructions are wrong when more than one depth level is used.
 
-3D data is not directly provided in the LenslessPiCam, but some can be :doc:`imported <data>` from the Waller Lab dataset. For this data, it is best to set the downsample to 1 :
+3D data is provided in LenslessPiCam, but it is simulated. Real example data can be obtained from `Waller Lab <https://github.com/Waller-Lab/DiffuserCam/tree/master/example_data>`_.
+For both the simulated data and the data from Waller Lab, it is best to set ``downsample=1`` :
 
 .. code:: bash
 
-    python scripts/recon/gradient_descent.py input.psf="path/to/3D/psf.npy" input.data="path/to/lensless/data.tiff" preprocess.downsample=1
+    python scripts/recon/gradient_descent.py \\
+    input.psf="path/to/3D/psf.npy" \\
+    input.data="path/to/lensless/data.tiff" \\
+    preprocess.downsample=1
 
 
 Other approaches
