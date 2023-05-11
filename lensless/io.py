@@ -200,16 +200,18 @@ def load_psf(
             grayscale = True
             psf = psf[:, :, :, np.newaxis]
         else:
+            assert len(psf.shape) == 4
             grayscale = False
+
     else:
         if len(psf.shape) == 3:
             grayscale = False
             psf = psf[np.newaxis, :, :, :]
         else:
+            assert len(psf.shape) == 2
             grayscale = True
             psf = psf[np.newaxis, :, :, np.newaxis]
 
-    assert len(psf.shape) == 4
     # check that all depths of the psf have the same shape.
     for i in range(len(psf)):
         assert psf[0].shape == psf[i].shape
@@ -227,7 +229,7 @@ def load_psf(
         # rgb
         else:
             bg = []
-            for i in range(3):
+            for i in range(psf.shape[3]):
                 bg_i = np.mean(psf[:, bg_pix[0] : bg_pix[1], bg_pix[0] : bg_pix[1], i])
                 psf[:, :, :, i] -= bg_i
                 bg.append(bg_i)
@@ -374,13 +376,17 @@ def load_data(
     data /= np.linalg.norm(data.ravel())
 
     if data.shape[3] > 1 and psf.shape[3] == 1:
-        print("Warning : loadad a grayscale PSF with RGB data. Repeating PSF across channels.")
-        print("This may be an error as the PSF and the data are likely from different datasets.")
+        warnings.warn(
+            "Warning: loaded a grayscale PSF with RGB data. Repeating PSF across channels."
+            "This may be an error as the PSF and the data are likely from different datasets."
+        )
         psf = np.repeat(psf, data.shape[3], axis=3)
 
     if data.shape[3] == 1 and psf.shape[3] > 1:
-        print("Warning : loaded a RGB PSF with grayscale data. Repeating data across channels.")
-        print("This may be an error as the PSF and the data are likely from different datasets.")
+        warnings.warn(
+            "Warning: loaded a RGB PSF with grayscale data. Repeating data across channels."
+            "This may be an error as the PSF and the data are likely from different datasets."
+        )
         data = np.repeat(data, psf.shape[3], axis=3)
 
     if data.shape[3] != psf.shape[3]:
