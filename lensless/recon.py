@@ -122,9 +122,7 @@ This requires to use a 3D PSF as an input in the form of an .npy or .npz file, w
 The input data for 3D reconstructions is still a 2D image, as collected by the camera. The reconstruction will be able to separate which part of the lensless data corresponds to which 2D PSF,
 and therefore to which depth, effectively generating a 3D reconstruction, which will be outputed in the form of an .npy file. A 2D projection on the depth axis is also displayed to the user.
 
-As for the 2D ADMM reconstuction, scripts for 3D reconstruction can be found in ``scripts/recon/gradient_descent.py`` and ``scripts/recon/apgd_pycsou.py``.
-Outside of the input data and PSF, no special argument has to be given to the script for it to operate a 3D reconstruction, as actually, the 2D reconstuction is internally
-viewed as a 3D reconstruction which has only one depth level. It is also the case for ADMM although for now, the reconstructions are wrong when more than one depth level is used.
+The same scripts for 2D reconstruction can be used for 3D reconstruction, namely ``scripts/recon/gradient_descent.py`` and ``scripts/recon/apgd_pycsou.py``.
 
 3D data is provided in LenslessPiCam, but it is simulated. Real example data can be obtained from `Waller Lab <https://github.com/Waller-Lab/DiffuserCam/tree/master/example_data>`_.
 For both the simulated data and the data from Waller Lab, it is best to set ``downsample=1`` :
@@ -216,8 +214,8 @@ class ReconstructionAlgorithm(abc.ABC):
         if torch_available:
             self.is_torch = isinstance(psf, torch.Tensor)
 
-        assert len(psf.shape) == 4  # depth, width, height, channel
-        assert psf.shape[3] == 3 or psf.shape[3] == 1  # either rgb or grayscale
+        assert len(psf.shape) == 4, "PSF must be 4D: [depth, width, height, channel]."
+        assert psf.shape[3] == 3 or psf.shape[3] == 1, "PSF must either be rgb (3) or grayscale (1)"
         self._psf = psf
         self._n_iter = n_iter
 
@@ -307,8 +305,7 @@ class ReconstructionAlgorithm(abc.ABC):
         else:
             assert isinstance(data, np.ndarray)
 
-        assert len(data.shape) == 4
-        assert len(self._psf_shape) == 4
+        assert len(data.shape) == 4, "Data must be 4D: [depth, width, height, channel]."
 
         # assert same shapes
         assert np.all(
