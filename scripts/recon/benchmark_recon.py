@@ -1,3 +1,18 @@
+# #############################################################################
+# benchmark_recon.py.py
+# =========
+# Authors :
+# Yohann PERRON
+# #############################################################################
+
+"""
+Benchmark reconstruction algorithms
+==============
+This script benchmarks reconstruction algorithms on the DiffuserCam dataset.
+The algorithm benchmarked and the number of iterations can be set in the config file : benchmark.yaml.
+For unrolled algorithms, the results of the unrolled training (json file) are loaded from the benchmark/results folder.
+"""
+
 import hydra
 from hydra.utils import to_absolute_path, get_original_cwd
 
