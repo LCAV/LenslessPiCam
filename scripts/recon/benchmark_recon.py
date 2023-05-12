@@ -28,7 +28,9 @@ def benchmark_recon(config):
         device = "cpu"
 
     # Benchmark dataset
-    benchmark_dataset = BenchmarkDataset(n_files=n_files, downsample=downsample)
+    benchmark_dataset = BenchmarkDataset(
+        data_dir=os.path.join(get_original_cwd(), "data"), n_files=n_files, downsample=downsample
+    )
     psf = benchmark_dataset.psf.to(device)
 
     model_list = []  # list of algoritms to benchmark
@@ -58,12 +60,13 @@ def benchmark_recon(config):
             result["n_iter"] = n_iter
             results[Model[0]].append(result)
 
-    # create folder to save plots
-    if not os.path.isdir("benchmark"):
-        os.mkdir("benchmark")
+    # create folder to load results from trained algorithms
+    result_dir = os.path.join(get_original_cwd(), "benchmark", "trained_results")
+    if not os.path.isdir(result_dir):
+        os.mkdir(result_dir)
 
     # try to load json files with results form unrolled training
-    files = glob.glob(os.path.join("benchmark", "*.json"))
+    files = glob.glob(os.path.join(result_dir, "*.json"))
     unrolled_results = {}
     for file in files:
         model_name = plib.Path(file).stem
@@ -132,7 +135,7 @@ def benchmark_recon(config):
         plt.xlabel("Number of iterations")
         plt.ylabel(metric)
         plt.legend()
-        plt.savefig(os.path.join("benchmark", f"{metric}.png"))
+        plt.savefig(f"{metric}.png")
 
 
 if __name__ == "__main__":
