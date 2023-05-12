@@ -53,7 +53,7 @@ if __name__ == "__main__":
     psf = torch.from_numpy(psf_float).to(device)
     results = {}
     n_iter_range = [5, 10, 30, 100, 300]
-    # benchmark each model for different numer of iteration and append result to results
+    # benchmark each model for different number of iteration and append result to results
     for Model in [ADMM, FISTA, GradientDescent]:
         results[Model.__name__] = []
         print(f"Running benchmark for {Model.__name__}")
@@ -62,6 +62,16 @@ if __name__ == "__main__":
             result = benchmark(model, data, n_files=100, downsample=downsample, n_iter=n_iter)
             result["n_iter"] = n_iter
             results[Model.__name__].append(result)
+
+    # # benchmark FISTA model for different number of iteration and tk, and append result to results
+    # for tk in [0.1, 0.5, 1, 2, 5]:
+    #     results[f"FISTA_{tk}"] = []
+    #     print(f"Running benchmark for FISTA with tk={tk}")
+    #     for n_iter in n_iter_range:
+    #         model = FISTA(psf, tk=tk)
+    #         result = benchmark(model, data, n_files=100, downsample=downsample, n_iter=n_iter)
+    #         result["n_iter"] = n_iter
+    #         results[f"FISTA_{tk}"].append(result)
 
     # create folder to save plots
     if not os.path.isdir("benchmark"):
@@ -90,7 +100,8 @@ if __name__ == "__main__":
                 [result[metric] for result in results[model_name]],
                 label=model_name,
             )
-        # plot unrolled algorithms results as horizontal line
+        # plot unrolled algorithms results as horizontal line with different color
+        colors = ["red", "green", "blue", "orange", "purple"]
         for model_name in unrolled_results.keys():
             plt.hlines(
                 unrolled_results[model_name][metric],
@@ -98,6 +109,7 @@ if __name__ == "__main__":
                 n_iter_range[-1],
                 label=model_name,
                 linestyles="dashed",
+                colors=colors.pop(),
             )
         plt.title(metric)
         plt.xlabel("Number of iterations")
