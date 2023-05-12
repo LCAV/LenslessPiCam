@@ -33,7 +33,6 @@ log = logging.getLogger(__name__)
 def apgd(
     config,
 ):
-
     psf, data = load_data(
         psf_fp=to_absolute_path(config["input"]["psf"]),
         data_fp=to_absolute_path(config["input"]["data"]),

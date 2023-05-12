@@ -43,10 +43,7 @@ def test_gradient_descent():
                 recon = GradientDescent(psf, dtype=dtype)
                 recon.set_data(data)
                 res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
-                if gray:
-                    assert len(psf.shape) == 2
-                else:
-                    assert len(psf.shape) == 3
+                assert psf.shape[3] == (1 if gray else 3)
                 assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
 
 
@@ -66,10 +63,7 @@ def test_admm():
                 recon = ADMM(psf, dtype=dtype)
                 recon.set_data(data)
                 res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
-                if gray:
-                    assert len(psf.shape) == 2
-                else:
-                    assert len(psf.shape) == 3
+                assert psf.shape[3] == (1 if gray else 3)
                 assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
 
 
@@ -89,10 +83,7 @@ def test_nesterov_gradient_descent():
                 recon = NesterovGradientDescent(psf, dtype=dtype)
                 recon.set_data(data)
                 res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
-                if gray:
-                    assert len(psf.shape) == 2
-                else:
-                    assert len(psf.shape) == 3
+                assert psf.shape[3] == (1 if gray else 3)
                 assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
 
 
@@ -112,10 +103,7 @@ def test_fista():
                 recon = FISTA(psf, dtype=dtype)
                 recon.set_data(data)
                 res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
-                if gray:
-                    assert len(psf.shape) == 2
-                else:
-                    assert len(psf.shape) == 3
+                assert psf.shape[3] == (1 if gray else 3)
                 assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
 
 
@@ -143,10 +131,7 @@ def test_apgd():
                         )
                         recon.set_data(data)
                         res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
-                        if gray:
-                            assert len(psf.shape) == 2
-                        else:
-                            assert len(psf.shape) == 3
+                        assert psf.shape[3] == (1 if gray else 3)
                         assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
     else:
         print("Pycsou not installed. Skipping APGD test.")

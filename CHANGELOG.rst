@@ -16,6 +16,8 @@ Added
 -  Implementations for ``autocorr2d`` and ``RealFFTConvolve2D``.
 -  Benchmarking tool for ReconstructionAlgorithm
 -  ``n_iter`` parameter for ReconstructionAlgorithm constructor, so don't need to pass to ``apply``.
+-  Support of 3D reconstruction for Gradient Descent and APGD, with and without Pytorch.
+-  Option to warm-start reconstruction algorithm with ``initial_est``.
 
 Changed
 ~~~~~~~
@@ -25,6 +27,7 @@ Changed
 -  Shorten README to separate contents in different pages of docs.
 -  Fix typo in GradientDescent class name.
 -  Updated to Pycsou V2, as ``pip install pycsou`` (Pycsou V1) may not work on some machines.
+-  Data and PSF are now always stored as 4D Data [depth, width, height, color]. Grayscale data has a color axis of length 1 and 2D data has a depth axis of length 1.
 
 Bugfix
 ~~~~~~

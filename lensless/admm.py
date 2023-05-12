@@ -32,6 +32,8 @@ class ADMM(ReconstructionAlgorithm):
         psi=None,
         psi_adj=None,
         psi_gram=None,
+        pad=False,
+        norm="backward",
         **kwargs
     ):
         """
@@ -61,15 +63,25 @@ class ADMM(ReconstructionAlgorithm):
             Adjoint of `psi`.
         psi_gram : :py:class:`function`
             Function to compute gram of `psi`.
+        pad : bool
+            Whether to pad the image with zeros before applying the PSF.
+        norm : str
+            Normalization to use for the convolution. Options are "forward",
+            "backward", and "ortho". Default is "backward".
         """
         self._mu1 = mu1
         self._mu2 = mu2
         self._mu3 = mu3
         self._tau = tau
 
+        # 3D ADMM is not supported yet
+        if psf.shape[0] > 1:
+            raise NotImplementedError(
+                "3D ADMM is not supported yet, use gradient descent or APGD instead."
+            )
+
         # call reset() to initialize matrices
-        super(ADMM, self).__init__(psf, dtype, pad=False, norm="backward")
-        # super(ADMM, self).__init__(psf, dtype, pad=False, norm="ortho")
+        super(ADMM, self).__init__(psf, dtype, pad=pad, norm=norm, **kwargs)
 
         # set prior
         if psi is None:
@@ -88,7 +100,6 @@ class ADMM(ReconstructionAlgorithm):
 
         # precompute_R_divmat (self._H computed by constructor with reset())
         if self.is_torch:
-
             self._PsiTPsi = self._PsiTPsi.to(self._psf.device)
             self._R_divmat = 1.0 / (
                 self._mu1 * (torch.abs(self._convolver._Hadj * self._convolver._H))
@@ -116,13 +127,13 @@ class ADMM(ReconstructionAlgorithm):
         return finite_diff_adj(U)
 
     def reset(self):
-
         if self.is_torch:
-
             # TODO initialize without padding
-            self._image_est = torch.zeros(self._padded_shape, dtype=self._dtype).to(
-                self._psf.device
-            )
+            if self._image_est is None:
+                self._image_est = torch.zeros(self._padded_shape, dtype=self._dtype).to(
+                    self._psf.device
+                )
+
             # self._image_est = torch.zeros_like(self._psf)
             self._X = torch.zeros_like(self._image_est)
             self._U = torch.zeros_like(self._Psi(self._image_est))
@@ -145,10 +156,10 @@ class ADMM(ReconstructionAlgorithm):
             # self._X_divmat = 1.0 / (torch.ones_like(self._psf) + self._mu1)
 
         else:
-
             self._X = np.zeros(self._padded_shape, dtype=self._dtype)
             # self._U = np.zeros(np.r_[self._padded_shape, [2]], dtype=self._dtype)
-            self._image_est = np.zeros_like(self._X)
+            if self._image_est is None:
+                self._image_est = np.zeros_like(self._X)
             self._U = np.zeros_like(self._Psi(self._image_est))
             self._W = np.zeros_like(self._X)
             if self._image_est.max():
@@ -200,11 +211,11 @@ class ADMM(ReconstructionAlgorithm):
         # rk = self._convolver._pad(rk)
 
         if self.is_torch:
-            freq_space_result = self._R_divmat * torch.fft.rfft2(rk, dim=(0, 1))
-            self._image_est = torch.fft.irfft2(freq_space_result, dim=(0, 1))
+            freq_space_result = self._R_divmat * torch.fft.rfft2(rk, dim=(-3, -2))
+            self._image_est = torch.fft.irfft2(freq_space_result, dim=(-3, -2))
         else:
-            freq_space_result = self._R_divmat * fft.rfft2(rk, axes=(0, 1))
-            self._image_est = fft.irfft2(freq_space_result, axes=(0, 1))
+            freq_space_result = self._R_divmat * fft.rfft2(rk, axes=(-3, -2))
+            self._image_est = fft.irfft2(freq_space_result, axes=(-3, -2))
 
         # self._image_est = self._convolver._crop(res)
 
@@ -220,7 +231,6 @@ class ADMM(ReconstructionAlgorithm):
         self._rho += self._mu3 * (self._image_est - self._W)
 
     def _update(self):
-
         self._U_update()
         self._X_update()
         self._W_update()
@@ -289,10 +299,16 @@ def finite_diff_gram(shape, dtype=None, is_torch=False):
             dtype = np.float32
         gram = np.zeros(shape, dtype=dtype)
 
-    gram[0, 0] = 4
-    gram[0, 1] = gram[1, 0] = gram[0, -1] = gram[-1, 0] = -1
+    if shape[0] == 1:
+        gram[0, 0, 0] = 4
+        gram[0, 0, 1] = gram[0, 0, -1] = gram[0, 1, 0] = gram[0, -1, 0] = -1
+    else:
+        gram[0, 0, 0] = 6
+        gram[0, 0, 1] = gram[0, 0, -1] = gram[0, 1, 0] = gram[0, -1, 0] = gram[1, 0, 0] = gram[
+            -1, 0, 0
+        ] = -1
 
     if is_torch:
-        return torch.fft.rfft2(gram, dim=(0, 1))
+        return torch.fft.rfft2(gram, dim=(-3, -2))
     else:
-        return fft.rfft2(gram, axes=(0, 1))
+        return fft.rfft2(gram, axes=(-3, -2))

@@ -25,7 +25,6 @@ class APGDPriors:
 
     @staticmethod
     def all_values():
-
         vals = []
         for i in inspect.getmembers(APGDPriors):
             # remove private and protected functions, and this function
@@ -52,8 +51,7 @@ class RealFFTConvolve2D(pyca.LinOp):
         norm : str
             Normalization to use for convolution. See :py:class:`~lensless.rfft_convolve.RealFFTConvolve2D`
         """
-
-        assert len(filter.shape) == 3
+        assert len(filter.shape) == 4, "Filter must be of shape (depth, height, width, channels)"
         self._filter_shape = np.array(filter.shape)
         self._convolver = Convolver(filter, dtype=dtype, norm=norm)
 
@@ -139,6 +137,7 @@ class APGD(ReconstructionAlgorithm):
         self._disp = disp
 
         # Convolution operator
+
         self._H = RealFFTConvolve2D(self._psf, dtype=dtype)
         self._H.lipschitz(tol=lipschitz_tol, tight=lipschitz_tight)
 
@@ -179,11 +178,9 @@ class APGD(ReconstructionAlgorithm):
              3D (RGB).
 
         """
-        if not self._is_rgb:
-            assert len(data.shape) == 2
-            data = data[:, :, np.newaxis]
-        assert len(self._psf_shape) == len(data.shape)
-        self._data = data
+        super(APGD, self).set_data(
+            np.repeat(data, self._original_shape[-4], axis=0)
+        )  # we repeat the data for each depth to match the size of the PSF
 
         """ Set up problem """
         # Cost function
@@ -206,7 +203,8 @@ class APGD(ReconstructionAlgorithm):
         )
 
     def reset(self):
-        self._image_est = np.zeros(self._original_size, dtype=self._dtype)
+        if self._image_est is None:
+            self._image_est = np.zeros(self._original_size, dtype=self._dtype)
 
     def _update(self):
         res = next(self._apgd.steps())

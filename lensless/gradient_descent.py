@@ -1,7 +1,7 @@
 import numpy as np
 from lensless.recon import ReconstructionAlgorithm
 import inspect
-from scipy import fft
+import warnings
 
 try:
     import torch
@@ -67,39 +67,37 @@ class GradientDescent(ReconstructionAlgorithm):
             Projection function to apply at each iteration. Default is
             non-negative.
         """
-
-        super(GradientDescent, self).__init__(psf, dtype)
         assert callable(proj)
         self._proj = proj
+        super(GradientDescent, self).__init__(psf, dtype, **kwargs)
 
     def reset(self):
-
         if self.is_torch:
 
             # initial guess, half intensity image
             # for online approach could use last reconstruction
-            psf_flat = self._psf.reshape(-1, self._n_channels)
-            pixel_start = (
-                torch.max(psf_flat, axis=0).values + torch.min(psf_flat, axis=0).values
-            ) / 2
-            self._image_est = torch.ones_like(self._psf) * pixel_start
+            if self._image_est is None:
+                psf_flat = self._psf.reshape(-1, self._psf_shape[3])
+                pixel_start = (
+                    torch.max(psf_flat, axis=0).values + torch.min(psf_flat, axis=0).values
+                ) / 2
+                self._image_est = torch.ones_like(self._psf) * pixel_start
 
             # set step size as < 2 / lipschitz
-            Hadj_flat = self._convolver._Hadj.reshape(-1, self._n_channels)
-            H_flat = self._convolver._H.reshape(-1, self._n_channels)
+            Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
+            H_flat = self._convolver._H.reshape(-1, self._psf_shape[3])
             self._alpha = torch.real(1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values)
 
         else:
 
-            # initial guess, half intensity image
-            # for online approach could use last reconstruction
-            psf_flat = self._psf.reshape(-1, self._n_channels)
-            pixel_start = (np.max(psf_flat, axis=0) + np.min(psf_flat, axis=0)) / 2
-            self._image_est = np.ones(self._psf_shape, dtype=self._dtype) * pixel_start
+            if self._image_est is None:
+                psf_flat = self._psf.reshape(-1, self._psf_shape[3])
+                pixel_start = (np.max(psf_flat, axis=0) + np.min(psf_flat, axis=0)) / 2
+                self._image_est = np.ones_like(self._psf) * pixel_start
 
             # set step size as < 2 / lipschitz
-            Hadj_flat = self._convolver._Hadj.reshape(-1, self._n_channels)
-            H_flat = self._convolver._H.reshape(-1, self._n_channels)
+            Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
+            H_flat = self._convolver._H.reshape(-1, self._psf_shape[3])
             self._alpha = np.real(1.8 / np.max(Hadj_flat * H_flat, axis=0))
 
     def _grad(self):
@@ -150,7 +148,6 @@ class FISTA(GradientDescent):
     """
 
     def __init__(self, psf, dtype=None, proj=non_neg, tk=1, **kwargs):
-
         super(FISTA, self).__init__(psf, dtype, proj)
         self._tk = tk
         self._xk = self._image_est
