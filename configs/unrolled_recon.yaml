@@ -27,7 +27,7 @@ preprocess:
 display:
   # How many iterations to wait for intermediate plot. 
   # Set to negative value for no intermediate plots.
-  disp: 25
+  disp: 250
   # Whether to plot results.
   plot: True
   # Gamma factor for plotting.
@@ -40,7 +40,7 @@ gradient_descent:
   # Number of iterations
   n_iter: 5
   # Method: vanilla, nesterov, fista
-  method: unrolled_fista
+  method: unrolled_admm
   # Hyperparameters for each method
   unrolled_fista:
     tk: 1
@@ -93,7 +93,7 @@ training:
 
 optimizer:
   type: Adam
-  lr: 1e-4
+  lr: 1e-2
   
 loss: 'l2'
 # set lpips to false to deactivate
