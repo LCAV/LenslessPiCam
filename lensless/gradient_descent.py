@@ -73,7 +73,6 @@ class GradientDescent(ReconstructionAlgorithm):
 
     def reset(self):
         if self.is_torch:
-
             # initial guess, half intensity image
             # for online approach could use last reconstruction
             if self._image_est is None:
@@ -89,7 +88,6 @@ class GradientDescent(ReconstructionAlgorithm):
             self._alpha = torch.real(1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values)
 
         else:
-
             if self._image_est is None:
                 psf_flat = self._psf.reshape(-1, self._psf_shape[3])
                 pixel_start = (np.max(psf_flat, axis=0) + np.min(psf_flat, axis=0)) / 2
@@ -147,14 +145,20 @@ class FISTA(GradientDescent):
 
     """
 
-    def __init__(self, psf, dtype=None, proj=non_neg, tk=1, **kwargs):
+    def __init__(self, psf, dtype=None, proj=non_neg, tk=1.0, **kwargs):
+        self._initial_tk = tk
+
         super(FISTA, self).__init__(psf, dtype, proj)
+
         self._tk = tk
         self._xk = self._image_est
 
-    def reset(self, tk=1):
+    def reset(self, tk=None):
         super(FISTA, self).reset()
-        self._tk = tk
+        if tk:
+            self._tk = tk
+        else:
+            self._tk = self._initial_tk
         self._xk = self._image_est
 
     def _update(self, iter):
