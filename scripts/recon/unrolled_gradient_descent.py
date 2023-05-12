@@ -98,7 +98,7 @@ def gradient_descent(
         print("Using CPU for training.")
         device = "cpu"
 
-    torch.autograd.set_detect_anomaly(True)
+    # torch.autograd.set_detect_anomaly(True)
 
     # if using a portrait dataset rotate the PSF
     flip = config.files.dataset in ["CelebA"]
@@ -219,6 +219,18 @@ def gradient_descent(
         "n_iter": n_iter,
         "algorithm": config.reconstruction.method,
     }
+
+    # Backward hook that detect NAN in the gradient and print the layer weights
+    def detect_nan(grad):
+        if torch.isnan(grad).any():
+            print(grad)
+            for name, param in recon.named_parameters():
+                print(name, param)
+            raise ValueError("Gradient is NaN")
+        return grad
+
+    for param in recon.parameters():
+        param.register_hook(detect_nan)
 
     # Training loop
     for epoch in range(config.training.epoch):
