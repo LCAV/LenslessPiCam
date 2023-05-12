@@ -1,5 +1,11 @@
+# #############################################################################
+# benchmark.yaml
+# =========
+# Authors :
+# Yohann PERRON  [yohann.perron@gmail.com]
+# #############################################################################
+
 #Config files for benchmark_recon.py
-#Results for unrolled algorithms must be put in the folder "benchmark/trained_results" as a json file
 
 #Hydra config
 hydra:

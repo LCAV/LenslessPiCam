@@ -1,5 +1,5 @@
 # #############################################################################
-# trainable_recon.py
+# unrolled_fista.py
 # =================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
