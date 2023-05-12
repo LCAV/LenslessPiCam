@@ -28,7 +28,7 @@ MOCK_MODULES = [
     "pycsou.runtime",
     "pycsou.util",
     "pycsou.util.ptype",
-    "PIL",
+    "PIL"
 ]
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.abspath(os.path.join("..", "..")))
 from lensless import __version__
 
 project = "LenslessPiCam"
-copyright = f"{datetime.date.today().year}, Eric Bezzam, Julien Sahli"
+copyright = f"{datetime.date.today().year}, Eric Bezzam"
 author = "Eric Bezzam"
 version = __version__
 release = version
@@ -58,6 +58,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.todo",
     "sphinx.ext.viewcode",
+    
 ]
 
 intersphinx_mapping = {

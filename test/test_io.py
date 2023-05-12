@@ -17,11 +17,11 @@ def test_load_data():
                 gray=gray,
                 dtype=dtype,
             )
-            assert psf.shape[3] == (1 if gray else 3)
-            assert len(psf.shape) == 4
-            assert len(data.shape) == 4
-            assert data.shape[0] == 1
-            assert psf.shape[1:] == data.shape[1:]
+            if gray:
+                assert len(psf.shape) == 2
+            else:
+                assert len(psf.shape) == 3
+            assert psf.shape == data.shape
             assert psf.dtype == dtype, dtype
             assert data.dtype == dtype, dtype
 

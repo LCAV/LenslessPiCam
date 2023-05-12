@@ -19,6 +19,7 @@ from lensless import ADMM
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="defaults_recon")
 def admm(config):
+
     psf, data = load_data(
         psf_fp=to_absolute_path(config.input.psf),
         data_fp=to_absolute_path(config.input.data),

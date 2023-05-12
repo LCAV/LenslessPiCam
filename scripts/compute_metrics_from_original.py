@@ -31,6 +31,7 @@ matplotlib.rc("font", **font)
     version_base=None, config_path="../configs", config_name="compute_metrics_from_original"
 )
 def compute_metrics(config):
+
     recon = to_absolute_path(config.files.recon)
     original = to_absolute_path(config.files.original)
     vertical_crop = config.alignment.vertical_crop

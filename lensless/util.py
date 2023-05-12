@@ -3,13 +3,6 @@ import csv
 import numpy as np
 from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
-try:
-    import torch
-    import torchvision.transforms as tf
-
-    torch_available = True
-except ImportError:
-    torch_available = False
 
 SUPPORTED_BIT_DEPTH = np.array([8, 10, 12, 16])
 FLOAT_DTYPES = [np.float32, np.float64]
@@ -35,37 +28,18 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
     img : :py:class:`~numpy.ndarray`
         Resized image.
     """
-    assert len(img.shape) >= 4, "Image must be of shape (..., depth, height, width, color)"
     min_val = img.min()
     max_val = img.max()
-    img_shape = np.array(img.shape)[-3:-1]
-
-    assert not ((factor is None) and (shape is None)), "Must specify either factor or shape"
-    new_shape = tuple((img_shape * factor).astype(int)) if (shape is None) else shape[-3:-1]
-
-    if np.array_equal(img_shape, new_shape):
-        return img
-
-    if torch_available:
-        # torch resize expects an input of form [color, depth, width, height]
-        tmp = np.moveaxis(img, -1, 0)
-        resized = tf.Resize(size=new_shape, interpolation=interpolation)(
-            torch.from_numpy(tmp)
-        ).numpy()
-        resized = np.moveaxis(resized, 0, -1)
-
+    img_shape = np.array(img.shape)[:2]
+    if shape is None:
+        assert factor is not None
+        new_shape = tuple((img_shape * factor).astype(int))
+        new_shape = new_shape[::-1]
+        resized = cv2.resize(img, dsize=new_shape, interpolation=interpolation)
     else:
-        resized = np.array(
-            [
-                cv2.resize(img[i], dsize=new_shape[::-1], interpolation=interpolation)
-                for i in range(img.shape[-4])
-            ]
-        )
-        # OpenCV discards channel dimension if it is 1, put it back
-        if len(resized.shape) == 3:
-            # resized = resized[:, :, :, np.newaxis]
-            resized = np.expand_dims(resized, axis=-1)
-
+        if np.array_equal(img_shape, shape[::-1]):
+            return img
+        resized = cv2.resize(img, dsize=shape[::-1], interpolation=interpolation)
     return np.clip(resized, min_val, max_val)
 
 
@@ -83,13 +57,13 @@ def rgb2gray(rgb, weights=None):
     Returns
     -------
     img :py:class:`~numpy.ndarray`
-        Grayscale image of dimension (depth, height, width, 1).
+        Grayscale image of dimension (height, width).
 
     """
     if weights is None:
         weights = np.array([0.299, 0.587, 0.114])
     assert len(weights) == 3
-    return np.tensordot(rgb, weights, axes=((3,), 0))[:, :, :, np.newaxis]
+    return np.tensordot(rgb, weights, axes=((2,), 0))
 
 
 def gamma_correction(vals, gamma=2.2):

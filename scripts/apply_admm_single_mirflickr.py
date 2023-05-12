@@ -34,6 +34,7 @@ matplotlib.rc("font", **font)
 
 @hydra.main(version_base=None, config_path="../configs", config_name="apply_admm_single_mirflickr")
 def apply_admm(config):
+
     data = to_absolute_path(config.dataset)
     fid = config.fid
     gamma = config.display.gamma

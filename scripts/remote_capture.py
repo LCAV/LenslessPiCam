@@ -236,6 +236,7 @@ def liveview(
             os.remove(localfile)
 
     else:
+
         # copy over file
         # more pythonic? https://stackoverflow.com/questions/250283/how-to-scp-in-python
         remotefile = f"~/{remote_fn}.png"
@@ -244,9 +245,11 @@ def liveview(
         os.system('scp "%s@%s:%s" %s' % (username, hostname, remotefile, localfile))
 
         if rgb or gray:
+
             img = load_image(localfile, verbose=True)
 
         else:
+
             # get white balance gains
             if bayer:
                 red_gain = 1
@@ -295,6 +298,7 @@ def liveview(
         pixel_histogram(img_1chan)
 
     else:
+
         ax = plot_image(img, gamma=gamma)
         pixel_histogram(img)
 

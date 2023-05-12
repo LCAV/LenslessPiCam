@@ -25,6 +25,7 @@ from lensless.metric import mse, psnr, ssim, lpips
 
 @hydra.main(version_base=None, config_path="../configs", config_name="evaluate_mirflickr_admm")
 def mirflickr_dataset(config):
+
     data = to_absolute_path(config.dataset)
     n_files = config.n_files
     single_psf = config.preprocess.single_psf
@@ -74,6 +75,7 @@ def mirflickr_dataset(config):
     ssim_scores = []
     lpips_scores = []
     for fn in files:
+
         bn = os.path.basename(fn).split(".")[0]
         print(f"\n{bn}")
 
