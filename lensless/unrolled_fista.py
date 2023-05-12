@@ -60,18 +60,18 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
         # learnable step size initialize as < 2 / lipschitz
         Hadj_flat = self._convolver._Hadj.reshape(-1, self._n_channels)
         H_flat = self._convolver._H.reshape(-1, self._n_channels)
-        self._alpha = torch.nn.Parameter(
+        self._alpha_p = torch.nn.Parameter(
             torch.ones(n_iter, 3).to(psf.device)
             * (1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values)
         )
 
         # set tk, can be learnt if learn_tk=True
-        self._tk = [tk]
+        self._tk_p = [tk]
         for i in range(n_iter):
-            self._tk.append((1 + np.sqrt(1 + 4 * self._tk[i] ** 2)) / 2)
-        self._tk = torch.Tensor(self._tk)
+            self._tk_p.append((1 + np.sqrt(1 + 4 * self._tk_p[i] ** 2)) / 2)
+        self._tk_p = torch.Tensor(self._tk_p)
         if learn_tk:
-            self._tk = torch.nn.Parameter(self._tk)
+            self._tk_p = torch.nn.Parameter(self._tk_p).to(psf.device)
 
         self.reset()
 
@@ -82,9 +82,15 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
         diff = self._convolver.convolve(self._image_est) - self._data
         return self._convolver.deconvolve(diff)
 
-    def reset(self):
-        self._image_est = self._image_init
-        self._xk = self._image_init
+    def reset(self, batch_size=1):
+        if batch_size == 1:
+            self._image_est = self._image_init
+            self._xk = self._image_init
+        else:
+            self._image_est = self._image_init.unsqueeze(0).expand(batch_size, -1, -1, -1)
+            self._xk = self._image_est
+        self._alpha = torch.abs(self._alpha_p)
+        self._tk = torch.abs(self._tk_p)
 
     def _update(self, iter):
         self._image_est = self._image_est - self._alpha[iter] * self._grad()
@@ -116,8 +122,7 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
         else:
             CHW = False
 
-        self._image_est = self._image_init.unsqueeze(0).expand(batch_size, -1, -1, -1)
-        self._xk = self._image_est
+        self.reset(batch_size)
 
         for i in range(self.n_iter):
             self._update(i)
