@@ -61,13 +61,13 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
         Hadj_flat = self._convolver._Hadj.reshape(-1, self._n_channels)
         H_flat = self._convolver._H.reshape(-1, self._n_channels)
         self._alpha_p = torch.nn.Parameter(
-            torch.ones(n_iter, 3).to(psf.device)
+            torch.ones(self._n_iter, self._n_channels).to(psf.device)
             * (1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values)
         )
 
         # set tk, can be learnt if learn_tk=True
         self._tk_p = [tk]
-        for i in range(n_iter):
+        for i in range(self._n_iter):
             self._tk_p.append((1 + np.sqrt(1 + 4 * self._tk_p[i] ** 2)) / 2)
         self._tk_p = torch.Tensor(self._tk_p)
         if learn_tk:
@@ -124,7 +124,7 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
 
         self.reset(batch_size)
 
-        for i in range(self.n_iter):
+        for i in range(self._n_iter):
             self._update(i)
 
         if CHW:

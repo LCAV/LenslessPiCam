@@ -75,10 +75,10 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
             psf, n_iter=n_iter, dtype=dtype, pad=False, norm="backward", reset=False, **kwargs
         )
 
-        self._mu1_p = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu1)
-        self._mu2_p = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu2)
-        self._mu3_p = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu3)
-        self._tau_p = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * tau)
+        self._mu1_p = torch.nn.Parameter(torch.ones(self._n_iter, device=self._psf.device) * mu1)
+        self._mu2_p = torch.nn.Parameter(torch.ones(self._n_iter, device=self._psf.device) * mu2)
+        self._mu3_p = torch.nn.Parameter(torch.ones(self._n_iter, device=self._psf.device) * mu3)
+        self._tau_p = torch.nn.Parameter(torch.ones(self._n_iter, device=self._psf.device) * tau)
 
         # set prior
         if psi is None:
@@ -242,7 +242,7 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
 
         self.reset(batch_size=batch_size)
 
-        for i in range(self.n_iter):
+        for i in range(self._n_iter):
             self._update(i)
 
         image_est = self._form_image()

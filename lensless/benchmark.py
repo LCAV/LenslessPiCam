@@ -308,7 +308,7 @@ if __name__ == "__main__":
 
     # prepare model
     psf = dataset.psf.to(device)
-    model = ADMM(psf, max_iter=n_iter)
+    model = ADMM(psf, n_iter=n_iter)
 
     # run benchmark
     print(benchmark(model, dataset, batchsize=batchsize))

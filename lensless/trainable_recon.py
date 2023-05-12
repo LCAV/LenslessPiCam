@@ -61,8 +61,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         assert isinstance(psf, torch.Tensor)
         self.is_torch = True
 
-        self.n_iter = n_iter
-        super(TrainableReconstructionAlgorithm, self).__init__(psf, dtype=dtype, n_iter=1, **kwargs)
+        super(TrainableReconstructionAlgorithm, self).__init__(
+            psf, dtype=dtype, n_iter=n_iter, **kwargs
+        )
 
     @abc.abstractmethod
     def batch_call(self, batch):
@@ -124,7 +125,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             CHW = False
 
         im = super(TrainableReconstructionAlgorithm, self).apply(
-            n_iter=self.n_iter,
+            n_iter=self._n_iter,
             disp_iter=10,
             plot_pause=0.2,
             plot=plot,
