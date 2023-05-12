@@ -18,7 +18,7 @@ except ImportError:
     torch_available = False
 
 
-class unrolled_ADMM(TrainableReconstructionAlgorithm):
+class UnrolledADMM(TrainableReconstructionAlgorithm):
     """
     Object for applying ADMM (Alternating Direction Method of Multipliers) with
     a non-negativity constraint and a total variation (TV) prior.
@@ -73,7 +73,7 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
 
         # call reset() to initialize matrices
 
-        super(unrolled_ADMM, self).__init__(
+        super(UnrolledADMM, self).__init__(
             psf, n_iter=n_iter, dtype=dtype, pad=False, norm="backward"
         )
 

@@ -148,12 +148,12 @@ def test_apgd():
 
 def test_unrolled_fista():
     if torch_is_available:
-        from lensless.unrolled_fista import unrolled_FISTA
+        from lensless.unrolled_fista import UnrolledFISTA
 
         for dtype, torch_type in [("float32", torch.float32), ("float64", torch.float64)]:
             psf = torch.rand(32, 64, 3, dtype=torch_type)
             data = torch.rand(2, 32, 64, 3, dtype=torch_type)
-            recon = unrolled_FISTA(psf, n_iter=n_iter, dtype=dtype)
+            recon = UnrolledFISTA(psf, n_iter=n_iter, dtype=dtype)
 
             assert (
                 next(recon.parameters(), None) is not None
@@ -182,12 +182,12 @@ def test_unrolled_fista():
 
 def test_unrolled_admm():
     if torch_is_available:
-        from lensless.unrolled_admm import unrolled_ADMM
+        from lensless.unrolled_admm import UnrolledADMM
 
         for dtype, torch_type in [("float32", torch.float32), ("float64", torch.float64)]:
             psf = torch.rand(32, 64, 3, dtype=torch_type)
             data = torch.rand(2, 32, 64, 3, dtype=torch_type)
-            recon = unrolled_ADMM(psf, n_iter=n_iter, dtype=dtype)
+            recon = UnrolledADMM(psf, n_iter=n_iter, dtype=dtype)
 
             assert (
                 next(recon.parameters(), None) is not None

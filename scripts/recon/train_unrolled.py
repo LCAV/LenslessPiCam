@@ -23,8 +23,7 @@ import pathlib as plib
 from datetime import datetime
 import matplotlib.pyplot as plt
 from lensless.io import load_data, load_psf
-from lensless.unrolled_fista import unrolled_FISTA
-from lensless.unrolled_admm import unrolled_ADMM
+from lensless import UnrolledFISTA, UnrolledADMM
 from waveprop.dataset_util import SimulatedPytorchDataset
 from lensless.util import rgb2gray
 from lensless.benchmark import benchmark, BenchmarkDataset
@@ -135,7 +134,7 @@ def gradient_descent(
 
     start_time = time.time()
     if config.reconstruction.method == "unrolled_fista":
-        recon = unrolled_FISTA(
+        recon = UnrolledFISTA(
             psf,
             n_iter=config.reconstruction.unrolled_fista.n_iter,
             tk=config.reconstruction.unrolled_fista.tk,
@@ -144,14 +143,13 @@ def gradient_descent(
         ).to(device)
         n_iter = config.reconstruction.unrolled_fista.n_iter
     elif config.reconstruction.method == "unrolled_admm":
-        recon = unrolled_ADMM(
+        recon = UnrolledADMM(
             psf,
             n_iter=config.reconstruction.unrolled_admm.n_iter,
             mu1=config.reconstruction.unrolled_admm.mu1,
             mu2=config.reconstruction.unrolled_admm.mu2,
             mu3=config.reconstruction.unrolled_admm.mu3,
             tau=config.reconstruction.unrolled_admm.tau,
-            pad=True,
         ).to(device)
         n_iter = config.reconstruction.unrolled_admm.n_iter
     else:
