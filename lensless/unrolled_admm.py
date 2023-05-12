@@ -66,14 +66,15 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
         """
 
         # call reset() to initialize matrices
-        super(unrolled_ADMM, self).__init__(psf, dtype, pad=False, norm="backward")
+        super(unrolled_ADMM, self).__init__(
+            psf, n_iter=n_iter, dtype=dtype, pad=False, norm="backward"
+        )
         # super(ADMM, self).__init__(psf, dtype, pad=False, norm="ortho")
 
-        self._mu1 = torch.nn.Parameter(torch.ones(n_iter, device=self._psf.device) * mu1)
-        self._mu2 = torch.nn.Parameter(torch.ones(n_iter, device=self._psf.device) * mu2)
-        self._mu3 = torch.nn.Parameter(torch.ones(n_iter, device=self._psf.device) * mu3)
-        self._tau = torch.nn.Parameter(torch.ones(n_iter, device=self._psf.device) * tau)
-
+        self._mu1 = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu1)
+        self._mu2 = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu2)
+        self._mu3 = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu3)
+        self._tau = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * tau)
         # set prior
         if psi is None:
             # use already defined Psi and PsiT

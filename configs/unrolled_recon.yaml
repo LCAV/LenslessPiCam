@@ -38,7 +38,7 @@ save: True
 
 gradient_descent:
   # Number of iterations
-  n_iter: 30
+  n_iter: 5
   # Method: vanilla, nesterov, fista
   method: unrolled_fista
   # Hyperparameters for each method
@@ -93,7 +93,7 @@ training:
 
 optimizer:
   type: Adam
-  lr: 1e-2
+  lr: 1e-4
   
 loss: 'l2'
 # set lpips to false to deactivate
