@@ -41,9 +41,7 @@ def simulate_dataset(config, psf):
     elif config.files.dataset == "cifar10":
         ds = datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform)
     elif config.files.dataset == "CelebA":
-        ds = datasets.CelebA(
-            root="/scratch/bezzam/", split="train", download=True, transform=transform
-        )
+        ds = datasets.CelebA(root=data_path, split="train", download=True, transform=transform)
     else:
         raise NotImplementedError(f"Dataset {config.files.dataset} not implemented.")
 
@@ -91,7 +89,7 @@ def gradient_descent(
 
     torch.autograd.set_detect_anomaly(True)
 
-    # if using a portrait dataset
+    # if using a portrait dataset rotate the PSF
     flip = config.files.dataset in ["CelebA"]
 
     psf_float, background = load_psf(
@@ -109,8 +107,8 @@ def gradient_descent(
     )
     psf = torch.from_numpy(psf_float).to(device)
 
-    # if using a portrait dataset
-    if config.files.dataset in ["CelebA"]:
+    # if using a portrait dataset rotate the PSF
+    if flip:
         psf = torch.rot90(psf, dims=[0, 1])
 
     disp = config.display.disp
@@ -135,7 +133,25 @@ def gradient_descent(
     else:
         raise ValueError(f"{config.gradient_descent.method} is not a supported algorithm")
 
-    data_loader = simulate_dataset(config, psf)
+    # load dataset and create dataloader
+    if config.files.dataset == "DiffuserCam":
+        # Use a ParallelDataset
+        from lensless.benchmark import ParallelDataset
+
+        data_path = os.path.join(get_original_cwd(), "data", "DiffuserCam")
+        dataset = ParallelDataset(
+            root_dir=data_path,
+            psf=psf,
+            lensless_fn="diffuser_images",
+            lensed_fn="ground_truth_lensed",
+            downsample=config.simulation.downsample,
+        )
+        data_loader = torch.utils.data.DataLoader(
+            dataset=dataset, batch_size=config.training.batch_size, shuffle=True
+        )
+    else:
+        # Use a simulated dataset
+        data_loader = simulate_dataset(config, psf)
     print(f"Setup time : {time.time() - start_time} s")
 
     start_time = time.time()
@@ -173,6 +189,13 @@ def gradient_descent(
         i = 1.0
         pbar = tqdm(data_loader)
         for X, y in pbar:
+            # send to device and ensure CWH format
+            X = X.to(device)
+            y = y.to(device)
+            if X.shape[3] == 3:
+                X = X.permute(0, 3, 1, 2)
+                y = y.permute(0, 3, 1, 2)
+
             y_pred = recon.batch_call(X.to(device))
             # normalizing each output
             y_pred_max = torch.amax(y_pred, dim=(1, 2, 3), keepdim=True)
@@ -184,11 +207,13 @@ def gradient_descent(
             y = y / y_max
 
             if i % disp == 1 and config.display.plot:
-                img = y_pred[0].cpu().detach().permute(1, 2, 0).numpy()
-                plt.imshow(img)
+                # CHW -> HWC
+                img_pred = y_pred[0].cpu().detach().permute(1, 2, 0).numpy()
+                img_truth = y[0].cpu().detach().permute(1, 2, 0).numpy()
+
+                plt.imshow(img_pred)
                 plt.savefig(f"y_pred_{i-1}.png")
-                img = y[0].cpu().detach().permute(1, 2, 0).numpy()
-                plt.imshow(img)
+                plt.imshow(img_truth)
                 plt.savefig(f"y_{i-1}.png")
 
             optimizer.zero_grad(set_to_none=True)
