@@ -41,10 +41,11 @@ def benchmark_recon(config):
         model_list.append(("GradientDescent", GradientDescent(psf)))
     if "NesterovGradientDescent" in config.algorithms:
         model_list.append(("NesterovGradientDescent", NesterovGradientDescent(psf)))
-    if "APGD" in config.algorithms:
-        from lensless import APGD
+    # APGD is not supported yet
+    # if "APGD" in config.algorithms:
+    #     from lensless import APGD
 
-        model_list.append(("APGD", APGD(psf)))
+    #     model_list.append(("APGD", APGD(psf)))
 
     results = {}
     # benchmark each model for different number of iteration and append result to results
