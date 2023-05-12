@@ -66,10 +66,12 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
         """
 
         # call reset() to initialize matrices
+
         super(unrolled_ADMM, self).__init__(
             psf, n_iter=n_iter, dtype=dtype, pad=False, norm="backward"
         )
-        # super(ADMM, self).__init__(psf, dtype, pad=False, norm="ortho")
+        # super(unrolled_ADMM, self).__init__(psf, n_iter=n_iter, dtype=dtype, pad=False, norm="backward")
+        # super(unrolled_ADMM, self).__init__(psf, dtype, pad=False, norm="ortho")
 
         self._mu1 = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu1)
         self._mu2 = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu2)
@@ -107,12 +109,19 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
         """
         return finite_diff_adj(U)
 
-    def reset(self):
+    def reset(self, batch_size=1):
         # needed because ReconstructionAlgorithm initializer call reset to early
         if not hasattr(self, "_mu1"):
             return
         # TODO initialize without padding
-        self._image_est = torch.zeros(self._padded_shape, dtype=self._dtype).to(self._psf.device)
+        if batch_size == 1:
+            self._image_est = torch.zeros(self._padded_shape, dtype=self._dtype).to(
+                self._psf.device
+            )
+        else:
+            self._image_est = torch.zeros((batch_size, *self._padded_shape), dtype=self._dtype).to(
+                self._psf.device
+            )
         # self._image_est = torch.zeros_like(self._psf)
         self._X = torch.zeros_like(self._image_est)
         self._U = torch.zeros_like(self._Psi(self._image_est))
@@ -168,8 +177,8 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
 
         # rk = self._convolver._pad(rk)
 
-        freq_space_result = self._R_divmat[iter] * torch.fft.rfft2(rk, dim=(0, 1))
-        self._image_est = torch.fft.irfft2(freq_space_result, dim=(0, 1))
+        freq_space_result = self._R_divmat[iter] * torch.fft.rfft2(rk, dim=(-3, -2))
+        self._image_est = torch.fft.irfft2(freq_space_result, dim=(-3, -2))
 
         # self._image_est = self._convolver._crop(res)
 
@@ -212,4 +221,24 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
         # image = self._image_est
 
         image[image < 0] = 0
-        return image.squeeze()
+        return image
+
+    def batch_call(self, batch):
+        self._data = batch
+        batch_size = batch.shape[0]
+
+        if self._data.shape[-3] == 3:
+            CHW = True
+            self._data = self._data.movedim(-3, -1)
+        else:
+            CHW = False
+
+        self.reset(batch_size=batch_size)
+
+        for i in range(self.n_iter):
+            self._update(i)
+
+        self._image_est = self._form_image()
+        if CHW:
+            self._image_est = self._image_est.movedim(-1, -3)
+        return self._image_est

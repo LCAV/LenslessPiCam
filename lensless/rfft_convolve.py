@@ -101,10 +101,9 @@ class RealFFTConvolve2D:
             self._padded_data = self._pad(x)
         else:
             if self.is_torch:
-                self._padded_data = torch.zeros(
-                    size=self._padded_shape, dtype=self.dtype, device=self._psf.device
-                )
-            self._padded_data[:] = x
+                self._padded_data = x.type(self.dtype).to(self._psf.device)
+            else:
+                self._padded_data = x.astype(self.dtype)
 
         if self.is_torch:
             conv_output = torch.fft.ifftshift(
@@ -132,10 +131,9 @@ class RealFFTConvolve2D:
             self._padded_data = self._pad(y)
         else:
             if self.is_torch:
-                self._padded_data = torch.zeros(
-                    size=self._padded_shape, dtype=self.dtype, device=self._psf.device
-                )
-            self._padded_data[:] = y
+                self._padded_data = y.type(self.dtype).to(self._psf.device)
+            else:
+                self._padded_data = y.astype(self.dtype)
 
         if self.is_torch:
             deconv_output = torch.fft.ifftshift(
