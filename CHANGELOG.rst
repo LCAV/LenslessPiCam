@@ -16,7 +16,8 @@ Added
 -  Implementations for ``autocorr2d`` and ``RealFFTConvolve2D``.
 -  Benchmarking tool for ReconstructionAlgorithm
 -  ``n_iter`` parameter for ReconstructionAlgorithm constructor, so don't need to pass to ``apply``.
--  Support of 3D reconstruction for Gradient Descent and APGD, with and without Pytorch
+-  Support of 3D reconstruction for Gradient Descent and APGD, with and without Pytorch.
+-  Option to warm-start reconstruction algorithm with ``initial_est``.
 
 Changed
 ~~~~~~~
