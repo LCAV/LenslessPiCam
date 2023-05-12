@@ -163,7 +163,10 @@ def gradient_descent(
             if i %disp == 1 and config.display.plot:
                 img = y_pred[0].cpu().detach().permute(1,2,0).numpy()
                 plt.imshow(img)
-                plt.savefig(f"y_pred_{i}.png")
+                plt.savefig(f"y_pred_{i-1}.png")
+                img = y[0].cpu().detach().permute(1,2,0).numpy()
+                plt.imshow(img)
+                plt.savefig(f"y_{i-1}.png")
 
             optimizer.zero_grad(set_to_none=True)
             loss_v = Loss(y_pred, y)
