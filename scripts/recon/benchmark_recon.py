@@ -78,7 +78,7 @@ def benchmark_recon(config):
                     unrolled_results[model_name][metric] = result[metric]
 
     # for each metrics plot the results comparing each model
-    metrics_to_plot = ["SSIM", "PSNR", "MSE", "LPIPS"]
+    metrics_to_plot = ["SSIM", "PSNR", "MSE", "LPIPS", "ReconstructionError"]
     for metric in metrics_to_plot:
         plt.figure()
         # plot benchmarked algorithm
@@ -104,6 +104,9 @@ def benchmark_recon(config):
                 algorithm_colors[plot_name] = color_list.pop()
             color = algorithm_colors[plot_name]
 
+            # check if metric is defined
+            if metric not in unrolled_results[model_name].keys():
+                continue
             # if n_iter is undefined, plot as horizontal line
             if "n_iter" not in unrolled_results[model_name].keys():
                 plt.hlines(
