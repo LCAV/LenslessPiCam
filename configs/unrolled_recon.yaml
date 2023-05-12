@@ -9,7 +9,7 @@ input:
   dtype: float32
 
 torch: True
-torch_device: 'cpu'
+torch_device: 'cuda'
 
 preprocess:
   # Image shape (height, width) for reconstruction.
@@ -37,23 +37,23 @@ display:
 save: True
 
 reconstruction:
-  # Number of iterations
-  n_iter: 10
-  # Method: vanilla, nesterov, fista
+  # Method: unrolled_admm, unrolled_fista
   method: unrolled_admm
+
   # Hyperparameters for each method
-  unrolled_fista:
+  unrolled_fista: # for unrolled_fista
+    # Number of iterations
+    n_iter: 20
     tk: 1
     learn_tk: True
-
-# admm:
-#   # Number of iterations
-#   n_iter: 5
-#   # Hyperparameters
-#   mu1: 1e-6
-#   mu2: 1e-5
-#   mu3: 4e-5
-#   tau: 0.0001
+  unrolled_admm:
+    # Number of iterations
+    n_iter: 5
+    # Hyperparameters
+    mu1: 1e-4
+    mu2: 1e-4
+    mu3: 2e-4
+    tau: 0.0001
 
 
 # Train Dataset
@@ -93,7 +93,7 @@ training:
 
 optimizer:
   type: Adam
-  lr: 1e-2
+  lr: 1e-4
   
 loss: 'l2'
 # set lpips to false to deactivate

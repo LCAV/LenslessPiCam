@@ -130,13 +130,23 @@ def gradient_descent(
     if config.reconstruction.method == "unrolled_fista":
         recon = unrolled_FISTA(
             psf,
-            n_iter=config.reconstruction.n_iter,
+            n_iter=config.reconstruction.unrolled_fista.n_iter,
             tk=config.reconstruction.unrolled_fista.tk,
             pad=True,
             learn_tk=config.reconstruction.unrolled_fista.learn_tk,
         ).to(device)
+        n_iter = config.reconstruction.unrolled_fista.n_iter
     elif config.reconstruction.method == "unrolled_admm":
-        recon = unrolled_ADMM(psf, n_iter=config.reconstruction.n_iter, pad=True).to(device)
+        recon = unrolled_ADMM(
+            psf,
+            n_iter=config.reconstruction.unrolled_admm.n_iter,
+            mu1=config.reconstruction.unrolled_admm.mu1,
+            mu2=config.reconstruction.unrolled_admm.mu2,
+            mu3=config.reconstruction.unrolled_admm.mu3,
+            tau=config.reconstruction.unrolled_admm.tau,
+            pad=True,
+        ).to(device)
+        n_iter = config.reconstruction.unrolled_admm.n_iter
     else:
         raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
 
@@ -205,7 +215,7 @@ def gradient_descent(
         "LPIPS": [],
         "PSNR": [],
         "SSIM": [],
-        "n_iter": config.reconstruction.n_iter,
+        "n_iter": n_iter,
         "algorithm": config.reconstruction.method,
     }
 
