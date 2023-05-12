@@ -18,7 +18,10 @@ except ImportError:
 
 if __name__ == "__main__":
 
-    downsample = 4
+    downsample = 8
+    data_path = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
+    n_iter_range = [5, 10, 30, 60, 100, 200, 300]  # numbers of iterations to benchmark
+    model_list = [ADMM, FISTA, GradientDescent]  # list of models to benchmark
 
     # check if GPU is available
     if torch.cuda.is_available():
@@ -26,8 +29,8 @@ if __name__ == "__main__":
     else:
         device = "cpu"
 
-    data = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
-    if not os.path.isdir(data):
+    # verify if dataset exist and download if necessary
+    if not os.path.isdir(data_path):
         print("No dataset found for benchmarking.")
         try:
             from torchvision.datasets.utils import download_and_extract_archive
@@ -43,7 +46,7 @@ if __name__ == "__main__":
             download_and_extract_archive(url, "data/", filename=filename, remove_finished=True)
 
     # load psf and compute background
-    psf_fp = os.path.join(data, "psf.tiff")
+    psf_fp = os.path.join(data_path, "psf.tiff")
     psf_float, background = load_psf(
         psf_fp,
         downsample=downsample,
@@ -54,18 +57,16 @@ if __name__ == "__main__":
     psf = torch.from_numpy(psf_float).to(device)
 
     # Benchmark dataset
-    data_path = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
     benchmark_dataset = ParallelDataset(
         data_path,
-        n_files=100,
+        n_files=200,
         background=background,
         downsample=downsample,
     )
 
     results = {}
-    n_iter_range = [5, 10, 30, 100, 300]
     # benchmark each model for different number of iteration and append result to results
-    for Model in [ADMM, FISTA, GradientDescent]:
+    for Model in model_list:
         results[Model.__name__] = []
         print(f"Running benchmark for {Model.__name__}")
         for n_iter in n_iter_range:
@@ -96,32 +97,62 @@ if __name__ == "__main__":
         unrolled_results[model_name] = {}
         with open(file, "r") as f:
             result = json.load(f)
-            # get most recent result
+
+            # get result for each metric
             for metric in result.keys():
-                unrolled_results[model_name][metric] = result[metric][-1]
+                # if list take last value (last epoch)
+                if isinstance(result[metric], list):
+                    unrolled_results[model_name][metric] = result[metric][-1]
+                else:
+                    unrolled_results[model_name][metric] = result[metric]
 
     # for each metrics plot the results comparing each model
     metrics_to_plot = ["SSIM", "PSNR", "MSE", "LPIPS"]
     for metric in metrics_to_plot:
         plt.figure()
-        # plot benchmark algorithm
+        # plot benchmarked algorithm
         for model_name in results.keys():
             plt.plot(
                 [result["n_iter"] for result in results[model_name]],
                 [result[metric] for result in results[model_name]],
                 label=model_name,
             )
-        # plot unrolled algorithms results as horizontal line with different color
-        colors = ["red", "green", "blue", "orange", "purple"]
+
+        # plot unrolled algorithms results
+        color_list = ["red", "green", "blue", "orange", "purple"]
+        algorithm_colors = {}
         for model_name in unrolled_results.keys():
-            plt.hlines(
-                unrolled_results[model_name][metric],
-                0,
-                n_iter_range[-1],
-                label=model_name,
-                linestyles="dashed",
-                colors=colors.pop(),
-            )
+
+            # use algorithm name if defined, else use file name
+            if "algorithm" in unrolled_results[model_name].keys():
+                plot_name = unrolled_results[model_name]["algorithm"]
+            else:
+                plot_name = model_name
+
+            # set color depending on plot name using same color for same algorithm
+            if plot_name not in algorithm_colors.keys():
+                algorithm_colors[plot_name] = color_list.pop()
+            color = algorithm_colors[plot_name]
+
+            # if n_iter is undefined, plot as horizontal line
+            if "n_iter" not in unrolled_results[model_name].keys():
+                plt.hlines(
+                    unrolled_results[model_name][metric],
+                    0,
+                    n_iter_range[-1],
+                    label=plot_name,
+                    linestyles="dashed",
+                    colors=color,
+                )
+            else:
+                # plot as point
+                plt.plot(
+                    unrolled_results[model_name]["n_iter"],
+                    unrolled_results[model_name][metric],
+                    label=plot_name,
+                    marker="o",
+                    color=color,
+                )
         plt.title(metric)
         plt.xlabel("Number of iterations")
         plt.ylabel(metric)
