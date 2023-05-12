@@ -1,4 +1,6 @@
+scripts/recon/outputs/
 .idea/
+
 *_sol.py
 scripts/admm_*
 scripts/gd_*
@@ -7,6 +9,7 @@ DiffuserCam_Mirflickr*
 DiffuserCam_Mirflickr_200_3011302021_11h43_seed11*
 paper/paper.pdf
 data/*
+
 # from hydra
 outputs/*     
 
@@ -123,6 +126,8 @@ env.bak/
 venv.bak/
 diffcam_env/
 lensless_env/
+lensless_docs/
+lensless_notorch/
 
 # Spyder project settings
 .spyderproject

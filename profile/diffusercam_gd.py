@@ -88,7 +88,6 @@ def calcAHerm(Hadj, diff, pad):
 
 
 def gd_update(params, parent_var):
-
     # extract variables
     vk = params["vk"]
     H, Hadj, b, crop, pad, alpha, proj = parent_var
@@ -104,7 +103,6 @@ def gd_update(params, parent_var):
 
 
 def nesterov_update(params, parent_var):
-
     # extract variables
     vk = params["vk"]
     p = params["p"]
@@ -125,7 +123,6 @@ def nesterov_update(params, parent_var):
 
 
 def fista_update(params, parent_var):
-
     # extract variables
     vk = params["vk"]
     xk = params["xk"]
