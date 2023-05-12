@@ -15,10 +15,11 @@ import time
 import pathlib as plib
 from datetime import datetime
 import matplotlib.pyplot as plt
-from lensless.io import load_data
+from lensless.io import load_data, load_psf
 from lensless.unrolled_fista import unrolled_FISTA
 from waveprop.dataset_util import SimulatedPytorchDataset
 from lensless.util import rgb2gray
+from lensless.benchmark import benchmark
 import torch
 from torchvision import transforms, datasets
 from tqdm import tqdm
@@ -88,23 +89,24 @@ def gradient_descent(
         device = "cpu"
 
     torch.autograd.set_detect_anomaly(True)
-    psf, data = load_data(
-        psf_fp=to_absolute_path(config.input.psf),
-        data_fp=to_absolute_path(config.input.data),
-        dtype=config.input.dtype,
+
+    # if using a portrait dataset
+    flip = config.files.dataset in ["CelebA"]
+
+    psf_float, background = load_psf(
+        to_absolute_path(config.input.psf),
         downsample=config.simulation.downsample,
+        return_float=True,
+        return_bg=True,
+        bg_pix=(0, 15),
+        single_psf=config.preprocess.single_psf,
+        shape=config.preprocess.shape,
         bayer=config.preprocess.bayer,
         blue_gain=config.preprocess.blue_gain,
         red_gain=config.preprocess.red_gain,
-        plot=config.display.plot,
-        flip=config.preprocess.flip,
-        gamma=config.display.gamma,
-        gray=config.preprocess.gray,
-        single_psf=config.preprocess.single_psf,
-        shape=config.preprocess.shape,
-        torch=True,
-        torch_device=device,
+        flip=flip,
     )
+    psf = torch.from_numpy(psf_float).to(device)
 
     # if using a portrait dataset
     if config.files.dataset in ["CelebA"]:
@@ -198,23 +200,22 @@ def gradient_descent(
 
     print(f"Train time : {time.time() - start_time} s")
 
-    start_time = time.time()
-    recon.set_data(data)
-    res = recon.apply(
-        disp_iter=None,
-        save=save,
-        gamma=config.display.gamma,
-        plot=config.display.plot,
-    )
-    print(f"Processing time : {time.time() - start_time} s")
+    # benchmarking final model
+    data_path = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
+    data_path = os.path.join(get_original_cwd(), data_path)
+    perf = benchmark(recon, data_path, downsample=config.simulation.downsample, flip=flip)
 
-    img = res[0].detach().cpu().numpy()
+    # save dictionary perf to file with json
+    try:
+        import json
 
-    if config.display.plot:
-        plt.show()
-    if save:
-        np.save(plib.Path(save) / "final_reconstruction.npy", img)
-        print(f"Files saved to : {save}")
+        with open(os.path.join(save, "perf.json"), "w") as f:
+            json.dump(perf, f)
+    except ImportError:
+        print("json package not found, final performence not saved")
+
+    # save pytorch model recon
+    torch.save(recon.state_dict(), "recon.pt")
 
 
 if __name__ == "__main__":

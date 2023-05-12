@@ -5,9 +5,7 @@ hydra:
 #Reconstruction algorithm
 input:
   # File path for recorded PSF
-  psf: data/psf/tape_rgb.png
-  # File path for raw data  
-  data: data/raw_data/thumbs_up_rgb.png
+  psf: data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11/psf.tiff
   dtype: float32
 
 torch: True
@@ -16,8 +14,6 @@ torch_device: 'cpu'
 preprocess:
   # Image shape (height, width) for reconstruction.
   shape: null
-  # Whether to flip image.
-  flip: False
   # Whether image is raw bayer data.
   bayer: False
   blue_gain: null
@@ -42,7 +38,7 @@ save: True
 
 gradient_descent:
   # Number of iterations
-  n_iter: 10
+  n_iter: 30
   # Method: vanilla, nesterov, fista
   method: unrolled_fista
   # Hyperparameters for each method
@@ -92,7 +88,7 @@ simulation:
 #Training
 
 training:
-  batch_size: 32
+  batch_size: 16
   epoch: 1
 
 optimizer:
@@ -101,4 +97,4 @@ optimizer:
   
 loss: 'l2'
 # set lpips to false to deactivate
-lpips: False
+lpips: 0.6
