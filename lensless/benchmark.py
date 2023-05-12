@@ -240,7 +240,7 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
     assert isinstance(model._psf, torch.Tensor), "model need to be constructed with torch support"
     device = model._psf.device
 
-    def Reconstruction_Error(prediction, lensless):
+    def reconstruction_error(prediction, lensless):
         convolver = model._convolver
         if convolver.pad:
             prediction = prediction.movedim(-3, -1)
@@ -261,7 +261,7 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
             "LPIPS": lpip.LearnedPerceptualImagePatchSimilarity(net_type="vgg").to(device),
             "PSNR": psnr.PeakSignalNoiseRatio().to(device),
             "SSIM": StructuralSimilarityIndexMeasure().to(device),
-            "ReconstructionError": Reconstruction_Error,
+            "ReconstructionError": reconstruction_error,
         }
     metrics_values = {key: 0.0 for key in metrics}
 

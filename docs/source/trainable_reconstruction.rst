@@ -2,7 +2,7 @@
 
 
    Trainable reconstruction API
-   ------------------
+   ----------------------------
 
 
    Abstract Class

@@ -71,8 +71,6 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
             Function to compute gram of `psi`.
         """
 
-        # call reset() to initialize matrices
-
         super(UnrolledADMM, self).__init__(
             psf, n_iter=n_iter, dtype=dtype, pad=False, norm="backward"
         )
@@ -172,7 +170,6 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
 
     def _X_update(self, iter):
         # to avoid computing forward model twice
-        # self._X = self._X_divmat * (self._xi + self._mu1 * self._forward_out + self._data)
         self._X = self._X_divmat[iter] * (
             self._xi + self._mu1[iter] * self._forward_out + self._convolver._pad(self._data)
         )
@@ -184,12 +181,8 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
             + self._convolver.deconvolve(self._mu1[iter] * self._X - self._xi)
         )
 
-        # rk = self._convolver._pad(rk)
-
         freq_space_result = self._R_divmat[iter] * torch.fft.rfft2(rk, dim=(-3, -2))
         self._image_est = torch.fft.irfft2(freq_space_result, dim=(-3, -2))
-
-        # self._image_est = self._convolver._crop(res)
 
     def _W_update(self, iter):
         """Non-negativity update"""
@@ -224,10 +217,6 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
 
     def _form_image(self):
         image = self._convolver._crop(self._image_est)
-
-        # # TODO without cropping
-        # image = self._image_est
-
         image[image < 0] = 0
         return image
 

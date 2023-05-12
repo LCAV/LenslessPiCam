@@ -56,8 +56,6 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
         psf_flat = self._psf.reshape(-1, self._n_channels)
         pixel_start = (torch.max(psf_flat, axis=0).values + torch.min(psf_flat, axis=0).values) / 2
         self._image_init = torch.ones_like(self._psf) * pixel_start
-        self._image_est = self._image_init
-        self._xk = self._image_init
 
         # learnable step size initialize as < 2 / lipschitz
         Hadj_flat = self._convolver._Hadj.reshape(-1, self._n_channels)
@@ -74,6 +72,8 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
         self._tk = torch.Tensor(self._tk)
         if learn_tk:
             self._tk = torch.nn.Parameter(self._tk)
+
+        self.reset()
 
     def _form_image(self):
         return self._proj(self._image_est).squeeze()

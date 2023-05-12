@@ -1,12 +1,3 @@
-# #############################################################################
-# benchmark.yaml
-# =========
-# Authors :
-# Yohann PERRON  [yohann.perron@gmail.com]
-# #############################################################################
-
-#Config files for benchmark_recon.py
-
 #Hydra config
 hydra:
   run:

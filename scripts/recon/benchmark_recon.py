@@ -1,5 +1,5 @@
 # #############################################################################
-# benchmark_recon.py.py
+# benchmark_recon.py
 # =========
 # Authors :
 # Yohann PERRON
@@ -66,14 +66,13 @@ def benchmark_recon(config):
 
     results = {}
     # benchmark each model for different number of iteration and append result to results
-    for Model in model_list:
-        results[Model[0]] = []
-        print(f"Running benchmark for {Model[0]}")
+    for model_name, model in model_list:
+        results[model_name] = []
+        print(f"Running benchmark for {model_name}")
         for n_iter in n_iter_range:
-            model = Model[1]
             result = benchmark(model, benchmark_dataset, batchsize=1, n_iter=n_iter)
             result["n_iter"] = n_iter
-            results[Model[0]].append(result)
+            results[model_name].append(result)
 
     # create folder to load results from trained algorithms
     result_dir = os.path.join(get_original_cwd(), "benchmark", "trained_results")

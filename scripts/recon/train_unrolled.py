@@ -1,15 +1,15 @@
 # #############################################################################
-# trained_unrolled.py
+# train_unrolled.py
 # =================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
 # #############################################################################
 
 """
-Apply gradient descent.
+Train unrolled version of reconstruction algorithm.
 
 ```
-python scripts/recon/trained_unrolled.py
+python scripts/recon/train_unrolled.py
 ```
 
 """
