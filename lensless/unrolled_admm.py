@@ -70,10 +70,10 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
             psf, n_iter=n_iter, dtype=dtype, pad=False, norm="backward"
         )
 
-        self._mu1 = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu1)
-        self._mu2 = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu2)
-        self._mu3 = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu3)
-        self._tau = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * tau)
+        self._mu1_p = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu1)
+        self._mu2_p = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu2)
+        self._mu3_p = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu3)
+        self._tau_p = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * tau)
 
         # set prior
         if psi is None:
@@ -109,8 +109,14 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
 
     def reset(self, batch_size=1):
         # needed because ReconstructionAlgorithm initializer call reset to early
-        if not hasattr(self, "_mu1"):
+        if not hasattr(self, "_mu1_p"):
             return
+
+        # ensure that mu1, mu2, mu3, tau are positive
+        self._mu1 = torch.abs(self._mu1_p)
+        self._mu2 = torch.abs(self._mu2_p)
+        self._mu3 = torch.abs(self._mu3_p)
+        self._tau = torch.abs(self._tau_p)
 
         # TODO initialize without padding
         if batch_size == 1:
