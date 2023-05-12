@@ -246,12 +246,10 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
             prediction = prediction.movedim(-3, -1)
         else:
             prediction = convolver._pad(prediction.movedim(-3, -1))
-            lensless = convolver._pad(lensless)
         Fx = convolver.convolve(prediction)
-        Fy = convolver.convolve(lensless)
+        Fy = lensless
         if not convolver.pad:
-            Fx = convolver._crop(prediction)
-            Fy = convolver._crop(lensless)
+            Fx = convolver._crop(Fx)
         return torch.norm(Fx - Fy)
 
     if metrics is None:
