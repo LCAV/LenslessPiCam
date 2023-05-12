@@ -61,6 +61,10 @@ if __name__ == "__main__":
             result["n_iter"] = n_iter
             results[Model.__name__].append(result)
 
+    # create folder to save plots
+    if not os.path.isdir("benchmark"):
+        os.mkdir("benchmark")
+
     # for each metrics plot the results comparing each model
     metrics_to_plot = ["SSIM", "PSNR", "MSE", "LPIPS"]
     for metric in metrics_to_plot:
