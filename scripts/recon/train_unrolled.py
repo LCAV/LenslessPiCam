@@ -2,7 +2,7 @@
 Apply gradient descent.
 
 ```
-python scripts/recon/unrolled_gradient_descent.py
+python scripts/recon/trained_unrolled.py
 ```
 
 """
