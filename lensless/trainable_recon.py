@@ -64,6 +64,21 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         super(TrainableReconstructionAlgorithm, self).__init__(psf, dtype=dtype, n_iter=1, **kwargs)
 
     def batch_call(self, batch):
+        """
+        Method for performing iterative reconstruction on a batch of images.
+        This implementation simply calls `apply` on each image in the batch.
+        Training algorithms are expected to override this method with a proprly vectorized implementation.
+
+        Parameters
+        ----------
+        batch : :py:class:`~torch.Tensor` of shape (N, C, H, W) or (N, H, W, C)
+            The lensless images to reconstruct. If the shape is (N, C, H, W), the images are converted to (N, H, W, C) before reconstruction.
+
+        Returns
+        -------
+        :py:class:`~torch.Tensor` of shape (N, C, H, W) or (N, H, W, C)
+            The reconstructed images. Channels are in the same order as the input.
+        """
         result = []
         for image in batch:
             self.reset()
@@ -73,7 +88,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
     def apply(self, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None):
         """
-        Method for performing iterative reconstruction. Contrary to none trainable reconstruction algorithm, the number of iteration isn't requiered. Note that `set_data`
+        Method for performing iterative reconstruction. Contrary to not trainable reconstruction algorithm, the number of iteration isn't requiered. Note that `set_data`
         must be called beforehand.
 
         Parameters
@@ -97,7 +112,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
         Returns
         -------
-        final_im : :py:class:`~numpy.ndarray`
+        final_im : :py:class:`~torch.Tensor`
             Final reconstruction.
         ax : :py:class:`~matplotlib.axes.Axes`
             `Axes` object on which final reconstruction is displayed. Only

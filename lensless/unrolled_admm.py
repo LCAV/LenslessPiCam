@@ -40,21 +40,20 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
 
         Parameters
         ----------
-        psf : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
+        psf : :py:class:`~torch.Tensor` of shape (H, W, C)
             Point spread function (PSF) that models forward propagation.
-            2D (grayscale) or 3D (RGB) data can be provided and the shape will
-            be used to determine which reconstruction (and allocate the
-            appropriate memory).
         dtype : float32 or float64
             Data type to use for optimization. Default is float32.
+        n_iter : int, optional
+            Number of iterations to unrolled, by default 5
         mu1 : float
-            Step size for updating primal/dual variables.
+            Initial step size for updating primal/dual variables.
         mu2 : float
-            Step size for updating primal/dual variables.
+            Initial step size for updating primal/dual variables.
         mu3 : float
-            Step size for updating primal/dual variables.
+            Initial step size for updating primal/dual variables.
         tau : float
-            Weight for L1 norm of `psi` applied to the image estimate.
+            Initial weight for L1 norm of `psi` applied to the image estimate.
         psi : :py:class:`function`, optional
             Operator to map image to a space that the image is assumed to be
             sparse in (hence L1 norm). Default is to use total variation (TV)
@@ -70,13 +69,12 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
         super(unrolled_ADMM, self).__init__(
             psf, n_iter=n_iter, dtype=dtype, pad=False, norm="backward"
         )
-        # super(unrolled_ADMM, self).__init__(psf, n_iter=n_iter, dtype=dtype, pad=False, norm="backward")
-        # super(unrolled_ADMM, self).__init__(psf, dtype, pad=False, norm="ortho")
 
         self._mu1 = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu1)
         self._mu2 = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu2)
         self._mu3 = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu3)
         self._tau = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * tau)
+
         # set prior
         if psi is None:
             # use already defined Psi and PsiT
@@ -113,6 +111,7 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
         # needed because ReconstructionAlgorithm initializer call reset to early
         if not hasattr(self, "_mu1"):
             return
+
         # TODO initialize without padding
         if batch_size == 1:
             self._image_est = torch.zeros(self._padded_shape, dtype=self._dtype).to(
@@ -122,13 +121,11 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
             self._image_est = torch.zeros((batch_size, *self._padded_shape), dtype=self._dtype).to(
                 self._psf.device
             )
-        # self._image_est = torch.zeros_like(self._psf)
         self._X = torch.zeros_like(self._image_est)
         self._U = torch.zeros_like(self._Psi(self._image_est))
         self._W = torch.zeros_like(self._X)
         if self._image_est.max():
             # if non-zero
-            # self._forward_out = self._forward()
             self._forward_out = self._convolver.convolve(self._image_est)
             self._Psi_out = self._Psi(self._image_est)
         else:
@@ -152,7 +149,6 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
             self._convolver._pad(torch.ones_like(self._psf))[None, :, :, :]
             + self._mu1[:, None, None, None]
         )
-        # self._X_divmat = 1.0 / (torch.ones_like(self._psf) + self._mu1)
 
     def _U_update(self, iter):
         """Total variation update."""
@@ -224,6 +220,20 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
         return image
 
     def batch_call(self, batch):
+        """
+        Method for performing iterative reconstruction on a batch of images.
+        This implementation is a proprly vectorized implementation of FISTA.
+
+        Parameters
+        ----------
+        batch : :py:class:`~torch.Tensor` of shape (N, C, H, W) or (N, H, W, C)
+            The lensless images to reconstruct. If the shape is (N, C, H, W), the images are converted to (N, H, W, C) before reconstruction.
+
+        Returns
+        -------
+        :py:class:`~torch.Tensor` of shape (N, C, H, W) or (N, H, W, C)
+            The reconstructed images. Channels are in the same order as the input.
+        """
         self._data = batch
         batch_size = batch.shape[0]
 

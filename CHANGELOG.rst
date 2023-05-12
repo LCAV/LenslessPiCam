@@ -31,6 +31,7 @@ Changed
 -  Fix typo in GradientDescent class name.
 -  Updated to Pycsou V2, as ``pip install pycsou`` (Pycsou V1) may not work on some machines.
 -  Data and PSF are now always stored as 4D Data [depth, width, height, color]. Grayscale data has a color axis of length 1 and 2D data has a depth axis of length 1.
+-  Added batch support to RealFFTConvolve2D.
 
 Bugfix
 ~~~~~~

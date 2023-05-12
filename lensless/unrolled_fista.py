@@ -20,14 +20,32 @@ except ImportError:
 
 class unrolled_FISTA(TrainableReconstructionAlgorithm):
     """
-    Object for applying projected gradient descent with FISTA (Fast Iterative
+    Object for applying unrolled projected gradient descent with FISTA (Fast Iterative
     Shrinkage-Thresholding Algorithm) for acceleration.
 
-    Paper: https://www.ceremade.dauphine.fr/~carlier/FISTA
+    FISTA Paper: https://www.ceremade.dauphine.fr/~carlier/FISTA
 
     """
 
     def __init__(self, psf, n_iter=5, dtype=None, proj=non_neg, learn_tk=True, tk=1, **kwargs):
+        """
+        COnstructor for unrolled FISTA algorithm.
+
+        Parameters
+        ----------
+        psf : :py:class:`~torch.Tensor` of shape (H, W, C)
+            The point spread function (PSF) that models forward propagation.
+        n_iter : int, optional
+            Number of iterations to unrolled, by default 5
+        dtype : float32 or float64
+            Data type to use for optimization.
+        proj : :py:class:`function`, optional
+            Projection function to apply at each iteration, by default non_neg
+        learn_tk : bool, optional
+            whether the tk parameters of FISTA should be learnt, by default True
+        tk : int, optional
+            Initial value of tk, by default 1
+        """
 
         super(unrolled_FISTA, self).__init__(psf, n_iter=n_iter, dtype=dtype, **kwargs)
 
@@ -77,6 +95,20 @@ class unrolled_FISTA(TrainableReconstructionAlgorithm):
         self._xk = xk
 
     def batch_call(self, batch):
+        """
+        Method for performing iterative reconstruction on a batch of images.
+        This implementation is a proprly vectorized implementation of FISTA.
+
+        Parameters
+        ----------
+        batch : :py:class:`~torch.Tensor` of shape (N, C, H, W) or (N, H, W, C)
+            The lensless images to reconstruct. If the shape is (N, C, H, W), the images are converted to (N, H, W, C) before reconstruction.
+
+        Returns
+        -------
+        :py:class:`~torch.Tensor` of shape (N, C, H, W) or (N, H, W, C)
+            The reconstructed images. Channels are in the same order as the input.
+        """
         self._data = batch
         batch_size = batch.shape[0]
 
