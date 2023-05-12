@@ -20,7 +20,7 @@ import glob
 import json
 import os
 import pathlib as plib
-from lensless.benchmark import benchmark, BenchmarkDataset
+from lensless.benchmark import benchmark, DiffuserCamTestDataset
 import matplotlib.pyplot as plt
 from lensless import ADMM, FISTA, GradientDescent, NesterovGradientDescent
 
@@ -43,21 +43,38 @@ def benchmark_recon(config):
         device = "cpu"
 
     # Benchmark dataset
-    benchmark_dataset = BenchmarkDataset(
+    benchmark_dataset = DiffuserCamTestDataset(
         data_dir=os.path.join(get_original_cwd(), "data"), n_files=n_files, downsample=downsample
     )
     psf = benchmark_dataset.psf.to(device)
 
     model_list = []  # list of algoritms to benchmark
     if "ADMM" in config.algorithms:
-        model_list.append(("ADMM", ADMM(psf)))
-        model_list.append(("ADMM_learn_recon", ADMM(psf, mu1=1e-4, mu2=1e-4, mu3=1e-4, tau=1e-3)))
+        model_list.append(
+            (
+                "ADMM",
+                ADMM(
+                    psf,
+                    mu1=config.admm.mu1,
+                    mu2=config.admm.mu2,
+                    mu3=config.admm.mu3,
+                    tau=config.admm.tau,
+                ),
+            )
+        )
+    if "ADMM_Monakhova2019" in config.algorithms:
+        model_list.append(("ADMM_Monakhova2019", ADMM(psf, mu1=1e-4, mu2=1e-4, mu3=1e-4, tau=1e-3)))
     if "FISTA" in config.algorithms:
-        model_list.append(("FISTA", FISTA(psf)))
+        model_list.append(("FISTA", FISTA(psf, tk=config.fista.tk)))
     if "GradientDescent" in config.algorithms:
         model_list.append(("GradientDescent", GradientDescent(psf)))
     if "NesterovGradientDescent" in config.algorithms:
-        model_list.append(("NesterovGradientDescent", NesterovGradientDescent(psf)))
+        model_list.append(
+            (
+                "NesterovGradientDescent",
+                NesterovGradientDescent(psf, p=config.nesterov.p, mu=config.nesterov.mu),
+            )
+        )
     # APGD is not supported yet
     # if "APGD" in config.algorithms:
     #     from lensless import APGD

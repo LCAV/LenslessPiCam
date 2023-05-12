@@ -68,7 +68,6 @@ class RealFFTConvolve2D:
                 self._pad(self._psf), norm=norm, dim=(-3, -2), s=self._padded_shape[-3:-1]
             )
             self._Hadj = torch.conj(self._H)
-            # self._padded_data = torch.zeros(size=self._padded_shape, dtype=dtype, device=psf.device)
         else:
             self._H = fft.rfft2(self._pad(self._psf), axes=(-3, -2), norm=norm)
             self._Hadj = np.conj(self._H)
@@ -103,7 +102,7 @@ class RealFFTConvolve2D:
             if self.is_torch:
                 self._padded_data = x  # .type(self.dtype).to(self._psf.device)
             else:
-                self._padded_data = x  # .astype(self.dtype)
+                self._padded_data[:] = x  # .astype(self.dtype)
 
         if self.is_torch:
             conv_output = torch.fft.ifftshift(
@@ -133,7 +132,7 @@ class RealFFTConvolve2D:
             if self.is_torch:
                 self._padded_data = y  # .type(self.dtype).to(self._psf.device)
             else:
-                self._padded_data = y  # .astype(self.dtype)
+                self._padded_data[:] = y  # .astype(self.dtype)
 
         if self.is_torch:
             deconv_output = torch.fft.ifftshift(

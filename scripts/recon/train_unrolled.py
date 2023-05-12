@@ -26,7 +26,7 @@ from lensless.io import load_data, load_psf
 from lensless import UnrolledFISTA, UnrolledADMM
 from waveprop.dataset_util import SimulatedPytorchDataset
 from lensless.util import rgb2gray
-from lensless.benchmark import benchmark, BenchmarkDataset
+from lensless.benchmark import benchmark, DiffuserCamTestDataset
 import torch
 from torchvision import transforms, datasets
 from tqdm import tqdm
@@ -111,7 +111,7 @@ def gradient_descent(
 
     # benchmarking dataset:
     path = os.path.join(get_original_cwd(), "data")
-    benchmark_dataset = BenchmarkDataset(data_dir=path)
+    benchmark_dataset = DiffuserCamTestDataset(data_dir=path)
 
     psf = benchmark_dataset.psf.to(device)
     background = benchmark_dataset.background

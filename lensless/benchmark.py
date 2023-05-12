@@ -148,7 +148,7 @@ class ParallelDataset(Dataset):
         return lensless, lensed
 
 
-class BenchmarkDataset(ParallelDataset):
+class DiffuserCamTestDataset(ParallelDataset):
     """
     Dataset consisting of lensless and corresponding lensed image. This is the standard dataset used for benchmarking.
     """
@@ -316,7 +316,7 @@ if __name__ == "__main__":
         device = "cpu"
 
     # prepare dataset
-    dataset = BenchmarkDataset(n_files=n_files, downsample=downsample)
+    dataset = DiffuserCamTestDataset(n_files=n_files, downsample=downsample)
 
     # prepare model
     psf = dataset.psf.to(device)
