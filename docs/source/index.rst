@@ -24,7 +24,6 @@ Contents
    building
    measurement
    reconstruction
-   trainable_reconstruction
    evaluation
    utilities
 
