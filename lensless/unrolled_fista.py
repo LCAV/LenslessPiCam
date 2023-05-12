@@ -18,7 +18,7 @@ except ImportError:
     raise ImportError("Pytorch is require to use trainable reconstruction algorithms.")
 
 
-class unrolled_FISTA(TrainableReconstructionAlgorithm):
+class UnrolledFISTA(TrainableReconstructionAlgorithm):
     """
     Object for applying unrolled projected gradient descent with FISTA (Fast Iterative
     Shrinkage-Thresholding Algorithm) for acceleration.
@@ -47,7 +47,7 @@ class unrolled_FISTA(TrainableReconstructionAlgorithm):
             Initial value of tk, by default 1
         """
 
-        super(unrolled_FISTA, self).__init__(psf, n_iter=n_iter, dtype=dtype, **kwargs)
+        super(UnrolledFISTA, self).__init__(psf, n_iter=n_iter, dtype=dtype, **kwargs)
 
         self._proj = proj
 
@@ -97,7 +97,7 @@ class unrolled_FISTA(TrainableReconstructionAlgorithm):
     def batch_call(self, batch):
         """
         Method for performing iterative reconstruction on a batch of images.
-        This implementation is a proprly vectorized implementation of FISTA.
+        This implementation is a properly vectorized implementation of FISTA.
 
         Parameters
         ----------

@@ -31,10 +31,10 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
     Consequently, using a reconstruction algorithm that derives from it boils down
     to four steps:
 
-    # . Creating an instance of the reconstruction algorithm.
-    # . Training the algorithm
-    # . Setting the data.
-    # . Applying the algorithm.
+    1. Creating an instance of the reconstruction algorithm.
+    2. Training the algorithm
+    3. Setting the data.
+    4. Applying the algorithm.
 
 
     """
@@ -67,7 +67,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         """
         Method for performing iterative reconstruction on a batch of images.
         This implementation simply calls `apply` on each image in the batch.
-        Training algorithms are expected to override this method with a proprly vectorized implementation.
+        Training algorithms are expected to override this method with a properly vectorized implementation.
 
         Parameters
         ----------

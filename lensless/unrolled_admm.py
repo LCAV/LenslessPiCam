@@ -234,7 +234,7 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
     def batch_call(self, batch):
         """
         Method for performing iterative reconstruction on a batch of images.
-        This implementation is a proprly vectorized implementation of FISTA.
+        This implementation is a properly vectorized implementation of ADMM.
 
         Parameters
         ----------

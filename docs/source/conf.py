@@ -15,9 +15,6 @@ MOCK_MODULES = [
     "rawpy",
     "skimage.metrics",
     "lpips",
-    "torch",
-    "torch.utils.data",
-    "torch.nn",
     "torchmetrics",
     "torchmetrics.image",
     "scipy.ndimage",
@@ -29,10 +26,10 @@ MOCK_MODULES = [
     "pycsou.util",
     "pycsou.util.ptype",
     "PIL",
+    "tqdm",
 ]
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
-
 # -- Project information
 
 sys.path.insert(0, os.path.abspath(os.path.join("..", "..")))
