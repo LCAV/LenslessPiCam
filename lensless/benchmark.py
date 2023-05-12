@@ -240,18 +240,6 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
     assert isinstance(model._psf, torch.Tensor), "model need to be constructed with torch support"
     device = model._psf.device
 
-    def reconstruction_error(prediction, lensless):
-        convolver = model._convolver
-        if convolver.pad:
-            prediction = prediction.movedim(-3, -1)
-        else:
-            prediction = convolver._pad(prediction.movedim(-3, -1))
-        Fx = convolver.convolve(prediction)
-        Fy = lensless
-        if not convolver.pad:
-            Fx = convolver._crop(Fx)
-        return torch.norm(Fx - Fy)
-
     if metrics is None:
         metrics = {
             "MSE": MSELoss().to(device),
@@ -259,7 +247,7 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
             "LPIPS": lpip.LearnedPerceptualImagePatchSimilarity(net_type="vgg").to(device),
             "PSNR": psnr.PeakSignalNoiseRatio().to(device),
             "SSIM": StructuralSimilarityIndexMeasure().to(device),
-            "ReconstructionError": reconstruction_error,
+            "ReconstructionError": None,
         }
     metrics_values = {key: 0.0 for key in metrics}
 
@@ -288,7 +276,7 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
         # compute metrics
         for metric in metrics:
             if metric == "ReconstructionError":
-                metrics_values[metric] += metrics[metric](prediction, lensless).cpu().item()
+                metrics_values[metric] += model.reconstruction_error().cpu().item()
             else:
                 metrics_values[metric] += metrics[metric](prediction, lensed).cpu().item()
 

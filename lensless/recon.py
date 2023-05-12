@@ -451,3 +451,34 @@ class ReconstructionAlgorithm(abc.ABC):
             return final_im, ax
         else:
             return final_im
+
+    def reconstruction_error(self, prediction=None, lensless=None):
+        """
+        Compute reconstruction error.
+
+        Parameters
+        ----------
+        prediction :  :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`, optional
+            Reconstructed image. If None, use current estimate, default None.
+        lensless : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`, optional
+            Lensless image. If None, use data provided by `set_data()`, default None.
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
+        # default to current estimate and data if not provided
+        if prediction is None:
+            prediction = self.get_image_est()
+        if lensless is None:
+            lensless = self._data
+
+        convolver = self._convolver
+        if not convolver.pad:
+            prediction = convolver._pad(prediction)
+        Fx = convolver.convolve(prediction)
+        Fy = lensless
+        if not convolver.pad:
+            Fx = convolver._crop(Fx)
+        return torch.norm(Fx - Fy)
