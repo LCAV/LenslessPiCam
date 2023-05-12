@@ -117,7 +117,7 @@ passed to the script:
 3D example
 ----------
 
-It is also possible to reconstruct 3D scenes using :py:class:`~lensless.GradientDescent` or :py:class:`~lensless.APGD`. :py:class:`~lensless.ADMM` doesn't supports 3D reconstruction yet.
+It is also possible to reconstruct 3D scenes using :py:class:`~lensless.GradientDescent` or :py:class:`~lensless.APGD`. :py:class:`~lensless.ADMM` does not support 3D reconstruction yet.
 This requires to use a 3D PSF as an input in the form of an .npy or .npz file, which actually is a set of 2D PSFs corresponding to the same diffuser sampled with light sources from different depths.
 The input data for 3D reconstructions is still a 2D image, as collected by the camera. The reconstruction will be able to separate which part of the lensless data corresponds to which 2D PSF,
 and therefore to which depth, effectively generating a 3D reconstruction, which will be outputed in the form of an .npy file. A 2D projection on the depth axis is also displayed to the user.
@@ -125,7 +125,7 @@ and therefore to which depth, effectively generating a 3D reconstruction, which 
 The same scripts for 2D reconstruction can be used for 3D reconstruction, namely ``scripts/recon/gradient_descent.py`` and ``scripts/recon/apgd_pycsou.py``.
 
 3D data is provided in LenslessPiCam, but it is simulated. Real example data can be obtained from `Waller Lab <https://github.com/Waller-Lab/DiffuserCam/tree/master/example_data>`_.
-For both the simulated data and the data from Waller Lab, it is best to set ``downsample=1`` :
+For both the simulated data and the data from Waller Lab, it is best to set ``downsample=1``:
 
 .. code:: bash
 
