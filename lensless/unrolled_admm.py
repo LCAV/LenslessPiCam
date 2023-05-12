@@ -245,7 +245,7 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         for i in range(self.n_iter):
             self._update(i)
 
-        self._image_est = self._form_image()
+        image_est = self._form_image()
         if CHW:
-            self._image_est = self._image_est.movedim(-1, -3)
-        return self._image_est
+            image_est = image_est.movedim(-1, -3)
+        return image_est
