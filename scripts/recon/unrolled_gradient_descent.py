@@ -124,7 +124,7 @@ def gradient_descent(
     if config.loss == "l2":
         Loss = torch.nn.MSELoss()
     elif config.loss == "l1":
-        Loss = torch.nn.MAELoss()
+        Loss = torch.nn.L1Loss()
     else:
         raise ValueError(f"Unsuported loss : {config.loss}")
 
