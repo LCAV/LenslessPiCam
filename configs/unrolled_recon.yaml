@@ -52,8 +52,8 @@ reconstruction:
     # Hyperparameters
     mu1: 1e-4
     mu2: 1e-4
-    mu3: 2e-4
-    tau: 0.0001
+    mu3: 1e-4
+    tau: 2e-4
 
 
 # Train Dataset
