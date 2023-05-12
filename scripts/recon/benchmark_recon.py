@@ -4,7 +4,7 @@ import os
 import pathlib as plib
 from datetime import datetime
 from lensless.io import load_psf
-from lensless.benchmark import benchmark
+from lensless.benchmark import benchmark, ParallelDataset
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
@@ -42,6 +42,7 @@ if __name__ == "__main__":
             filename = "DiffuserCam_Mirflickr_200_3011302021_11h43_seed11.zip"
             download_and_extract_archive(url, "data/", filename=filename, remove_finished=True)
 
+    # load psf and compute background
     psf_fp = os.path.join(data, "psf.tiff")
     psf_float, background = load_psf(
         psf_fp,
@@ -51,6 +52,16 @@ if __name__ == "__main__":
         bg_pix=(0, 15),
     )
     psf = torch.from_numpy(psf_float).to(device)
+
+    # Benchmark dataset
+    data_path = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
+    benchmark_dataset = ParallelDataset(
+        data_path,
+        n_files=100,
+        background=background,
+        downsample=downsample,
+    )
+
     results = {}
     n_iter_range = [5, 10, 30, 100, 300]
     # benchmark each model for different number of iteration and append result to results
@@ -58,8 +69,8 @@ if __name__ == "__main__":
         results[Model.__name__] = []
         print(f"Running benchmark for {Model.__name__}")
         for n_iter in n_iter_range:
-            model = Model(psf)
-            result = benchmark(model, data, n_files=100, downsample=downsample, n_iter=n_iter)
+            model = Model(psf, n_iter=n_iter)
+            result = benchmark(model, benchmark_dataset, batchsize=1)
             result["n_iter"] = n_iter
             results[Model.__name__].append(result)
 
