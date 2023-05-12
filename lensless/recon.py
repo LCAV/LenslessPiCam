@@ -213,6 +213,7 @@ class ReconstructionAlgorithm(abc.ABC):
                 set to zero or to the mean of the data, depending on the algorithm.
 
         """
+        super().__init__()
         self.is_torch = False
 
         if torch_available:
