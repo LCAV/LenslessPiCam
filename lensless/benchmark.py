@@ -20,6 +20,7 @@ try:
     from torch.nn import MSELoss, L1Loss
     from torchmetrics import StructuralSimilarityIndexMeasure
     from torchmetrics.image import lpip, psnr
+    from torchvision import transforms
 except ImportError:
     raise ImportError("Torch and torchmetrics are needed to benchmark reconstruction algorithm")
 
@@ -147,6 +148,75 @@ class ParallelDataset(Dataset):
         return lensless, lensed
 
 
+class BenchmarkDataset(ParallelDataset):
+    """
+    Dataset consisting of lensless and corresponding lensed image. This is the standard dataset used for benchmarking.
+    """
+
+    def __init__(
+        self,
+        data_dir="data",
+        n_files=200,
+        downsample=8,
+    ):
+        """
+        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the test set of DiffuserCam
+        Lensless Mirflickr Dataset (DLMD).
+
+        Parameters
+        ----------
+        data_dir : str, optional
+            The path to the folder containing the DiffuserCam_Test dataset, by default "data"
+        n_files : int, optional
+            Number of image pair to load in the dataset , by default 200
+        downsample : int, optional
+            Downsample factor of the lensless images, by default 8
+        """
+        # download dataset if necessary
+        data_dir = os.path.join(data_dir, "DiffuserCam_Test")
+        if not os.path.isdir(data_dir):
+            print("No dataset found for benchmarking.")
+            try:
+                from torchvision.datasets.utils import download_and_extract_archive
+            except ImportError:
+                exit()
+            msg = "Do you want to download the sample dataset (725MB)?"
+
+            # default to yes if no input is given
+            valid = input("%s (Y/n) " % msg).lower() != "n"
+            if valid:
+                url = "https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE/download"
+                filename = "DiffuserCam_Mirflickr_200_3011302021_11h43_seed11.zip"
+                download_and_extract_archive(url, "data/", filename=filename, remove_finished=True)
+
+        psf_fp = os.path.join(data_dir, "psf.tiff")
+        psf, background = load_psf(
+            psf_fp,
+            downsample=downsample,
+            return_float=True,
+            return_bg=True,
+            bg_pix=(0, 15),
+        )
+
+        # transform from BGR to RGB
+        transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
+
+        self.psf = transform_BRG2RGB(torch.from_numpy(psf))
+
+        super().__init__(
+            data_dir,
+            n_files,
+            background,
+            downsample,
+            flip=False,
+            transform_lensless=transform_BRG2RGB,
+            transform_lensed=transform_BRG2RGB,
+            lensless_fn="diffuser",
+            lensed_fn="lensed",
+            image_ext="npy",
+        )
+
+
 def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
     """
     Compute multiple metrics for a reconstruction algorithm.
@@ -222,7 +292,6 @@ if __name__ == "__main__":
     downsample = 4
     batchsize = 1
     n_files = 10
-    image_ext = "npy"
     n_iter = 100
 
     # check if GPU is available
@@ -231,38 +300,11 @@ if __name__ == "__main__":
     else:
         device = "cpu"
 
-    # download dataset if necessary
-    data = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
-    if not os.path.isdir(data):
-        print("No dataset found for benchmarking.")
-        try:
-            from torchvision.datasets.utils import download_and_extract_archive
-        except ImportError:
-            exit()
-        msg = "Do you want to download the sample dataset (725MB)?"
-
-        # default to yes if no input is given
-        valid = input("%s (Y/n) " % msg).lower() != "n"
-        if valid:
-            url = "https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE/download"
-            filename = "DiffuserCam_Mirflickr_200_3011302021_11h43_seed11.zip"
-            download_and_extract_archive(url, "data/", filename=filename, remove_finished=True)
-
     # prepare dataset
-    psf_fp = os.path.join(data, "psf.tiff")
-    psf_float, background = load_psf(
-        psf_fp,
-        downsample=downsample,
-        return_float=True,
-        return_bg=True,
-        bg_pix=(0, 15),
-    )
-    dataset = ParallelDataset(
-        data, n_files=n_files, background=background, downsample=downsample, image_ext=image_ext
-    )
+    dataset = BenchmarkDataset(n_files=n_files, downsample=downsample)
 
     # prepare model
-    psf = torch.from_numpy(psf_float).to(device)
+    psf = dataset.psf.to(device)
     model = ADMM(psf, max_iter=n_iter)
 
     # run benchmark

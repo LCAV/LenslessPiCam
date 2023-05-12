@@ -20,14 +20,13 @@ from lensless.unrolled_fista import unrolled_FISTA
 from lensless.unrolled_admm import unrolled_ADMM
 from waveprop.dataset_util import SimulatedPytorchDataset
 from lensless.util import rgb2gray
-from lensless.benchmark import benchmark
+from lensless.benchmark import benchmark, BenchmarkDataset
 import torch
 from torchvision import transforms, datasets
 from tqdm import tqdm
 
 
 def simulate_dataset(config, psf):
-
     # load dataset
     transforms_list = [transforms.ToTensor()]
     data_path = os.path.join(get_original_cwd(), "data")
@@ -94,20 +93,16 @@ def gradient_descent(
     # if using a portrait dataset rotate the PSF
     flip = config.files.dataset in ["CelebA"]
 
-    psf_float, background = load_psf(
-        to_absolute_path(config.input.psf),
-        downsample=config.simulation.downsample,
-        return_float=True,
-        return_bg=True,
-        bg_pix=(0, 15),
-        single_psf=config.preprocess.single_psf,
-        shape=config.preprocess.shape,
-        bayer=config.preprocess.bayer,
-        blue_gain=config.preprocess.blue_gain,
-        red_gain=config.preprocess.red_gain,
-        flip=flip,
-    )
-    psf = torch.from_numpy(psf_float).to(device)
+    # benchmarking dataset:
+    path = os.path.join(get_original_cwd(), "data")
+    benchmark_dataset = BenchmarkDataset(data_dir=path)
+
+    psf = benchmark_dataset.psf.to(device)
+    background = benchmark_dataset.background
+
+    # convert psf from BGR to RGB
+    if config.files.dataset in ["DiffuserCam"]:
+        psf = psf[..., [2, 1, 0]]
 
     # if using a portrait dataset rotate the PSF
     if flip:
@@ -135,6 +130,9 @@ def gradient_descent(
     else:
         raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
 
+    # transform from BGR to RGB
+    transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
+
     # load dataset and create dataloader
     if config.files.dataset == "DiffuserCam":
         # Use a ParallelDataset
@@ -149,6 +147,8 @@ def gradient_descent(
             lensless_fn="diffuser_images",
             lensed_fn="ground_truth_lensed",
             downsample=config.simulation.downsample,
+            transform_lensless=transform_BRG2RGB,
+            transform_lensed=transform_BRG2RGB,
         )
         data_loader = torch.utils.data.DataLoader(
             dataset=dataset,
@@ -159,17 +159,6 @@ def gradient_descent(
     else:
         # Use a simulated dataset
         data_loader = simulate_dataset(config, psf)
-
-    # benchmarking dataset:
-    data_path = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
-    data_path = os.path.join(get_original_cwd(), data_path)
-    benchmark_dataset = ParallelDataset(
-        data_path,
-        n_files=100,
-        flip=flip,
-        background=background,
-        downsample=config.simulation.downsample,
-    )
 
     print(f"Setup time : {time.time() - start_time} s")
 

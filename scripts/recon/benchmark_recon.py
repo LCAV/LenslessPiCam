@@ -1,14 +1,13 @@
+import hydra
+from hydra.utils import to_absolute_path, get_original_cwd
+
 import glob
 import json
 import os
 import pathlib as plib
-from datetime import datetime
-from lensless.io import load_psf
-from lensless.benchmark import benchmark, ParallelDataset
+from lensless.benchmark import benchmark, BenchmarkDataset
 import matplotlib.pyplot as plt
-import numpy as np
-from tqdm import tqdm
-from lensless import ADMM, FISTA, GradientDescent
+from lensless import ADMM, FISTA, GradientDescent, NesterovGradientDescent
 
 try:
     import torch
@@ -16,12 +15,25 @@ except ImportError:
     raise ImportError("Torch and torchmetrics are needed to benchmark reconstruction algorithm")
 
 
-if __name__ == "__main__":
+@hydra.main(version_base=None, config_path="../../configs", config_name="benchmark")
+def benchmark_recon(config):
+    downsample = config.downsample
+    n_files = config.n_files
+    n_iter_range = config.n_iter_range
 
-    downsample = 8
-    data_path = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
-    n_iter_range = [5, 10, 30, 60, 100, 200, 300]  # numbers of iterations to benchmark
-    model_list = [ADMM, FISTA, GradientDescent]  # list of models to benchmark
+    model_list = []  # list of algoritms to benchmark
+    if "ADMM" in config.algorithms:
+        model_list.append(ADMM)
+    if "FISTA" in config.algorithms:
+        model_list.append(FISTA)
+    if "GradientDescent" in config.algorithms:
+        model_list.append(GradientDescent)
+    if "NesterovGradientDescent" in config.algorithms:
+        model_list.append(NesterovGradientDescent)
+    if "APGD" in config.algorithms:
+        from lensless import APGD
+
+        model_list.append(APGD)
 
     # check if GPU is available
     if torch.cuda.is_available():
@@ -29,40 +41,9 @@ if __name__ == "__main__":
     else:
         device = "cpu"
 
-    # verify if dataset exist and download if necessary
-    if not os.path.isdir(data_path):
-        print("No dataset found for benchmarking.")
-        try:
-            from torchvision.datasets.utils import download_and_extract_archive
-        except ImportError:
-            exit()
-        msg = "Do you want to download the sample dataset (725MB)?"
-
-        # default to yes if no input is given
-        valid = input("%s (Y/n) " % msg).lower() != "n"
-        if valid:
-            url = "https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE/download"
-            filename = "DiffuserCam_Mirflickr_200_3011302021_11h43_seed11.zip"
-            download_and_extract_archive(url, "data/", filename=filename, remove_finished=True)
-
-    # load psf and compute background
-    psf_fp = os.path.join(data_path, "psf.tiff")
-    psf_float, background = load_psf(
-        psf_fp,
-        downsample=downsample,
-        return_float=True,
-        return_bg=True,
-        bg_pix=(0, 15),
-    )
-    psf = torch.from_numpy(psf_float).to(device)
-
     # Benchmark dataset
-    benchmark_dataset = ParallelDataset(
-        data_path,
-        n_files=200,
-        background=background,
-        downsample=downsample,
-    )
+    benchmark_dataset = BenchmarkDataset(n_files=n_files, downsample=downsample)
+    psf = benchmark_dataset.psf.to(device)
 
     results = {}
     # benchmark each model for different number of iteration and append result to results
@@ -74,16 +55,6 @@ if __name__ == "__main__":
             result = benchmark(model, benchmark_dataset, batchsize=1)
             result["n_iter"] = n_iter
             results[Model.__name__].append(result)
-
-    # # benchmark FISTA model for different number of iteration and tk, and append result to results
-    # for tk in [0.1, 0.5, 1, 2, 5]:
-    #     results[f"FISTA_{tk}"] = []
-    #     print(f"Running benchmark for FISTA with tk={tk}")
-    #     for n_iter in n_iter_range:
-    #         model = FISTA(psf, tk=tk)
-    #         result = benchmark(model, data, n_files=100, downsample=downsample, n_iter=n_iter)
-    #         result["n_iter"] = n_iter
-    #         results[f"FISTA_{tk}"].append(result)
 
     # create folder to save plots
     if not os.path.isdir("benchmark"):
@@ -122,7 +93,6 @@ if __name__ == "__main__":
         color_list = ["red", "green", "blue", "orange", "purple"]
         algorithm_colors = {}
         for model_name in unrolled_results.keys():
-
             # use algorithm name if defined, else use file name
             if "algorithm" in unrolled_results[model_name].keys():
                 plot_name = unrolled_results[model_name]["algorithm"]
@@ -158,3 +128,7 @@ if __name__ == "__main__":
         plt.ylabel(metric)
         plt.legend()
         plt.savefig(os.path.join("benchmark", f"{metric}.png"))
+
+
+if __name__ == "__main__":
+    benchmark_recon()
