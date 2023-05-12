@@ -81,7 +81,7 @@ class GradientDescent(ReconstructionAlgorithm):
                 pixel_start = (
                     torch.max(psf_flat, axis=0).values + torch.min(psf_flat, axis=0).values
                 ) / 2
-                self._image_est = torch.ones_like(self._psf) * pixel_start
+                self._image_est = torch.ones_like(self._psf[None, ...]) * pixel_start
 
             # set step size as < 2 / lipschitz
             Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
@@ -92,7 +92,7 @@ class GradientDescent(ReconstructionAlgorithm):
             if self._image_est is None:
                 psf_flat = self._psf.reshape(-1, self._psf_shape[3])
                 pixel_start = (np.max(psf_flat, axis=0) + np.min(psf_flat, axis=0)) / 2
-                self._image_est = np.ones_like(self._psf) * pixel_start
+                self._image_est = np.ones_like(self._psf[None, ...]) * pixel_start
 
             # set step size as < 2 / lipschitz
             Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
@@ -108,7 +108,7 @@ class GradientDescent(ReconstructionAlgorithm):
         self._image_est = self._proj(self._image_est)
 
     def _form_image(self):
-        return self._proj(self._image_est).squeeze()
+        return self._proj(self._image_est)
 
 
 class NesterovGradientDescent(GradientDescent):

@@ -132,6 +132,12 @@ class ParallelDataset(Dataset):
         lensless = torch.from_numpy(lensless)
         lensed = torch.from_numpy(lensed)
 
+        # If [H, W, C] -> [D, H, W, C]
+        if len(lensless.shape) == 3:
+            lensless = lensless.unsqueeze(0)
+        if len(lensed.shape) == 3:
+            lensed = lensed.unsqueeze(0)
+
         if self.background is not None:
             lensless = lensless - self.background
 
@@ -255,19 +261,21 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
     dataloader = DataLoader(dataset, batch_size=batchsize, pin_memory=(device != "cpu"))
     model.reset()
     for lensless, lensed in tqdm(dataloader):
-        lensless = lensless.to(device).squeeze()
-        lensed = lensed.to(device).permute(0, 3, 1, 2)
+        lensless = lensless.to(device)
+        lensed = lensed.to(device)
 
         # compute predictions
         with torch.no_grad():
             if batchsize == 1:
                 model.set_data(lensless)
-                prediction = model.apply(plot=False, save=False, **kwargs)[None, :, :, :].permute(
-                    0, 3, 1, 2
-                )
-            else:
-                prediction = model.batch_call(lensless, **kwargs).permute(0, 3, 1, 2)
+                prediction = model.apply(plot=False, save=False, **kwargs)
 
+            else:
+                prediction = model.batch_call(lensless, **kwargs)
+
+        # Convert to [N, D, C, H, W] for torchmetrics
+        prediction = prediction.reshape(-1, *prediction.shape[-3:]).movedim(-1, -3)
+        lensed = lensed.reshape(-1, *lensed.shape[-3:]).movedim(-1, -3)
         # normalization
         prediction_max = torch.amax(prediction, dim=(1, 2, 3), keepdim=True)
         prediction = prediction / prediction_max

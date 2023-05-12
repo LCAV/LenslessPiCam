@@ -273,7 +273,7 @@ class ReconstructionAlgorithm(abc.ABC):
         # pre-compute operators / outputs
         self._image_est = None
         if initial_est is not None:
-            self._image_est = self.set_image_estimage(initial_est)
+            self._image_est = self.set_image_est(initial_est)
         self._data = None
 
         if reset:
@@ -326,9 +326,12 @@ class ReconstructionAlgorithm(abc.ABC):
             self._psf_shape[-3:-1] == np.array(data.shape)[-3:-1]
         ), "PSF and data shape mismatch"
 
-        self._data = data
+        if len(data.shape) == 4:
+            self._data = data[None, ...]
+        else:
+            self._data = data
 
-    def set_image_estimage(self, image_est):
+    def set_image_est(self, image_est):
         """
         Set initial estimate of image, e.g. to warm-start algorithm
 
@@ -344,7 +347,7 @@ class ReconstructionAlgorithm(abc.ABC):
             assert isinstance(image_est, np.ndarray)
 
         assert (
-            len(image_est.shape) == 4
+            len(image_est.shape) >= 4
         ), "Image estimate must be at least 4D: [..., depth, width, height, channel]."
 
         # assert same shapes
@@ -352,10 +355,13 @@ class ReconstructionAlgorithm(abc.ABC):
             self._psf_shape[-3:-1] == np.array(image_est.shape)[-3:-1]
         ), "PSF and image estimate shape mismatch"
 
-        self._image_est = image_est
+        if len(image_est.shape) == 4:
+            self._image_est = image_est[None, ...]
+        else:
+            self._image_est = image_est
 
     def get_image_est(self):
-        """Get current image estimate."""
+        """Get current image estimate as [N, D, H, W, D]."""
         return self._form_image()
 
     def _progress(self):
@@ -432,6 +438,10 @@ class ReconstructionAlgorithm(abc.ABC):
 
         """
         assert self._data is not None, "Must set data with `set_data()`"
+        assert (
+            self._data.shape[0] == 1
+        ), "Apply doesn't supports processing multiple images at once."
+
         if reset:
             self.reset()
 
@@ -459,7 +469,7 @@ class ReconstructionAlgorithm(abc.ABC):
                     plt.draw()
                     plt.pause(plot_pause)
 
-        final_im = self._form_image()
+        final_im = self._form_image()[0]
         if plot or save:
             ax = plot_image(self._get_numpy_data(final_im), ax=ax, gamma=gamma)
             ax.set_title("Final reconstruction after {} iterations".format(n_iter))

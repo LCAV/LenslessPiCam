@@ -51,6 +51,7 @@ def test_gradient_descent():
                 res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
                 assert psf.shape[3] == (1 if gray else 3)
                 assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
+                # assert len(res.shape) == 4, f"Got {len(res.shape)}, expected 4"
 
 
 def test_admm():
@@ -151,8 +152,8 @@ def test_unrolled_fista():
         from lensless.unrolled_fista import UnrolledFISTA
 
         for dtype, torch_type in [("float32", torch.float32), ("float64", torch.float64)]:
-            psf = torch.rand(32, 64, 3, dtype=torch_type)
-            data = torch.rand(2, 32, 64, 3, dtype=torch_type)
+            psf = torch.rand(1, 32, 64, 3, dtype=torch_type)
+            data = torch.rand(2, 1, 32, 64, 3, dtype=torch_type)
             recon = UnrolledFISTA(psf, n_iter=n_iter, dtype=dtype)
 
             assert (
@@ -167,26 +168,14 @@ def test_unrolled_fista():
                 data.shape[0] == res.shape[0]
             ), f"Batch dimension changed: got {res.shape[0]} expected {data.shape[0]}"
 
-            assert len(psf.shape) == 3
-            assert res.shape[3] == 3, "Input in HWC format but output CHW format"
-
-            # check support for CHW
-            data = torch.rand(1, 3, 32, 64, dtype=torch_type)
-            res = recon.batch_call(data)
-            assert (
-                data.shape[0] == res.shape[0]
-            ), f"Batch dimension changed: got {res.shape[0]} expected {data.shape[0]}"
-            assert res.shape[1] == 3, "Input in CHW format but output HWC format"
-            assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
-
 
 def test_unrolled_admm():
     if torch_is_available:
         from lensless.unrolled_admm import UnrolledADMM
 
         for dtype, torch_type in [("float32", torch.float32), ("float64", torch.float64)]:
-            psf = torch.rand(32, 64, 3, dtype=torch_type)
-            data = torch.rand(2, 32, 64, 3, dtype=torch_type)
+            psf = torch.rand(1, 32, 64, 3, dtype=torch_type)
+            data = torch.rand(2, 1, 32, 64, 3, dtype=torch_type)
             recon = UnrolledADMM(psf, n_iter=n_iter, dtype=dtype)
 
             assert (
@@ -200,18 +189,6 @@ def test_unrolled_admm():
             assert (
                 data.shape[0] == res.shape[0]
             ), f"Batch dimension changed: got {res.shape[0]} expected {data.shape[0]}"
-
-            assert len(psf.shape) == 3
-            assert res.shape[3] == 3, "Input in HWC format but output CHW format"
-
-            # check support for CHW
-            data = torch.rand(1, 3, 32, 64, dtype=torch_type)
-            res = recon.batch_call(data)
-            assert (
-                data.shape[0] == res.shape[0]
-            ), f"Batch dimension changed: got {res.shape[0]} expected {data.shape[0]}"
-            assert res.shape[1] == 3, "Input in CHW format but output HWC format"
-            assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
 
 
 if __name__ == "__main__":

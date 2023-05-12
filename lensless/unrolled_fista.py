@@ -53,15 +53,15 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
 
         # initial guess, half intensity image
         # for online approach could use last reconstruction
-        psf_flat = self._psf.reshape(-1, self._n_channels)
+        psf_flat = self._psf.reshape(-1, self._psf_shape[3])
         pixel_start = (torch.max(psf_flat, axis=0).values + torch.min(psf_flat, axis=0).values) / 2
-        self._image_init = torch.ones_like(self._psf) * pixel_start
+        self._image_init = torch.ones_like(self._psf[None, ...]) * pixel_start
 
         # learnable step size initialize as < 2 / lipschitz
-        Hadj_flat = self._convolver._Hadj.reshape(-1, self._n_channels)
-        H_flat = self._convolver._H.reshape(-1, self._n_channels)
+        Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
+        H_flat = self._convolver._H.reshape(-1, self._psf_shape[3])
         self._alpha_p = torch.nn.Parameter(
-            torch.ones(self._n_iter, self._n_channels).to(psf.device)
+            torch.ones(self._n_iter, self._psf_shape[3]).to(psf.device)
             * (1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values)
         )
 
@@ -76,19 +76,17 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
         self.reset()
 
     def _form_image(self):
-        return self._proj(self._image_est).squeeze()
+        return self._proj(self._image_est)
 
     def _grad(self):
         diff = self._convolver.convolve(self._image_est) - self._data
         return self._convolver.deconvolve(diff)
 
     def reset(self, batch_size=1):
-        if batch_size == 1:
-            self._image_est = self._image_init
-            self._xk = self._image_init
-        else:
-            self._image_est = self._image_init.unsqueeze(0).expand(batch_size, -1, -1, -1)
-            self._xk = self._image_est
+        self._image_est = self._image_init.expand(batch_size, -1, -1, -1, -1)
+        self._xk = self._image_est
+
+        # enforce positivity
         self._alpha = torch.abs(self._alpha_p)
         self._tk = torch.abs(self._tk_p)
 
@@ -105,28 +103,21 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
 
         Parameters
         ----------
-        batch : :py:class:`~torch.Tensor` of shape (N, C, H, W) or (N, H, W, C)
-            The lensless images to reconstruct. If the shape is (N, C, H, W), the images are converted to (N, H, W, C) before reconstruction.
+        batch : :py:class:`~torch.Tensor` of shape (N, D, C, H, W)
+            The lensless images to reconstruct.
 
         Returns
         -------
-        :py:class:`~torch.Tensor` of shape (N, C, H, W) or (N, H, W, C)
-            The reconstructed images. Channels are in the same order as the input.
+        :py:class:`~torch.Tensor` of shape (N, D, C, H, W)
+            The reconstructed images.
         """
         self._data = batch
+        assert len(self._data.shape) == 5, "Input must be of shape (N, D, H, W, C)"
         batch_size = batch.shape[0]
-
-        if self._data.shape[-3] == 3:
-            CHW = True
-            self._data = self._data.movedim(-3, -1)
-        else:
-            CHW = False
 
         self.reset(batch_size)
 
         for i in range(self._n_iter):
             self._update(i)
 
-        if CHW:
-            self._image_est = self._image_est.movedim(-1, -3)
         return self._proj(self._image_est)

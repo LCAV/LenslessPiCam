@@ -130,7 +130,7 @@ class ADMM(ReconstructionAlgorithm):
         if self.is_torch:
             # TODO initialize without padding
             if self._image_est is None:
-                self._image_est = torch.zeros(self._padded_shape, dtype=self._dtype).to(
+                self._image_est = torch.zeros([1] + self._padded_shape, dtype=self._dtype).to(
                     self._psf.device
                 )
 
@@ -156,10 +156,11 @@ class ADMM(ReconstructionAlgorithm):
             # self._X_divmat = 1.0 / (torch.ones_like(self._psf) + self._mu1)
 
         else:
-            self._X = np.zeros(self._padded_shape, dtype=self._dtype)
-            # self._U = np.zeros(np.r_[self._padded_shape, [2]], dtype=self._dtype)
             if self._image_est is None:
-                self._image_est = np.zeros_like(self._X)
+                self._image_est = np.zeros([1] + self._padded_shape, dtype=self._dtype)
+
+            # self._U = np.zeros(np.r_[self._padded_shape, [2]], dtype=self._dtype)
+            self._X = np.zeros_like(self._image_est)
             self._U = np.zeros_like(self._Psi(self._image_est))
             self._W = np.zeros_like(self._X)
             if self._image_est.max():
@@ -251,7 +252,7 @@ class ADMM(ReconstructionAlgorithm):
         # image = self._image_est
 
         image[image < 0] = 0
-        return image.squeeze()
+        return image
 
 
 def soft_thresh(x, thresh):

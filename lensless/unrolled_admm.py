@@ -41,7 +41,7 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         psi=None,
         psi_adj=None,
         psi_gram=None,
-        **kwargs
+        **kwargs,
     ):
         """
 
@@ -120,14 +120,11 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         self._tau = torch.abs(self._tau_p)
 
         # TODO initialize without padding
-        if batch_size == 1:
-            self._image_est = torch.zeros(self._padded_shape, dtype=self._dtype).to(
-                self._psf.device
-            )
-        else:
-            self._image_est = torch.zeros((batch_size, *self._padded_shape), dtype=self._dtype).to(
-                self._psf.device
-            )
+
+        self._image_est = torch.zeros([1] + self._padded_shape, dtype=self._dtype).to(
+            self._psf.device
+        )
+
         self._X = torch.zeros_like(self._image_est)
         self._U = torch.zeros_like(self._Psi(self._image_est))
         self._W = torch.zeros_like(self._X)
@@ -145,16 +142,16 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
 
         # precompute_R_divmat
         self._R_divmat = 1.0 / (
-            self._mu1[:, None, None, None]
-            * (torch.abs(self._convolver._Hadj * self._convolver._H))[None, :, :, :]
-            + self._mu2[:, None, None, None] * torch.abs(self._PsiTPsi)[None, :, :, :]
-            + self._mu3[:, None, None, None]
+            self._mu1[:, None, None, None, None]
+            * (torch.abs(self._convolver._Hadj * self._convolver._H))
+            + self._mu2[:, None, None, None, None] * torch.abs(self._PsiTPsi)
+            + self._mu3[:, None, None, None, None]
         ).type(self._complex_dtype)
 
         # precompute_X_divmat
         self._X_divmat = 1.0 / (
-            self._convolver._pad(torch.ones_like(self._psf))[None, :, :, :]
-            + self._mu1[:, None, None, None]
+            self._convolver._pad(torch.ones_like(self._psf[None, ...]))
+            + self._mu1[:, None, None, None, None]
         )
 
     def _U_update(self, iter):
@@ -176,7 +173,6 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
             + self._PsiT(self._mu2[iter] * self._U - self._eta)
             + self._convolver.deconvolve(self._mu1[iter] * self._X - self._xi)
         )
-
         freq_space_result = self._R_divmat[iter] * torch.fft.rfft2(rk, dim=(-3, -2))
         self._image_est = torch.fft.irfft2(freq_space_result, dim=(-3, -2))
 
@@ -223,15 +219,16 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
 
         Parameters
         ----------
-        batch : :py:class:`~torch.Tensor` of shape (N, C, H, W) or (N, H, W, C)
-            The lensless images to reconstruct. If the shape is (N, C, H, W), the images are converted to (N, H, W, C) before reconstruction.
+        batch : :py:class:`~torch.Tensor` of shape (N, D, C, H, W)
+            The lensless images to reconstruct.
 
         Returns
         -------
-        :py:class:`~torch.Tensor` of shape (N, C, H, W) or (N, H, W, C)
-            The reconstructed images. Channels are in the same order as the input.
+        :py:class:`~torch.Tensor` of shape (N, D, C, H, W)
+            The reconstructed images.
         """
         self._data = batch
+        assert len(self._data.shape) == 5, "batch must be of shape (N, D, C, H, W)"
         batch_size = batch.shape[0]
 
         if self._data.shape[-3] == 3:
