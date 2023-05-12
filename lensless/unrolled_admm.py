@@ -69,10 +69,10 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
         super(unrolled_ADMM, self).__init__(psf, dtype, pad=False, norm="backward")
         # super(ADMM, self).__init__(psf, dtype, pad=False, norm="ortho")
 
-        self._mu1 = torch.nn.Parameter(torch.ones(n_iter) * mu1)
-        self._mu2 = torch.nn.Parameter(torch.ones(n_iter) * mu2)
-        self._mu3 = torch.nn.Parameter(torch.ones(n_iter) * mu3)
-        self._tau = torch.nn.Parameter(torch.ones(n_iter) * tau)
+        self._mu1 = torch.nn.Parameter(torch.ones(n_iter, device=self._psf.device) * mu1)
+        self._mu2 = torch.nn.Parameter(torch.ones(n_iter, device=self._psf.device) * mu2)
+        self._mu3 = torch.nn.Parameter(torch.ones(n_iter, device=self._psf.device) * mu3)
+        self._tau = torch.nn.Parameter(torch.ones(n_iter, device=self._psf.device) * tau)
 
         # set prior
         if psi is None:
@@ -89,23 +89,9 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
             self._PsiT = psi_adj
             self._PsiTPsi = psi_gram(self._padded_shape)
 
-        # precompute_R_divmat (self._H computed by constructor with reset())
         self._PsiTPsi = self._PsiTPsi.to(self._psf.device)
-        print(torch.abs(self._PsiTPsi)[None, :, :, :].shape)
-        print((torch.abs(self._convolver._Hadj * self._convolver._H))[None, :, :, :].shape)
-        self._R_divmat = 1.0 / (
-            self._mu1[:, None, None, None]
-            * (torch.abs(self._convolver._Hadj * self._convolver._H))[None, :, :, :]
-            + self._mu2[:, None, None, None] * torch.abs(self._PsiTPsi)[None, :, :, :]
-            + self._mu3[:, None, None, None]
-        ).type(self._complex_dtype)
 
-        # precompute_X_divmat
-        self._X_divmat = 1.0 / (
-            self._convolver._pad(torch.ones_like(self._psf))[None, :, :, :]
-            + self._mu1[:, None, None, None]
-        )
-        # self._X_divmat = 1.0 / (torch.ones_like(self._psf) + self._mu1)
+        self.reset()
 
     def _Psi(self, x):
         """
@@ -121,6 +107,9 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
         return finite_diff_adj(U)
 
     def reset(self):
+        # needed because ReconstructionAlgorithm initializer call reset to early
+        if not hasattr(self, "_mu1"):
+            return
         # TODO initialize without padding
         self._image_est = torch.zeros(self._padded_shape, dtype=self._dtype).to(self._psf.device)
         # self._image_est = torch.zeros_like(self._psf)
@@ -139,6 +128,21 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
         self._xi = torch.zeros_like(self._image_est)
         self._eta = torch.zeros_like(self._U)
         self._rho = torch.zeros_like(self._X)
+
+        # precompute_R_divmat
+        self._R_divmat = 1.0 / (
+            self._mu1[:, None, None, None]
+            * (torch.abs(self._convolver._Hadj * self._convolver._H))[None, :, :, :]
+            + self._mu2[:, None, None, None] * torch.abs(self._PsiTPsi)[None, :, :, :]
+            + self._mu3[:, None, None, None]
+        ).type(self._complex_dtype)
+
+        # precompute_X_divmat
+        self._X_divmat = 1.0 / (
+            self._convolver._pad(torch.ones_like(self._psf))[None, :, :, :]
+            + self._mu1[:, None, None, None]
+        )
+        # self._X_divmat = 1.0 / (torch.ones_like(self._psf) + self._mu1)
 
     def _U_update(self, iter):
         """Total variation update."""
