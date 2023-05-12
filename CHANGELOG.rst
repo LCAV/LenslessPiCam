@@ -18,6 +18,9 @@ Added
 -  ``n_iter`` parameter for ReconstructionAlgorithm constructor, so don't need to pass to ``apply``.
 -  Support of 3D reconstruction for Gradient Descent and APGD, with and without Pytorch.
 -  Option to warm-start reconstruction algorithm with ``initial_est``.
+-  TrainableReconstructionAlgorithm class inherited from ReconstructionAlgorithm and torch.module for use with pytorch autograd and optimizers.
+-  Unrolled version of FISTA and ADMM as TrainableReconstructionAlgorithm with learnable parameters.
+-  Unrolled_recon.py script for training unrolled algorithms.
 
 Changed
 ~~~~~~~
