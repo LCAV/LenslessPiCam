@@ -1,0 +1,8 @@
+# numbers of iterations to benchmark
+n_iter_range: [5, 10, 30, 60, 100, 200, 300]
+# number of files to benchmark
+n_files: 200
+#How much should the image be downsampled
+downsample: 8
+#algorithm to benchmark
+algorithms: ["ADMM", "FISTA", "GradientDescent" "NesterovGradientDescent"]
