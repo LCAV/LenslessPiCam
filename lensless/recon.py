@@ -281,7 +281,7 @@ class ReconstructionAlgorithm(abc.ABC):
         return
 
     @abc.abstractmethod
-    def _update(self):
+    def _update(self, iter):
         """
         Update state variables.
         """
@@ -428,7 +428,7 @@ class ReconstructionAlgorithm(abc.ABC):
             disp_iter = n_iter + 1
 
         for i in range(n_iter):
-            self._update()
+            self._update(i)
 
             if (plot or save) and (i + 1) % disp_iter == 0:
                 self._progress()

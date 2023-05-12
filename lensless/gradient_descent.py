@@ -104,7 +104,7 @@ class GradientDescent(ReconstructionAlgorithm):
         diff = self._convolver.convolve(self._image_est) - self._data
         return self._convolver.deconvolve(diff)
 
-    def _update(self):
+    def _update(self, iter):
         self._image_est -= self._alpha * self._grad()
         self._image_est = self._proj(self._image_est)
 
@@ -131,7 +131,7 @@ class NesterovGradientDescent(GradientDescent):
         self._mu = mu
         super(NesterovGradientDescent, self).reset()
 
-    def _update(self):
+    def _update(self, iter):
         p_prev = self._p
         self._p = self._mu * self._p - self._alpha * self._grad()
         self._image_est += -self._mu * p_prev + (1 + self._mu) * self._p
@@ -157,7 +157,7 @@ class FISTA(GradientDescent):
         self._tk = tk
         self._xk = self._image_est
 
-    def _update(self):
+    def _update(self, iter):
         self._image_est -= self._alpha * self._grad()
         xk = self._proj(self._image_est)
         tk = (1 + np.sqrt(1 + 4 * self._tk**2)) / 2

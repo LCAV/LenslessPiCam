@@ -230,7 +230,7 @@ class ADMM(ReconstructionAlgorithm):
     def _rho_update(self):
         self._rho += self._mu3 * (self._image_est - self._W)
 
-    def _update(self):
+    def _update(self, iter):
         self._U_update()
         self._X_update()
         self._image_update()
