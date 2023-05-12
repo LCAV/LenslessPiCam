@@ -81,7 +81,7 @@ class ADMM(ReconstructionAlgorithm):
             )
 
         # call reset() to initialize matrices
-        super(ADMM, self).__init__(psf, dtype, pad=pad, norm=norm)
+        super(ADMM, self).__init__(psf, dtype, pad=pad, norm=norm, **kwargs)
 
         # set prior
         if psi is None:
@@ -129,9 +129,11 @@ class ADMM(ReconstructionAlgorithm):
     def reset(self):
         if self.is_torch:
             # TODO initialize without padding
-            self._image_est = torch.zeros(self._padded_shape, dtype=self._dtype).to(
-                self._psf.device
-            )
+            if self._image_est is None:
+                self._image_est = torch.zeros(self._padded_shape, dtype=self._dtype).to(
+                    self._psf.device
+                )
+
             # self._image_est = torch.zeros_like(self._psf)
             self._X = torch.zeros_like(self._image_est)
             self._U = torch.zeros_like(self._Psi(self._image_est))
@@ -156,7 +158,8 @@ class ADMM(ReconstructionAlgorithm):
         else:
             self._X = np.zeros(self._padded_shape, dtype=self._dtype)
             # self._U = np.zeros(np.r_[self._padded_shape, [2]], dtype=self._dtype)
-            self._image_est = np.zeros_like(self._X)
+            if self._image_est is None:
+                self._image_est = np.zeros_like(self._X)
             self._U = np.zeros_like(self._Psi(self._image_est))
             self._W = np.zeros_like(self._X)
             if self._image_est.max():

@@ -188,7 +188,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
     """
 
-    def __init__(self, psf, dtype=None, pad=True, n_iter=100, **kwargs):
+    def __init__(self, psf, dtype=None, pad=True, n_iter=100, initial_est=None, **kwargs):
         """
         Base constructor. Derived constructor may define new state variables
         here and also reset them in `reset`.
@@ -208,6 +208,10 @@ class ReconstructionAlgorithm(abc.ABC):
             n_iter : int, optional
                 Number of iterations to run algorithm for. Can be overridden in
                 `apply`.
+            initial_est : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`, optional
+                Initial estimate of the image. If not provided, the initial estimate is
+                set to zero or to the mean of the data, depending on the algorithm.
+
         """
         self.is_torch = False
 
@@ -264,6 +268,8 @@ class ReconstructionAlgorithm(abc.ABC):
 
         # pre-compute operators / outputs
         self._image_est = None
+        if initial_est is not None:
+            self._image_est = self.set_image_estimage(initial_est)
         self._data = None
         self.reset()
 
@@ -305,7 +311,9 @@ class ReconstructionAlgorithm(abc.ABC):
         else:
             assert isinstance(data, np.ndarray)
 
-        assert len(data.shape) == 4, "Data must be 4D: [depth, width, height, channel]."
+        assert (
+            len(data.shape) >= 4
+        ), "Data must be at least 4D: [..., depth, width, height, channel]."
 
         # assert same shapes
         assert np.all(
@@ -313,6 +321,32 @@ class ReconstructionAlgorithm(abc.ABC):
         ), "PSF and data shape mismatch"
 
         self._data = data
+
+    def set_image_estimage(self, image_est):
+        """
+        Set initial estimate of image, e.g. to warm-start algorithm
+
+        Parameters
+        ----------
+        image_est : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
+            Initial estimate of the image. Should match provide PSF shape.
+        """
+
+        if self.is_torch:
+            assert isinstance(image_est, torch.Tensor)
+        else:
+            assert isinstance(image_est, np.ndarray)
+
+        assert (
+            len(image_est.shape) == 4
+        ), "Image estimate must be at least 4D: [..., depth, width, height, channel]."
+
+        # assert same shapes
+        assert np.all(
+            self._psf_shape[-3:-1] == np.array(image_est.shape)[-3:-1]
+        ), "PSF and image estimate shape mismatch"
+
+        self._image_est = image_est
 
     def get_image_est(self):
         """Get current image estimate."""
