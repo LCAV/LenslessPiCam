@@ -27,7 +27,7 @@ class unrolled_FISTA(TrainableReconstructionAlgorithm):
 
     """
 
-    def __init__(self, psf, n_iter=5, dtype=None, proj=non_neg,learn_tk = True, tk=1, **kwargs):
+    def __init__(self, psf, n_iter=5, dtype=None, proj=non_neg, learn_tk=True, tk=1, **kwargs):
 
         super(unrolled_FISTA, self).__init__(psf, n_iter=n_iter, dtype=dtype, **kwargs)
 
@@ -45,15 +45,16 @@ class unrolled_FISTA(TrainableReconstructionAlgorithm):
         Hadj_flat = self._convolver._Hadj.reshape(-1, self._n_channels)
         H_flat = self._convolver._H.reshape(-1, self._n_channels)
         self._alpha = torch.nn.Parameter(
-            torch.ones(n_iter, 3).to(psf.device) * (1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values)
+            torch.ones(n_iter, 3).to(psf.device)
+            * (1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values)
         )
 
-        #set tk, can be learnt if learn_tk=True
+        # set tk, can be learnt if learn_tk=True
         self._tk = [tk]
         for i in range(n_iter):
-            self._tk.append((1 + np.sqrt(1 + 4 * self._tk[i]**2)) / 2)
+            self._tk.append((1 + np.sqrt(1 + 4 * self._tk[i] ** 2)) / 2)
         self._tk = torch.Tensor(self._tk)
-        if learn_tk :
+        if learn_tk:
             self._tk = torch.nn.Parameter(self._tk)
 
     def _form_image(self):
@@ -72,5 +73,5 @@ class unrolled_FISTA(TrainableReconstructionAlgorithm):
     def _update(self, iter):
         self._image_est = self._image_est - self._alpha[iter] * self._grad()
         xk = self._proj(self._image_est)
-        self._image_est = xk + (self._tk[iter] - 1) / self._tk[iter+1] * (xk - self._xk)
+        self._image_est = xk + (self._tk[iter] - 1) / self._tk[iter + 1] * (xk - self._xk)
         self._xk = xk
