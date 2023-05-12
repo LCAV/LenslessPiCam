@@ -309,7 +309,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
         # assert same shapes
         assert np.all(
-            self._psf_shape[1:3] == np.array(data.shape)[1:3]
+            self._psf_shape[-3:-1] == np.array(data.shape)[-3:-1]
         ), "PSF and data shape mismatch"
 
         self._data = data

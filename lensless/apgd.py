@@ -179,8 +179,8 @@ class APGD(ReconstructionAlgorithm):
 
         """
         super(APGD, self).set_data(
-            np.repeat(data, self._original_shape[0], axis=0)
-        )  # we repeat the data to match the size of the PSF
+            np.repeat(data, self._original_shape[-4], axis=0)
+        )  # we repeat the data for each depth to match the size of the PSF
 
         """ Set up problem """
         # Cost function

@@ -199,11 +199,11 @@ class ADMM(ReconstructionAlgorithm):
         # rk = self._convolver._pad(rk)
 
         if self.is_torch:
-            freq_space_result = self._R_divmat * torch.fft.rfft2(rk, dim=(1, 2))
-            self._image_est = torch.fft.irfft2(freq_space_result, dim=(1, 2))
+            freq_space_result = self._R_divmat * torch.fft.rfft2(rk, dim=(-3, -2))
+            self._image_est = torch.fft.irfft2(freq_space_result, dim=(-3, -2))
         else:
-            freq_space_result = self._R_divmat * fft.rfft2(rk, axes=(1, 2))
-            self._image_est = fft.irfft2(freq_space_result, axes=(1, 2))
+            freq_space_result = self._R_divmat * fft.rfft2(rk, axes=(-3, -2))
+            self._image_est = fft.irfft2(freq_space_result, axes=(-3, -2))
 
         # self._image_est = self._convolver._crop(res)
 
@@ -305,6 +305,6 @@ def finite_diff_gram(shape, dtype=None, is_torch=False):
         ] = -1
 
     if is_torch:
-        return torch.fft.rfft2(gram, dim=(1, 2))
+        return torch.fft.rfft2(gram, dim=(-3, -2))
     else:
-        return fft.rfft2(gram, axes=(1, 2))
+        return fft.rfft2(gram, axes=(-3, -2))

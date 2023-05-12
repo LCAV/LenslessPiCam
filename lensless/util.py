@@ -35,35 +35,36 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
     img : :py:class:`~numpy.ndarray`
         Resized image.
     """
-    assert len(img.shape) == 4, "Image must be of shape (depth, height, width, color)"
+    assert len(img.shape) >= 4, "Image must be of shape (..., depth, height, width, color)"
     min_val = img.min()
     max_val = img.max()
-    img_shape = np.array(img.shape)[1:3]
+    img_shape = np.array(img.shape)[-3:-1]
 
     assert not ((factor is None) and (shape is None)), "Must specify either factor or shape"
-    new_shape = tuple((img_shape * factor).astype(int)) if (shape is None) else shape[1:3]
+    new_shape = tuple((img_shape * factor).astype(int)) if (shape is None) else shape[-3:-1]
 
     if np.array_equal(img_shape, new_shape):
         return img
 
     if torch_available:
         # torch resize expects an input of form [color, depth, width, height]
-        tmp = np.moveaxis(img, 3, 0)
+        tmp = np.moveaxis(img, -1, 0)
         resized = tf.Resize(size=new_shape, interpolation=interpolation)(
             torch.from_numpy(tmp)
         ).numpy()
-        resized = np.moveaxis(resized, 0, 3)
+        resized = np.moveaxis(resized, 0, -1)
 
     else:
         resized = np.array(
             [
                 cv2.resize(img[i], dsize=new_shape[::-1], interpolation=interpolation)
-                for i in range(img.shape[0])
+                for i in range(img.shape[-4])
             ]
         )
         # OpenCV discards channel dimension if it is 1, put it back
         if len(resized.shape) == 3:
-            resized = resized[:, :, :, np.newaxis]
+            # resized = resized[:, :, :, np.newaxis]
+            resized = np.expand_dims(resized, axis=-1)
 
     return np.clip(resized, min_val, max_val)
 

@@ -241,10 +241,10 @@ def load_psf(
     psf = resize(psf, shape=shape, factor=1 / downsample)
 
     if single_psf:
-        if psf.shape[3] > 1:
+        if not grayscale:
             # TODO : in Lensless Learning, they sum channels --> `psf_diffuser = np.sum(psf_diffuser,2)`
             # https://github.com/Waller-Lab/LenslessLearning/blob/master/pre-trained%20reconstructions.ipynb
-            psf = np.sum(psf, 3)
+            psf = np.sum(psf, axis=3)
             psf = psf[:, :, :, np.newaxis]
         else:
             warnings.warn("Notice : single_psf has no effect for grayscale psf")
