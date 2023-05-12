@@ -72,7 +72,9 @@ def simulate_dataset(config, psf):
     ds_prop = SimulatedPytorchDataset(
         dataset=ds, psf=psf, device_conv=device_conv, target=target, **config.simulation
     )
-    ds_loader = torch.utils.data.DataLoader(dataset=ds_prop, batch_size=batch_size, shuffle=True)
+    ds_loader = torch.utils.data.DataLoader(
+        dataset=ds_prop, batch_size=batch_size, shuffle=True, pin_memory=(psf.device != "cpu")
+    )
     return ds_loader
 
 
@@ -141,17 +143,34 @@ def gradient_descent(
         data_path = os.path.join(get_original_cwd(), "data", "DiffuserCam")
         dataset = ParallelDataset(
             root_dir=data_path,
+            n_files=config.files.n_files,
+            background=background,
             psf=psf,
             lensless_fn="diffuser_images",
             lensed_fn="ground_truth_lensed",
             downsample=config.simulation.downsample,
         )
         data_loader = torch.utils.data.DataLoader(
-            dataset=dataset, batch_size=config.training.batch_size, shuffle=True
+            dataset=dataset,
+            batch_size=config.training.batch_size,
+            shuffle=True,
+            pin_memory=(device != "cpu"),
         )
     else:
         # Use a simulated dataset
         data_loader = simulate_dataset(config, psf)
+
+    # benchmarking dataset:
+    data_path = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
+    data_path = os.path.join(get_original_cwd(), data_path)
+    benchmark_dataset = ParallelDataset(
+        data_path,
+        n_files=100,
+        flip=flip,
+        background=background,
+        downsample=config.simulation.downsample,
+    )
+
     print(f"Setup time : {time.time() - start_time} s")
 
     start_time = time.time()
@@ -229,11 +248,7 @@ def gradient_descent(
             i += 1
 
         # benchmarking
-        data_path = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
-        data_path = os.path.join(get_original_cwd(), data_path)
-        current_metrics = benchmark(
-            recon, data_path, downsample=config.simulation.downsample, flip=flip, batchsize=10
-        )
+        current_metrics = benchmark(recon, benchmark_dataset, batchsize=10)
         # update metrics with current metrics
         metrics["LOSS"].append(mean_loss)
         for key in current_metrics:
