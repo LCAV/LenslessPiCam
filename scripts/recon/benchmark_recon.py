@@ -1,4 +1,5 @@
 import glob
+import json
 import os
 import pathlib as plib
 from datetime import datetime
@@ -51,11 +52,12 @@ if __name__ == "__main__":
     )
     psf = torch.from_numpy(psf_float).to(device)
     results = {}
+    n_iter_range = [5, 10, 30, 100, 300]
     # benchmark each model for different numer of iteration and append result to results
     for Model in [ADMM, FISTA, GradientDescent]:
         results[Model.__name__] = []
         print(f"Running benchmark for {Model.__name__}")
-        for n_iter in [5, 10, 30, 100, 300]:
+        for n_iter in n_iter_range:
             model = Model(psf)
             result = benchmark(model, data, n_files=100, downsample=downsample, n_iter=n_iter)
             result["n_iter"] = n_iter
@@ -65,15 +67,37 @@ if __name__ == "__main__":
     if not os.path.isdir("benchmark"):
         os.mkdir("benchmark")
 
+    # try to load json files with results form unrolled training
+    files = glob.glob(os.path.join("benchmark", "*.json"))
+    unrolled_results = {}
+    for file in files:
+        model_name = plib.Path(file).stem
+        unrolled_results[model_name] = {}
+        with open(file, "r") as f:
+            result = json.load(f)
+            # get most recent result
+            for metric in result.keys():
+                unrolled_results[model_name][metric] = result[metric][-1]
+
     # for each metrics plot the results comparing each model
     metrics_to_plot = ["SSIM", "PSNR", "MSE", "LPIPS"]
     for metric in metrics_to_plot:
         plt.figure()
+        # plot benchmark algorithm
         for model_name in results.keys():
             plt.plot(
                 [result["n_iter"] for result in results[model_name]],
                 [result[metric] for result in results[model_name]],
                 label=model_name,
+            )
+        # plot unrolled algorithms results as horizontal line
+        for model_name in unrolled_results.keys():
+            plt.hlines(
+                unrolled_results[model_name][metric],
+                0,
+                n_iter_range[-1],
+                label=model_name,
+                linestyles="dashed",
             )
         plt.title(metric)
         plt.xlabel("Number of iterations")
