@@ -91,14 +91,20 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
 
         # precompute_R_divmat (self._H computed by constructor with reset())
         self._PsiTPsi = self._PsiTPsi.to(self._psf.device)
+        print(torch.abs(self._PsiTPsi)[None, :, :, :].shape)
+        print((torch.abs(self._convolver._Hadj * self._convolver._H))[None, :, :, :].shape)
         self._R_divmat = 1.0 / (
-            self._mu1 * (torch.abs(self._convolver._Hadj * self._convolver._H))
-            + self._mu2 * torch.abs(self._PsiTPsi)
-            + self._mu3
+            self._mu1[:, None, None, None]
+            * (torch.abs(self._convolver._Hadj * self._convolver._H))[None, :, :, :]
+            + self._mu2[:, None, None, None] * torch.abs(self._PsiTPsi)[None, :, :, :]
+            + self._mu3[:, None, None, None]
         ).type(self._complex_dtype)
 
         # precompute_X_divmat
-        self._X_divmat = 1.0 / (self._convolver._pad(torch.ones_like(self._psf)) + self._mu1)
+        self._X_divmat = 1.0 / (
+            self._convolver._pad(torch.ones_like(self._psf))[None, :, :, :]
+            + self._mu1[:, None, None, None]
+        )
         # self._X_divmat = 1.0 / (torch.ones_like(self._psf) + self._mu1)
 
     def _Psi(self, x):

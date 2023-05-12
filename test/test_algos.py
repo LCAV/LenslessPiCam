@@ -180,6 +180,40 @@ def test_unrolled_fista():
             assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
 
 
+def test_unrolled_admm():
+    if torch_is_available:
+        from lensless.unrolled_admm import unrolled_ADMM
+
+        for dtype, torch_type in [("float32", torch.float32), ("float64", torch.float64)]:
+            psf = torch.rand(32, 64, 3, dtype=torch_type)
+            data = torch.rand(2, 32, 64, 3, dtype=torch_type)
+            recon = unrolled_ADMM(psf, n_iter=n_iter, dtype=dtype)
+
+            assert (
+                next(recon.parameters(), None) is not None
+            ), "unrolled ASMM has no trainable parameters"
+
+            res = recon.batch_call(data)
+            loss = torch.mean(res)
+            loss.backward()
+
+            assert (
+                data.shape[0] == res.shape[0]
+            ), f"Batch dimension changed: got {res.shape[0]} expected {data.shape[0]}"
+
+            assert len(psf.shape) == 3
+            assert res.shape[3] == 3, "Input in HWC format but output CHW format"
+
+            # check support for CHW
+            data = torch.rand(1, 3, 32, 64, dtype=torch_type)
+            res = recon.batch_call(data)
+            assert (
+                data.shape[0] == res.shape[0]
+            ), f"Batch dimension changed: got {res.shape[0]} expected {data.shape[0]}"
+            assert res.shape[1] == 3, "Input in CHW format but output HWC format"
+            assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
+
+
 if __name__ == "__main__":
     test_gradient_descent()
     test_admm()
@@ -187,3 +221,4 @@ if __name__ == "__main__":
     test_fista()
     test_apgd()
     test_unrolled_fista()
+    test_unrolled_admm()
