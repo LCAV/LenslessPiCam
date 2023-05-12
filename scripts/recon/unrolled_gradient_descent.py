@@ -77,6 +77,16 @@ def simulate_dataset(config, psf):
     return ds_loader
 
 
+def mesure_gradiant(model):
+    # return the L2 norm of the gradient
+    total_norm = 0.0
+    for p in model.parameters():
+        param_norm = p.grad.detach().data.norm(2)
+        total_norm += param_norm.item() ** 2
+    total_norm = total_norm**0.5
+    return total_norm
+
+
 @hydra.main(version_base=None, config_path="../../configs", config_name="unrolled_recon")
 def gradient_descent(
     config,
@@ -238,6 +248,7 @@ def gradient_descent(
             if config.lpips:
                 loss_v = loss_v + config.lpips * torch.mean(loss_lpips(y_pred, y))
             loss_v.backward()
+            torch.nn.utils.clip_grad_norm_(recon.parameters(), 1.0)
             optimizer.step()
 
             mean_loss += (loss_v.item() - mean_loss) * (1 / i)
