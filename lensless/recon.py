@@ -188,7 +188,9 @@ class ReconstructionAlgorithm(abc.ABC):
 
     """
 
-    def __init__(self, psf, dtype=None, pad=True, n_iter=100, initial_est=None, **kwargs):
+    def __init__(
+        self, psf, dtype=None, pad=True, n_iter=100, initial_est=None, reset=True, **kwargs
+    ):
         """
         Base constructor. Derived constructor may define new state variables
         here and also reset them in `reset`.
@@ -211,7 +213,8 @@ class ReconstructionAlgorithm(abc.ABC):
             initial_est : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`, optional
                 Initial estimate of the image. If not provided, the initial estimate is
                 set to zero or to the mean of the data, depending on the algorithm.
-
+            reset : bool, optional
+                Whether to reset state variables in the base __init__. Defaults to True.
         """
         super().__init__()
         self.is_torch = False
@@ -272,7 +275,9 @@ class ReconstructionAlgorithm(abc.ABC):
         if initial_est is not None:
             self._image_est = self.set_image_estimage(initial_est)
         self._data = None
-        self.reset()
+
+        if reset:
+            self.reset()
 
     @abc.abstractmethod
     def reset(self):
@@ -380,7 +385,15 @@ class ReconstructionAlgorithm(abc.ABC):
             return data
 
     def apply(
-        self, n_iter=None, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None
+        self,
+        n_iter=None,
+        disp_iter=10,
+        plot_pause=0.2,
+        plot=True,
+        save=False,
+        gamma=None,
+        ax=None,
+        reset=True,
     ):
         """
         Method for performing iterative reconstruction. Note that `set_data`
@@ -406,6 +419,8 @@ class ReconstructionAlgorithm(abc.ABC):
             Gamma correction factor to apply for plots. Default is None.
         ax : :py:class:`~matplotlib.axes.Axes`, optional
             `Axes` object to fill for plotting/saving, default is to create one.
+        reset : bool, optional
+            Whether to reset state variables before applying reconstruction. Default to True.
 
         Returns
         -------
@@ -417,6 +432,8 @@ class ReconstructionAlgorithm(abc.ABC):
 
         """
         assert self._data is not None, "Must set data with `set_data()`"
+        if reset:
+            self.reset()
 
         if n_iter is None:
             n_iter = self._n_iter

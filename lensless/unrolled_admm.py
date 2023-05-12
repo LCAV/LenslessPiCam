@@ -72,7 +72,7 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         """
 
         super(UnrolledADMM, self).__init__(
-            psf, n_iter=n_iter, dtype=dtype, pad=False, norm="backward"
+            psf, n_iter=n_iter, dtype=dtype, pad=False, norm="backward", reset=False, **kwargs
         )
 
         self._mu1_p = torch.nn.Parameter(torch.ones(self.n_iter, device=self._psf.device) * mu1)
@@ -113,10 +113,6 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         return finite_diff_adj(U)
 
     def reset(self, batch_size=1):
-        # needed because ReconstructionAlgorithm initializer call reset to early
-        if not hasattr(self, "_mu1_p"):
-            return
-
         # ensure that mu1, mu2, mu3, tau are positive
         self._mu1 = torch.abs(self._mu1_p)
         self._mu2 = torch.abs(self._mu2_p)

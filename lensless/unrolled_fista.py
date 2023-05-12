@@ -47,7 +47,7 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
             Initial value of tk, by default 1
         """
 
-        super(UnrolledFISTA, self).__init__(psf, n_iter=n_iter, dtype=dtype, **kwargs)
+        super(UnrolledFISTA, self).__init__(psf, n_iter=n_iter, dtype=dtype, reset=False, **kwargs)
 
         self._proj = proj
 
@@ -83,10 +83,8 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
         return self._convolver.deconvolve(diff)
 
     def reset(self):
-        # needed because ReconstructionAlgorithm initializer call reset to early
-        if hasattr(self, "_image_init"):
-            self._image_est = self._image_init
-            self._xk = self._image_init
+        self._image_est = self._image_init
+        self._xk = self._image_init
 
     def _update(self, iter):
         self._image_est = self._image_est - self._alpha[iter] * self._grad()

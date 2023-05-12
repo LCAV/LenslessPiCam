@@ -82,7 +82,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             The reconstructed images. Channels are in the same order as the input.
         """
 
-    def apply(self, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None):
+    def apply(
+        self, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None, reset=True
+    ):
         """
         Method for performing iterative reconstruction. Contrary to not trainable reconstruction algorithm, the number of iteration isn't requiered. Note that `set_data`
         must be called beforehand.
@@ -129,6 +131,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             save=save,
             gamma=gamma,
             ax=ax,
+            reset=reset,
         )
 
         if CHW:
