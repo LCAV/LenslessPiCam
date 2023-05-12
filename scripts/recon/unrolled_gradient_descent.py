@@ -38,6 +38,10 @@ def simulate_dataset(config, psf):
         ds = datasets.FashionMNIST(root=data_path, train=True, download=True, transform=transform)
     elif config.files.dataset == "cifar10":
         ds = datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform)
+    elif config.files.dataset == "CelebA":
+        ds = datasets.CelebA(
+            root="/scratch/bezzam/", split="train", download=True, transform=transform
+        )
     else:
         raise NotImplementedError(f"Dataset {config.files.dataset} not implemented.")
 
@@ -101,6 +105,11 @@ def gradient_descent(
         torch=True,
         torch_device=device,
     )
+
+    # if using a portrait dataset
+    if config.files.dataset in ["CelebA"]:
+        psf = torch.rot90(psf, dims=[0, 1])
+
     disp = config.display.disp
     if disp < 0:
         disp = None

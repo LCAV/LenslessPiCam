@@ -31,7 +31,7 @@ preprocess:
 display:
   # How many iterations to wait for intermediate plot. 
   # Set to negative value for no intermediate plots.
-  disp: 100
+  disp: 25
   # Whether to plot results.
   plot: True
   # Gamma factor for plotting.
@@ -63,7 +63,7 @@ gradient_descent:
 # Train Dataset
 
 files:
-  dataset: "cifar10"   # "mnist" or "fashion_mnist" or "cifar10"
+  dataset: "CelebA"   # "mnist" or "fashion_mnist" or "cifar10"
   n_files: null    # null to use all
 
 target: "object_plane"    # "original" or "object_plane" or "label"
@@ -71,11 +71,11 @@ target: "object_plane"    # "original" or "object_plane" or "label"
 simulation:
   grayscale: False
   # random variations
-  object_height: [0.1, 0.4]   # range for random height or scalar
-  random_shift: True
+  object_height: 0.6   # range for random height or scalar
+  random_shift: False
   random_vflip: 0.5
   random_hflip: 0.5
-  random_rotate: 90
+  random_rotate: False
   # these distance parameters are typically fixed for a given PSF
   scene2mask: 40e-2
   mask2sensor: 4e-3
@@ -92,7 +92,7 @@ simulation:
 #Training
 
 training:
-  batch_size: 4
+  batch_size: 32
   epoch: 1
 
 optimizer:
