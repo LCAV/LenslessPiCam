@@ -2,7 +2,7 @@
 Apply gradient descent.
 
 ```
-python scripts/recon/gradient_descent.py
+python scripts/recon/unrolled_gradient_descent.py
 ```
 
 """
@@ -122,18 +122,18 @@ def gradient_descent(
         save = os.getcwd()
 
     start_time = time.time()
-    if config.gradient_descent.method == "unrolled_fista":
+    if config.reconstruction.method == "unrolled_fista":
         recon = unrolled_FISTA(
             psf,
-            n_iter=config.gradient_descent.n_iter,
-            tk=config.gradient_descent.unrolled_fista.tk,
+            n_iter=config.reconstruction.n_iter,
+            tk=config.reconstruction.unrolled_fista.tk,
             pad=True,
-            learn_tk=config.gradient_descent.unrolled_fista.learn_tk,
+            learn_tk=config.reconstruction.unrolled_fista.learn_tk,
         ).to(device)
-    elif config.gradient_descent.method == "unrolled_admm":
-        recon = unrolled_ADMM(psf, n_iter=config.gradient_descent.n_iter, pad=True).to(device)
+    elif config.reconstruction.method == "unrolled_admm":
+        recon = unrolled_ADMM(psf, n_iter=config.reconstruction.n_iter, pad=True).to(device)
     else:
-        raise ValueError(f"{config.gradient_descent.method} is not a supported algorithm")
+        raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
 
     # load dataset and create dataloader
     if config.files.dataset == "DiffuserCam":
@@ -199,7 +199,16 @@ def gradient_descent(
         optimizer = torch.optim.Adam(recon.parameters(), lr=config.optimizer.lr)
     else:
         raise ValueError(f"Unsuported optimizer : {config.optimizer.type}")
-    metrics = {"LOSS": [], "MSE": [], "MAE": [], "LPIPS": [], "PSNR": [], "SSIM": []}
+    metrics = {
+        "LOSS": [],
+        "MSE": [],
+        "MAE": [],
+        "LPIPS": [],
+        "PSNR": [],
+        "SSIM": [],
+        "n_iter": config.reconstruction.n_iter,
+        "algorithm": config.reconstruction.method,
+    }
 
     # Training loop
     for epoch in range(config.training.epoch):

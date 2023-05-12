@@ -36,9 +36,9 @@ display:
 # Whether to save intermediate and final reconstructions.
 save: True
 
-gradient_descent:
+reconstruction:
   # Number of iterations
-  n_iter: 5
+  n_iter: 10
   # Method: vanilla, nesterov, fista
   method: unrolled_admm
   # Hyperparameters for each method
