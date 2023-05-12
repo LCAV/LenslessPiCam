@@ -5,6 +5,7 @@
 # Yohann PERRON [yohann.perron@gmail.com]
 # #############################################################################
 
+import abc
 from lensless.recon import ReconstructionAlgorithm
 
 try:
@@ -63,6 +64,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         self.n_iter = n_iter
         super(TrainableReconstructionAlgorithm, self).__init__(psf, dtype=dtype, n_iter=1, **kwargs)
 
+    @abc.abstractmethod
     def batch_call(self, batch):
         """
         Method for performing iterative reconstruction on a batch of images.
@@ -79,12 +81,6 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         :py:class:`~torch.Tensor` of shape (N, C, H, W) or (N, H, W, C)
             The reconstructed images. Channels are in the same order as the input.
         """
-        result = []
-        for image in batch:
-            self.reset()
-            self.set_data(image)
-            result.append(self.apply(plot=False))
-        return torch.stack(result, dim=0)
 
     def apply(self, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None):
         """
