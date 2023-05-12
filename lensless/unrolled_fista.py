@@ -94,4 +94,4 @@ class unrolled_FISTA(TrainableReconstructionAlgorithm):
 
         if CHW:
             self._image_est = self._image_est.movedim(-1, -3)
-        return self._image_est
+        return self._proj(self._image_est)
