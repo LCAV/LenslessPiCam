@@ -89,7 +89,7 @@ simulation:
 
 training:
   batch_size: 16
-  epoch: 1
+  epoch: 10
 
 optimizer:
   type: Adam

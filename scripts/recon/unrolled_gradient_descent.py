@@ -161,12 +161,14 @@ def gradient_descent(
         optimizer = torch.optim.Adam(recon.parameters(), lr=config.optimizer.lr)
     else:
         raise ValueError(f"Unsuported optimizer : {config.optimizer.type}")
+    metrics = {"LOSS": [], "MSE": [], "MAE": [], "LPIPS": [], "PSNR": [], "SSIM": []}
 
     # Training loop
-    for epoch in tqdm(range(config.training.epoch), position=0):
+    for epoch in range(config.training.epoch):
+        print(f"Epoch {epoch}")
         mean_loss = 0.0
         i = 1.0
-        pbar = tqdm(data_loader, position=1)
+        pbar = tqdm(data_loader)
         for X, y in pbar:
             y_pred = recon.batch_call(X.to(device))
             # normalizing each output
@@ -198,21 +200,27 @@ def gradient_descent(
             pbar.set_description(f"loss : {mean_loss}")
             i += 1
 
+        # benchmarking
+        data_path = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
+        data_path = os.path.join(get_original_cwd(), data_path)
+        current_metrics = benchmark(
+            recon, data_path, downsample=config.simulation.downsample, flip=flip, batchsize=10
+        )
+        # update metrics with current metrics
+        metrics["LOSS"].append(mean_loss)
+        for key in current_metrics:
+            metrics[key].append(current_metrics[key])
+
     print(f"Train time : {time.time() - start_time} s")
 
-    # benchmarking final model
-    data_path = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
-    data_path = os.path.join(get_original_cwd(), data_path)
-    perf = benchmark(recon, data_path, downsample=config.simulation.downsample, flip=flip)
-
-    # save dictionary perf to file with json
+    # save dictionary metrics to file with json
     try:
         import json
 
-        with open(os.path.join(save, "perf.json"), "w") as f:
-            json.dump(perf, f)
+        with open(os.path.join(save, "metrics.json"), "w") as f:
+            json.dump(metrics, f)
     except ImportError:
-        print("json package not found, final performence not saved")
+        print("json package not found, metrics not saved")
 
     # save pytorch model recon
     torch.save(recon.state_dict(), "recon.pt")
