@@ -21,6 +21,8 @@ Added
 -  TrainableReconstructionAlgorithm class inherited from ReconstructionAlgorithm and torch.module for use with pytorch autograd and optimizers.
 -  Unrolled version of FISTA and ADMM as TrainableReconstructionAlgorithm with learnable parameters.
 -  Unrolled_recon.py script for training unrolled algorithms.
+- ``train_unrolled.py`` script for training unrolled algorithms.
+- ``benchmark_recon.py`` script for benchmarking and comparing reconstruction algorithms.
 
 Changed
 ~~~~~~~
