@@ -23,6 +23,7 @@ import torch
 from torchvision import transforms, datasets
 from tqdm import tqdm
 
+
 def simulate_dataset(config, psf):
 
     # load dataset
@@ -151,27 +152,27 @@ def gradient_descent(
         pbar = tqdm(data_loader, position=1)
         for X, y in pbar:
             y_pred = recon.batch_call(X.to(device))
-            #normalizing each output
-            y_pred_max = torch.amax(y_pred, dim=(1,2,3), keepdim=True)
-            y_pred = y_pred/y_pred_max
+            # normalizing each output
+            y_pred_max = torch.amax(y_pred, dim=(1, 2, 3), keepdim=True)
+            y_pred = y_pred / y_pred_max
 
-            #normalizing y
-            y=y.to(device)
-            y_max = torch.amax(y, dim=(1,2,3), keepdim=True)
-            y = y/y_max
+            # normalizing y
+            y = y.to(device)
+            y_max = torch.amax(y, dim=(1, 2, 3), keepdim=True)
+            y = y / y_max
 
-            if i %disp == 1 and config.display.plot:
-                img = y_pred[0].cpu().detach().permute(1,2,0).numpy()
+            if i % disp == 1 and config.display.plot:
+                img = y_pred[0].cpu().detach().permute(1, 2, 0).numpy()
                 plt.imshow(img)
                 plt.savefig(f"y_pred_{i-1}.png")
-                img = y[0].cpu().detach().permute(1,2,0).numpy()
+                img = y[0].cpu().detach().permute(1, 2, 0).numpy()
                 plt.imshow(img)
                 plt.savefig(f"y_{i-1}.png")
 
             optimizer.zero_grad(set_to_none=True)
             loss_v = Loss(y_pred, y)
             if config.lpips:
-                loss_v = loss_v + torch.mean(loss_lpips(y_pred, y))
+                loss_v = loss_v + config.lpips * torch.mean(loss_lpips(y_pred, y))
             loss_v.backward()
             optimizer.step()
 

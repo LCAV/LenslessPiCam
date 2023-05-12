@@ -96,7 +96,8 @@ training:
 
 optimizer:
   type: Adam
-  lr: 1e-3
+  lr: 1e-2
   
 loss: 'l2'
+# set lpips to false to deactivate
 lpips: False
