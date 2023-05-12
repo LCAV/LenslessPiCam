@@ -67,6 +67,7 @@ class GradientDescent(ReconstructionAlgorithm):
             Projection function to apply at each iteration. Default is
             non-negative.
         """
+
         assert callable(proj)
         self._proj = proj
         super(GradientDescent, self).__init__(psf, dtype, **kwargs)
@@ -122,7 +123,7 @@ class NesterovGradientDescent(GradientDescent):
     def __init__(self, psf, dtype=None, proj=non_neg, p=0, mu=0.9, **kwargs):
         self._p = p
         self._mu = mu
-        super(NesterovGradientDescent, self).__init__(psf, dtype, proj)
+        super(NesterovGradientDescent, self).__init__(psf, dtype, proj, **kwargs)
 
     def reset(self, p=0, mu=0.9):
         self._p = p
@@ -148,7 +149,7 @@ class FISTA(GradientDescent):
     def __init__(self, psf, dtype=None, proj=non_neg, tk=1.0, **kwargs):
         self._initial_tk = tk
 
-        super(FISTA, self).__init__(psf, dtype, proj)
+        super(FISTA, self).__init__(psf, dtype, proj, **kwargs)
 
         self._tk = tk
         self._xk = self._image_est
