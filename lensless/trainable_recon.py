@@ -104,10 +104,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             returning if `plot` or `save` is True.
 
         """
-        # apply expect H W C (This check should probably be moved to set_data)
-        if self._data.shape[0] == 3:
+        if self._data.shape[-3] == 3:
             CHW = True
-            self._data = self._data.permute(1, 2, 0)
+            self._data = self._data.movedim(-3, -1)
         else:
             CHW = False
 
@@ -123,7 +122,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
         if CHW:
             if isinstance(im, tuple):
-                im = im[0].permute(2, 0, 1), im[1]
-            else :
-                im = im.permute(2, 0, 1)
+                im = im[0].movedim(-1, -3), im[1]
+            else:
+                im = im.movedim(-1, -3)
         return im

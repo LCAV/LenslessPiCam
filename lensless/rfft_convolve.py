@@ -77,30 +77,33 @@ class RealFFTConvolve2D:
         self.dtype = dtype
 
     def _crop(self, x):
-        return x[:, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]]
+        return x[
+            ..., self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1], :
+        ]
 
     def _pad(self, v):
+        batch_size = v.shape[0]
+        shape = [batch_size] + self._padded_shape
         if self.is_torch:
-            vpad = torch.zeros(size=self._padded_shape, dtype=v.dtype, device=v.device)
+            vpad = torch.zeros(size=shape, dtype=v.dtype, device=v.device)
         else:
-            vpad = np.zeros(self._padded_shape).astype(v.dtype)
-        vpad[:, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]] = v
+            vpad = np.zeros(shape).astype(v.dtype)
+        vpad[
+            ..., self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1], :
+        ] = v
         return vpad
 
     def convolve(self, x):
         """
         Convolve with pre-computed FFT of provided PSF.
         """
-
-        if self.is_torch:
-            self._padded_data = torch.zeros(
-                size=self._padded_shape, dtype=self.dtype, device=self._psf.device
-            )
         if self.pad:
-            self._padded_data[
-                :, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
-            ] = x
+            self._padded_data = self._pad(x)
         else:
+            if self.is_torch:
+                self._padded_data = torch.zeros(
+                    size=self._padded_shape, dtype=self.dtype, device=self._psf.device
+                )
             self._padded_data[:] = x
 
         if self.is_torch:
@@ -125,15 +128,13 @@ class RealFFTConvolve2D:
         """
         Deconvolve with adjoint of pre-computed FFT of provided PSF.
         """
-        if self.is_torch:
-            self._padded_data = torch.zeros(
-                size=self._padded_shape, dtype=self.dtype, device=self._psf.device
-            )
         if self.pad:
-            self._padded_data[
-                :, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
-            ] = y
+            self._padded_data = self._pad(y)
         else:
+            if self.is_torch:
+                self._padded_data = torch.zeros(
+                    size=self._padded_shape, dtype=self.dtype, device=self._psf.device
+                )
             self._padded_data[:] = y
 
         if self.is_torch:

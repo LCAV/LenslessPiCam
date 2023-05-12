@@ -75,3 +75,23 @@ class unrolled_FISTA(TrainableReconstructionAlgorithm):
         xk = self._proj(self._image_est)
         self._image_est = xk + (self._tk[iter] - 1) / self._tk[iter + 1] * (xk - self._xk)
         self._xk = xk
+
+    def batch_call(self, batch):
+        self._data = batch
+        batch_size = batch.shape[0]
+
+        if self._data.shape[-3] == 3:
+            CHW = True
+            self._data = self._data.movedim(-3, -1)
+        else:
+            CHW = False
+
+        self._image_est = self._image_init.unsqueeze(0).expand(batch_size, -1, -1, -1)
+        self._xk = self._image_est
+
+        for i in range(self.n_iter):
+            self._update(i)
+
+        if CHW:
+            self._image_est = self._image_est.movedim(-1, -3)
+        return self._image_est
