@@ -21,20 +21,6 @@ def benchmark_recon(config):
     n_files = config.n_files
     n_iter_range = config.n_iter_range
 
-    model_list = []  # list of algoritms to benchmark
-    if "ADMM" in config.algorithms:
-        model_list.append(ADMM)
-    if "FISTA" in config.algorithms:
-        model_list.append(FISTA)
-    if "GradientDescent" in config.algorithms:
-        model_list.append(GradientDescent)
-    if "NesterovGradientDescent" in config.algorithms:
-        model_list.append(NesterovGradientDescent)
-    if "APGD" in config.algorithms:
-        from lensless import APGD
-
-        model_list.append(APGD)
-
     # check if GPU is available
     if torch.cuda.is_available():
         device = "cuda"
@@ -45,16 +31,31 @@ def benchmark_recon(config):
     benchmark_dataset = BenchmarkDataset(n_files=n_files, downsample=downsample)
     psf = benchmark_dataset.psf.to(device)
 
+    model_list = []  # list of algoritms to benchmark
+    if "ADMM" in config.algorithms:
+        model_list.append(("ADMM", ADMM(psf)))
+        model_list.append(("ADMM_learn_recon", ADMM(psf, mu1=1e-4, mu2=1e-4, mu3=1e-4, tau=1e-3)))
+    if "FISTA" in config.algorithms:
+        model_list.append(("FISTA", FISTA(psf)))
+    if "GradientDescent" in config.algorithms:
+        model_list.append(("GradientDescent", GradientDescent(psf)))
+    if "NesterovGradientDescent" in config.algorithms:
+        model_list.append(("NesterovGradientDescent", NesterovGradientDescent(psf)))
+    if "APGD" in config.algorithms:
+        from lensless import APGD
+
+        model_list.append(("APGD", APGD(psf)))
+
     results = {}
     # benchmark each model for different number of iteration and append result to results
     for Model in model_list:
-        results[Model.__name__] = []
-        print(f"Running benchmark for {Model.__name__}")
+        results[Model[0]] = []
+        print(f"Running benchmark for {Model[0]}")
         for n_iter in n_iter_range:
-            model = Model(psf, n_iter=n_iter)
-            result = benchmark(model, benchmark_dataset, batchsize=1)
+            model = Model[1]
+            result = benchmark(model, benchmark_dataset, batchsize=1, n_iter=n_iter)
             result["n_iter"] = n_iter
-            results[Model.__name__].append(result)
+            results[Model[0]].append(result)
 
     # create folder to save plots
     if not os.path.isdir("benchmark"):
