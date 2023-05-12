@@ -17,6 +17,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 from lensless.io import load_data, load_psf
 from lensless.unrolled_fista import unrolled_FISTA
+from lensless.unrolled_admm import unrolled_ADMM
 from waveprop.dataset_util import SimulatedPytorchDataset
 from lensless.util import rgb2gray
 from lensless.benchmark import benchmark
@@ -129,6 +130,8 @@ def gradient_descent(
             pad=True,
             learn_tk=config.gradient_descent.unrolled_fista.learn_tk,
         ).to(device)
+    elif config.gradient_descent.method == "unrolled_admm":
+        recon = unrolled_ADMM(psf, n_iter=config.gradient_descent.n_iter, pad=True).to(device)
     else:
         raise ValueError(f"{config.gradient_descent.method} is not a supported algorithm")
 
