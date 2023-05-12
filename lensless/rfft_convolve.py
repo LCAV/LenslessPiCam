@@ -68,12 +68,13 @@ class RealFFTConvolve2D:
                 self._pad(self._psf), norm=norm, dim=(-3, -2), s=self._padded_shape[-3:-1]
             )
             self._Hadj = torch.conj(self._H)
-            self._padded_data = torch.zeros(size=self._padded_shape, dtype=dtype, device=psf.device)
-
+            # self._padded_data = torch.zeros(size=self._padded_shape, dtype=dtype, device=psf.device)
         else:
             self._H = fft.rfft2(self._pad(self._psf), axes=(-3, -2), norm=norm)
             self._Hadj = np.conj(self._H)
             self._padded_data = np.zeros(self._padded_shape).astype(dtype)
+
+        self.dtype = dtype
 
     def _crop(self, x):
         return x[:, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]]
@@ -90,6 +91,11 @@ class RealFFTConvolve2D:
         """
         Convolve with pre-computed FFT of provided PSF.
         """
+
+        if self.is_torch:
+            self._padded_data = torch.zeros(
+                size=self._padded_shape, dtype=self.dtype, device=self._psf.device
+            )
         if self.pad:
             self._padded_data[
                 :, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
@@ -119,6 +125,10 @@ class RealFFTConvolve2D:
         """
         Deconvolve with adjoint of pre-computed FFT of provided PSF.
         """
+        if self.is_torch:
+            self._padded_data = torch.zeros(
+                size=self._padded_shape, dtype=self.dtype, device=self._psf.device
+            )
         if self.pad:
             self._padded_data[
                 :, self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
