@@ -196,16 +196,15 @@ class unrolled_ADMM(TrainableReconstructionAlgorithm):
         self._rho = self._rho + self._mu3[iter] * (self._image_est - self._W)
 
     def _update(self, iter):
-
         self._U_update(iter)
         self._X_update(iter)
+        self._W_update(iter)
         self._image_update(iter)
 
         # update forward and sparse operators
         self._forward_out = self._convolver.convolve(self._image_est)
         self._Psi_out = self._Psi(self._image_est)
 
-        self._W_update(iter)
         self._xi_update(iter)
         self._eta_update(iter)
         self._rho_update(iter)
