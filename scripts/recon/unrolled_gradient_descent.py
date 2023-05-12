@@ -215,6 +215,7 @@ def gradient_descent(
         "LPIPS": [],
         "PSNR": [],
         "SSIM": [],
+        "ReconstructionError": [],
         "n_iter": n_iter,
         "algorithm": config.reconstruction.method,
     }
