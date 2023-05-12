@@ -46,8 +46,9 @@ gradient_descent:
   # Method: vanilla, nesterov, fista
   method: unrolled_fista
   # Hyperparameters for each method
-  fista:
+  unrolled_fista:
     tk: 1
+    learn_tk: True
 
 # admm:
 #   # Number of iterations

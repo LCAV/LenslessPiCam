@@ -110,10 +110,16 @@ def gradient_descent(
         save = os.getcwd()
 
     start_time = time.time()
-
-    recon = unrolled_FISTA(
-        psf, n_iter=config.gradient_descent.n_iter, tk=config.gradient_descent.fista.tk, pad=True
-    ).to(device)
+    if config.gradient_descent.method == "unrolled_fista":
+        recon = unrolled_FISTA(
+            psf,
+            n_iter=config.gradient_descent.n_iter,
+            tk=config.gradient_descent.unrolled_fista.tk,
+            pad=True,
+            learn_tk=config.gradient_descent.unrolled_fista.learn_tk,
+        ).to(device)
+    else:
+        raise ValueError(f"{config.gradient_descent.method} is not a supported algorithm")
 
     data_loader = simulate_dataset(config, psf)
     print(f"Setup time : {time.time() - start_time} s")
