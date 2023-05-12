@@ -108,6 +108,8 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         if self._data.shape[0] == 3:
             CHW = True
             self._data = self._data.permute(1, 2, 0)
+        else:
+            CHW = False
 
         im = super(TrainableReconstructionAlgorithm, self).apply(
             n_iter=self.n_iter,

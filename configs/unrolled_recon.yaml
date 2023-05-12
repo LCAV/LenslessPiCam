@@ -1,0 +1,102 @@
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+#Reconstruction algorithm
+input:
+  # File path for recorded PSF
+  psf: data/psf/tape_rgb.png
+  # File path for raw data  
+  data: data/raw_data/thumbs_up_rgb.png
+  dtype: float32
+
+torch: True
+torch_device: 'cpu'
+
+preprocess:
+  # Image shape (height, width) for reconstruction.
+  shape: null
+  # Whether to flip image.
+  flip: False
+  # Whether image is raw bayer data.
+  bayer: False
+  blue_gain: null
+  red_gain: null
+  # Same PSF for all channels (sum) or unique PSF for RGB.
+  single_psf: False
+  # Whether to perform construction in grayscale.
+  gray: False
+
+
+display:
+  # How many iterations to wait for intermediate plot. 
+  # Set to negative value for no intermediate plots.
+  disp: 100
+  # Whether to plot results.
+  plot: True
+  # Gamma factor for plotting.
+  gamma: null
+
+# Whether to save intermediate and final reconstructions.
+save: True
+
+gradient_descent:
+  # Number of iterations
+  n_iter: 10
+  # Method: vanilla, nesterov, fista
+  method: unrolled_fista
+  # Hyperparameters for each method
+  fista:
+    tk: 1
+
+# admm:
+#   # Number of iterations
+#   n_iter: 5
+#   # Hyperparameters
+#   mu1: 1e-6
+#   mu2: 1e-5
+#   mu3: 4e-5
+#   tau: 0.0001
+
+
+# Train Dataset
+
+files:
+  dataset: "cifar10"   # "mnist" or "fashion_mnist" or "cifar10"
+  n_files: null    # null to use all
+
+target: "object_plane"    # "original" or "object_plane" or "label"
+
+simulation:
+  grayscale: False
+  # random variations
+  object_height: [0.1, 0.4]   # range for random height or scalar
+  random_shift: True
+  random_vflip: 0.5
+  random_hflip: 0.5
+  random_rotate: 90
+  # these distance parameters are typically fixed for a given PSF
+  scene2mask: 40e-2
+  mask2sensor: 4e-3
+  # see waveprop.devices
+  sensor: "rpi_hq"
+  snr_db: 40
+  # simulate different sensor resolution
+  # output_dim: [24, 32]    # [H, W] or null
+  # Downsampling for PSF
+  downsample: 8
+  # max val in simulated measured (quantized 8 bits)
+  max_val: 255
+
+#Training
+
+training:
+  batch_size: 4
+  epoch: 1
+
+optimizer:
+  type: Adam
+  lr: 1e-3
+  
+loss: 'l2'
+lpips: False
