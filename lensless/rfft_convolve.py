@@ -44,11 +44,11 @@ class RealFFTConvolve2D:
                 dtype = torch.float32
             else:
                 dtype = np.float32
+
+        if self.is_torch:
+            self._psf = psf.type(dtype)
         else:
-            if self.is_torch:
-                self._psf = psf.type(dtype)
-            else:
-                self._psf = psf.astype(dtype)
+            self._psf = psf.astype(dtype)
 
         self._psf_shape = np.array(self._psf.shape)
 
