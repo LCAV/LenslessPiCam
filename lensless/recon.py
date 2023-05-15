@@ -273,7 +273,7 @@ class ReconstructionAlgorithm(abc.ABC):
         # pre-compute operators / outputs
         self._image_est = None
         if initial_est is not None:
-            self._image_est = self.set_image_est(initial_est)
+            self._image_est = self.set_image_estimate(initial_est)
         self._data = None
 
         if reset:
@@ -318,7 +318,7 @@ class ReconstructionAlgorithm(abc.ABC):
             assert isinstance(data, np.ndarray)
 
         assert (
-            len(data.shape) >= 4
+            len(data.shape) >= 3
         ), "Data must be at least 4D: [..., depth, width, height, channel]."
 
         # assert same shapes
@@ -326,12 +326,14 @@ class ReconstructionAlgorithm(abc.ABC):
             self._psf_shape[-3:-1] == np.array(data.shape)[-3:-1]
         ), "PSF and data shape mismatch"
 
-        if len(data.shape) == 4:
+        if len(data.shape) == 3:
+            self._data = data[None, None, ...]
+        elif len(data.shape) == 4:
             self._data = data[None, ...]
         else:
             self._data = data
 
-    def set_image_est(self, image_est):
+    def set_image_estimate(self, image_est):
         """
         Set initial estimate of image, e.g. to warm-start algorithm
 
@@ -360,7 +362,7 @@ class ReconstructionAlgorithm(abc.ABC):
         else:
             self._image_est = image_est
 
-    def get_image_est(self):
+    def get_image_estimate(self):
         """Get current image estimate as [N, D, H, W, D]."""
         return self._form_image()
 
@@ -450,7 +452,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
         if (plot or save) and disp_iter is not None:
             if ax is None:
-                ax = plot_image(self._get_numpy_data(self._data), gamma=gamma)
+                ax = plot_image(self._get_numpy_data(self._data[0]), gamma=gamma)
         else:
             ax = None
             disp_iter = n_iter + 1
@@ -461,7 +463,7 @@ class ReconstructionAlgorithm(abc.ABC):
             if (plot or save) and (i + 1) % disp_iter == 0:
                 self._progress()
                 img = self._form_image()
-                ax = plot_image(self._get_numpy_data(img), ax=ax, gamma=gamma)
+                ax = plot_image(self._get_numpy_data(img[0]), ax=ax, gamma=gamma)
                 ax.set_title("Reconstruction after iteration {}".format(i + 1))
                 if save:
                     plt.savefig(plib.Path(save) / f"{i + 1}.png")
@@ -497,7 +499,7 @@ class ReconstructionAlgorithm(abc.ABC):
         """
         # default to current estimate and data if not provided
         if prediction is None:
-            prediction = self.get_image_est()
+            prediction = self.get_image_estimate()
         if lensless is None:
             lensless = self._data
 
