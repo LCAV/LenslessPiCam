@@ -1,6 +1,16 @@
 name: lensless
 
-on: [push, pull_request]
+on: 
+  push:
+    paths:
+      - 'lensless/**'
+      - 'setup.py'
+      - 'recon_requirements.txt'
+  pull_request:
+    paths:
+      - 'lensless/**'
+      - 'setup.py'
+      - 'recon_requirements.txt'
 
 jobs:
   build:
@@ -11,7 +21,7 @@ jobs:
       max-parallel: 12
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: [3.8, 3.9, "3.10"]
+        python-version: [3.8, "3.11"]
     steps:
     - uses: actions/checkout@v3
     - name: Checkout submodules

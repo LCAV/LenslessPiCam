@@ -29,13 +29,13 @@ single file by (1) extraction a region of interest and (2) comparing it to a ref
 
 After downloading the example files:
 
-* `Thumbs up reconstruction <https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Freconstruction>`__;
-* `Original thumbs up <https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Foriginal>`__,
+.. code:: bash
 
-And placing them in (respectively):
-
-* ``data/reconstruction``
-* ``data/original``
+    wget https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww/download -O data.zip
+    unzip data.zip -d data
+    cp -r data/*/* data/
+    rm -rf data/LenslessPiCam_GitHub_data
+    rm data.zip
 
 The script can be run with:
 
@@ -50,8 +50,8 @@ More information can be found in
 `this Medium article <https://medium.com/@bezzam/image-similarity-metrics-applied-to-diffusercam-21998967af8d>`__.
 
 
-DiffuserCam Lensless Mirflickr Dataset
---------------------------------------
+DiffuserCam Lensless Mirflickr Dataset (DLMD)
+---------------------------------------------
 
 The `DiffuserCam Lensless Mirflickr Dataset (DLMD) <https://waller-lab.github.io/LenslessLearning/dataset.html>`__
 comes with (lensed, lensless) image pairs, namely an image that is captured
@@ -87,6 +87,24 @@ reconstruction.
    python scripts/apply_admm_single_mirflickr.py
 
 The default parameters can be found in the ``configs/apply_admm_single_mirflickr.yaml`` file.
+
+
+Benchmarking with PyTorch
+-------------------------
+
+It may be useful to benchmark reconstruction algorithms with PyTorch, e.g.
+with a *parallel* dataset of lensless and corresponding lensed images.
+
+:py:class:`~lensless.benchmark.ParallelDataset` is a PyTorch :py:class:`~torch.utils.data.Dataset` object that can be used
+to load a parallel dataset of lensless and corresponding lensed images.
+The function :py:func:`~lensless.benchmark.benchmark` can be used to evaluate a reconstruction
+algorithm on a parallel dataset in batches.
+
+Running the following file will evaluate ADMM on a subset of DLMD:
+
+.. code:: bash
+
+    python lensless/benchmark.py
 
 """
 

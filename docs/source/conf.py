@@ -16,16 +16,19 @@ MOCK_MODULES = [
     "skimage.metrics",
     "lpips",
     "torch",
+    "torch.utils.data",
+    "torch.nn",
+    "torchmetrics",
+    "torchmetrics.image",
     "scipy.ndimage",
-    "pycsou.core",
-    "pycsou.core.linop",
-    "pycsou.linop",
-    "pycsou.linop.conv",
-    "pycsou.func.loss",
-    "pycsou.func.penalty",
-    "pycsou.opt.proxalgs",
-    "lensless.APGD",
-    "PIL"
+    "pycsou.abc",
+    "pycsou.operator.func",
+    "pycsou.opt.solver",
+    "pycsou.opt.stop",
+    "pycsou.runtime",
+    "pycsou.util",
+    "pycsou.util.ptype",
+    "PIL",
 ]
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
@@ -36,7 +39,7 @@ sys.path.insert(0, os.path.abspath(os.path.join("..", "..")))
 from lensless import __version__
 
 project = "LenslessPiCam"
-copyright = f"{datetime.date.today().year}, Eric Bezzam"
+copyright = f"{datetime.date.today().year}, Eric Bezzam, Julien Sahli"
 author = "Eric Bezzam"
 version = __version__
 release = version
@@ -63,6 +66,7 @@ intersphinx_mapping = {
     "SciPy [latest]": ("https://docs.scipy.org/doc/scipy/reference", None),
     "matplotlib": ("http://matplotlib.sourceforge.net/", None),
     "pycsou": ("https://matthieumeo.github.io/pycsou/html/", None),
+    "torch": ("https://pytorch.org/docs/stable/", None),
 }
 intersphinx_disabled_domains = ["std"]
 

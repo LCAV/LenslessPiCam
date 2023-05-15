@@ -56,7 +56,6 @@ import click
     help="Screen resolution in pixels (width, height).",
 )
 def display(fp, pad, output_path, vshift, brightness, screen_res, hshift):
-
     interpolation = cv2.INTER_NEAREST
 
     # load image
@@ -84,7 +83,6 @@ def display(fp, pad, output_path, vshift, brightness, screen_res, hshift):
         img = np.roll(img, shift=int((screen_res[0] - image_res[0]) / 2), axis=1)
 
     else:
-
         # pad image
         if pad:
             padding_amount = np.array(img_og.shape[:2]) * pad / 100
