@@ -273,12 +273,15 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
             else:
                 prediction = model.batch_call(lensless, **kwargs)
 
-        # Convert to [N, D, C, H, W] for torchmetrics
+        # Convert to [N*D, C, H, W] for torchmetrics
         prediction = prediction.reshape(-1, *prediction.shape[-3:]).movedim(-1, -3)
         lensed = lensed.reshape(-1, *lensed.shape[-3:]).movedim(-1, -3)
         # normalization
         prediction_max = torch.amax(prediction, dim=(1, 2, 3), keepdim=True)
-        prediction = prediction / prediction_max
+        if prediction_max != 0:
+            prediction = prediction / prediction_max
+        else:
+            print("Warning: prediction is zero")
         lensed_max = torch.amax(lensed, dim=(1, 2, 3), keepdim=True)
         lensed = lensed / lensed_max
         # compute metrics
