@@ -81,7 +81,12 @@ class RealFFTConvolve2D:
         ]
 
     def _pad(self, v):
-        batch_size = v.shape[0]
+        if len(v.shape) == 5:
+            batch_size = v.shape[0]
+        elif len(v.shape) == 4:
+            batch_size = 1
+        else:
+            raise ValueError("Expected 4D or 5D tensor")
         shape = [batch_size] + self._padded_shape
         if self.is_torch:
             vpad = torch.zeros(size=shape, dtype=v.dtype, device=v.device)
@@ -133,7 +138,6 @@ class RealFFTConvolve2D:
                 self._padded_data = y  # .type(self.dtype).to(self._psf.device)
             else:
                 self._padded_data[:] = y  # .astype(self.dtype)
-
         if self.is_torch:
             deconv_output = torch.fft.ifftshift(
                 torch.fft.irfft2(
