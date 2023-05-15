@@ -7,6 +7,8 @@ from perlin_numpy import generate_perlin_noise_2d
 from sympy.ntheory import quadratic_residues
 from scipy.signal import max_len_seq
 from waveprop.fresnel import fresnel_conv
+from waveprop.rs import angular_spectrum
+
 
 
 
@@ -19,7 +21,8 @@ class Mask(abc.ABC):
     def __init__(self, sensor_size_px: tuple, 
                  sensor_size_m: tuple, 
                  feature_size: tuple, 
-                 distance_sensor: float) -> None:
+                 distance_sensor: float, 
+                 wavelength: float) -> None:
         """
         Parent mask contructor.
         Attributes common to each type of mask.
@@ -30,10 +33,12 @@ class Mask(abc.ABC):
             size of the sensor (px)
         sensor_size_m: tuple (dim=2)
             size of the sensor (m)
-        feature_size: tuple (dim=2)
+        feature_size: float
             size of the feature (m)
         distance_sensor: float
             distance between the mask and the sensor (m)
+        wavelength: float
+            wavelength (m)
         """
         
         self.mask = None
@@ -44,9 +49,11 @@ class Mask(abc.ABC):
         self.sensor_size_m = sensor_size_m
         self.feature_size = feature_size
         self.distance_sensor = distance_sensor
+        self.wavelength = wavelength
         self.create_mask()
         self.compute_psf()
     
+
     @abc.abstractmethod
     def create_mask(self):
         """
@@ -55,20 +62,29 @@ class Mask(abc.ABC):
         """
         pass
 
+
     def compute_psf(self):
         """
         Computing the PSF.
         Common to all types of masks.
         """
-        self.psf = self.mask.copy()
+        self.psf, _, _ = angular_spectrum(
+            u_in=self.mask,
+            wv=self.wavelength,
+            d1=self.feature_size,
+            dz=self.distance_sensor,
+            dtype=np.float32
+        )
         pass
     
+
     def shape(self):
         """
         Shape of the mask.
         """
         return self.mask.shape
     
+
     def phase_retrieval(self, lambd, d1, dz, n=1.5, n_iter=10):
         """
         Iterative phase retrieval algorithm from the PhlatCam article (https://ieeexplore.ieee.org/document/9076617)
@@ -99,16 +115,19 @@ class Mask(abc.ABC):
 
 
 
+
 class CodedAperture(Mask):
     """
-    https://arxiv.org/abs/1509.00116
+    Coded aperture subclass of the Mask class
+    From the FlatCam article https://arxiv.org/abs/1509.00116
     """
 
     def __init__(self, 
                  sensor_size_px: tuple, 
                  sensor_size_m: tuple, 
                  feature_size: tuple, 
-                 distance_sensor: float, 
+                 distance_sensor: float,
+                 wavelength: float, 
                  method: str, 
                  n_bits: int) -> None:
         """
@@ -120,10 +139,12 @@ class CodedAperture(Mask):
             size of the sensor (px)
         sensor_size_m: tuple (dim=2)
             size of the sensor (m)
-        feature_size: tuple (dim=2)
+        feature_size: float
             size of the feature (m)
         distance_sensor: float
             distance between the mask and the sensor (m)
+        wavelength: float
+            wavelength (m)
         method: str
             pattern generation method (MURA or MLS)
         n_bits: int
@@ -135,7 +156,8 @@ class CodedAperture(Mask):
         self.method = method
         self.n_bits = n_bits
 
-        super().__init__(sensor_size_px, sensor_size_m, feature_size, distance_sensor)
+        super().__init__(sensor_size_px, sensor_size_m, feature_size, distance_sensor, wavelength)
+
 
     def create_mask(self):
         """
@@ -187,16 +209,19 @@ class CodedAperture(Mask):
 
 
 
+
 class PhaseContour(Mask):
     """
-    https://ieeexplore.ieee.org/document/9076617
+    Phase contour subclass of the Mask class
+    From the PhlatCam article https://ieeexplore.ieee.org/document/9076617
     """
 
     def __init__(self, 
                  sensor_size_px: tuple, 
                  sensor_size_m: tuple, 
                  feature_size: tuple, 
-                 distance_sensor: float, 
+                 distance_sensor: float,
+                 wavelength: float, 
                  noise_period: tuple) -> None:
         """
         Coded aperture mask contructor (FlatCam).
@@ -207,18 +232,21 @@ class PhaseContour(Mask):
             size of the sensor (px)
         sensor_size_m: tuple (dim=2)
             size of the sensor (m)
-        feature_size: tuple (dim=2)
+        feature_size: float
             size of the feature (m)
         distance_sensor: float
             distance between the mask and the sensor (m)
+        wavelength: float
+            wavelength (m)
         noise_period: tuple (dim=2)
             noise period of the Perlin noise (px)
         """
 
         self.noise_period = noise_period
 
-        super().__init__(sensor_size_px, sensor_size_m, feature_size, distance_sensor)
+        super().__init__(sensor_size_px, sensor_size_m, feature_size, distance_sensor, wavelength)
     
+
     def create_mask(self):
         """
         Creating coded aperture mask using either the MURA of MLS method
@@ -234,7 +262,8 @@ class PhaseContour(Mask):
 
 class FresnelZoneAperture(Mask):
     """
-    https://www.nature.com/articles/s41377-020-0289-9
+    Fresnel Zone Aperture subclass of the Mask class
+    From the FZA article https://www.nature.com/articles/s41377-020-0289-9
     """
 
     def __init__(self, 
@@ -242,6 +271,7 @@ class FresnelZoneAperture(Mask):
                  sensor_size_m: tuple, 
                  feature_size: tuple, 
                  distance_sensor: float, 
+                 wavelength: float, 
                  radius: float) -> None:
         """
         Fresnel Zone Aperture mask contructor.
@@ -252,18 +282,21 @@ class FresnelZoneAperture(Mask):
             size of the sensor (px)
         sensor_size_m: tuple (dim=2)
             size of the sensor (m)
-        feature_size: tuple (dim=2)
+        feature_size: float
             size of the feature (m)
         distance_sensor: float
             distance between the mask and the sensor (m)
+        wavelength: float
+            wavelength (m)
         radius: float
             characteristic radius of the FZA (px)
         """
 
         self.radius = radius
         
-        super().__init__(sensor_size_px, sensor_size_m, feature_size, distance_sensor)
+        super().__init__(sensor_size_px, sensor_size_m, feature_size, distance_sensor, wavelength)
         
+
     def create_mask(self):
         """
         Creating Fresnel Zone Aperture mask using either the MURA of MLS method

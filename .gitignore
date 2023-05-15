@@ -142,3 +142,4 @@ dmypy.json
 .pyre/
 
 masks/FlatCam/simulate-psf.ipynb
+masks/mask_class/iterative_phase_retrieval.ipynb
