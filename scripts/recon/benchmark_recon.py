@@ -63,7 +63,7 @@ def benchmark_recon(config):
             )
         )
     if "ADMM_Monakhova2019" in config.algorithms:
-        model_list.append(("ADMM_Monakhova2019", ADMM(psf, mu1=1e-4, mu2=1e-4, mu3=1e-4, tau=1e-3)))
+        model_list.append(("ADMM_Monakhova2019", ADMM(psf, mu1=1e-4, mu2=1e-4, mu3=1e-4, tau=2e-3)))
     if "FISTA" in config.algorithms:
         model_list.append(("FISTA", FISTA(psf, tk=config.fista.tk)))
     if "GradientDescent" in config.algorithms:

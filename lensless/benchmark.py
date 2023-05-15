@@ -278,7 +278,7 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
         lensed = lensed.reshape(-1, *lensed.shape[-3:]).movedim(-1, -3)
         # normalization
         prediction_max = torch.amax(prediction, dim=(1, 2, 3), keepdim=True)
-        if prediction_max != 0:
+        if torch.all(prediction_max != 0):
             prediction = prediction / prediction_max
         else:
             print("Warning: prediction is zero")
@@ -303,7 +303,7 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
 if __name__ == "__main__":
     from lensless import ADMM
 
-    downsample = 4
+    downsample = 1.0
     batchsize = 1
     n_files = 10
     n_iter = 100

@@ -244,27 +244,26 @@ def gradient_descent(
         i = 1.0
         pbar = tqdm(data_loader)
         for X, y in pbar:
-            # send to device and ensure CWH format
+            # send to device
             X = X.to(device)
             y = y.to(device)
             if X.shape[3] == 3:
-                X = X.permute(0, 3, 1, 2)
-                y = y.permute(0, 3, 1, 2)
+                X = X
+                y = y
 
             y_pred = recon.batch_call(X.to(device))
             # normalizing each output
-            y_pred_max = torch.amax(y_pred, dim=(1, 2, 3), keepdim=True)
+            y_pred_max = torch.amax(y_pred, dim=(-1, -2, -3), keepdim=True)
             y_pred = y_pred / y_pred_max
 
             # normalizing y
             y = y.to(device)
-            y_max = torch.amax(y, dim=(1, 2, 3), keepdim=True)
+            y_max = torch.amax(y, dim=(-1, -2, -3), keepdim=True)
             y = y / y_max
 
             if i % disp == 1 and config.display.plot:
-                # CHW -> HWC
-                img_pred = y_pred[0].cpu().detach().permute(1, 2, 0).numpy()
-                img_truth = y[0].cpu().detach().permute(1, 2, 0).numpy()
+                img_pred = y_pred[0, 0].cpu().detach().numpy()
+                img_truth = y[0, 0].cpu().detach().numpy()
 
                 plt.imshow(img_pred)
                 plt.savefig(f"y_pred_{i-1}.png")
@@ -272,6 +271,10 @@ def gradient_descent(
                 plt.savefig(f"y_{i-1}.png")
 
             optimizer.zero_grad(set_to_none=True)
+            # convert to CHW for loss and remove depth
+            y_pred = y_pred.reshape(-1, *y_pred.shape[-3:]).movedim(-1, -3)
+            y = y.reshape(-1, *y.shape[-3:]).movedim(-1, -3)
+
             loss_v = Loss(y_pred, y)
             if config.lpips:
                 loss_v = loss_v + config.lpips * torch.mean(loss_lpips(y_pred, y))
