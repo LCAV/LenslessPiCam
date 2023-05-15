@@ -319,7 +319,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
         assert (
             len(data.shape) >= 3
-        ), "Data must be at least 4D: [..., depth, width, height, channel]."
+        ), "Data must be at least 3D: [..., depth, width, height, channel]."
 
         # assert same shapes
         assert np.all(
