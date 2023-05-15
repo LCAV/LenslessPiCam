@@ -1,10 +1,14 @@
+import abc
+import progressbar
 import numpy as np
 import cv2 as cv
-import abc
 from math import sqrt
-from sympy.ntheory import isprime, quadratic_residues
-from scipy.signal import max_len_seq
 from perlin_numpy import generate_perlin_noise_2d
+from sympy.ntheory import quadratic_residues
+from scipy.signal import max_len_seq
+from waveprop.fresnel import fresnel_conv
+
+
 
 
 class Mask(abc.ABC):
@@ -23,22 +27,25 @@ class Mask(abc.ABC):
         Parameters
         ----------
         sensor_size_px: tuple (dim=2)
-            size of the sensor in pixels
+            size of the sensor (px)
         sensor_size_m: tuple (dim=2)
-            size of the sensor in meters
+            size of the sensor (m)
         feature_size: tuple (dim=2)
-            size of the feature in meters
+            size of the feature (m)
         distance_sensor: float
-            distance between the mask and the sensor
+            distance between the mask and the sensor (m)
         """
         
         self.mask = None
         self.psf = None
+        self.phase_mask = None
+        self.height_map = None
         self.sensor_size_px = sensor_size_px
         self.sensor_size_m = sensor_size_m
         self.feature_size = feature_size
         self.distance_sensor = distance_sensor
         self.create_mask()
+        self.compute_psf()
     
     @abc.abstractmethod
     def create_mask(self):
@@ -48,7 +55,12 @@ class Mask(abc.ABC):
         """
         pass
 
-    def compute_psf():
+    def compute_psf(self):
+        """
+        Computing the PSF.
+        Common to all types of masks.
+        """
+        self.psf = self.mask.copy()
         pass
     
     def shape(self):
@@ -56,6 +68,34 @@ class Mask(abc.ABC):
         Shape of the mask.
         """
         return self.mask.shape
+    
+    def phase_retrieval(self, lambd, d1, dz, n=1.5, n_iter=10):
+        """
+        Iterative phase retrieval algorithm from the PhlatCam article (https://ieeexplore.ieee.org/document/9076617)
+
+        Parameters
+        ----------
+        lambd: float
+            wavelength (m)
+        d1: float
+            sample period on the sensor i.e. pixel size (m)
+        dz: float
+            propagation distance between the mask and the sensor
+        n: float
+            refractive index of the mask substrate
+        n_iter: int
+            number of iterations
+        """
+        M_p = np.sqrt(self.psf)
+        for _ in progressbar.ProgressBar()(range(n_iter)):
+            M_phi = np.exp(1j * np.angle(fresnel_conv(M_p, lambd, d1, -dz, dtype=np.float32)[0]))
+            M_p = np.sqrt(self.psf) * np.exp(1j * fresnel_conv(M_phi, lambd, d1, dz, dtype=np.float32)[0])    
+        phi = np.angle(M_phi)
+
+        self.phase_mask = phi
+        self.height_map = lambd * phi / (2 * np.pi * (n-1))
+        pass
+
 
 
 
@@ -77,13 +117,13 @@ class CodedAperture(Mask):
         Parameters
         ----------
         sensor_size_px: tuple (dim=2)
-            size of the sensor in pixels
+            size of the sensor (px)
         sensor_size_m: tuple (dim=2)
-            size of the sensor in meters
+            size of the sensor (m)
         feature_size: tuple (dim=2)
-            size of the feature in meters
+            size of the feature (m)
         distance_sensor: float
-            distance between the mask and the sensor
+            distance between the mask and the sensor (m)
         method: str
             pattern generation method (MURA or MLS)
         n_bits: int
@@ -146,6 +186,7 @@ class CodedAperture(Mask):
 
 
 
+
 class PhaseContour(Mask):
     """
     https://ieeexplore.ieee.org/document/9076617
@@ -163,15 +204,15 @@ class PhaseContour(Mask):
         Parameters
         ----------
         sensor_size_px: tuple (dim=2)
-            size of the sensor in pixels
+            size of the sensor (px)
         sensor_size_m: tuple (dim=2)
-            size of the sensor in meters
+            size of the sensor (m)
         feature_size: tuple (dim=2)
-            size of the feature in meters
+            size of the feature (m)
         distance_sensor: float
-            distance between the mask and the sensor
+            distance between the mask and the sensor (m)
         noise_period: tuple (dim=2)
-            noise period of the Perlin noise
+            noise period of the Perlin noise (px)
         """
 
         self.noise_period = noise_period
@@ -187,6 +228,7 @@ class PhaseContour(Mask):
         sqrt_noise_as_img = np.interp(sqrt_noise, (-1,1), (0,255)).astype(np.uint8)
         self.mask = cv.Canny(sqrt_noise_as_img,0,255)
         pass
+
 
 
 
@@ -207,15 +249,15 @@ class FresnelZoneAperture(Mask):
         Parameters
         ----------
         sensor_size_px: tuple (dim=2)
-            size of the sensor in pixels
+            size of the sensor (px)
         sensor_size_m: tuple (dim=2)
-            size of the sensor in meters
+            size of the sensor (m)
         feature_size: tuple (dim=2)
-            size of the feature in meters
+            size of the feature (m)
         distance_sensor: float
-            distance between the mask and the sensor
+            distance between the mask and the sensor (m)
         radius: float
-            characteristic radius of the FZA
+            characteristic radius of the FZA (px)
         """
 
         self.radius = radius
@@ -237,9 +279,9 @@ class FresnelZoneAperture(Mask):
         Parameters
         ----------
         dim: tuple (dim=2)
-            mask dimension
+            mask dimension (px)
         r: float
-            characteristic radius of the FZA
+            characteristic radius of the FZA (px)
         """
         x, y = np.meshgrid(np.linspace(-dim[0]/2, dim[0]/2-1, dim[0]), np.linspace(-dim[1]/2, dim[1]/2-1, dim[1]))
         mask = 0.5 * (1 + np.cos(np.pi * (x**2 + y**2) / r**2))
