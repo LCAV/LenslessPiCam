@@ -1,29 +1,57 @@
-from lensless.mask import CodedAperture, PhaseContour, FresnelZoneAperture
+from lensless.mask import CodedAperture, PhaseContour, FresnelZoneAperture, phase_retrieval
 
 
-def test_masks():
+
+lambd, sensor_size, nb_px, dz = 532e-9, 5e-3, 256, 0.5e-3
+d1 = sensor_size / nb_px
+
+
+def test_flatcam():
+
+    mask1 = CodedAperture(method='MURA', 
+                          n_bits=25, 
+                          sensor_size_px=(101,101), 
+                          sensor_size_m=None, 
+                          feature_size=d1, 
+                          distance_sensor=dz, 
+                          wavelength=lambd)
+    assert mask1.mask.shape == (101, 101)
+
+    mask2 = CodedAperture(method='MLS', 
+                          n_bits=5, 
+                          sensor_size_px=(62,62), 
+                          sensor_size_m=None, 
+                          feature_size=d1, 
+                          distance_sensor=dz, 
+                          wavelength=lambd)
+    assert mask2.mask.shape == (62, 62)
+
+
+def test_phlatcam():
 
     lambd, sensor_size, nb_px, dz = 532e-9, 5e-3, 256, 0.5e-3
     d1 = sensor_size / nb_px
-
-    mask1 = CodedAperture((101, 101), None, d1, dz, lambd, 'MURA', n_bits=25)
-    assert mask1.shape() == (101, 101)
-    mask1.phase_retrieval(lambd, d1, dz)
-    assert mask1.phase_mask.shape == mask1.shape()
-
-    mask2 = CodedAperture((62, 62), None, d1, dz, lambd, 'MLS', n_bits=5)
-    assert mask2.shape() == (62, 62)
-    mask2.phase_retrieval(lambd, d1, dz)
-    assert mask2.phase_mask.shape == mask2.shape()
     
-    mask3 = PhaseContour((256, 256), None, d1, dz, lambd, (8,8))
-    assert mask3.shape() == (256, 256)
-    mask3.phase_retrieval(lambd, d1, dz)
-    assert mask3.phase_mask.shape == mask3.shape()
-    
-    mask4 = FresnelZoneAperture((512, 512), None, d1, dz, lambd, 30)
-    assert mask4.shape() == (512, 512)
-    mask4.phase_retrieval(lambd, d1, dz)
-    assert mask4.phase_mask.shape == mask4.shape()
+    mask = PhaseContour(noise_period=(8,8),  
+                         sensor_size_px=(256,256), 
+                         sensor_size_m=None, 
+                         feature_size=d1, 
+                         distance_sensor=dz, 
+                         wavelength=lambd)
+    assert mask.mask.shape == (256, 256)
 
-test_masks()
+
+def test_fza():
+
+    mask = FresnelZoneAperture(radius=30.,  
+                                sensor_size_px=(512,512), 
+                                sensor_size_m=None, 
+                                feature_size=d1, 
+                                distance_sensor=dz, 
+                                wavelength=lambd)
+    assert mask.mask.shape == (512, 512)
+
+
+test_flatcam()
+test_phlatcam()
+test_fza()
