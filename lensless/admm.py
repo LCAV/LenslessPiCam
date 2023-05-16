@@ -267,11 +267,11 @@ def finite_diff(x):
     """Gradient of image estimate, approximated by finite difference. Space where image is assumed sparse."""
     if torch_available and isinstance(x, torch.Tensor):
         return torch.stack(
-            (torch.roll(x, 1, dims=0) - x, torch.roll(x, 1, dims=1) - x), dim=len(x.shape)
+            (torch.roll(x, 1, dims=-3) - x, torch.roll(x, 1, dims=-2) - x), dim=len(x.shape)
         )
     else:
         return np.stack(
-            (np.roll(x, 1, axis=0) - x, np.roll(x, 1, axis=1) - x),
+            (np.roll(x, 1, axis=-3) - x, np.roll(x, 1, axis=-2) - x),
             axis=len(x.shape),
         )
 
@@ -279,11 +279,11 @@ def finite_diff(x):
 def finite_diff_adj(x):
     """Adjoint of finite difference operator."""
     if torch_available and isinstance(x, torch.Tensor):
-        diff1 = torch.roll(x[..., 0], -1, dims=0) - x[..., 0]
-        diff2 = torch.roll(x[..., 1], -1, dims=1) - x[..., 1]
+        diff1 = torch.roll(x[..., 0], -1, dims=-3) - x[..., 0]
+        diff2 = torch.roll(x[..., 1], -1, dims=-2) - x[..., 1]
     else:
-        diff1 = np.roll(x[..., 0], -1, axis=0) - x[..., 0]
-        diff2 = np.roll(x[..., 1], -1, axis=1) - x[..., 1]
+        diff1 = np.roll(x[..., 0], -1, axis=-3) - x[..., 0]
+        diff2 = np.roll(x[..., 1], -1, axis=-2) - x[..., 1]
     return diff1 + diff2
 
 
