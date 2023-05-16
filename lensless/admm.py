@@ -193,6 +193,15 @@ class ADMM(ReconstructionAlgorithm):
             self._xi + self._mu1 * self._forward_out + self._convolver._pad(self._data)
         )
 
+    def _W_update(self):
+        """Non-negativity update"""
+        if self.is_torch:
+            self._W = torch.maximum(
+                self._rho / self._mu3 + self._image_est, torch.zeros_like(self._image_est)
+            )
+        else:
+            self._W = np.maximum(self._rho / self._mu3 + self._image_est, 0)
+
     def _image_update(self):
         rk = (
             (self._mu3 * self._W - self._rho)
@@ -211,15 +220,6 @@ class ADMM(ReconstructionAlgorithm):
 
         # self._image_est = self._convolver._crop(res)
 
-    def _W_update(self):
-        """Non-negativity update"""
-        if self.is_torch:
-            self._W = torch.maximum(
-                self._rho / self._mu3 + self._image_est, torch.zeros_like(self._image_est)
-            )
-        else:
-            self._W = np.maximum(self._rho / self._mu3 + self._image_est, 0)
-
     def _xi_update(self):
         # to avoid computing forward model twice
         self._xi += self._mu1 * (self._forward_out - self._X)
@@ -234,13 +234,13 @@ class ADMM(ReconstructionAlgorithm):
     def _update(self, iter):
         self._U_update()
         self._X_update()
+        self._W_update()
         self._image_update()
 
         # update forward and sparse operators
         self._forward_out = self._convolver.convolve(self._image_est)
         self._Psi_out = self._Psi(self._image_est)
 
-        self._W_update()
         self._xi_update()
         self._eta_update()
         self._rho_update()
