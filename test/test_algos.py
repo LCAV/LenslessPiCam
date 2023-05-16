@@ -141,16 +141,16 @@ def test_trainable_ind(algorithm):
     if not torch_is_available:
         return
     for dtype, torch_type in [("float32", torch.float32), ("float64", torch.float64)]:
-        psf = torch.rand(2, 35, 61, 3, dtype=torch_type)
-        data1 = torch.rand(5, 1, 35, 61, 3, dtype=torch_type)
-        data2 = torch.rand(1, 1, 35, 61, 3, dtype=torch_type)
+        psf = torch.rand(1, 34, 64, 3, dtype=torch_type)
+        data1 = torch.rand(5, 1, 34, 64, 3, dtype=torch_type)
+        data2 = torch.rand(1, 1, 34, 64, 3, dtype=torch_type)
         data2[0, 0, ...] = data1[0, 0, ...]
 
         recon = algorithm(psf, dtype=dtype, n_iter=_n_iter)
         res1 = recon.batch_call(data1)
         res2 = recon.batch_call(data2)
 
-        assert torch.allclose(res1[0, 0, ...], res2[0, 0, ...])
+        torch.testing.assert_close(res1[0, 0, ...], res2[0, 0, ...])
         assert recon._n_iter == _n_iter
         assert len(psf.shape) == 4
         assert res1.dtype == psf.dtype, f"Got {res1.dtype}, expected {dtype}"
