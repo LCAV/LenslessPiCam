@@ -88,6 +88,10 @@ target/
 .ipynb_checkpoints
 *.ipynb
 
+# Images and NPY files
+*.png
+*.npy
+
 # IPython
 profile_default/
 ipython_config.py
@@ -141,11 +145,3 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-masks/FlatCam/flatcam-test.ipynb
-masks/FlatCam/simulate-psf.ipynb
-masks/FresnelZoneAperture/fza-test.ipynb
-masks/FresnelZoneAperture/simulate-psf.ipynb
-masks/PhlatCam/phlatcam-test.ipynb
-masks/PhlatCam/simulate-psf.ipynb
-masks/mask_class/mask_class.ipynb
-masks/mask_class/iterative_phase_retrieval.ipynb
