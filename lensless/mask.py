@@ -284,7 +284,7 @@ def phase_retrieval(target_psf, lambd, d1, dz, n=1.2, n_iter=10, height_map=Fals
         # constrain amplitude to be sqrt(PSF)
         M_p = np.sqrt(target_psf) * np.exp(1j * np.angle(M_p))
 
-    phi = np.angle(M_phi)
+    phi = (np.angle(M_phi) + 2 * np.pi) % (2 * np.pi)
 
     if height_map:
         return phi, lambd * phi / (2 * np.pi * (n-1))
