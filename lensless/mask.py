@@ -73,7 +73,8 @@ class Mask(abc.ABC):
             wv=self.wavelength,
             d1=self.feature_size,
             dz=self.distance_sensor,
-            dtype=np.float32
+            dtype=np.float32,
+            bandlimit=True
         )
 
 
@@ -189,6 +190,7 @@ class PhaseContour(Mask):
 
         self.target_psf = None
         self.phase_pattern = None
+        self.height_map = None
         self.noise_period = noise_period
         self.refractive_index = refractive_index
         self.n_iter = n_iter
@@ -213,8 +215,9 @@ class PhaseContour(Mask):
             n_iter=self.n_iter, 
             height_map=True
         )
-        self.mask = height_map
+        self.height_map = height_map
         self.phase_pattern = phase_mask
+        self.mask = np.exp(1j * phase_mask)
 
 
 class FresnelZoneAperture(Mask):
@@ -254,7 +257,7 @@ class FresnelZoneAperture(Mask):
         self.mask = 0.5 * (1 + np.cos(np.pi * (x**2 + y**2) / self.radius**2))
 
 
-def phase_retrieval(target_psf, lambd, d1, dz, n=1.2, n_iter=10, height_map=False):
+def phase_retrieval(target_psf, lambd, d1, dz, n=1.2, n_iter=10, height_map=False, pbar=False):
     """
     Iterative phase retrieval algorithm from the PhlatCam article (https://ieeexplore.ieee.org/document/9076617)
 
@@ -274,7 +277,11 @@ def phase_retrieval(target_psf, lambd, d1, dz, n=1.2, n_iter=10, height_map=Fals
         default value: 10
     """
     M_p = np.sqrt(target_psf)
-    for _ in progressbar.ProgressBar()(range(n_iter)):
+    if pbar:
+        iterator = progressbar.ProgressBar()(range(n_iter))
+    else:
+        iterator = range(n_iter)
+    for _ in iterator:
         # back propagate from sensor to mask
         M_phi = fresnel_conv(M_p, lambd, d1, -dz, dtype=np.float32)[0]
         # constrain amplitude at mask to be unity, i.e. phase pattern
