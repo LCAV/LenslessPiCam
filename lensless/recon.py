@@ -510,6 +510,6 @@ class ReconstructionAlgorithm(abc.ABC):
             Fx = convolver._crop(Fx)
 
         if self.is_torch:
-            return torch.norm(Fx - Fy).item()
+            return torch.norm(Fx - Fy)
         else:
             return np.linalg.norm(Fx - Fy)
