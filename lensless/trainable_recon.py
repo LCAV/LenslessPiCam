@@ -24,6 +24,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
     * ``_update``: updating state variables at each iterations.
     * ``reset``: reset state variables.
     * ``_form_image``: any pre-processing that needs to be done in order to view the image estimate, e.g. reshaping or clipping.
+    * ``batch_call``: method for performing iterative reconstruction on a batch of images.
 
     One advantage of deriving from this abstract class is that functionality for
     iterating, saving, and visualization is already implemented, namely in the
@@ -58,9 +59,6 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             n_iter : int
                 Number of iterations for unrolled algorithm.
         """
-        assert isinstance(psf, torch.Tensor)
-        self.is_torch = True
-
         super(TrainableReconstructionAlgorithm, self).__init__(
             psf, dtype=dtype, n_iter=n_iter, **kwargs
         )
@@ -74,13 +72,13 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
         Parameters
         ----------
-        batch : :py:class:`~torch.Tensor` of shape (N, C, H, W) or (N, H, W, C)
-            The lensless images to reconstruct. If the shape is (N, C, H, W), the images are converted to (N, H, W, C) before reconstruction.
+        batch : :py:class:`~torch.Tensor` of shape (N, D, H, W, C)
+            The lensless images to reconstruct.
 
         Returns
         -------
-        :py:class:`~torch.Tensor` of shape (N, C, H, W) or (N, H, W, C)
-            The reconstructed images. Channels are in the same order as the input.
+        :py:class:`~torch.Tensor` of shape (N, D, H, W, C)
+            The reconstructed images.
         """
 
     def apply(
@@ -118,12 +116,6 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             returning if `plot` or `save` is True.
 
         """
-        if self._data.shape[-3] == 3:
-            CHW = True
-            self._data = self._data.movedim(-3, -1)
-        else:
-            CHW = False
-
         im = super(TrainableReconstructionAlgorithm, self).apply(
             n_iter=self._n_iter,
             disp_iter=10,
@@ -134,10 +126,4 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             ax=ax,
             reset=reset,
         )
-
-        if CHW:
-            if isinstance(im, tuple):
-                im = im[0].movedim(-1, -3), im[1]
-            else:
-                im = im.movedim(-1, -3)
         return im

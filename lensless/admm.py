@@ -130,6 +130,7 @@ class ADMM(ReconstructionAlgorithm):
         if self.is_torch:
             # TODO initialize without padding
             if self._image_est is None:
+                # initialize image estimate as [Batch, Depth, Height, Width, Channels]
                 self._image_est = torch.zeros([1] + self._padded_shape, dtype=self._dtype).to(
                     self._psf.device
                 )

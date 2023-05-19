@@ -317,9 +317,7 @@ class ReconstructionAlgorithm(abc.ABC):
         else:
             assert isinstance(data, np.ndarray)
 
-        assert (
-            len(data.shape) >= 3
-        ), "Data must be at least 3D: [..., depth, width, height, channel]."
+        assert len(data.shape) >= 3, "Data must be at least 3D: [..., width, height, channel]."
 
         # assert same shapes
         assert np.all(
@@ -363,7 +361,7 @@ class ReconstructionAlgorithm(abc.ABC):
             self._image_est = image_est
 
     def get_image_estimate(self):
-        """Get current image estimate as [N, D, H, W, D]."""
+        """Get current image estimate as [Batch, Depth, Height, Width, Channels]."""
         return self._form_image()
 
     def _progress(self):
@@ -510,4 +508,8 @@ class ReconstructionAlgorithm(abc.ABC):
         Fy = lensless
         if not convolver.pad:
             Fx = convolver._crop(Fx)
-        return torch.norm(Fx - Fy)
+
+        if self.is_torch:
+            return torch.norm(Fx - Fy).item()
+        else:
+            return np.linalg.norm(Fx - Fy)

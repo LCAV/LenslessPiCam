@@ -68,6 +68,9 @@ class RealFFTConvolve2D:
                 self._pad(self._psf), norm=norm, dim=(-3, -2), s=self._padded_shape[-3:-1]
             )
             self._Hadj = torch.conj(self._H)
+            self._padded_data = (
+                None  # This must be reinitialized each time to preserve differentiability
+            )
         else:
             self._H = fft.rfft2(self._pad(self._psf), axes=(-3, -2), norm=norm)
             self._Hadj = np.conj(self._H)

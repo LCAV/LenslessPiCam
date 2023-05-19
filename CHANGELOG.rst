@@ -20,7 +20,6 @@ Added
 -  Option to warm-start reconstruction algorithm with ``initial_est``.
 -  TrainableReconstructionAlgorithm class inherited from ReconstructionAlgorithm and torch.module for use with pytorch autograd and optimizers.
 -  Unrolled version of FISTA and ADMM as TrainableReconstructionAlgorithm with learnable parameters.
--  Unrolled_recon.py script for training unrolled algorithms.
 - ``train_unrolled.py`` script for training unrolled algorithms.
 - ``benchmark_recon.py`` script for benchmarking and comparing reconstruction algorithms.
 - Added ``reconstruction_error`` to ``ReconstructionAlgorithm`` .
@@ -33,7 +32,7 @@ Changed
 -  Shorten README to separate contents in different pages of docs.
 -  Fix typo in GradientDescent class name.
 -  Updated to Pycsou V2, as ``pip install pycsou`` (Pycsou V1) may not work on some machines.
--  PSF are now always stored as 4D Data [depth, width, height, color], Data are stored as [(batch_size), depth, width, height, color] batch_size being facultative. Grayscale data has a color axis of length 1 and 2D data has a depth axis of length 1.
+-  PSF are now always stored as 4D Data [depth, width, height, color], Data are stored as [(batch_size), depth, width, height, color] batch_size being optional. Grayscale data has a color axis of length 1 and 2D data has a depth axis of length 1.
 -  Added batch support to RealFFTConvolve2D.
 -  ``ReconstructionAlgorithm.update`` now take the number of the current iteration to allow for unrolled algorithms.
 -  ``ReconstructionAlgorithm.apply`` now takes a reset parameter (default true) to automaticaly call reset.

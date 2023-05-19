@@ -96,5 +96,5 @@ optimizer:
   lr: 1e-4
   
 loss: 'l2'
-# set lpips to false to deactivate
+# set lpips to false to deactivate. Otherwise, give the weigth for the loss (the main loss l2/l1 always having a weigth of 1)
 lpips: 0.6
