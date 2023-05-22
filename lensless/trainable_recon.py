@@ -59,6 +59,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             n_iter : int
                 Number of iterations for unrolled algorithm.
         """
+        assert isinstance(psf, torch.Tensor), "PSF must be a torch.Tensor"
         super(TrainableReconstructionAlgorithm, self).__init__(
             psf, dtype=dtype, n_iter=n_iter, **kwargs
         )
@@ -118,8 +119,8 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         """
         im = super(TrainableReconstructionAlgorithm, self).apply(
             n_iter=self._n_iter,
-            disp_iter=10,
-            plot_pause=0.2,
+            disp_iter=disp_iter,
+            plot_pause=plot_pause,
             plot=plot,
             save=save,
             gamma=gamma,

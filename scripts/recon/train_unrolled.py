@@ -31,6 +31,11 @@ import torch
 from torchvision import transforms, datasets
 from tqdm import tqdm
 
+try:
+    import json
+except ImportError:
+    print("json package not found, metrics will not be saved")
+
 
 def simulate_dataset(config, psf):
     # load dataset
@@ -83,7 +88,7 @@ def simulate_dataset(config, psf):
     return ds_loader
 
 
-def mesure_gradiant(model):
+def mesure_gradient(model):
     # return the L2 norm of the gradient
     total_norm = 0.0
     for p in model.parameters():
@@ -94,7 +99,7 @@ def mesure_gradiant(model):
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="unrolled_recon")
-def gradient_descent(
+def train_unrolled(
     config,
 ):
     if config.torch_device == "cuda" and torch.cuda.is_available():
@@ -297,17 +302,12 @@ def gradient_descent(
     print(f"Train time : {time.time() - start_time} s")
 
     # save dictionary metrics to file with json
-    try:
-        import json
-
-        with open(os.path.join(save, "metrics.json"), "w") as f:
-            json.dump(metrics, f)
-    except ImportError:
-        print("json package not found, metrics not saved")
+    with open(os.path.join(save, "metrics.json"), "w") as f:
+        json.dump(metrics, f)
 
     # save pytorch model recon
     torch.save(recon.state_dict(), "recon.pt")
 
 
 if __name__ == "__main__":
-    gradient_descent()
+    train_unrolled()

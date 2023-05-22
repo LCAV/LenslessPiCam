@@ -191,8 +191,8 @@ class DiffuserCamTestDataset(ParallelDataset):
             # default to yes if no input is given
             valid = input("%s (Y/n) " % msg).lower() != "n"
             if valid:
-                url = "https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE/download"
-                filename = "DiffuserCam_Mirflickr_200_3011302021_11h43_seed11.zip"
+                url = "https://drive.switch.ch/index.php/s/JTJSNm0F4l0sJo7/download"
+                filename = "DiffuserCam_Test.zip"
                 download_and_extract_archive(url, "data/", filename=filename, remove_finished=True)
 
         psf_fp = os.path.join(data_dir, "psf.tiff")

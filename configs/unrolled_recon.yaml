@@ -64,6 +64,7 @@ files:
 
 target: "object_plane"    # "original" or "object_plane" or "label"
 
+#for simulated dataset
 simulation:
   grayscale: False
   # random variations
@@ -73,8 +74,9 @@ simulation:
   random_hflip: 0.5
   random_rotate: False
   # these distance parameters are typically fixed for a given PSF
-  scene2mask: 40e-2
-  mask2sensor: 4e-3
+  # for tape_rgb psf      # for DiffuserCam psf
+  scene2mask: 40e-2       # scene2mask: 10e-2
+  mask2sensor: 4e-3       # mask2sensor: 9e-3
   # see waveprop.devices
   sensor: "rpi_hq"
   snr_db: 40

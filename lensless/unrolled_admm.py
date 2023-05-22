@@ -13,19 +13,13 @@ from scipy import fft
 try:
     import torch
 
-    torch_available = True
 except ImportError:
-    torch_available = False
+    raise ImportError("Pytorch is require to use trainable reconstruction algorithms.")
 
 
 class UnrolledADMM(TrainableReconstructionAlgorithm):
     """
-    Object for applying ADMM (Alternating Direction Method of Multipliers) with
-    a non-negativity constraint and a total variation (TV) prior.
-
-    Paper about ADMM: https://web.stanford.edu/~boyd/papers/pdf/admm_distr_stats.pdf
-
-    Slides about ADMM: https://web.stanford.edu/class/ee364b/lectures/admm_slides.pdf
+    Object for applying unrolled version of :py:class:`~lensless.ADMM`.
 
     """
 
@@ -41,13 +35,15 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         psi=None,
         psi_adj=None,
         psi_gram=None,
+        pad=False,
+        norm="backward",
         **kwargs,
     ):
         """
 
         Parameters
         ----------
-        psf : :py:class:`~torch.Tensor` of shape (H, W, C)
+        psf : :py:class:`~torch.Tensor` of shape (D, H, W, C)
             Point spread function (PSF) that models forward propagation.
         dtype : float32 or float64
             Data type to use for optimization. Default is float32.
@@ -69,10 +65,15 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
             Adjoint of `psi`.
         psi_gram : :py:class:`function`
             Function to compute gram of `psi`.
+        pad : bool, optional
+            Whether to pad the image with zeros before applying the PSF.
+        norm : str
+            Normalization to use for the convolution. Options are "forward",
+            "backward", and "ortho". Default is "backward".
         """
 
         super(UnrolledADMM, self).__init__(
-            psf, n_iter=n_iter, dtype=dtype, pad=False, norm="backward", reset=False, **kwargs
+            psf, n_iter=n_iter, dtype=dtype, pad=pad, norm=norm, reset=False, **kwargs
         )
 
         self._mu1_p = torch.nn.Parameter(torch.ones(self._n_iter, device=self._psf.device) * mu1)
