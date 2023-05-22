@@ -71,8 +71,26 @@ class GradientDescent(ReconstructionAlgorithm):
         """
 
         assert callable(proj)
-        self._proj = proj
         super(GradientDescent, self).__init__(psf, dtype, **kwargs)
+
+        # Check if projection supports torch tensors
+        convert_to_numpy = False
+        if self.is_torch:
+            try:
+                res = proj(torch.rand((1, 1, 32, 32, 3), dtype=self._dtype))
+                if not isinstance(res, torch.Tensor):
+                    convert_to_numpy = True
+            except TypeError:
+                convert_to_numpy = True
+
+            # If not, convert to numpy
+            if convert_to_numpy:
+                self._proj = lambda x: torch.from_numpy(proj(x[0, 0, ...].cpu().numpy())).to(
+                    dtype=self._dtype
+                )[None, None, ...]
+                print("Projection function does not support torch tensors. Converting to numpy.")
+            else:
+                self._proj = proj
 
     def reset(self):
         if self.is_torch:
