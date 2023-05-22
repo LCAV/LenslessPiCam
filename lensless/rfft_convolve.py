@@ -1,6 +1,7 @@
 """
 2D convolution in Fourier domain, with same real-valued kernel.
 """
+
 import numpy as np
 from scipy import fft
 from scipy.fftpack import next_fast_len
@@ -22,9 +23,18 @@ class RealFFTConvolve2D:
         Parameters
         ----------
         psf :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
-            2D filter to use.
+            Point spread function (PSF) that models forward propagation.
+            Must be of shape (depth, height, width, channels) even if
+            depth = 1 and channels = 1. You can use :py:func:`~lensless.io.load_psf`
+            to load a PSF from a file such that it is in the correct format.
         dtype : float32 or float64
             Data type to use for optimization.
+        pad : bool, optional
+            Whether data needs to be padded prior to convolution. User may wish to
+            optimize padded data and set this to False, as is done for :py:class:`~lensless.ADMM`.
+            Defaults to True.
+        norm : str, optional
+            Normalization to use for FFT. Defaults to 'ortho'.
         """
 
         self.is_torch = False

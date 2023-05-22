@@ -44,8 +44,8 @@ from it boils down to three steps:
 3. Applying the algorithm.
 
 
-ADMM example
-------------
+2D example (ADMM)
+-----------------
 
 For example, for ADMM:
 
@@ -200,21 +200,22 @@ class ReconstructionAlgorithm(abc.ABC):
 
             psf : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
                 Point spread function (PSF) that models forward propagation.
-                2D (grayscale) or 3D (RGB) data can be provided and the shape will
-                be used to determine which reconstruction (and allocate the
-                appropriate memory).
+                Must be of shape (depth, height, width, channels) even if
+                depth = 1 and channels = 1. You can use :py:func:`~lensless.io.load_psf`
+                to load a PSF from a file such that it is in the correct format.
             dtype : float32 or float64
                 Data type to use for optimization.
             pad : bool, optional
-                Whether to pad the PSF to avoid spatial aliasing.
+                Whether data needs to be padded prior to convolution. User may wish to
+                optimize padded data and set this to False, as is done for :py:class:`~lensless.ADMM`.
+                Defaults to True.
             n_iter : int, optional
-                Number of iterations to run algorithm for. Can be overridden in
-                `apply`.
+                Number of iterations to run algorithm for. Can be overridden in `apply`.
             initial_est : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`, optional
                 Initial estimate of the image. If not provided, the initial estimate is
                 set to zero or to the mean of the data, depending on the algorithm.
             reset : bool, optional
-                Whether to reset state variables in the base __init__. Defaults to True.
+                Whether to reset state variables in the base constructor. Defaults to True.
         """
         super().__init__()
         self.is_torch = False
@@ -222,7 +223,7 @@ class ReconstructionAlgorithm(abc.ABC):
         if torch_available:
             self.is_torch = isinstance(psf, torch.Tensor)
 
-        assert len(psf.shape) == 4, "PSF must be 4D: [depth, width, height, channel]."
+        assert len(psf.shape) == 4, "PSF must be 4D: (depth, height, width, channels)."
         assert psf.shape[3] == 3 or psf.shape[3] == 1, "PSF must either be rgb (3) or grayscale (1)"
         self._psf = psf
         self._n_iter = n_iter

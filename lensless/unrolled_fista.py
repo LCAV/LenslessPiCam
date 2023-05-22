@@ -8,8 +8,7 @@
 import numpy as np
 from lensless.trainable_recon import TrainableReconstructionAlgorithm
 from lensless.gradient_descent import non_neg
-import inspect
-from scipy import fft
+
 
 try:
     import torch
@@ -33,8 +32,11 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
 
         Parameters
         ----------
-        psf : :py:class:`~torch.Tensor` of shape (H, W, C)
-            The point spread function (PSF) that models forward propagation.
+        psf : :py:class:`~torch.Tensor`
+            Point spread function (PSF) that models forward propagation.
+            Must be of shape (depth, height, width, channels) even if
+            depth = 1 and channels = 1. You can use :py:func:`~lensless.io.load_psf`
+            to load a PSF from a file such that it is in the correct format.
         n_iter : int, optional
             Number of iterations to unrolled, by default 5
         dtype : float32 or float64

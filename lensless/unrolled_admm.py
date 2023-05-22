@@ -43,8 +43,11 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
 
         Parameters
         ----------
-        psf : :py:class:`~torch.Tensor` of shape (D, H, W, C)
+        psf : :py:class:`~torch.Tensor`
             Point spread function (PSF) that models forward propagation.
+            Must be of shape (depth, height, width, channels) even if
+            depth = 1 and channels = 1. You can use :py:func:`~lensless.io.load_psf`
+            to load a PSF from a file such that it is in the correct format.
         dtype : float32 or float64
             Data type to use for optimization. Default is float32.
         n_iter : int, optional

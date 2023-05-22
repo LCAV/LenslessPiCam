@@ -56,8 +56,8 @@
    ----------------------------
 
 
-   Abstract Class
-   ~~~~~~~~~~~~~~
+   Abstract Class (Trainable)
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~
    
 
    .. autoclass:: lensless.TrainableReconstructionAlgorithm
@@ -66,16 +66,16 @@
       :show-inheritance:
 
 
-   Gradient Descent
-   ~~~~~~~~~~~~~~~~
+   Unrolled FISTA
+   ~~~~~~~~~~~~~~
 
    .. autoclass:: lensless.UnrolledFISTA
       :members: batch_call
       :special-members: __init__
       :show-inheritance:
 
-   ADMM
-   ~~~~
+   Unrolled ADMM
+   ~~~~~~~~~~~~~
 
    .. autoclass:: lensless.UnrolledADMM
       :members: batch_call

@@ -42,9 +42,9 @@ class ADMM(ReconstructionAlgorithm):
         ----------
         psf : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
             Point spread function (PSF) that models forward propagation.
-            2D (grayscale) or 3D (RGB) data can be provided and the shape will
-            be used to determine which reconstruction (and allocate the
-            appropriate memory).
+            Must be of shape (depth, height, width, channels) even if
+            depth = 1 and channels = 1. You can use :py:func:`~lensless.io.load_psf`
+            to load a PSF from a file such that it is in the correct format.
         dtype : float32 or float64
             Data type to use for optimization. Default is float32.
         mu1 : float
@@ -64,7 +64,8 @@ class ADMM(ReconstructionAlgorithm):
         psi_gram : :py:class:`function`
             Function to compute gram of `psi`.
         pad : bool
-            Whether to pad the image with zeros before applying the PSF.
+            Whether to pad the image with zeros before applying the PSF. Default
+            is False, as optimized data is already padded.
         norm : str
             Normalization to use for the convolution. Options are "forward",
             "backward", and "ortho". Default is "backward".

@@ -51,9 +51,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
             psf : :py:class:`~torch.Tensor`
                 Point spread function (PSF) that models forward propagation.
-                2D (grayscale) or 3D (RGB) data can be provided and the shape will
-                be used to determine which reconstruction (and allocate the
-                appropriate memory).
+                Must be of shape (depth, height, width, channels) even if
+                depth = 1 and channels = 1. You can use :py:func:`~lensless.io.load_psf`
+                to load a PSF from a file such that it is in the correct format.
             dtype : float32 or float64
                 Data type to use for optimization.
             n_iter : int
@@ -73,12 +73,12 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
         Parameters
         ----------
-        batch : :py:class:`~torch.Tensor` of shape (N, D, H, W, C)
+        batch : :py:class:`~torch.Tensor` of shape (batch, depth, height, width, channels)
             The lensless images to reconstruct.
 
         Returns
         -------
-        :py:class:`~torch.Tensor` of shape (N, D, H, W, C)
+        :py:class:`~torch.Tensor` of shape (batch, depth, height, width, channels)
             The reconstructed images.
         """
 
@@ -86,8 +86,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         self, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None, reset=True
     ):
         """
-        Method for performing iterative reconstruction. Contrary to not trainable reconstruction algorithm, the number of iteration isn't requiered. Note that `set_data`
-        must be called beforehand.
+        Method for performing iterative reconstruction. Contrary to non-trainable reconstruction
+        algorithm, the number of iteration isn't required. Note that `set_data` must be called
+        beforehand.
 
         Parameters
         ----------

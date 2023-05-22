@@ -1,7 +1,6 @@
 import numpy as np
 from lensless.recon import ReconstructionAlgorithm
 import inspect
-import warnings
 
 try:
     import torch
@@ -50,17 +49,20 @@ def non_neg(xi):
 
 
 class GradientDescent(ReconstructionAlgorithm):
+    """
+    Object for applying projected gradient descent.
+    """
+
     def __init__(self, psf, dtype=None, proj=non_neg, **kwargs):
         """
-        Object for applying projected gradient descent.
 
         Parameters
         ----------
         psf : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
             Point spread function (PSF) that models forward propagation.
-            2D (grayscale) or 3D (RGB) data can be provided and the shape will
-            be used to determine which reconstruction (and allocate the
-            appropriate memory).
+            Must be of shape (depth, height, width, channels) even if
+            depth = 1 and channels = 1. You can use :py:func:`~lensless.io.load_psf`
+            to load a PSF from a file such that it is in the correct format.
         dtype : float32 or float64
             Data type to use for optimization. Default is float32.
         proj : :py:class:`function`
@@ -118,11 +120,32 @@ class NesterovGradientDescent(GradientDescent):
     Object for applying projected gradient descent with Nesterov momentum for
     acceleration.
 
-    Tutorial on Nesterov momentum: https://machinelearningmastery.com/gradient-descent-with-nesterov-momentum-from-scratch/
+    A nice tutorial/ blog post on Nesterov momentum can be found
+    `here <https://machinelearningmastery.com/gradient-descent-with-nesterov-momentum-from-scratch/>`_.
 
     """
 
     def __init__(self, psf, dtype=None, proj=non_neg, p=0, mu=0.9, **kwargs):
+        """
+
+        Parameters
+        ----------
+        psf : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
+            Point spread function (PSF) that models forward propagation.
+            Must be of shape (depth, height, width, channels) even if
+            depth = 1 and channels = 1. You can use :py:func:`~lensless.io.load_psf`
+            to load a PSF from a file such that it is in the correct format.
+        dtype : float32 or float64
+            Data type to use for optimization. Default is float32.
+        proj : :py:class:`function`
+            Projection function to apply at each iteration. Default is
+            non-negative.
+        p : float
+            Momentum parameter that keeps track of changes. By default, this
+            is initialized to 0.
+        mu : float
+            Momentum parameter. Default is 0.9.
+        """
         self._p = p
         self._mu = mu
         super(NesterovGradientDescent, self).__init__(psf, dtype, proj, **kwargs)
@@ -149,6 +172,25 @@ class FISTA(GradientDescent):
     """
 
     def __init__(self, psf, dtype=None, proj=non_neg, tk=1.0, **kwargs):
+        """
+
+        Parameters
+        ----------
+        psf : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
+            Point spread function (PSF) that models forward propagation.
+            Must be of shape (depth, height, width, channels) even if
+            depth = 1 and channels = 1. You can use :py:func:`~lensless.io.load_psf`
+            to load a PSF from a file such that it is in the correct format.
+        dtype : float32 or float64
+            Data type to use for optimization. Default is float32.
+        proj : :py:class:`function`
+            Projection function to apply at each iteration. Default is
+            non-negative.
+        tk : float
+            Initial step size parameter for FISTA. It is updated at each iteration
+            according to Eq. 4.2 of paper. By default, initialized to 1.0.
+
+        """
         self._initial_tk = tk
 
         super(FISTA, self).__init__(psf, dtype, proj, **kwargs)
