@@ -132,12 +132,12 @@ def test_trainable_recon(algorithm):
             ), f"Batch dimension changed: got {res.shape[0]} expected {data.shape[0]}"
 
             assert len(psf.shape) == 4
-            print(res.shape)
             assert res.shape[4] == 3, "Input in HWC format but output CHW format"
 
 
 @pytest.mark.parametrize("algorithm", trainable_algos)
-def test_trainable_ind(algorithm):
+def test_trainable_batch(algorithm):
+    # test if batch_call and pally give the same result for any batch size
     if not torch_is_available:
         return
     for dtype, torch_type in [("float32", torch.float32), ("float64", torch.float64)]:
@@ -149,8 +149,13 @@ def test_trainable_ind(algorithm):
         recon = algorithm(psf, dtype=dtype, n_iter=_n_iter)
         res1 = recon.batch_call(data1)
         res2 = recon.batch_call(data2)
+        recon.set_data(data2[0])
+        res3 = recon.apply(disp_iter=None, plot=False)
 
+        # main test
         torch.testing.assert_close(res1[0, 0, ...], res2[0, 0, ...])
+        torch.testing.assert_close(res1[0, 0, ...], res3[0, ...])
+        # small test
+        assert res1.dtype == psf.dtype, f"Got {res1.dtype}, expected {dtype}"
         assert recon._n_iter == _n_iter
         assert len(psf.shape) == 4
-        assert res1.dtype == psf.dtype, f"Got {res1.dtype}, expected {dtype}"
