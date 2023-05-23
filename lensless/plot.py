@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from lensless.util import FLOAT_DTYPES, get_max_val, gamma_correction, autocorr2d
 
 
-def plot_image(img, ax=None, gamma=None, normalize=True, axis=0):
+def plot_image(img, ax=None, gamma=None, normalize=True):
     """
     Plot image data.
 
@@ -19,8 +19,6 @@ def plot_image(img, ax=None, gamma=None, normalize=True, axis=0):
         Gamma correction factor to apply for plots. Default is None.
     normalize : bool
         Whether to normalize data to maximum range. Default is True.
-    axis : int
-        For 3D data, the axis on which to project the data
 
     Returns
     -------
@@ -28,50 +26,81 @@ def plot_image(img, ax=None, gamma=None, normalize=True, axis=0):
         Axes on which image is plot.
     """
 
-    if ax is None:
-        _, ax = plt.subplots()
+    # if we have only 1 depth, remove the axis
+    if img.shape[0] == 1:
+        img = img[0]
 
-    max_val = img.max()
-    if not normalize:
-        if img.dtype not in FLOAT_DTYPES:
-            max_val = get_max_val(img)
-        else:
-            max_val = 1
+    # if we have only 1 color channel, remove the axis
+    if img.shape[-1] == 1:
+        img = np.sum(img, axis=-1)
 
-    # need float image for gamma correction and plotting
-    img_norm = img / max_val
-    if gamma and gamma > 1:
-        img_norm = gamma_correction(img_norm, gamma=gamma)
+    disp_img = None
+    cmap = None
 
-    # full data format : [depth, width, height, color]
+    # full 3D RGB format : [depth, width, height, color]
     if len(img.shape) == 4:
-        if img.shape[3] == 3:  # 3d rgb
-            sum_img = np.sum(img_norm, axis=axis)
-            ax.imshow(sum_img)
-
-        else:
-            assert img.shape[3] == 1  # 3d grayscale with color channel extended
-            sum_img = np.sum(img_norm[:, :, :, 0], axis=axis)
-            ax.imshow(sum_img, cmap="gray")
+        disp_img = [np.sum(img, axis=axis) for axis in range(3)]
+        cmap = None
 
     # data of length 3 means we have to infer whichever depth or color is missing, based on shape.
     elif len(img.shape) == 3:
         if img.shape[2] == 3:  # 2D rgb
-            ax.imshow(img_norm)
-
-        elif img.shape[2] == 1:  # 2D grayscale with color channel extended
-            ax.imshow(img_norm[:, :, 0], cmap="gray")
+            disp_img = [img]
+            cmap = None
 
         else:  # 3D grayscale
-            sum_img = np.sum(img_norm, axis=axis)
-            ax.imshow(sum_img, cmap="gray")
+            disp_img = [np.sum(img, axis=axis) for axis in range(3)]
+            cmap = "gray"
 
     # data of length 2 means we have only width and height
     elif len(img.shape) == 2:  # 2D grayscale
-        ax.imshow(img_norm, cmap="gray")
+        disp_img = [img]
+        cmap = "gray"
 
     else:
-        raise ValueError(f"Unexpected data shape : {img_norm.shape}")
+        raise ValueError(f"Unexpected data shape : {img.shape}")
+
+    max_val = [d.max() for d in disp_img]
+
+    if not normalize:
+        for i in range(len(max_val)):
+            if disp_img[i].dtype not in FLOAT_DTYPES:
+                max_val[i] = get_max_val(disp_img[i])
+            else:
+                max_val[i] = 1
+
+    assert len(disp_img) == 1 or len(disp_img) == 3
+
+    # need float image for gamma correction and plotting
+    img_norm = disp_img.copy()
+    for i in range(len(img_norm)):
+        img_norm[i] = disp_img[i] / max_val[i]
+        if gamma and gamma > 1:
+            img_norm[i] = gamma_correction(img_norm[i], gamma=gamma)
+
+    if ax is None:
+        _, ax = plt.subplots()
+
+    if len(img_norm) == 1:
+        ax.imshow(img_norm[0], cmap=cmap)
+
+    else:
+        padding = 5
+        width = img_norm[0].shape[0]
+        height = img_norm[0].shape[1]
+        depth = img_norm[1].shape[0]
+
+        if len(img_norm[0].shape) > 2:
+            concat = np.ones(
+                (width + depth + padding, height + depth + padding, img_norm[0].shape[2])
+            )
+        else:
+            concat = np.ones((width + depth + padding, height + depth + padding))
+
+        concat[:width, :height] = img_norm[0]
+        concat[width + padding :, :height] = img_norm[1]
+        concat[:width, height + padding :] = np.swapaxes(img_norm[2], 0, 1)
+        ax.imshow(concat, cmap=cmap)
 
     return ax
 
