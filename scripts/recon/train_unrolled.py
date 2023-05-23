@@ -15,14 +15,11 @@ python scripts/recon/train_unrolled.py
 """
 
 import hydra
-from hydra.utils import to_absolute_path, get_original_cwd
+from hydra.utils import get_original_cwd
 import os
 import numpy as np
 import time
-import pathlib as plib
-from datetime import datetime
 import matplotlib.pyplot as plt
-from lensless.io import load_data, load_psf
 from lensless import UnrolledFISTA, UnrolledADMM
 from waveprop.dataset_util import SimulatedPytorchDataset
 from lensless.util import rgb2gray
@@ -88,7 +85,7 @@ def simulate_dataset(config, psf):
     return ds_loader
 
 
-def mesure_gradient(model):
+def measure_gradient(model):
     # return the L2 norm of the gradient
     total_norm = 0.0
     for p in model.parameters():
