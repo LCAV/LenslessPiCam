@@ -8,7 +8,7 @@ python scripts/recon/gradient_descent.py
 """
 
 import hydra
-from hydra.utils import to_absolute_path
+from hydra.utils import to_absolute_path, get_original_cwd
 import os
 import numpy as np
 import time
@@ -63,11 +63,37 @@ def gradient_descent(
             p=config["gradient_descent"]["nesterov"]["p"],
             mu=config["gradient_descent"]["nesterov"]["mu"],
         )
-    else:
+    elif config["gradient_descent"]["method"] == GradientDescentUpdate.FISTA:
         recon = FISTA(
             psf,
             tk=config["gradient_descent"]["fista"]["tk"],
         )
+    elif config["gradient_descent"]["method"] == "vanilla_PnP":
+        import torch
+        from lensless.util import load_drunet, apply_CWH_denoizer
+
+        psf, data = torch.from_numpy(psf), torch.from_numpy(data)
+        drunet = load_drunet(os.path.join(get_original_cwd(), "data/drunet_color.pth"))
+
+        def denoiser(x):
+            torch.clip(x, min=0.0, max=1.0, out=x)
+            return apply_CWH_denoizer(drunet, x, noise_level=1)
+
+        recon = GradientDescent(psf.cpu(), proj=denoiser)
+    elif config["gradient_descent"]["method"] == "fista_PnP":
+        import torch
+        from lensless.util import load_drunet, apply_CWH_denoizer
+
+        psf, data = torch.from_numpy(psf), torch.from_numpy(data)
+        drunet = load_drunet(os.path.join(get_original_cwd(), "data/drunet_color.pth"))
+
+        def denoiser(x):
+            torch.clip(x, min=0.0, max=1.0, out=x)
+            x_denoized = apply_CWH_denoizer(drunet, x, noise_level=5)
+            x_denoized = torch.clip(x_denoized, min=0.0, max=1.0)
+            return x + 0.1(x_denoized - x)
+
+        recon = FISTA(psf, tk=config["gradient_descent"]["fista"]["tk"], proj=denoiser)
 
     recon.set_data(data)
     print(f"Setup time : {time.time() - start_time} s")
