@@ -186,7 +186,7 @@ class DiffuserCamTestDataset(ParallelDataset):
                 from torchvision.datasets.utils import download_and_extract_archive
             except ImportError:
                 exit()
-            msg = "Do you want to download the sample dataset (725MB)?"
+            msg = "Do you want to download the sample dataset (3.5GB)?"
 
             # default to yes if no input is given
             valid = input("%s (Y/n) " % msg).lower() != "n"

@@ -234,18 +234,10 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         assert len(self._data.shape) == 5, "batch must be of shape (N, D, C, H, W)"
         batch_size = batch.shape[0]
 
-        if self._data.shape[-3] == 3:
-            CHW = True
-            self._data = self._data.movedim(-3, -1)
-        else:
-            CHW = False
-
         self.reset(batch_size=batch_size)
 
         for i in range(self._n_iter):
             self._update(i)
 
         image_est = self._form_image()
-        if CHW:
-            image_est = image_est.movedim(-1, -3)
         return image_est
