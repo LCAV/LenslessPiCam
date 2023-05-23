@@ -23,6 +23,13 @@ from .gradient_descent import (
 )
 
 try:
+    from .trainable_recon import TrainableReconstructionAlgorithm
+    from .unrolled_admm import UnrolledADMM
+    from .unrolled_fista import UnrolledFISTA
+except Exception:
+    pass
+
+try:
     from .apgd import APGD, APGDPriors
 
     pycsou_available = True

@@ -20,13 +20,11 @@ by `feh`
 
 """
 
-import cv2
 import os
 import click
 import numpy as np
 from PIL import Image
 import subprocess
-import sys
 
 
 REMOTE_PYTHON = "~/LenslessPiCam/lensless_env/bin/python"

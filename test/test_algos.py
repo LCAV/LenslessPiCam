@@ -1,3 +1,4 @@
+import pytest
 from lensless.io import load_data
 
 try:
@@ -14,97 +15,69 @@ except ImportError:
 
 try:
     import torch
+    from lensless import UnrolledFISTA, UnrolledADMM
 
-    torch_vals = [True, False]
+    torch_is_available = True
+    torch.autograd.set_detect_anomaly(True)
+    trainable_algos = [UnrolledFISTA, UnrolledADMM]
 except ImportError:
-    torch_vals = [False]
+    torch_is_available = False
+    trainable_algos = []
 
 
 psf_fp = "data/psf/tape_rgb.png"
 data_fp = "data/raw_data/thumbs_up_rgb.png"
 dtypes = ["float32", "float64"]
 downsample = 16
-n_iter = 5
+_n_iter = 5
+
+# classical algorithms
+standard_algos = [GradientDescent, NesterovGradientDescent, FISTA, ADMM]
 
 
-def test_gradient_descent():
+@pytest.mark.parametrize("algorithm", standard_algos)
+def test_recon_numpy(algorithm):
     for gray in [True, False]:
         for dtype in dtypes:
-            for torch_data in torch_vals:
-                psf, data = load_data(
-                    psf_fp=psf_fp,
-                    data_fp=data_fp,
-                    downsample=downsample,
-                    plot=False,
-                    gray=gray,
-                    dtype=dtype,
-                    torch=torch_data,
-                )
-                recon = GradientDescent(psf, dtype=dtype)
-                recon.set_data(data)
-                res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
-                assert psf.shape[3] == (1 if gray else 3)
-                assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
+            psf, data = load_data(
+                psf_fp=psf_fp,
+                data_fp=data_fp,
+                downsample=downsample,
+                plot=False,
+                gray=gray,
+                dtype=dtype,
+                torch=False,
+            )
+            recon = algorithm(psf, dtype=dtype)
+            recon.set_data(data)
+            res = recon.apply(n_iter=_n_iter, disp_iter=None, plot=False)
+            assert len(psf.shape) == 4
+            assert psf.shape[3] == (1 if gray else 3)
+            assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
 
 
-def test_admm():
+@pytest.mark.parametrize("algorithm", standard_algos + trainable_algos)
+def test_recon_torch(algorithm):
+    if not torch_is_available:
+        return
     for gray in [True, False]:
         for dtype in dtypes:
-            for torch_data in torch_vals:
-                psf, data = load_data(
-                    psf_fp=psf_fp,
-                    data_fp=data_fp,
-                    downsample=downsample,
-                    plot=False,
-                    gray=gray,
-                    dtype=dtype,
-                    torch=torch_data,
-                )
-                recon = ADMM(psf, dtype=dtype)
-                recon.set_data(data)
-                res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
-                assert psf.shape[3] == (1 if gray else 3)
-                assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
-
-
-def test_nesterov_gradient_descent():
-    for gray in [True, False]:
-        for dtype in dtypes:
-            for torch_data in torch_vals:
-                psf, data = load_data(
-                    psf_fp=psf_fp,
-                    data_fp=data_fp,
-                    downsample=downsample,
-                    plot=False,
-                    gray=gray,
-                    dtype=dtype,
-                    torch=torch_data,
-                )
-                recon = NesterovGradientDescent(psf, dtype=dtype)
-                recon.set_data(data)
-                res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
-                assert psf.shape[3] == (1 if gray else 3)
-                assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
-
-
-def test_fista():
-    for gray in [True, False]:
-        for dtype in dtypes:
-            for torch_data in torch_vals:
-                psf, data = load_data(
-                    psf_fp=psf_fp,
-                    data_fp=data_fp,
-                    downsample=downsample,
-                    plot=False,
-                    gray=gray,
-                    dtype=dtype,
-                    torch=torch_data,
-                )
-                recon = FISTA(psf, dtype=dtype)
-                recon.set_data(data)
-                res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
-                assert psf.shape[3] == (1 if gray else 3)
-                assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
+            psf, data = load_data(
+                psf_fp=psf_fp,
+                data_fp=data_fp,
+                downsample=downsample,
+                plot=False,
+                gray=gray,
+                dtype=dtype,
+                torch=True,
+            )
+            recon = algorithm(psf, dtype=dtype, n_iter=_n_iter)
+            recon.set_data(data)
+            res = recon.apply(disp_iter=None, plot=False)
+            assert recon._n_iter == _n_iter
+            assert len(psf.shape) == 4
+            assert psf.shape[3] == (1 if gray else 3)
+            assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
 
 
 def test_apgd():
@@ -130,16 +103,59 @@ def test_apgd():
                             rel_error=None,
                         )
                         recon.set_data(data)
-                        res = recon.apply(n_iter=n_iter, disp_iter=None, plot=False)
+                        res = recon.apply(n_iter=_n_iter, disp_iter=None, plot=False)
                         assert psf.shape[3] == (1 if gray else 3)
                         assert res.dtype == psf.dtype, f"Got {res.dtype}, expected {dtype}"
     else:
         print("Pycsou not installed. Skipping APGD test.")
 
 
-if __name__ == "__main__":
-    test_gradient_descent()
-    test_admm()
-    test_nesterov_gradient_descent()
-    test_fista()
-    test_apgd()
+#  trainable algorithms
+@pytest.mark.parametrize("algorithm", trainable_algos)
+def test_trainable_recon(algorithm):
+    if torch_is_available:
+        for dtype, torch_type in [("float32", torch.float32), ("float64", torch.float64)]:
+            psf = torch.rand(1, 32, 64, 3, dtype=torch_type)
+            data = torch.rand(2, 1, 32, 64, 3, dtype=torch_type)
+            recon = UnrolledFISTA(psf, n_iter=_n_iter, dtype=dtype)
+
+            assert (
+                next(recon.parameters(), None) is not None
+            ), f"{algorithm.__name__} has no trainable parameters"
+
+            res = recon.batch_call(data)
+            loss = torch.mean(res)
+            loss.backward()
+
+            assert (
+                data.shape[0] == res.shape[0]
+            ), f"Batch dimension changed: got {res.shape[0]} expected {data.shape[0]}"
+
+            assert len(psf.shape) == 4
+            assert res.shape[4] == 3, "Input in HWC format but output CHW format"
+
+
+@pytest.mark.parametrize("algorithm", trainable_algos)
+def test_trainable_batch(algorithm):
+    # test if batch_call and pally give the same result for any batch size
+    if not torch_is_available:
+        return
+    for dtype, torch_type in [("float32", torch.float32), ("float64", torch.float64)]:
+        psf = torch.rand(1, 34, 64, 3, dtype=torch_type)
+        data1 = torch.rand(5, 1, 34, 64, 3, dtype=torch_type)
+        data2 = torch.rand(1, 1, 34, 64, 3, dtype=torch_type)
+        data2[0, 0, ...] = data1[0, 0, ...]
+
+        recon = algorithm(psf, dtype=dtype, n_iter=_n_iter)
+        res1 = recon.batch_call(data1)
+        res2 = recon.batch_call(data2)
+        recon.set_data(data2[0])
+        res3 = recon.apply(disp_iter=None, plot=False)
+
+        # main test
+        torch.testing.assert_close(res1[0, 0, ...], res2[0, 0, ...])
+        torch.testing.assert_close(res1[0, 0, ...], res3[0, ...])
+        # small test
+        assert res1.dtype == psf.dtype, f"Got {res1.dtype}, expected {dtype}"
+        assert recon._n_iter == _n_iter
+        assert len(psf.shape) == 4

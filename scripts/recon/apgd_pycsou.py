@@ -15,7 +15,6 @@ import hydra
 from hydra.utils import to_absolute_path
 import numpy as np
 import time
-from datetime import datetime
 import matplotlib.pyplot as plt
 from lensless.io import load_data
 from lensless import APGD

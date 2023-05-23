@@ -35,7 +35,6 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
     img : :py:class:`~numpy.ndarray`
         Resized image.
     """
-    assert len(img.shape) >= 4, "Image must be of shape (..., depth, height, width, color)"
     min_val = img.min()
     max_val = img.max()
     img_shape = np.array(img.shape)[-3:-1]

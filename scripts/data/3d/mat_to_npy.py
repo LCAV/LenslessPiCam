@@ -2,11 +2,9 @@
 This script is used to export the .mat paf from https://github.com/Waller-Lab/DiffuserCam/tree/master/example_data
 """
 
-import os
 import sys
 import numpy as np
 import scipy.io as sp
-from PIL import Image
 
 
 if len(sys.argv) < 2:

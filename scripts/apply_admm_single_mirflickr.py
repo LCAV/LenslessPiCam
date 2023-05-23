@@ -121,7 +121,7 @@ def apply_admm(config):
 
     # -- compute metrics
     print("\nReconstruction")
-    est = recon.get_image_est()
+    est = recon.get_image_estimate()
     print_image_info(est)
 
     print("\nMSE", mse(lensed, est))
