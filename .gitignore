@@ -91,6 +91,7 @@ target/
 # Images and NPY files
 *.png
 *.npy
+*/formasks
 
 # IPython
 profile_default/
