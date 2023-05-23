@@ -5,10 +5,9 @@
 # Yohann PERRON [yohann.perron@gmail.com]
 # #############################################################################
 
-import numpy as np
 from lensless.trainable_recon import TrainableReconstructionAlgorithm
 from lensless.admm import soft_thresh, finite_diff, finite_diff_adj, finite_diff_gram
-from scipy import fft
+
 
 try:
     import torch

@@ -14,7 +14,7 @@ For unrolled algorithms, the results of the unrolled training (json file) are lo
 """
 
 import hydra
-from hydra.utils import to_absolute_path, get_original_cwd
+from hydra.utils import get_original_cwd
 
 import glob
 import json
