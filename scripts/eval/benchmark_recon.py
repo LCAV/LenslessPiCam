@@ -37,8 +37,8 @@ def benchmark_recon(config):
     n_iter_range = config.n_iter_range
 
     # check if GPU is available
-    if torch.cuda.is_available():
-        device = "cuda"
+    if torch.cuda.is_available() and config.device[:4] == "cuda":
+        device = config.device
     else:
         device = "cpu"
 
@@ -80,6 +80,25 @@ def benchmark_recon(config):
     #     from lensless import APGD
 
     #     model_list.append(("APGD", APGD(psf)))
+    if "GradientDescentPnPBm3D" in config.algorithms:
+        import bm3d
+        import numpy as np
+
+        def denoiser(x):
+            np.clip(x, 0, 1, out=x)
+            return bm3d.bm3d(x, sigma_psd=10 / 255, stage_arg=bm3d.BM3DStages.ALL_STAGES)
+
+        model_list.append(("GradientDescentPnPBm3D", GradientDescent(psf.cpu(), proj=denoiser)))
+    if "GradientDescentPnPDruNet" in config.algorithms:
+        from lensless.util import load_drunet, apply_CWH_denoizer
+
+        drunet = load_drunet(os.path.join(get_original_cwd(), "data/drunet_color.pth"))
+
+        def denoiser(x):
+            torch.clip(x, min=0.0, max=1.0, out=x)
+            return apply_CWH_denoizer(drunet, x)
+
+        model_list.append(("GradientDescentPnPDruNet", GradientDescent(psf.cpu(), proj=denoiser)))
 
     results = {}
     # benchmark each model for different number of iteration and append result to results
