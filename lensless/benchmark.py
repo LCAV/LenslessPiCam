@@ -179,6 +179,7 @@ class DiffuserCamTestDataset(ParallelDataset):
             Downsample factor of the lensless images, by default 8
         """
         # download dataset if necessary
+        main_dir = data_dir
         data_dir = os.path.join(data_dir, "DiffuserCam_Test")
         if not os.path.isdir(data_dir):
             print("No dataset found for benchmarking.")
@@ -191,9 +192,9 @@ class DiffuserCamTestDataset(ParallelDataset):
             # default to yes if no input is given
             valid = input("%s (Y/n) " % msg).lower() != "n"
             if valid:
-                url = "https://drive.switch.ch/index.php/s/JTJSNm0F4l0sJo7/download"
+                url = "https://drive.switch.ch/index.php/s/D3eRJ6PRljfHoH8/download"
                 filename = "DiffuserCam_Test.zip"
-                download_and_extract_archive(url, "data/", filename=filename, remove_finished=True)
+                download_and_extract_archive(url, main_dir, filename=filename, remove_finished=True)
 
         psf_fp = os.path.join(data_dir, "psf.tiff")
         psf, background = load_psf(
