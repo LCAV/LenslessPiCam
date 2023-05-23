@@ -91,6 +91,8 @@ class GradientDescent(ReconstructionAlgorithm):
                 print("Projection function does not support torch tensors. Converting to numpy.")
             else:
                 self._proj = proj
+        else:
+            self._proj = proj
 
     def reset(self):
         if self.is_torch:
