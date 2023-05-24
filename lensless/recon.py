@@ -216,6 +216,7 @@ class ReconstructionAlgorithm(abc.ABC):
                 set to zero or to the mean of the data, depending on the algorithm.
             reset : bool, optional
                 Whether to reset state variables in the base constructor. Defaults to True.
+                If False, you should call reset() at one point to initialize state variables.
         """
         super().__init__()
         self.is_torch = False
