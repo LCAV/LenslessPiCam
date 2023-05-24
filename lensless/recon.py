@@ -353,8 +353,8 @@ class ReconstructionAlgorithm(abc.ABC):
 
         # assert same shapes
         assert np.all(
-            self._psf_shape[-3:-1] == np.array(image_est.shape)[-3:-1]
-        ), "PSF and image estimate shape mismatch"
+            self._image_est.shape[-3:-1] == np.array(image_est.shape)[-3:-1]
+        ), f"Image estimate must be of shape (..., width, height, channel): {self._image_est.shape[-3:-1]}"
 
         if len(image_est.shape) == 4:
             self._image_est = image_est[None, ...]
@@ -428,6 +428,7 @@ class ReconstructionAlgorithm(abc.ABC):
             `Axes` object to fill for plotting/saving, default is to create one.
         reset : bool, optional
             Whether to reset state variables before applying reconstruction. Default to True.
+            Set to false if continuing reconstruction from previous state.
 
         Returns
         -------

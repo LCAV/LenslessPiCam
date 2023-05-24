@@ -76,6 +76,7 @@ class ADMM(ReconstructionAlgorithm):
         self._tau = tau
 
         # 3D ADMM is not supported yet
+        assert len(psf.shape) == 4, "PSF must be 4D: (depth, height, width, channels)."
         if psf.shape[0] > 1:
             raise NotImplementedError(
                 "3D ADMM is not supported yet, use gradient descent or APGD instead."
@@ -130,11 +131,10 @@ class ADMM(ReconstructionAlgorithm):
     def reset(self):
         if self.is_torch:
             # TODO initialize without padding
-            if self._image_est is None:
-                # initialize image estimate as [Batch, Depth, Height, Width, Channels]
-                self._image_est = torch.zeros([1] + self._padded_shape, dtype=self._dtype).to(
-                    self._psf.device
-                )
+            # initialize image estimate as [Batch, Depth, Height, Width, Channels]
+            self._image_est = torch.zeros([1] + self._padded_shape, dtype=self._dtype).to(
+                self._psf.device
+            )
 
             # self._image_est = torch.zeros_like(self._psf)
             self._X = torch.zeros_like(self._image_est)
@@ -158,8 +158,7 @@ class ADMM(ReconstructionAlgorithm):
             # self._X_divmat = 1.0 / (torch.ones_like(self._psf) + self._mu1)
 
         else:
-            if self._image_est is None:
-                self._image_est = np.zeros([1] + self._padded_shape, dtype=self._dtype)
+            self._image_est = np.zeros([1] + self._padded_shape, dtype=self._dtype)
 
             # self._U = np.zeros(np.r_[self._padded_shape, [2]], dtype=self._dtype)
             self._X = np.zeros_like(self._image_est)
