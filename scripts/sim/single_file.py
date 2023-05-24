@@ -50,14 +50,14 @@ def simulate(config):
     # load psf as numpy array
     print("\nPSF:")
     psf = load_psf(psf_fp, verbose=True, downsample=downsample)
-    if grayscale and len(psf.shape) == 3:
+    if grayscale and psf.shape[-1] == 3:
         psf = rgb2gray(psf)
     if downsample > 1:
         print(f"Downsampled to {psf.shape}.")
 
     """ Simulation"""
     simulator = FarFieldSimulator(
-        psf=psf,
+        psf=psf.squeeze(),  # only support one depth plane
         object_height=object_height,
         scene2mask=scene2mask,
         mask2sensor=mask2sensor,
@@ -74,13 +74,13 @@ def simulate(config):
 
     """ Reconstruction """
     recon = ADMM(psf, **config.admm)
-    recon.set_data(image_plane)
+    recon.set_data(image_plane[None, :, :, None])
     res = recon.apply(n_iter=config.admm.n_iter, disp_iter=config.admm.disp_iter)
     recovered = res[0]
 
     """ Evaluation """
     object_plane = object_plane.astype(np.float32)
-    recovered = recovered.astype(np.float32)
+    recovered = recovered.astype(np.float32).squeeze()
 
     _, ax = plt.subplots(ncols=2, nrows=1, figsize=(10, 5))
     plot_image(recovered, ax=ax[0])
