@@ -95,7 +95,10 @@ class APGD(ReconstructionAlgorithm):
         Parameters
         ----------
         psf : :py:class:`~numpy.ndarray`
-            PSF that models forward propagation.
+            Point spread function (PSF) that models forward propagation.
+            Must be of shape (depth, height, width, channels) even if
+            depth = 1 and channels = 1. You can use :py:func:`~lensless.io.load_psf`
+            to load a PSF from a file such that it is in the correct format.
         max_iter : int, optional
             Maximal number of iterations.
         dtype : float32 or float64
@@ -121,6 +124,8 @@ class APGD(ReconstructionAlgorithm):
         lipschitz_tol : float, optional
             Tolerance to compute Lipschitz constant. Default is 1.
         """
+
+        assert isinstance(psf, np.ndarray), "PSF must be a numpy array"
 
         # PSF and data are the same size / shape
         self._original_shape = psf.shape
@@ -203,10 +208,9 @@ class APGD(ReconstructionAlgorithm):
         )
 
     def reset(self):
-        if self._image_est is None:
-            self._image_est = np.zeros(self._original_size, dtype=self._dtype)
+        self._image_est = np.zeros(self._original_size, dtype=self._dtype)
 
-    def _update(self):
+    def _update(self, iter):
         res = next(self._apgd.steps())
         self._image_est[:] = res["x"]
 

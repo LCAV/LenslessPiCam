@@ -1,0 +1,102 @@
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+#Reconstruction algorithm
+input:
+  # File path for recorded PSF
+  psf: data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11/psf.tiff
+  dtype: float32
+
+torch: True
+torch_device: 'cuda'
+
+preprocess:
+  # Image shape (height, width) for reconstruction.
+  shape: null
+  # Whether image is raw bayer data.
+  bayer: False
+  blue_gain: null
+  red_gain: null
+  # Same PSF for all channels (sum) or unique PSF for RGB.
+  single_psf: False
+  # Whether to perform construction in grayscale.
+  gray: False
+
+
+display:
+  # How many iterations to wait for intermediate plot. 
+  # Set to negative value for no intermediate plots.
+  disp: 100
+  # Whether to plot results.
+  plot: True
+  # Gamma factor for plotting.
+  gamma: null
+
+# Whether to save intermediate and final reconstructions.
+save: True
+
+reconstruction:
+  # Method: unrolled_admm, unrolled_fista
+  method: unrolled_admm
+
+  # Hyperparameters for each method
+  unrolled_fista: # for unrolled_fista
+    # Number of iterations
+    n_iter: 20
+    tk: 1
+    learn_tk: True
+  unrolled_admm:
+    # Number of iterations
+    n_iter: 5
+    # Hyperparameters
+    mu1: 1e-4
+    mu2: 1e-4
+    mu3: 1e-4
+    tau: 2e-4
+
+
+# Train Dataset
+
+files:
+  dataset: "DiffuserCam"   # "mnist", "fashion_mnist", "cifar10", "CelebA", "DiffuserCam"
+  n_files: null    # null to use all
+
+target: "object_plane"    # "original" or "object_plane" or "label"
+
+#for simulated dataset
+simulation:
+  grayscale: False
+  # random variations
+  object_height: 0.6   # range for random height or scalar
+  random_shift: False
+  random_vflip: 0.5
+  random_hflip: 0.5
+  random_rotate: False
+  # these distance parameters are typically fixed for a given PSF
+  # for tape_rgb psf      # for DiffuserCam psf
+  scene2mask: 40e-2       # scene2mask: 10e-2
+  mask2sensor: 4e-3       # mask2sensor: 9e-3
+  # see waveprop.devices
+  sensor: "rpi_hq"
+  snr_db: 40
+  # simulate different sensor resolution
+  # output_dim: [24, 32]    # [H, W] or null
+  # Downsampling for PSF
+  downsample: 8
+  # max val in simulated measured (quantized 8 bits)
+  max_val: 255
+
+#Training
+
+training:
+  batch_size: 16
+  epoch: 10
+
+optimizer:
+  type: Adam
+  lr: 1e-4
+  
+loss: 'l2'
+# set lpips to false to deactivate. Otherwise, give the weigth for the loss (the main loss l2/l1 always having a weigth of 1)
+lpips: 0.6

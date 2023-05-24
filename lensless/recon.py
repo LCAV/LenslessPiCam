@@ -44,8 +44,8 @@ from it boils down to three steps:
 3. Applying the algorithm.
 
 
-ADMM example
-------------
+2D example (ADMM)
+-----------------
 
 For example, for ADMM:
 
@@ -188,7 +188,9 @@ class ReconstructionAlgorithm(abc.ABC):
 
     """
 
-    def __init__(self, psf, dtype=None, pad=True, n_iter=100, initial_est=None, **kwargs):
+    def __init__(
+        self, psf, dtype=None, pad=True, n_iter=100, initial_est=None, reset=True, **kwargs
+    ):
         """
         Base constructor. Derived constructor may define new state variables
         here and also reset them in `reset`.
@@ -198,27 +200,30 @@ class ReconstructionAlgorithm(abc.ABC):
 
             psf : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
                 Point spread function (PSF) that models forward propagation.
-                2D (grayscale) or 3D (RGB) data can be provided and the shape will
-                be used to determine which reconstruction (and allocate the
-                appropriate memory).
+                Must be of shape (depth, height, width, channels) even if
+                depth = 1 and channels = 1. You can use :py:func:`~lensless.io.load_psf`
+                to load a PSF from a file such that it is in the correct format.
             dtype : float32 or float64
                 Data type to use for optimization.
             pad : bool, optional
-                Whether to pad the PSF to avoid spatial aliasing.
+                Whether data needs to be padded prior to convolution. User may wish to
+                optimize padded data and set this to False, as is done for :py:class:`~lensless.ADMM`.
+                Defaults to True.
             n_iter : int, optional
-                Number of iterations to run algorithm for. Can be overridden in
-                `apply`.
+                Number of iterations to run algorithm for. Can be overridden in `apply`.
             initial_est : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`, optional
                 Initial estimate of the image. If not provided, the initial estimate is
                 set to zero or to the mean of the data, depending on the algorithm.
-
+            reset : bool, optional
+                Whether to reset state variables in the base constructor. Defaults to True.
         """
+        super().__init__()
         self.is_torch = False
 
         if torch_available:
             self.is_torch = isinstance(psf, torch.Tensor)
 
-        assert len(psf.shape) == 4, "PSF must be 4D: [depth, width, height, channel]."
+        assert len(psf.shape) == 4, "PSF must be 4D: (depth, height, width, channels)."
         assert psf.shape[3] == 3 or psf.shape[3] == 1, "PSF must either be rgb (3) or grayscale (1)"
         self._psf = psf
         self._n_iter = n_iter
@@ -269,9 +274,11 @@ class ReconstructionAlgorithm(abc.ABC):
         # pre-compute operators / outputs
         self._image_est = None
         if initial_est is not None:
-            self._image_est = self.set_image_estimage(initial_est)
+            self._image_est = self.set_image_estimate(initial_est)
         self._data = None
-        self.reset()
+
+        if reset:
+            self.reset()
 
     @abc.abstractmethod
     def reset(self):
@@ -281,7 +288,7 @@ class ReconstructionAlgorithm(abc.ABC):
         return
 
     @abc.abstractmethod
-    def _update(self):
+    def _update(self, iter):
         """
         Update state variables.
         """
@@ -311,18 +318,21 @@ class ReconstructionAlgorithm(abc.ABC):
         else:
             assert isinstance(data, np.ndarray)
 
-        assert (
-            len(data.shape) >= 4
-        ), "Data must be at least 4D: [..., depth, width, height, channel]."
+        assert len(data.shape) >= 3, "Data must be at least 3D: [..., width, height, channel]."
 
         # assert same shapes
         assert np.all(
             self._psf_shape[-3:-1] == np.array(data.shape)[-3:-1]
         ), "PSF and data shape mismatch"
 
-        self._data = data
+        if len(data.shape) == 3:
+            self._data = data[None, None, ...]
+        elif len(data.shape) == 4:
+            self._data = data[None, ...]
+        else:
+            self._data = data
 
-    def set_image_estimage(self, image_est):
+    def set_image_estimate(self, image_est):
         """
         Set initial estimate of image, e.g. to warm-start algorithm
 
@@ -338,18 +348,21 @@ class ReconstructionAlgorithm(abc.ABC):
             assert isinstance(image_est, np.ndarray)
 
         assert (
-            len(image_est.shape) == 4
+            len(image_est.shape) >= 4
         ), "Image estimate must be at least 4D: [..., depth, width, height, channel]."
 
         # assert same shapes
         assert np.all(
-            self._psf_shape[-3:-1] == np.array(image_est.shape)[-3:-1]
-        ), "PSF and image estimate shape mismatch"
+            self._image_est.shape[-3:-1] == np.array(image_est.shape)[-3:-1]
+        ), f"Image estimate must be of shape (..., width, height, channel): {self._image_est.shape[-3:-1]}"
 
-        self._image_est = image_est
+        if len(image_est.shape) == 4:
+            self._image_est = image_est[None, ...]
+        else:
+            self._image_est = image_est
 
-    def get_image_est(self):
-        """Get current image estimate."""
+    def get_image_estimate(self):
+        """Get current image estimate as [Batch, Depth, Height, Width, Channels]."""
         return self._form_image()
 
     def _progress(self):
@@ -379,7 +392,15 @@ class ReconstructionAlgorithm(abc.ABC):
             return data
 
     def apply(
-        self, n_iter=None, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None
+        self,
+        n_iter=None,
+        disp_iter=10,
+        plot_pause=0.2,
+        plot=True,
+        save=False,
+        gamma=None,
+        ax=None,
+        reset=True,
     ):
         """
         Method for performing iterative reconstruction. Note that `set_data`
@@ -405,6 +426,9 @@ class ReconstructionAlgorithm(abc.ABC):
             Gamma correction factor to apply for plots. Default is None.
         ax : :py:class:`~matplotlib.axes.Axes`, optional
             `Axes` object to fill for plotting/saving, default is to create one.
+        reset : bool, optional
+            Whether to reset state variables before applying reconstruction. Default to True.
+            Set to false if continuing reconstruction from previous state.
 
         Returns
         -------
@@ -416,24 +440,30 @@ class ReconstructionAlgorithm(abc.ABC):
 
         """
         assert self._data is not None, "Must set data with `set_data()`"
+        assert (
+            self._data.shape[0] == 1
+        ), "Apply doesn't supports processing multiple images at once."
+
+        if reset:
+            self.reset()
 
         if n_iter is None:
             n_iter = self._n_iter
 
         if (plot or save) and disp_iter is not None:
             if ax is None:
-                ax = plot_image(self._get_numpy_data(self._data), gamma=gamma)
+                ax = plot_image(self._get_numpy_data(self._data[0]), gamma=gamma)
         else:
             ax = None
             disp_iter = n_iter + 1
 
         for i in range(n_iter):
-            self._update()
+            self._update(i)
 
             if (plot or save) and (i + 1) % disp_iter == 0:
                 self._progress()
                 img = self._form_image()
-                ax = plot_image(self._get_numpy_data(img), ax=ax, gamma=gamma)
+                ax = plot_image(self._get_numpy_data(img[0]), ax=ax, gamma=gamma)
                 ax.set_title("Reconstruction after iteration {}".format(i + 1))
                 if save:
                     plt.savefig(plib.Path(save) / f"{i + 1}.png")
@@ -441,7 +471,7 @@ class ReconstructionAlgorithm(abc.ABC):
                     plt.draw()
                     plt.pause(plot_pause)
 
-        final_im = self._form_image()
+        final_im = self._form_image()[0]
         if plot or save:
             ax = plot_image(self._get_numpy_data(final_im), ax=ax, gamma=gamma)
             ax.set_title("Final reconstruction after {} iterations".format(n_iter))
@@ -450,3 +480,38 @@ class ReconstructionAlgorithm(abc.ABC):
             return final_im, ax
         else:
             return final_im
+
+    def reconstruction_error(self, prediction=None, lensless=None):
+        """
+        Compute reconstruction error.
+
+        Parameters
+        ----------
+        prediction :  :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`, optional
+            Reconstructed image. If None, use current estimate, default None.
+        lensless : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`, optional
+            Lensless image. If None, use data provided by `set_data()`, default None.
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
+        # default to current estimate and data if not provided
+        if prediction is None:
+            prediction = self.get_image_estimate()
+        if lensless is None:
+            lensless = self._data
+
+        convolver = self._convolver
+        if not convolver.pad:
+            prediction = convolver._pad(prediction)
+        Fx = convolver.convolve(prediction)
+        Fy = lensless
+        if not convolver.pad:
+            Fx = convolver._crop(Fx)
+
+        if self.is_torch:
+            return torch.norm(Fx - Fy)
+        else:
+            return np.linalg.norm(Fx - Fy)
