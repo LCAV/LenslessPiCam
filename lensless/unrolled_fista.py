@@ -85,7 +85,10 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
         return self._convolver.deconvolve(diff)
 
     def reset(self, batch_size=1):
-        self._image_est = self._image_init.expand(batch_size, -1, -1, -1, -1)
+        if self._initial_est is not None:
+            self._image_est = self._initial_est
+        else:
+            self._image_est = self._image_init.expand(batch_size, -1, -1, -1, -1)
         self._xk = self._image_est
 
         # enforce positivity

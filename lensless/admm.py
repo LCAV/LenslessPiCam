@@ -132,9 +132,12 @@ class ADMM(ReconstructionAlgorithm):
         if self.is_torch:
             # TODO initialize without padding
             # initialize image estimate as [Batch, Depth, Height, Width, Channels]
-            self._image_est = torch.zeros([1] + self._padded_shape, dtype=self._dtype).to(
-                self._psf.device
-            )
+            if self._initial_est is not None:
+                self._image_est = self._initial_est
+            else:
+                self._image_est = torch.zeros([1] + self._padded_shape, dtype=self._dtype).to(
+                    self._psf.device
+                )
 
             # self._image_est = torch.zeros_like(self._psf)
             self._X = torch.zeros_like(self._image_est)
@@ -158,7 +161,10 @@ class ADMM(ReconstructionAlgorithm):
             # self._X_divmat = 1.0 / (torch.ones_like(self._psf) + self._mu1)
 
         else:
-            self._image_est = np.zeros([1] + self._padded_shape, dtype=self._dtype)
+            if self._initial_est is not None:
+                self._image_est = self._initial_est
+            else:
+                self._image_est = np.zeros([1] + self._padded_shape, dtype=self._dtype)
 
             # self._U = np.zeros(np.r_[self._padded_shape, [2]], dtype=self._dtype)
             self._X = np.zeros_like(self._image_est)

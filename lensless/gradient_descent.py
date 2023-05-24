@@ -76,13 +76,16 @@ class GradientDescent(ReconstructionAlgorithm):
 
     def reset(self):
         if self.is_torch:
-            # initial guess, half intensity image
-            psf_flat = self._psf.reshape(-1, self._psf_shape[3])
-            pixel_start = (
-                torch.max(psf_flat, axis=0).values + torch.min(psf_flat, axis=0).values
-            ) / 2
-            # initialize image estimate as [Batch, Depth, Height, Width, Channels]
-            self._image_est = torch.ones_like(self._psf[None, ...]) * pixel_start
+            if self._initial_est is not None:
+                self._image_est = self._initial_est
+            else:
+                # initial guess, half intensity image
+                psf_flat = self._psf.reshape(-1, self._psf_shape[3])
+                pixel_start = (
+                    torch.max(psf_flat, axis=0).values + torch.min(psf_flat, axis=0).values
+                ) / 2
+                # initialize image estimate as [Batch, Depth, Height, Width, Channels]
+                self._image_est = torch.ones_like(self._psf[None, ...]) * pixel_start
 
             # set step size as < 2 / lipschitz
             Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
@@ -90,10 +93,13 @@ class GradientDescent(ReconstructionAlgorithm):
             self._alpha = torch.real(1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values)
 
         else:
-            psf_flat = self._psf.reshape(-1, self._psf_shape[3])
-            pixel_start = (np.max(psf_flat, axis=0) + np.min(psf_flat, axis=0)) / 2
-            # initialize image estimate as [Batch, Depth, Height, Width, Channels]
-            self._image_est = np.ones_like(self._psf[None, ...]) * pixel_start
+            if self._initial_est is not None:
+                self._image_est = self._initial_est
+            else:
+                psf_flat = self._psf.reshape(-1, self._psf_shape[3])
+                pixel_start = (np.max(psf_flat, axis=0) + np.min(psf_flat, axis=0)) / 2
+                # initialize image estimate as [Batch, Depth, Height, Width, Channels]
+                self._image_est = np.ones_like(self._psf[None, ...]) * pixel_start
 
             # set step size as < 2 / lipschitz
             Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
