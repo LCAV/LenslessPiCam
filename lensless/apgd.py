@@ -208,7 +208,10 @@ class APGD(ReconstructionAlgorithm):
         )
 
     def reset(self):
-        self._image_est = np.zeros(self._original_size, dtype=self._dtype)
+        if self._initial_est is not None:
+            self._image_est = self._initial_est
+        else:
+            self._image_est = np.zeros(self._original_size, dtype=self._dtype)
 
     def _update(self, iter):
         res = next(self._apgd.steps())
