@@ -373,7 +373,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
     def set_image_estimate(self, image_est):
         """
-        Overwrite current image estimate, e.g. to warm-start algorithm
+        Overwrite current image estimate.
 
         Parameters
         ----------
