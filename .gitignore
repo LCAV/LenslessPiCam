@@ -100,6 +100,12 @@ target/
 data/celeba_mini
 data/celeba_mini_tape
 
+# YAML files
+*.yaml
+
+# Test Python files
+scripts/sim/test_single_file.py
+
 # IPython
 profile_default/
 ipython_config.py
