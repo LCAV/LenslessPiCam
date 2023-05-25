@@ -75,7 +75,7 @@ def rgb2gray(rgb, weights=None):
     Parameters
     ----------
     rgb : :py:class:`~numpy.ndarray`
-        (N_height, N_width, N_channel) image.
+        (Depth, Height, Width, Channel) image.
     weights : :py:class:`~numpy.ndarray`
         [Optional] (3,) weights to convert from RGB to grayscale.
 
@@ -85,6 +85,7 @@ def rgb2gray(rgb, weights=None):
         Grayscale image of dimension (depth, height, width, 1).
 
     """
+    assert len(rgb.shape) == 4, "Input must be (depth, height, width, channel)"
     if weights is None:
         weights = np.array([0.299, 0.587, 0.114])
     assert len(weights) == 3

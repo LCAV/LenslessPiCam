@@ -216,6 +216,7 @@ class ReconstructionAlgorithm(abc.ABC):
                 set to zero or to the mean of the data, depending on the algorithm.
             reset : bool, optional
                 Whether to reset state variables in the base constructor. Defaults to True.
+                If False, you should call reset() at one point to initialize state variables.
         """
         super().__init__()
         self.is_torch = False
@@ -271,10 +272,16 @@ class ReconstructionAlgorithm(abc.ABC):
         self._convolver = RealFFTConvolve2D(psf, dtype=dtype, pad=pad, **kwargs)
         self._padded_shape = self._convolver._padded_shape
 
-        # pre-compute operators / outputs
-        self._image_est = None
+        if pad:
+            self._image_est_shape = self._psf_shape
+        else:
+            self._image_est_shape = self._convolver._padded_shape
+
+        # pre-compute operators / outputs / set estimates
         if initial_est is not None:
-            self._image_est = self.set_image_estimate(initial_est)
+            self._set_initial_estimate(initial_est)
+        else:
+            self._initial_est = None
         self._data = None
 
         if reset:
@@ -332,9 +339,12 @@ class ReconstructionAlgorithm(abc.ABC):
         else:
             self._data = data
 
-    def set_image_estimate(self, image_est):
+    def _set_initial_estimate(self, image_est):
         """
-        Set initial estimate of image, e.g. to warm-start algorithm
+        Set initial estimate of image, e.g. to warm-start algorithm.
+
+        Note that reset() should be called after setting the initial estimate
+        so that it is taken into account.
 
         Parameters
         ----------
@@ -353,8 +363,37 @@ class ReconstructionAlgorithm(abc.ABC):
 
         # assert same shapes
         assert np.all(
-            self._psf_shape[-3:-1] == np.array(image_est.shape)[-3:-1]
-        ), "PSF and image estimate shape mismatch"
+            self._image_est_shape[-3:-1] == np.array(image_est.shape)[-3:-1]
+        ), f"Image estimate must be of shape (..., width, height, channel): {self._image_est_shape[-3:-1]}"
+
+        if len(image_est.shape) == 4:
+            self._initial_est = image_est[None, ...]
+        else:
+            self._initial_est = image_est
+
+    def set_image_estimate(self, image_est):
+        """
+        Overwrite current image estimate.
+
+        Parameters
+        ----------
+        image_est : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
+            Initial estimate of the image. Should match provide PSF shape.
+        """
+
+        if self.is_torch:
+            assert isinstance(image_est, torch.Tensor)
+        else:
+            assert isinstance(image_est, np.ndarray)
+
+        assert (
+            len(image_est.shape) >= 4
+        ), "Image estimate must be at least 4D: [..., depth, width, height, channel]."
+
+        # assert same shapes
+        assert np.all(
+            self._image_est_shape[-3:-1] == np.array(image_est.shape)[-3:-1]
+        ), f"Image estimate must be of shape (..., width, height, channel): {self._image_est_shape[-3:-1]}"
 
         if len(image_est.shape) == 4:
             self._image_est = image_est[None, ...]
@@ -428,6 +467,7 @@ class ReconstructionAlgorithm(abc.ABC):
             `Axes` object to fill for plotting/saving, default is to create one.
         reset : bool, optional
             Whether to reset state variables before applying reconstruction. Default to True.
+            Set to false if continuing reconstruction from previous state.
 
         Returns
         -------

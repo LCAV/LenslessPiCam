@@ -37,6 +37,7 @@ Changed
 -  ``ReconstructionAlgorithm.update`` now take the number of the current iteration to allow for unrolled algorithms.
 -  ``ReconstructionAlgorithm.apply`` now takes a reset parameter (default true) to automaticaly call reset.
 -  Call to reset in ``ReconstructionAlgorithm.__init__`` is now optional (see reset parameter).
+-  Make sure image estimate is reset when reset() is called, either to zeros/mean data or to self._initial_est if set.
 
 Bugfix
 ~~~~~~

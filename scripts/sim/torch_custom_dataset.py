@@ -14,9 +14,23 @@ import time
 def simulate(config):
 
     dataset = to_absolute_path(config.files.dataset)
-    assert os.path.exists(
-        dataset
-    ), f"Dataset {dataset} does not exist. Download from `celeb_mini` from: https://drive.switch.ch/index.php/s/Q5OdDQMwhucIlt8"
+    if not os.path.isdir(dataset):
+        print(f"No dataset found at {dataset}")
+        try:
+            from torchvision.datasets.utils import download_and_extract_archive, download_url
+        except ImportError:
+            exit()
+        msg = "Do you want to download the sample CelebA dataset (764KB)?"
+
+        # default to yes if no input is given
+        valid = input("%s (Y/n) " % msg).lower() != "n"
+        if valid:
+            url = "https://drive.switch.ch/index.php/s/Q5OdDQMwhucIlt8/download"
+            filename = "celeb_mini.zip"
+            download_and_extract_archive(
+                url, os.path.dirname(dataset), filename=filename, remove_finished=True
+            )
+
     psf_fp = to_absolute_path(config.files.psf)
     assert os.path.exists(psf_fp), f"PSF {psf_fp} does not exist."
 
@@ -36,14 +50,14 @@ def simulate(config):
 
     # load PSF
     psf = load_psf(psf_fp, downsample=downsample)
-    psf = ToTensor()(psf)
+    psf_tensor = ToTensor()(psf[0])  # first depth
 
     # create Pytorch dataset and dataloader
     ds = SimulatedDatasetFolder(
         path=dataset,
         iamge_ext=image_ext,
         n_files=n_files,
-        psf=psf,
+        psf=psf_tensor,
         device_conv=device_conv,
         **config.simulation,
     )

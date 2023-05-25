@@ -20,6 +20,7 @@ def load_image(
     ccm=RPI_HQ_CAMERA_CCM_MATRIX,
     back=None,
     nbits_out=None,
+    as_4d=False,
 ):
     """
     Load image as numpy array.
@@ -46,6 +47,9 @@ def load_image(
         Background level to subtract.
     nbits_out : int
         Output bit depth. Default is to use that of input.
+    as_4d : bool
+        Add depth and color dimensions if necessary so that image is 4D: (depth,
+        height, width, color).
 
     Returns
     -------
@@ -99,6 +103,12 @@ def load_image(
 
     if verbose:
         print_image_info(img)
+
+    if as_4d:
+        if len(img.shape) == 3:
+            img = img[np.newaxis, :, :, :]
+        elif len(img.shape) == 2:
+            img = img[np.newaxis, :, :, np.newaxis]
 
     return img
 
