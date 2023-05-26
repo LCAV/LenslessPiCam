@@ -89,16 +89,39 @@ def benchmark_recon(config):
             return bm3d.bm3d(x, sigma_psd=10 / 255, stage_arg=bm3d.BM3DStages.ALL_STAGES)
 
         model_list.append(("GradientDescentPnPBm3D", GradientDescent(psf.cpu(), proj=denoiser)))
-    if "GradientDescentPnPDruNet" in config.algorithms:
+    if "GradientDescentPnPDruNet" in config.algorithms or "FISTAPnPDruNet" in config.algorithms:
         from lensless.util import load_drunet, apply_CWH_denoizer
-
-        drunet = load_drunet(os.path.join(get_original_cwd(), "data/drunet_color.pth"))
+    if "GradientDescentPnPDruNet" in config.algorithms:
+        drunet = load_drunet(os.path.join(get_original_cwd(), "data/drunet_color.pth")).to(device)
 
         def denoiser(x):
             torch.clip(x, min=0.0, max=1.0, out=x)
-            return apply_CWH_denoizer(drunet, x)
+            x_denoized = apply_CWH_denoizer(drunet, x, noise_level=5)
+            x_denoized = torch.clip(x_denoized, min=0.0, max=1.0)
+            return x + 0.05 * (x_denoized - x)
 
-        model_list.append(("GradientDescentPnPDruNet", GradientDescent(psf.cpu(), proj=denoiser)))
+        model_list.append(("GradientDescentPnPDruNet", GradientDescent(psf, proj=denoiser)))
+    if "FISTAPnPDruNet" in config.algorithms:
+        drunet = load_drunet(os.path.join(get_original_cwd(), "data/drunet_color.pth")).to(device)
+
+        def denoiser2(x):
+            torch.clip(x, min=0.0, max=None, out=x)
+            x_max = torch.amax(x, dim=(-2, -3), keepdim=True)
+            x_denoized = apply_CWH_denoizer(drunet, x / x_max, noise_level=5, device=device)
+            x_denoized = torch.clip(x_denoized, min=0.0) * x_max.to(device)
+            return x_denoized
+
+        model_list.append(("FISTAPnPDruNet", FISTA(psf, tk=config.fista.tk, proj=denoiser2)))
+    if "FISTAPnPDruNet" in config.algorithms:
+        drunet = load_drunet(os.path.join(get_original_cwd(), "data/drunet_color.pth")).to(device)
+
+        def denoiser3(x):
+            torch.clip(x, min=0.0, max=None, out=x)
+            x_denoized = apply_CWH_denoizer(drunet, x, noise_level=5, device=device)
+            x_denoized = torch.clip(x_denoized, min=0.0)
+            return x_denoized
+
+        model_list.append(("FISTAPnPDruNet2", FISTA(psf, tk=config.fista.tk, proj=denoiser3)))
 
     results = {}
     # benchmark each model for different number of iteration and append result to results
