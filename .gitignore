@@ -105,6 +105,7 @@ data/celeba_mini_tape
 
 # Test Python files
 scripts/sim/test_single_file.py
+scripts/sim/test_dataset.py
 
 # IPython
 profile_default/
