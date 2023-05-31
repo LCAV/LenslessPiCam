@@ -6,11 +6,9 @@ from math import sqrt
 from perlin_numpy import generate_perlin_noise_2d
 from sympy.ntheory import quadratic_residues
 from scipy.signal import max_len_seq
+from scipy.ndimage import zoom
 from waveprop.fresnel import fresnel_conv
 from waveprop.rs import angular_spectrum
-
-
-
 
 
 class Mask(abc.ABC):
@@ -117,17 +115,25 @@ class CodedAperture(Mask):
         """
         Creating coded aperture mask using either the MURA of MLS method
         """
-        assert self.method in ['MURA', 'MLS']
+        assert self.method in ['MURA', 'MLS'], "Method should be either 'MLS' or 'MURA'"
+        
         if self.method == 'MURA':
-            self.mask = self.squarepattern(4*self.n_bits+1)
-            self.row = 2 * self.mask[1,:] - 1
-            self.column = 2 * self.mask[:,1] - 1
+            self.mask = self.squarepattern(4*self.n_bits+1)[1:,1:]
+            self.row = 2 * self.mask[1,1:] - 1
+            self.column = 2 * self.mask[1:,1] - 1
         else:
             seq = max_len_seq(self.n_bits)[0] * 2 - 1
             h_r = np.r_[seq, seq]
             self.row = h_r
             self.column = h_r
             self.mask = (np.outer(h_r, h_r) + 1) / 2
+
+        if self.sensor_size_px != self.mask.shape:
+            upscale_factor_height = self.sensor_size_px[0] / self.mask.shape[0]
+            upscale_factor_width = self.sensor_size_px[1] / self.mask.shape[1]
+            upscaled_mask = zoom(self.mask, (upscale_factor_height, upscale_factor_width))
+            self.mask = np.clip(upscaled_mask, 0, 1)
+        
 
 
     def is_prime(self, n):
@@ -282,13 +288,13 @@ def phase_retrieval(target_psf, lambd, d1, dz, n=1.2, n_iter=10, height_map=Fals
     else:
         iterator = range(n_iter)
     for _ in iterator:
-        # back propagate from sensor to mask
+            # back propagate from sensor to mask
         M_phi = fresnel_conv(M_p, lambd, d1, -dz, dtype=np.float32)[0]
-        # constrain amplitude at mask to be unity, i.e. phase pattern
+            # constrain amplitude at mask to be unity, i.e. phase pattern
         M_phi = np.exp(1j * np.angle(M_phi))
-        # forward propagate from mask to sensor
+            # forward propagate from mask to sensor
         M_p = fresnel_conv(M_phi, lambd, d1, dz, dtype=np.float32)[0]
-        # constrain amplitude to be sqrt(PSF)
+            # constrain amplitude to be sqrt(PSF)
         M_p = np.sqrt(target_psf) * np.exp(1j * np.angle(M_p))
 
     phi = (np.angle(M_phi) + 2 * np.pi) % (2 * np.pi)
