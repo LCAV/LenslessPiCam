@@ -15,21 +15,21 @@ def test_flatcam():
 
     mask1 = CodedAperture(method='MURA', 
                           n_bits=25, 
-                          sensor_size_px=(101,101), 
+                          sensor_size_px=(4096,3040), 
                           sensor_size_m=None, 
                           feature_size=d1, 
                           distance_sensor=dz, 
                           wavelength=lambd)
-    assert mask1.mask.shape == (101, 101)
+    assert mask1.mask.shape == (4096, 3040)
 
     mask2 = CodedAperture(method='MLS', 
                           n_bits=5, 
-                          sensor_size_px=(62,62), 
+                          sensor_size_px=(4096,3040), 
                           sensor_size_m=None, 
                           feature_size=d1, 
                           distance_sensor=dz, 
                           wavelength=lambd)
-    assert mask2.mask.shape == (62, 62)
+    assert mask2.mask.shape == (4096, 3040)
 
 
 def test_phlatcam():
