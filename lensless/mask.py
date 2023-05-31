@@ -119,8 +119,8 @@ class CodedAperture(Mask):
         
         if self.method == 'MURA':
             self.mask = self.squarepattern(4*self.n_bits+1)[1:,1:]
-            self.row = 2 * self.mask[1,1:] - 1
-            self.column = 2 * self.mask[1:,1] - 1
+            self.row = 2 * self.mask[0,:] - 1
+            self.column = 2 * self.mask[:,0] - 1
         else:
             seq = max_len_seq(self.n_bits)[0] * 2 - 1
             h_r = np.r_[seq, seq]
