@@ -182,7 +182,7 @@ MSE, PSNR, and SSIM are computed using `skimage.metrics`  [@van2014scikit], whil
 | 0.164 | 7.85 | 0.405 | 0.645 |
 : Metrics for \autoref{fig:metric}.
 
-One limitation with comparing reconstructed image (from measurements) and the original image (displayed on a screen) is that the lighting during measurement can lead to a significant difference in the two images, even though the content is visually similar (as in \autoref{fig:metric}).
+One limitation with comparing the reconstructed image (from measurements) directly with the original image is that the lighting during measurement can lead to rather poor results on the metrics, even though the content is visually similar (as in \autoref{fig:metric}).
 To mitigate this difference, we can compare the reconstructed image with the image displayed on the screen, but captured with a lensed camera. 
 In the next section, we describe the functionalities `LenslessPiCam` provides for collecting such data and using existing datasets.
 Alternatively, simulation can be used to compare reconstruction algorithms without having to collect data.
