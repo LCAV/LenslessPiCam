@@ -23,6 +23,7 @@ Added
 - ``train_unrolled.py`` script for training unrolled algorithms.
 - ``benchmark_recon.py`` script for benchmarking and comparing reconstruction algorithms.
 - Added ``reconstruction_error`` to ``ReconstructionAlgorithm`` .
+- Displaying 3D reconstructions now shows projections on all three axis
 
 Changed
 ~~~~~~~
@@ -42,6 +43,7 @@ Bugfix
 ~~~~~~
 
 -  Loading grayscale PSFs would cause an dimension error when removing the background pixels.
+-  Displaying 3D reconstructions by summing values along axis would produce un-normalized values.
 
 1.0.2 - (2022-05-31)
 --------------------
