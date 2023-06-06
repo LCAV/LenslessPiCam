@@ -46,11 +46,11 @@ The purpose of `LenslessPiCam` is to provide a complete toolkit with low-cost, a
 The DiffuserCam tutorial [@diffusercam] served as a great starting point to the present toolkit as it demonstrates that a working lensless camera can be built with cheap hardware: a Raspberry Pi, the [Camera Module 2](https://www.raspberrypi.com/products/camera-module-v2), and double-sided tape.
 The authors also provide Python implementations of two image reconstruction  algorithms: variants of gradient descent (GD) with a non-negativity constraint; and the alternating direction method of multipliers (ADMM) [@boyd2011distributed] with an additional total variation (TV) prior.
 
-The resolution of the reconstructed images for the DiffuserCam tutorial is poor and the processing pipeline is limited to grayscale reconstruction. 
+The resolution and quality of the reconstructed images for the DiffuserCam tutorial is poor and the processing pipeline is limited to grayscale reconstruction. 
 With `LenslessPiCam`, we improve the reconstruction by using the newer [HQ camera](https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera/) as well as a more versatile and generic RGB computational imaging pipeline. 
 See \autoref{fig:compare_cams} for a comparison between the two cameras.
 
-![ADMM reconstruction of thumbs-up on a phone 40 cm away for (a) original DiffuserCam tutorial [@diffusercam] and (b) our camera.](compare_cams.png){#fig:compare_cams width=30%}
+![ADMM reconstruction of (a) an image of thumbs-up on a phone 40 cm away for (b) the original DiffuserCam tutorial [@diffusercam] and (c) our camera with RGB support.](compare_cams.png){#fig:compare_cams width=30%}
 
 
 Similar to [@diffusercam], the core image reconstruction functionality of `LenslessPiCam` depends on NumPy [@numpy] and SciPy [@scipy].
