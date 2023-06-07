@@ -283,7 +283,7 @@ def liveview(
         elif source == "blue":
             img_1chan = img[:, :, 2]
         else:
-            img_1chan = rgb2gray(img)
+            img_1chan = rgb2gray(img[None, :, :, :])
         ax = plot_image(img_1chan)
         if source == "white":
             ax.set_title("Gray scale")
