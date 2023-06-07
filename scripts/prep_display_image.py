@@ -63,17 +63,18 @@ def display(fp, pad, output_path, vshift, brightness, screen_res, hshift):
     img_og = cv2.cvtColor(img_og, cv2.COLOR_BGR2RGB)
 
     if screen_res:
-        img_og_dim = img_og.shape
+        image_height, image_width = img_og.shape[:2]
         img = np.zeros((screen_res[1], screen_res[0], 3), dtype=img_og.dtype)
 
+        # set image with padding and correct aspect ratio
         if screen_res[0] < screen_res[1]:
             new_width = int(screen_res[0] / (1 + 2 * pad / 100))
-            ratio = new_width / float(img_og_dim[0])
-            new_height = int(ratio * img_og_dim[1])
+            ratio = new_width / float(image_width)
+            new_height = int(ratio * image_height)
         else:
             new_height = int(screen_res[1] / (1 + 2 * pad / 100))
-            ratio = new_height / float(img_og_dim[1])
-            new_width = int(ratio * img_og_dim[0])
+            ratio = new_height / float(image_height)
+            new_width = int(ratio * image_width)
         image_res = (new_width, new_height)
         img_og = cv2.resize(img_og, image_res, interpolation=interpolation)
         img[: image_res[1], : image_res[0]] = img_og
