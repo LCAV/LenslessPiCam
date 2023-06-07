@@ -86,7 +86,12 @@ REMOTE_TMP_PATH = "~/tmp_display.png"
     type=int,
     help="Screen resolution in pixels (width, height).",
 )
-def remote_display(fp, hostname, pad, vshift, brightness, psf, black, hshift, screen_res):
+@click.option(
+    "--username",
+    type=str,
+    default="pi",
+)
+def remote_display(fp, username, hostname, pad, vshift, brightness, psf, black, hshift, screen_res):
     assert hostname is not None, "Provide hostname / IP address."
 
     if screen_res:
@@ -115,14 +120,14 @@ def remote_display(fp, hostname, pad, vshift, brightness, psf, black, hshift, sc
     """ processing on remote machine, less issues with copying """
     # copy picture to Raspberry Pi
     print("\nCopying over picture...")
-    os.system('scp %s "pi@%s:%s" ' % (fp, hostname, REMOTE_TMP_PATH))
+    os.system('scp %s "%s@%s:%s" ' % (fp, username, hostname, REMOTE_TMP_PATH))
 
     prep_command = f"{REMOTE_PYTHON} {REMOTE_IMAGE_PREP_SCRIPT} --fp {REMOTE_TMP_PATH} \
         --pad {pad} --vshift {vshift} --hshift {hshift} --screen_res {shape[0]} {shape[1]} \
         --brightness {brightness} --output_path {REMOTE_DISPLAY_PATH} "
     print(f"COMMAND : {prep_command}")
     subprocess.Popen(
-        ["ssh", "pi@%s" % hostname, prep_command],
+        ["ssh", "%s@%s" % (username, hostname), prep_command],
         shell=False,
     )
 
