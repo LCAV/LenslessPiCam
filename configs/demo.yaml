@@ -53,11 +53,23 @@ recon:
   dtype: float32
   use_torch: True
   torch_device: cuda:0
-  disp_iter: 50
+  
+  algo: admm
 
-  # ---- fista
-  n_iter: 300
-  tk: 1
+  # -- fista
+  fista:
+    n_iter: 300
+    disp_iter: 50
+    tk: 1
+
+  # -- admm
+  admm:
+    n_iter: 10
+    disp_iter: 2
+    mu1: 1e-6
+    mu2: 1e-5
+    mu3: 4e-5
+    tau: 0.0001
 
 
 postproc:

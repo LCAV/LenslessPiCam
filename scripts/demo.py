@@ -10,7 +10,7 @@ from lensless.io import load_image, load_psf, save_image
 from lensless.util import resize
 import cv2
 import matplotlib.pyplot as plt
-from lensless import FISTA
+from lensless import FISTA, ADMM
 
 # create this file and place these variables here
 from lensless.secrets import RPI_USERNAME, RPI_HOSTNAME
@@ -181,17 +181,28 @@ def demo(config):
 
     # -- apply algo
     start_time = time.time()
-    recon = FISTA(
-        psf,
-        tk=config.recon.tk,
-    )
+
+    if config.recon.algo == "fista":
+        algo_params = config.recon.fista
+        recon = FISTA(
+            psf,
+            **algo_params,
+        )
+    elif config.recon.algo == "admm":
+        algo_params = config.recon.admm
+        recon = ADMM(
+            psf,
+            **algo_params,
+        )
+    else:
+        raise ValueError(f"Unsupported algorithm: {config.recon.algo}")
+
     recon.set_data(data)
     final_image, ax = recon.apply(
-        n_iter=config.recon.n_iter,
-        disp_iter=config.recon.disp_iter,
         gamma=config.recon.gamma,
         save=save,
         plot=config.plot,
+        disp_iter=algo_params["disp_iter"],
     )
     print(f"Processing time : {time.time() - start_time} s")
     # save final image ax
