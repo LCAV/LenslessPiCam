@@ -11,6 +11,7 @@ from lensless.util import resize
 import cv2
 import matplotlib.pyplot as plt
 from lensless import FISTA, ADMM
+from lensless.io import display_image
 
 # create this file and place these variables here
 from lensless.secrets import RPI_USERNAME, RPI_HOSTNAME
@@ -32,17 +33,8 @@ def demo(config):
 
     # 1) Copy file to Raspberry Pi
     print("\nCopying over picture...")
-    os.system(
-        'scp %s "%s@%s:%s" ' % (display_fp, RPI_USERNAME, RPI_HOSTNAME, config.display.tmp_path)
-    )
-
-    prep_command = f"{config.rpi.python} {config.display.image_prep_script} --fp {config.display.tmp_path} \
-        --pad {config.display.pad} --vshift {config.display.vshift} --hshift {config.display.hshift} --screen_res {config.display.res[0]} {config.display.res[1]} \
-        --brightness {config.display.brightness} --rot90 {config.display.rot90} --output_path {config.display.img_path} "
-    print(f"COMMAND : {prep_command}")
-    subprocess.Popen(
-        ["ssh", "%s@%s" % (RPI_USERNAME, RPI_HOSTNAME), prep_command],
-        shell=False,
+    display_image(
+        fp=display_fp, rpi_username=RPI_USERNAME, rpi_hostname=RPI_HOSTNAME, **config.display
     )
 
     # 2) Take picture

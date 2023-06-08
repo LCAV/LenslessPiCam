@@ -2,19 +2,24 @@
 
 python scripts/remote_capture.py
 
+Check out the `configs/demo.yaml` file for parameters, specifically:
+
+- `rpi`: RPi parameters
+- `capture`: parameters for displaying image
+
 """
 
-
+import hydra
 import os
 import subprocess
-import click
 import cv2
 from pprint import pprint
 import numpy as np
 import matplotlib.pyplot as plt
 import rawpy
 
-from lensless.util import rgb2gray, print_image_info
+
+from lensless.util import rgb2gray, print_image_info, check_username_hostname
 from lensless.plot import plot_image, pixel_histogram
 from lensless.io import load_image
 
@@ -34,111 +39,38 @@ SENSOR_MODES = [
 ]
 
 
-@click.command()
-@click.option(
-    "--fn",
-    default="test",
-    type=str,
-    help="File name for recorded image.",
-)
-@click.option(
-    "--username",
-    type=str,
-    default="pi",
-)
-@click.option(
-    "--hostname",
-    type=str,
-    help="Hostname or IP address.",
-)
-@click.option(
-    "--exp",
-    default=0.5,
-    type=float,
-    help="Exposure time in seconds.",
-)
-@click.option(
-    "--iso",
-    default=100,
-    type=int,
-    help="ISO",
-)
-@click.option(
-    "--source",
-    type=click.Choice(["white", "red", "green", "blue"]),
-    default="white",
-    help="Light source.",
-)
-@click.option(
-    "--config_pause",
-    default=2,
-    type=float,
-    help="Pause time for loading / setting camera configuration.",
-)
-@click.option(
-    "--sensor_mode",
-    default="0",
-    type=click.Choice(np.arange(len(SENSOR_MODES)).astype(str)),
-    help="{'off': 0, 'auto': 1, 'sunlight': 2, 'cloudy': 3, 'shade': 4, 'tungsten': 5, "
-    "'fluorescent': 6, 'incandescent': 7, 'flash': 8, 'horizon': 9}",
-)
-@click.option(
-    "--nbits",
-    default=12,
-    type=int,
-    help="Number of bits to set maximum value in histogram. Default is 12 for RPi HQ camera.",
-)
-@click.option(
-    "--legacy",
-    is_flag=True,
-    help="Whether to use legacy camera software, despite being on Bullseye.",
-)
-@click.option(
-    "--rgb",
-    is_flag=True,
-    help="Get RGB data from the Raspberry Pi or reconstruct it here (default). Takes longer to copy RGB data.",
-)
-@click.option(
-    "--gray",
-    is_flag=True,
-    help="Get grayscale data from the Raspberry Pi.",
-)
-@click.option(
-    "--bayer",
-    is_flag=True,
-    help="Whether to save capture data as bayer. Useful for performing color correction later.",
-)
-@click.option(
-    "--gamma",
-    default=None,
-    type=float,
-    help="Gamma factor for plotting.",
-)
-@click.option(
-    "--nbits_out",
-    default=8,
-    type=int,
-    help="Number of bits for output.",
-)
-@click.option("--down", type=float, help="Factor by which to downsample output.", default=None)
-def liveview(
-    fn,
-    username,
-    hostname,
-    exp,
-    iso,
-    config_pause,
-    sensor_mode,
-    nbits,
-    source,
-    rgb,
-    bayer,
-    gamma,
-    nbits_out,
-    legacy,
-    gray,
-    down,
-):
+@hydra.main(version_base=None, config_path="../configs", config_name="demo")
+def liveview(config):
+
+    bayer = config.capture.bayer
+    rgb = config.capture.rgb
+    gray = config.capture.gray
+
+    username, hostname = check_username_hostname(config.rpi.username, config.rpi.hostname)
+    config_pause = config.capture.config_pause
+    sensor_mode = config.capture.sensor_mode
+    nbits = config.capture.nbits
+    exp = config.capture.exp
+    iso = config.capture.iso
+    legacy = config.capture.legacy
+    down = config.capture.down
+    nbits_out = config.capture.nbits_out
+    fn = config.capture.raw_data_fn
+    gamma = config.capture.gamma
+    source = config.capture.source
+    plot = config.plot
+
+    if config.save:
+        if config.output is not None:
+            # make sure output directory exists
+            os.makedirs(config.output, exist_ok=True)
+            save = config.output
+        else:
+            save = os.getcwd()
+    else:
+        save = False
+
+    # proceed with capture
     if bayer:
         assert not rgb
         assert not gray
@@ -240,6 +172,8 @@ def liveview(
         # more pythonic? https://stackoverflow.com/questions/250283/how-to-scp-in-python
         remotefile = f"~/{remote_fn}.png"
         localfile = f"{fn}.png"
+        if save:
+            localfile = os.path.join(save, localfile)
         print(f"\nCopying over picture as {localfile}...")
         os.system('scp "%s@%s:%s" %s' % (username, hostname, remotefile, localfile))
 
@@ -274,6 +208,8 @@ def liveview(
     if not gray:
         ax = plot_image(img, gamma=gamma)
         ax.set_title("RGB")
+        if save:
+            plt.savefig(os.path.join(save, "raw.png"))
 
         # plot red channel
         if source == "red":
@@ -289,16 +225,30 @@ def liveview(
             ax.set_title("Gray scale")
         else:
             ax.set_title(f"{source} channel")
+        if save:
+            plt.savefig(os.path.join(save, "raw_1chan.png"))
 
         # plot histogram, useful for checking clipping
         pixel_histogram(img)
+        if save:
+            plt.savefig(os.path.join(save, "raw_hist.png"))
         pixel_histogram(img_1chan)
+        if save:
+            plt.savefig(os.path.join(save, "raw_1chan_hist.png"))
 
     else:
         ax = plot_image(img, gamma=gamma)
+        if save:
+            plt.savefig(os.path.join(save, "raw.png"))
         pixel_histogram(img)
+        if save:
+            plt.savefig(os.path.join(save, "raw_hist.png"))
 
-    plt.show()
+    if plot:
+        plt.show()
+
+    if save:
+        print(f"\nSaved plots to: {save}")
 
 
 if __name__ == "__main__":

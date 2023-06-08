@@ -283,3 +283,27 @@ def autocorr2d(vals, pad_mode="reflect"):
 
     # remove padding
     return autocorr[shape[0] // 2 : -shape[0] // 2, shape[1] // 2 : -shape[1] // 2]
+
+
+def check_username_hostname(username, hostname):
+
+    if username is None:
+        try:
+            from lensless.secrets import RPI_USERNAME
+
+            username = RPI_USERNAME
+        except ImportError:
+            username = None
+
+    if hostname is None:
+        try:
+            from lensless.secrets import RPI_HOSTNAME
+
+            hostname = RPI_HOSTNAME
+        except ImportError:
+            hostname = None
+
+    assert username is not None, "Provide username."
+    assert hostname is not None, "Provide hostname / IP address."
+
+    return username, hostname

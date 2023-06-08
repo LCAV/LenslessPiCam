@@ -14,15 +14,18 @@ rpi:
   python: ~/LenslessPiCam/lensless_env/bin/python
   
 display:
-  image_prep_script: ~/LenslessPiCam/scripts/prep_display_image.py
-  img_path: ~/LenslessPiCam_display/test.png
-  res: [1920, 1200]   # width, height
+  # default to this screen: https://www.dell.com/en-us/work/shop/dell-ultrasharp-usb-c-hub-monitor-u2421e/apd/210-axmg/monitors-monitor-accessories#techspecs_section
+  screen_res: [1920, 1200]   # width, height
   pad: 0
   hshift: 0
   vshift: 0
   brightness: 100
   rot90: 3
-  tmp_path: ~/tmp_display.png
+
+  # display point source on screen (provide number of pixels)
+  psf: null
+  # all black screen
+  black: False
 
 capture:
   gamma: null # for visualization
@@ -40,6 +43,9 @@ capture:
   gray: False
   down: null
   raw_data_fn: raw_data
+
+  #
+  source: white
 
 camera:
   red_gain: 1.9

@@ -75,10 +75,18 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # get shape of picture
     img = np.array(Image.open(INPUT_FP))
     await update.message.reply_text("Got photo of resolution: " + str(img.shape))
-    await update.message.reply_text("Processing...")
 
     # call python script
     os.system(f"python scripts/demo.py plot=False fp={INPUT_FP} output={OUTPUT_FOLDER}")
+
+    # # -- send to display
+    # os.system(f"python scripts/remote_display.py fp={INPUT_FP}")
+    # await update.message.reply_text("Image sent to display.")
+
+    # # -- measurement
+    # os.system(f"python scripts/remote_capture.py plot=False")
+    # OUTPUT_FP = os.path.join(OUTPUT_FOLDER, "raw.png")
+    # await update.message.reply_photo(OUTPUT_FP, caption="Raw measurement")
 
     # return reconstructed file
     OUTPUT_FP = os.path.join(OUTPUT_FOLDER, "reconstructed.png")
@@ -86,7 +94,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     img = np.array(Image.open(OUTPUT_FP))
     await update.message.reply_text("Output resolution: " + str(img.shape))
 
-    await update.message.reply_photo(OUTPUT_FP)
+    await update.message.reply_photo(OUTPUT_FP, caption="Reconstructed image")
     # await update.message.reply_photo(INPUT_FP)
 
 
