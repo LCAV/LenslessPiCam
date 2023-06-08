@@ -263,7 +263,8 @@ class FresnelZoneAperture(Mask):
         """
         dim = self.sensor_size_px
         x, y = np.meshgrid(np.linspace(-dim[0]/2, dim[0]/2-1, dim[0]), np.linspace(-dim[1]/2, dim[1]/2-1, dim[1]))
-        self.mask = 0.5 * (1 + np.cos(np.pi * (x**2 + y**2) / self.radius**2))
+        mask = 0.5 * (1 + np.cos(np.pi * (x**2 + y**2) / self.radius**2))
+        self.mask = np.round(mask)
 
 
 def phase_retrieval(target_psf, lambd, d1, dz, n=1.2, n_iter=10, height_map=False, pbar=False):
