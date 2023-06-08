@@ -204,6 +204,21 @@ def demo(config):
         else:
             img = final_image
 
+        if config.postproc.crop_hor is not None:
+            img = img[
+                :,
+                int(config.postproc.crop_hor[0] * img.shape[1]) : int(
+                    config.postproc.crop_hor[1] * img.shape[1]
+                ),
+            ]
+        if config.postproc.crop_vert is not None:
+            img = img[
+                int(config.postproc.crop_vert[0] * img.shape[0]) : int(
+                    config.postproc.crop_vert[1] * img.shape[0]
+                ),
+                :,
+            ]
+
         output_fp = os.path.join(save, "reconstructed.png")
         save_image(img, output_fp)
 

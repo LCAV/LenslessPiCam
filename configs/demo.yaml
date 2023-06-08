@@ -58,3 +58,10 @@ recon:
   # ---- fista
   n_iter: 300
   tk: 1
+
+
+postproc:
+  # crop in percent to extract region of interest
+  # set to null to skip
+  crop_hor: [0.22, 0.71]
+  crop_vert: [0., 0.86]
