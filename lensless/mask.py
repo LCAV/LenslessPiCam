@@ -63,10 +63,10 @@ class Mask(abc.ABC):
 
     def compute_psf(self):
         """
-        Computing the PSF.
+        Computing the intensity PSF.
         Common to all types of masks.
         """
-        self.psf, _, _ = angular_spectrum(
+        amplitude, _, _ = angular_spectrum(
             u_in=self.mask,
             wv=self.wavelength,
             d1=self.feature_size,
@@ -74,6 +74,8 @@ class Mask(abc.ABC):
             dtype=np.float32,
             bandlimit=True
         )
+        self.psf = np.abs(amplitude) ** 2
+
 
 
 class CodedAperture(Mask):
