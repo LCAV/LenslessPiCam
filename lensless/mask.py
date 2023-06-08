@@ -259,7 +259,7 @@ class FresnelZoneAperture(Mask):
 
     def create_mask(self):
         """
-        Creating Fresnel Zone Aperture mask using either the MURA of MLS method
+        Creating binary Fresnel Zone Aperture mask using either the MURA of MLS method
         """
         dim = self.sensor_size_px
         x, y = np.meshgrid(np.linspace(-dim[0]/2, dim[0]/2-1, dim[0]), np.linspace(-dim[1]/2, dim[1]/2-1, dim[1]))
