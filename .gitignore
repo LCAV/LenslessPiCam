@@ -11,6 +11,8 @@ paper/paper.pdf
 data/*
 *.png
 
+lensless/secrets.py
+
 # from hydra
 outputs/*     
 benchmark/*

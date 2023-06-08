@@ -1,0 +1,60 @@
+# hydra:
+#   job:
+#     chdir: True    # change to output folder
+
+
+fp: data/original/thumbs_up.png
+output: demo_lensless_recon   # output folder for results
+save: True
+plot: True
+
+rpi:
+  username: null
+  hostname: null
+  python: ~/LenslessPiCam/lensless_env/bin/python
+  
+display:
+  image_prep_script: ~/LenslessPiCam/scripts/prep_display_image.py
+  img_path: ~/LenslessPiCam_display/test.png
+  res: [1920, 1200]   # width, height
+  pad: 0
+  hshift: 0
+  vshift: 0
+  brightness: 100
+  rot90: 3
+  tmp_path: ~/tmp_display.png
+
+capture:
+  gamma: null # for visualization
+  exp: 0.02
+  delay: 2
+  script: ~/LenslessPiCam/scripts/on_device_capture.py
+  iso: 100
+  config_pause: 2
+  sensor_mode: "0"
+  nbits_out: 12
+  nbits: 12
+  legacy: True
+  bayer: True
+  rgb: False
+  gray: False
+  down: null
+  raw_data_fn: raw_data
+
+camera:
+  red_gain: 1.9
+  blue_gain: 1.2
+  psf: data/psf/tape_rgb_31032023.png
+
+
+recon:
+  gamma: 2.2  # for visualization
+  downsample: 4
+  dtype: float32
+  use_torch: True
+  torch_device: cuda:0
+  disp_iter: 50
+
+  # ---- fista
+  n_iter: 300
+  tk: 1
