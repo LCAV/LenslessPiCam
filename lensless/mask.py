@@ -74,7 +74,8 @@ class Mask(abc.ABC):
             dtype=np.float32,
             bandlimit=True
         )
-        self.psf = np.abs(amplitude) ** 2
+        psf_2d = np.abs(amplitude) ** 2
+        self.psf = np.stack((psf_2d,)*3, axis=-1)
 
 
 
