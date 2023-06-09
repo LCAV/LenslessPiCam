@@ -86,6 +86,7 @@ async def algo_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if check_algo(algo):
 
         # reconstruct
+        await update.message.reply_text(f"Reconstructing with {algo}...")
         os.system(f"python scripts/recon/demo.py plot=False recon.algo={algo}")
         OUTPUT_FP = os.path.join(OUTPUT_FOLDER, "reconstructed.png")
         await update.message.reply_photo(OUTPUT_FP, caption=f"Reconstruction ({algo})")
@@ -145,7 +146,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_photo(OUTPUT_FP, caption="Raw measurement")
 
         # -- reconstruct
-        await update.message.reply_text(f"Reconstructing with {algo}: ")
+        await update.message.reply_text(f"Reconstructing with {algo}...")
         os.system(f"python scripts/recon/demo.py plot=False recon.algo={algo}")
         OUTPUT_FP = os.path.join(OUTPUT_FOLDER, "reconstructed.png")
         await update.message.reply_photo(OUTPUT_FP, caption=f"Reconstruction ({algo})")
