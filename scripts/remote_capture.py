@@ -181,13 +181,22 @@ def liveview(config):
             img = load_image(localfile, verbose=True)
 
         else:
+
+            red_gain = config.camera.red_gain
+            blue_gain = config.camera.blue_gain
             # get white balance gains
-            if bayer:
-                red_gain = 1
-                blue_gain = 1
-            else:
+            if red_gain is None:
                 red_gain = float(result_dict["Red gain"])
+            if blue_gain is None:
                 blue_gain = float(result_dict["Blue gain"])
+
+            # # get white balance gains
+            # if bayer:
+            #     red_gain = 1
+            #     blue_gain = 1
+            # else:
+            #     red_gain = float(result_dict["Red gain"])
+            #     blue_gain = float(result_dict["Blue gain"])
 
             # load image
             print("\nLoading picture...")
