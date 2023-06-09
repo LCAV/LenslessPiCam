@@ -64,6 +64,8 @@ def load_image(
         # TODO : use raw.postprocess?
         ccm = raw.color_matrix[:, :3]
         black_level = np.array(raw.black_level_per_channel[:3]).astype(np.float32)
+    elif "npy" in fp or "npz" in fp:
+        img = np.load(fp)
     else:
         img = cv2.imread(fp, cv2.IMREAD_UNCHANGED)
 
