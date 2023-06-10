@@ -43,19 +43,20 @@ def demo(config):
 
     remote_fn = "remote_capture"
     pic_command = (
-        f"{config.rpi.python} {config.capture.script} --fn {remote_fn} --exp {config.capture.exp} --iso {config.capture.iso} "
-        f"--config_pause {config.capture.config_pause} --sensor_mode {config.capture.sensor_mode} --nbits_out {config.capture.nbits_out}"
+        f"{config.rpi.python} {config.capture.script} bayer=True fn={remote_fn} exp={config.capture.exp} iso={config.capture.iso} "
+        f"config_pause={config.capture.config_pause} sensor_mode={config.capture.sensor_mode} nbits_out={config.capture.nbits_out}"
     )
     if config.capture.nbits > 8:
-        pic_command += " --sixteen"
+        pic_command += " sixteen=True"
     if config.capture.rgb:
-        pic_command += " --rgb"
+        pic_command += " rgb=True"
     if config.capture.legacy:
-        pic_command += " --legacy"
+        pic_command += " legacy=True"
     if config.capture.gray:
-        pic_command += " --gray"
+        pic_command += " gray=True"
     if config.capture.down:
-        pic_command += f" --down {config.capture.down}"
+        pic_command += f" down={config.capture.down}"
+
     print(f"COMMAND : {pic_command}")
     ssh = subprocess.Popen(
         ["ssh", "%s@%s" % (RPI_USERNAME, RPI_HOSTNAME), pic_command],

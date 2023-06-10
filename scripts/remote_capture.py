@@ -47,13 +47,7 @@ def liveview(config):
     gray = config.capture.gray
 
     username, hostname = check_username_hostname(config.rpi.username, config.rpi.hostname)
-    config_pause = config.capture.config_pause
-    sensor_mode = config.capture.sensor_mode
-    nbits = config.capture.nbits
-    exp = config.capture.exp
-    iso = config.capture.iso
     legacy = config.capture.legacy
-    down = config.capture.down
     nbits_out = config.capture.nbits_out
     fn = config.capture.raw_data_fn
     gamma = config.capture.gamma
@@ -80,19 +74,21 @@ def liveview(config):
     remote_fn = "remote_capture"
     print("\nTaking picture...")
     pic_command = (
-        f"{REMOTE_PYTHON} {REMOTE_CAPTURE_FP} --fn {remote_fn} --exp {exp} --iso {iso} "
-        f"--config_pause {config_pause} --sensor_mode {sensor_mode} --nbits_out {nbits_out}"
+        f"{config.rpi.python} {config.capture.script} bayer=True fn={remote_fn} exp={config.capture.exp} iso={config.capture.iso} "
+        f"config_pause={config.capture.config_pause} sensor_mode={config.capture.sensor_mode} nbits_out={config.capture.nbits_out}"
     )
-    if nbits > 8:
-        pic_command += " --sixteen"
-    if rgb:
-        pic_command += " --rgb"
-    if legacy:
-        pic_command += " --legacy"
-    if gray:
-        pic_command += " --gray"
-    if down:
-        pic_command += f" --down {down}"
+    if config.capture.nbits > 8:
+        pic_command += " sixteen=True"
+    if config.capture.rgb:
+        pic_command += " rgb=True"
+    if config.capture.legacy:
+        pic_command += " legacy=True"
+    if config.capture.gray:
+        pic_command += " gray=True"
+    if config.capture.down:
+        pic_command += f" down={config.capture.down}"
+
+
     print(f"COMMAND : {pic_command}")
     ssh = subprocess.Popen(
         ["ssh", "%s@%s" % (username, hostname), pic_command],
