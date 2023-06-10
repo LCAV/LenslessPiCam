@@ -36,6 +36,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 TOKEN = TELEGRAM_BOT
 INPUT_FP = "user_photo.jpg"
 OUTPUT_FOLDER = "demo_lensless_recon"
+BUSY = False
 
 
 # Enable logging
@@ -43,6 +44,15 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+
+def check_algo(algo):
+
+    supported_algos = ["fista", "admm"]
+    if algo not in supported_algos:
+        return False
+    else:
+        return True
 
 
 # Define a few command handlers. These usually take the two arguments update and
@@ -63,39 +73,91 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 
+async def algo_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /help is issued."""
+
+    # get text from user
+    try:
+        algo = update.message.text.split(" ")[1]
+    except ValueError:
+        await update.message.reply_text("Please specify an algorithm.")
+        return
+
+    if check_algo(algo):
+
+        # reconstruct
+        await update.message.reply_text(f"Reconstructing with {algo}...")
+        os.system(f"python scripts/recon/demo.py plot=False recon.algo={algo}")
+        OUTPUT_FP = os.path.join(OUTPUT_FOLDER, "reconstructed.png")
+        await update.message.reply_photo(OUTPUT_FP, caption=f"Reconstruction ({algo})")
+        img = np.array(Image.open(OUTPUT_FP))
+        await update.message.reply_text("Output resolution: " + str(img.shape))
+
+    else:
+
+        await update.message.reply_text("Unsupported algorithm : " + algo)
+
+
 async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
-    """Acknowledges photo receipt."""
+    """
+    1. Get photo from user
+    2. Send to display
+    3. Capture measurement
+    4. Reconstruct
+    """
 
-    # user = update.message.from_user
+    global BUSY
 
     photo_file = await update.message.photo[-1].get_file()
-    await photo_file.download_to_drive(INPUT_FP)
 
-    # get shape of picture
-    img = np.array(Image.open(INPUT_FP))
-    await update.message.reply_text("Got photo of resolution: " + str(img.shape))
+    algo = update.message.caption
+    if algo is not None:
+        algo = algo.lower()
+    else:
+        algo = "admm"
 
-    # call python script
-    os.system(f"python scripts/demo.py plot=False fp={INPUT_FP} output={OUTPUT_FOLDER}")
+    if check_algo(algo):
 
-    # # -- send to display
-    # os.system(f"python scripts/remote_display.py fp={INPUT_FP}")
-    # await update.message.reply_text("Image sent to display.")
+        if BUSY:
+            await update.message.reply_text("Busy processing previous request.")
+            return
+        BUSY = True
 
-    # # -- measurement
-    # os.system(f"python scripts/remote_capture.py plot=False")
-    # OUTPUT_FP = os.path.join(OUTPUT_FOLDER, "raw.png")
-    # await update.message.reply_photo(OUTPUT_FP, caption="Raw measurement")
+        await photo_file.download_to_drive(INPUT_FP)
 
-    # return reconstructed file
-    OUTPUT_FP = os.path.join(OUTPUT_FOLDER, "reconstructed.png")
+        # get shape of picture
+        img = np.array(Image.open(INPUT_FP))
+        await update.message.reply_text("Got photo of resolution: " + str(img.shape))
 
-    img = np.array(Image.open(OUTPUT_FP))
-    await update.message.reply_text("Output resolution: " + str(img.shape))
+        # # call python script for full process
+        # os.system(f"python scripts/demo.py plot=False fp={INPUT_FP} output={OUTPUT_FOLDER}")
 
-    await update.message.reply_photo(OUTPUT_FP, caption="Reconstructed image")
-    # await update.message.reply_photo(INPUT_FP)
+        # -- send to display
+        os.system(f"python scripts/remote_display.py fp={INPUT_FP}")
+        await update.message.reply_text("Image sent to display.")
+
+        # copy picture of setups
+        # TODO remote capture of low resolution RGB image
+
+        # -- measurement
+        os.system("python scripts/remote_capture.py plot=False")
+        OUTPUT_FP = os.path.join(OUTPUT_FOLDER, "raw.png")
+        await update.message.reply_photo(OUTPUT_FP, caption="Raw measurement")
+
+        # -- reconstruct
+        await update.message.reply_text(f"Reconstructing with {algo}...")
+        os.system(f"python scripts/recon/demo.py plot=False recon.algo={algo}")
+        OUTPUT_FP = os.path.join(OUTPUT_FOLDER, "reconstructed.png")
+        await update.message.reply_photo(OUTPUT_FP, caption=f"Reconstruction ({algo})")
+        img = np.array(Image.open(OUTPUT_FP))
+        await update.message.reply_text("Output resolution: " + str(img.shape))
+
+    else:
+
+        await update.message.reply_text("Unsupported algorithm : " + algo)
+
+    BUSY = False
 
 
 def main() -> None:
@@ -106,6 +168,7 @@ def main() -> None:
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("algo", algo_command))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, photo))
