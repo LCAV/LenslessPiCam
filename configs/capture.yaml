@@ -1,0 +1,16 @@
+bayer: True
+fn: test
+exp: 0.5
+config_pause: 2
+# {'off': 0, 'auto': 1, 'sunlight': 2, 'cloudy': 3,
+# 'shade': 4, 'tungsten': 5, 'fluorescent': 6, 
+# 'incandescent': 7, 'flash': 8, 'horizon': 9}
+sensor_mode: "0"
+rgb: False
+gray: False
+iso: 100
+sixteen: True   # whether 16 bits or 8
+legacy: True    
+down: null
+res: null
+nbits_out: 8
