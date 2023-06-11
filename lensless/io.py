@@ -1,6 +1,5 @@
 import os.path
 import subprocess
-import rawpy
 import cv2
 from PIL import Image
 import numpy as np
@@ -59,6 +58,8 @@ def load_image(
     """
     assert os.path.isfile(fp)
     if "dng" in fp:
+        import rawpy
+
         assert bayer
         raw = rawpy.imread(fp)
         img = raw.raw_image

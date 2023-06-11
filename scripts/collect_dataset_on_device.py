@@ -17,11 +17,12 @@ import os
 import pathlib as plib
 import shutil
 import tqdm
+from fractions import Fraction
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="collect_dataset")
 def collect_dataset(config):
-    
+
     input_dir = config.input_dir
     output_dir = config.output_dir
     if output_dir is None:
@@ -33,7 +34,7 @@ def collect_dataset(config):
     if os.path.exists(output_dir):
         files = list(plib.Path(output_dir).glob(f"*.{config.input_file_ext}"))
         n_files = len(files)
-        print(f"\nNumber of completed measurements :", n_files)
+        print("\nNumber of completed measurements :", n_files)
 
     # make output directory if need be
     output_dir = plib.Path(output_dir)
@@ -66,7 +67,6 @@ def collect_dataset(config):
         print(f"\nScript will start at {start_time}")
         time.sleep(delay)
 
-
     print("\nStarting measurement!\n")
     start_time = time.time()
 
@@ -80,7 +80,7 @@ def collect_dataset(config):
         # set up camera for consistent photos
         # https://picamera.readthedocs.io/en/release-1.13/recipes1.html#capturing-consistent-images
         # https://picamerax.readthedocs.io/en/latest/fov.html?highlight=camera%20resolution#sensor-modes
-        camera = PiCamera()
+        camera = PiCamera(framerate=30)
         if res:
             assert len(res) == 2
         else:
@@ -94,13 +94,29 @@ def collect_dataset(config):
         # Wait for the automatic gain control to settle
         time.sleep(config.capture.config_pause)
         # Now fix the values
-        camera.shutter_speed = camera.exposure_speed
+        if config.capture.exposure:
+            # in microseconds
+            camera.shutter_speed = int(config.capture.exposure * 1e6)
+        else:
+            camera.shutter_speed = camera.exposure_speed
         camera.exposure_mode = "off"
-        g = camera.awb_gains
+
+        # AWB
+        if config.capture.awb_gains:
+            assert len(config.capture.awb_gains) == 2
+            g = (Fraction(config.capture.awb_gains[0]), Fraction(config.capture.awb_gains[1]))
+            g = tuple(g)
+        else:
+            g = camera.awb_gains
+
         camera.awb_mode = "off"
         camera.awb_gains = g
 
+        # for parameters to settle
+        time.sleep(0.1)
+
         print("Capturing at resolution: ", res)
+        print("AWB gains", float(camera.awb_gains[0]), float(camera.awb_gains[1]))
 
     # loop over files with tqdm
     for i, _file in enumerate(tqdm.tqdm(files)):
@@ -125,7 +141,9 @@ def collect_dataset(config):
                 brightness = config.display.brightness
                 display_image_path = config.display.output_fp
                 rot90 = config.display.rot90
-                os.system(f"python scripts/prep_display_image.py --fp {_file} --output_path {display_image_path} --screen_res {screen_res[0]} {screen_res[1]} --hshift {hshift} --vshift {vshift} --pad {pad} --brightness {brightness} --rot90 {rot90}")
+                os.system(
+                    f"python scripts/prep_display_image.py --fp {_file} --output_path {display_image_path} --screen_res {screen_res[0]} {screen_res[1]} --hshift {hshift} --vshift {vshift} --pad {pad} --brightness {brightness} --rot90 {rot90}"
+                )
 
                 time.sleep(config.capture.delay)
 
@@ -138,7 +156,6 @@ def collect_dataset(config):
             if proc_time > runtime_sec:
                 print(f"-- measured {i+1} / {n_files} files")
                 break
-
 
     proc_time = time.time() - start_time
     print(f"\nFinished, {proc_time/60.:.3f} minutes.")

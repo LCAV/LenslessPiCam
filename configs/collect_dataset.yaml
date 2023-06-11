@@ -23,7 +23,7 @@ display:
   pad: 0
   hshift: 0
   vshift: -10
-  brightness: 100
+  brightness: 50
   rot90: 3
 
 capture:
@@ -32,6 +32,6 @@ capture:
   iso: 100
   res: null
   down: 8
-
-
-  exp: 0.5
+  exposure: 0.02
+  awb_gains: [1.9, 1.2]  # red, blue
+  # awb_gains: null

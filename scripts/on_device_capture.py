@@ -211,14 +211,15 @@ def capture(config):
                 if down is not None:
                     res = (np.array(res) / down).astype(int)
 
-            camera.resolution = tuple(res)
-
             print("Capturing at resolution: ", res)
 
             try:
+                camera.resolution = tuple(res)
                 camera.capture(fn)
-            except:
-                raise ValueError("Out of resources! Use bayer for higher resolution, or increase `gpu_mem` in `/boot/config.txt`.")
+            except ValueError:
+                raise ValueError(
+                    "Out of resources! Use bayer for higher resolution, or increase `gpu_mem` in `/boot/config.txt`."
+                )
 
         print("\nImage saved to : {}".format(fn))
 
