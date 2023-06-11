@@ -206,67 +206,19 @@ def capture(config):
             camera = PiCamera()
             if res:
                 assert len(res) == 2
-                assert np.prod(res) < np.prod([2600, 2100]), "Use bayer for higher resolution."
-                camera.resolution = tuple(res)
+            else:
+                res = np.array(camera.MAX_RESOLUTION)
+                if down is not None:
+                    res = (np.array(res) / down).astype(int)
 
-            camera.capture(fn)
+            camera.resolution = tuple(res)
 
-            # else:
-            #     res = camera.MAX_RESOLUTION
+            print("Capturing at resolution: ", res)
 
-            # if np.prod(res) > np.prod([2600, 2100]):
-
-            #     # use raspistill
-            #     import subprocess
-
-            #     pic_command = [
-            #         "raspistill",
-            #         "-o",
-            #         "test.png",
-            #         "-w",
-            #         f"{res[0]}",
-            #         "-h",
-            #         f"{res[1]}",
-            #     ]
-
-            #     print("using raspistill")
-
-            #     os.system(f"raspistill -o test.png -w {res[0]} -h {res[1]}")
-            # cmd = subprocess.Popen(
-            #     pic_command,
-            #     shell=False,
-            #     stdout=subprocess.PIPE,
-            #     stderr=subprocess.PIPE,
-            # )
-            # result = cmd.stdout.readlines()
-            # error = cmd.stderr.readlines()
-
-            # if error != []:
-            #     print("ERROR: %s" % error)
-            #     return
-            # if result == []:
-            #     error = ssh.stderr.readlines()
-            #     print("ERROR: %s" % error)
-            #     return
-            # else:
-            #     result = [res.decode("UTF-8") for res in result]
-            #     result = [res for res in result if len(res) > 3]
-            #     result_dict = dict()
-            #     for res in result:
-            #         _key = res.split(":")[0].strip()
-            #         _val = "".join(res.split(":")[1:]).strip()
-            #         result_dict[_key] = _val
-            #     # result_dict = dict(map(lambda s: map(str.strip, s.split(":")), result))
-            #     print("COMMAND OUTPUT : ")
-            #     pprint(result_dict)
-
-            # else:
-
-            #     camera.resolution = tuple(res)
-            #     # camera.start_preview()
-            #     # Camera warm-up time
-            #     # sleep(config_pause)
-            #     camera.capture(fn)
+            try:
+                camera.capture(fn)
+            except:
+                raise ValueError("Out of resources! Use bayer for higher resolution, or increase `gpu_mem` in `/boot/config.txt`.")
 
         print("\nImage saved to : {}".format(fn))
 
