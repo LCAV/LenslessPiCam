@@ -1,7 +1,12 @@
 """
 To be run on the Raspberry Pi!
+```
+python scripts/collect_dataset_on_device.py
+```
 
-Unless dummy=True (which will just copy the files over)
+Parameters set in: configs/collect_dataset.yaml
+
+To test on local machine, set dummy=True (which will just copy the files over).
 
 """
 
@@ -121,6 +126,8 @@ def collect_dataset(config):
                 display_image_path = config.display.output_fp
                 rot90 = config.display.rot90
                 os.system(f"python scripts/prep_display_image.py --fp {_file} --output_path {display_image_path} --screen_res {screen_res[0]} {screen_res[1]} --hshift {hshift} --vshift {vshift} --pad {pad} --brightness {brightness} --rot90 {rot90}")
+
+                time.sleep(config.capture.delay)
 
                 # -- take picture
                 camera.capture(str(output_fp))
