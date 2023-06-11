@@ -23,21 +23,6 @@ from lensless.util import rgb2gray, print_image_info, check_username_hostname
 from lensless.plot import plot_image, pixel_histogram
 from lensless.io import load_image
 
-REMOTE_PYTHON = "~/LenslessPiCam/lensless_env/bin/python"
-REMOTE_CAPTURE_FP = "~/LenslessPiCam/scripts/on_device_capture.py"
-SENSOR_MODES = [
-    "off",
-    "auto",
-    "sunlight",
-    "cloudy",
-    "shade",
-    "tungsten",
-    "fluorescent",
-    "incandescent",
-    "flash",
-    "horizon",
-]
-
 
 @hydra.main(version_base=None, config_path="../configs", config_name="demo")
 def liveview(config):

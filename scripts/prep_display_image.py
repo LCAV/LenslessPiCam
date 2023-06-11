@@ -72,6 +72,10 @@ def display(fp, pad, output_path, vshift, brightness, screen_res, hshift, rot90)
     if rot90:
         img_og = np.rot90(img_og, k=rot90)
 
+        # if odd, swap hshift and vshift
+        if rot90 % 2:
+            vshift, hshift = hshift, vshift
+
     if screen_res:
         image_height, image_width = img_og.shape[:2]
         img = np.zeros((screen_res[1], screen_res[0], 3), dtype=img_og.dtype)
