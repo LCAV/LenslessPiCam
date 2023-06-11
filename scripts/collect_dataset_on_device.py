@@ -121,8 +121,9 @@ def collect_dataset(config):
     # loop over files with tqdm
     for i, _file in enumerate(tqdm.tqdm(files)):
 
-        # save file in output directory
+        # save file in output directory as PNG
         output_fp = output_dir / _file.name
+        output_fp = output_fp.with_suffix(".png")
 
         # if not done, perform measurement
         if not os.path.isfile(output_fp):
