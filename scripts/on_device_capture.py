@@ -201,6 +201,8 @@ def capture(config):
 
         else:
 
+            # returning non-bayer data
+
             from picamerax import PiCamera
 
             camera = PiCamera()

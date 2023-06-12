@@ -50,16 +50,16 @@ def liveview(config):
         save = False
 
     # proceed with capture
-    if bayer:
-        assert not rgb
-        assert not gray
+    # if bayer:
+    #     assert not rgb
+    #     assert not gray
     assert hostname is not None
 
     # take picture
     remote_fn = "remote_capture"
     print("\nTaking picture...")
     pic_command = (
-        f"{config.rpi.python} {config.capture.script} bayer=True fn={remote_fn} exp={config.capture.exp} iso={config.capture.iso} "
+        f"{config.rpi.python} {config.capture.script} bayer={bayer} fn={remote_fn} exp={config.capture.exp} iso={config.capture.iso} "
         f"config_pause={config.capture.config_pause} sensor_mode={config.capture.sensor_mode} nbits_out={config.capture.nbits_out}"
     )
     if config.capture.nbits > 8:
@@ -72,7 +72,8 @@ def liveview(config):
         pic_command += " gray=True"
     if config.capture.down:
         pic_command += f" down={config.capture.down}"
-
+    if config.capture.awb_gains:
+        pic_command += f" awb_gains=[{config.capture.awb_gains[0]},{config.capture.awb_gains[1]}]"
 
     print(f"COMMAND : {pic_command}")
     ssh = subprocess.Popen(
@@ -184,7 +185,7 @@ def liveview(config):
             img = load_image(
                 localfile,
                 verbose=True,
-                bayer=True,
+                bayer=bayer,
                 blue_gain=blue_gain,
                 red_gain=red_gain,
                 nbits_out=nbits_out,
@@ -199,7 +200,7 @@ def liveview(config):
         ax = plot_image(img, gamma=gamma)
         ax.set_title("RGB")
         if save:
-            plt.savefig(os.path.join(save, "raw.png"))
+            plt.savefig(os.path.join(save, f"{fn}_plot.png"))
 
         # plot red channel
         if source == "red":
@@ -216,23 +217,23 @@ def liveview(config):
         else:
             ax.set_title(f"{source} channel")
         if save:
-            plt.savefig(os.path.join(save, "raw_1chan.png"))
+            plt.savefig(os.path.join(save, f"{fn}_1chan.png"))
 
         # plot histogram, useful for checking clipping
         pixel_histogram(img)
         if save:
-            plt.savefig(os.path.join(save, "raw_hist.png"))
+            plt.savefig(os.path.join(save, f"{fn}_hist.png"))
         pixel_histogram(img_1chan)
         if save:
-            plt.savefig(os.path.join(save, "raw_1chan_hist.png"))
+            plt.savefig(os.path.join(save, f"{fn}_1chan_hist.png"))
 
     else:
         ax = plot_image(img, gamma=gamma)
         if save:
-            plt.savefig(os.path.join(save, "raw.png"))
+            plt.savefig(os.path.join(save, f"{fn}_plot.png"))
         pixel_histogram(img)
         if save:
-            plt.savefig(os.path.join(save, "raw_hist.png"))
+            plt.savefig(os.path.join(save, f"{fn}_hist.png"))
 
     if plot:
         plt.show()

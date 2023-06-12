@@ -38,23 +38,24 @@ def demo(config):
     if save:
         plt.savefig(os.path.join(save, "psf.png"))
 
-    # -- data
-    red_gain = config.camera.red_gain
-    blue_gain = config.camera.blue_gain
-
     # load image
     localfile = f"{config.capture.raw_data_fn}.png"
     if save:
         localfile = os.path.join(save, localfile)
+    print(localfile)
     print("\nLoading picture...")
-    img = load_image(
-        localfile,
-        verbose=True,
-        bayer=True,
-        blue_gain=blue_gain,
-        red_gain=red_gain,
-        nbits_out=config.capture.nbits_out,
-    )
+    if config.capture.bayer:
+        img = load_image(
+            localfile,
+            verbose=True,
+            bayer=True,
+            blue_gain=config.camera.blue_gain,
+            red_gain=config.camera.red_gain,
+            nbits_out=config.capture.nbits_out,
+        )
+    else:
+        img = load_image(localfile, verbose=True, bayer=False)
+
     data = np.array(img, dtype=config.recon.dtype)
     data -= bg
     data = np.clip(data, a_min=0, a_max=data.max())

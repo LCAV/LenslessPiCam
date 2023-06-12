@@ -38,11 +38,17 @@ capture:
   nbits_out: 12
   nbits: 12
   legacy: True
-  bayer: True
   rgb: False
   gray: False
-  down: null
   raw_data_fn: raw_data
+
+  bayer: True
+  down: null      # no effct if rgb and gray = False, TODO set rgb = True?
+  awb_gains: null
+
+  # bayer: True
+  # down: 4
+  # awb_gains: [1.9,1.2]  # red, blue
 
   #
   source: white
