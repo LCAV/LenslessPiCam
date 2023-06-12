@@ -224,7 +224,7 @@ def capture(config):
                 time.sleep(0.1)
 
             print("Capturing at resolution: ", res)
-            print("AWB gains", float(camera.awb_gains[0]), float(camera.awb_gains[1]))
+            print("AWB gains: ", float(camera.awb_gains[0]), float(camera.awb_gains[1]))
 
             try:
                 camera.resolution = tuple(res)
