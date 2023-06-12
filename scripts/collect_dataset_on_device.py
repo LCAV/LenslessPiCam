@@ -31,10 +31,11 @@ def collect_dataset(config):
 
     # if output dir exists check how many files done
     print(f"Output directory : {output_dir}")
+    start_idx = 0
     if os.path.exists(output_dir):
-        files = list(plib.Path(output_dir).glob(f"*.{config.input_file_ext}"))
-        n_files = len(files)
-        print("\nNumber of completed measurements :", n_files)
+        files = list(plib.Path(output_dir).glob(f"*.{config.output_file_ext}"))
+        start_idx = len(files)
+        print("\nNumber of completed measurements :", start_idx)
 
     # make output directory if need be
     output_dir = plib.Path(output_dir)
@@ -119,11 +120,11 @@ def collect_dataset(config):
         print("AWB gains", float(camera.awb_gains[0]), float(camera.awb_gains[1]))
 
     # loop over files with tqdm
-    for i, _file in enumerate(tqdm.tqdm(files)):
+    for i, _file in enumerate(tqdm.tqdm(files), start=start_idx):
 
         # save file in output directory as PNG
         output_fp = output_dir / _file.name
-        output_fp = output_fp.with_suffix(".png")
+        output_fp = output_fp.with_suffix(f".{config.output_file_ext}")
 
         # if not done, perform measurement
         if not os.path.isfile(output_fp):

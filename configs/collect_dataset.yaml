@@ -3,10 +3,11 @@ input_file_ext: jpg
 
 # can pass existing folder to continue measurement
 output_dir: null
+output_file_ext: png
 
 # files to measure
 n_files: 15
-start: 0        # start index
+start_idx: 0        # start index, TODO implement
 
 # timing
 runtime: null   # in hours
