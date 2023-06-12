@@ -211,10 +211,15 @@ def capture(config):
                 if down is not None:
                     res = (np.array(res) / down).astype(int)
 
-            if config.capture.awb_gains:
-                assert len(config.capture.awb_gains) == 2
-                g = (Fraction(config.capture.awb_gains[0]), Fraction(config.capture.awb_gains[1]))
+            # Wait for the automatic gain control to settle
+            camera.iso = config.iso
+            time.sleep(config.config_pause)
+
+            if config.awb_gains:
+                assert len(config.awb_gains) == 2
+                g = (Fraction(config.awb_gains[0]), Fraction(config.awb_gains[1]))
                 g = tuple(g)
+                camera.awb_mode = "off"
                 camera.awb_gains = g
                 time.sleep(0.1)
 
