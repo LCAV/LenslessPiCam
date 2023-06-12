@@ -15,12 +15,13 @@ See these code snippets for setting camera settings and post-processing
 import hydra
 import os
 import cv2
-import click
 import numpy as np
 from time import sleep
 from PIL import Image
 from lensless.util import bayer2rgb, get_distro, rgb2gray, resize
 from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
+from fractions import Fraction
+import time
 
 
 SENSOR_MODES = [
@@ -210,7 +211,15 @@ def capture(config):
                 if down is not None:
                     res = (np.array(res) / down).astype(int)
 
+            if config.capture.awb_gains:
+                assert len(config.capture.awb_gains) == 2
+                g = (Fraction(config.capture.awb_gains[0]), Fraction(config.capture.awb_gains[1]))
+                g = tuple(g)
+                camera.awb_gains = g
+                time.sleep(0.1)
+
             print("Capturing at resolution: ", res)
+            print("AWB gains", float(camera.awb_gains[0]), float(camera.awb_gains[1]))
 
             try:
                 camera.resolution = tuple(res)
