@@ -212,10 +212,9 @@ def capture(config):
                     res = (np.array(res) / down).astype(int)
 
             # Wait for the automatic gain control to settle
-            camera.iso = config.iso
             time.sleep(config.config_pause)
 
-            if config.awb_gains:
+            if config.awb_gains is not None:
                 assert len(config.awb_gains) == 2
                 g = (Fraction(config.awb_gains[0]), Fraction(config.awb_gains[1]))
                 g = tuple(g)
