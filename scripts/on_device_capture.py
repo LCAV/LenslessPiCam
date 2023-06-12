@@ -162,7 +162,6 @@ def capture(config):
             # capture data
             stream = picamerax.array.PiBayerArray(camera)
             camera.capture(stream, "jpeg", bayer=True)
-            fn += ".png"
 
             # get bayer data
             if sixteen:
