@@ -98,7 +98,7 @@ def demo(config):
             psf,
             **algo_params,
         )
-    elif config.recon.algo == "unrolled_admm":
+    elif config.recon.algo == "unrolled":
         assert config.recon.use_torch, "Unrolled ADMM only available with torch"
         from lensless import UnrolledADMM
 

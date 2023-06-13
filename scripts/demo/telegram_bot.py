@@ -37,8 +37,9 @@ TOKEN = TELEGRAM_BOT
 INPUT_FP = "user_photo.jpg"
 OUTPUT_FOLDER = "demo_lensless_recon"
 BUSY = False
-supported_algos = ["fista", "admm"]
+supported_algos = ["fista", "admm", "unrolled"]
 supported_input = ["mnist", "thumb"]
+BRIGHTNESS = 100
 
 
 # Enable logging
@@ -80,7 +81,7 @@ async def algo_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     # get text from user
     try:
         algo = update.message.text.split(" ")[1]
-    except ValueError:
+    except IndexError:
         await update.message.reply_text("Please specify an algorithm from: ", supported_algos)
         return
 
@@ -118,7 +119,16 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         algo = "admm"
 
-    # TODO : try except and undo busy in case failes
+    # get shape of picture, must be landscape
+    await photo_file.download_to_drive(INPUT_FP)
+    img = np.array(Image.open(INPUT_FP))
+
+    # -- check if landscape
+    if img.shape[0] < img.shape[1]:
+        await update.message.reply_text("Please send a landscape photo.")
+        return
+    else:
+        await update.message.reply_text("Got photo of resolution: " + str(img.shape))
 
     if check_algo(algo):
 
@@ -126,12 +136,6 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text("Busy processing previous request.")
             return
         BUSY = True
-
-        await photo_file.download_to_drive(INPUT_FP)
-
-        # get shape of picture
-        img = np.array(Image.open(INPUT_FP))
-        await update.message.reply_text("Got photo of resolution: " + str(img.shape))
 
         # # call python script for full process
         # os.system(f"python scripts/demo.py plot=False fp={INPUT_FP} output={OUTPUT_FOLDER}")
@@ -266,6 +270,45 @@ async def psf_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     BUSY = False
 
 
+async def brightness_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+
+    """
+    Set brightness, re-capture, and reconstruct.
+    """
+
+    global BUSY
+
+    # get text from user
+    brightness = None
+    try:
+        brightness = float(update.message.text.split(" ")[1])
+        assert brightness > 0 and brightness <= 100
+    except IndexError or AssertionError:
+        await update.message.reply_text(
+            "Please specify brightness within (0, 100],\ne.g /brightness 50"
+        )
+        return
+    except AssertionError:
+        await update.message.reply_text(
+            "Please specify brightness within (0, 100],\ne.g /brightness 50"
+        )
+        return
+
+    if BUSY:
+        await update.message.reply_text("Busy processing previous request.")
+        return
+    BUSY = True
+
+    # -- resend to display
+    os.system(f"python scripts/remote_display.py fp={INPUT_FP} display.brightness={brightness}")
+    await update.message.reply_text("Image sent to display.")
+
+    algo = "admm"
+    await take_picture_and_reconstruct(update, context, algo)
+
+    BUSY = False
+
+
 def main() -> None:
     """Start the bot."""
 
@@ -283,6 +326,7 @@ def main() -> None:
     application.add_handler(CommandHandler("mnist", mnist_command))
     application.add_handler(CommandHandler("thumb", thumb_command))
     application.add_handler(CommandHandler("psf", psf_command))
+    application.add_handler(CommandHandler("brightness", brightness_command))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, photo))

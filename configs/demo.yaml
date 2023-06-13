@@ -83,11 +83,12 @@ recon:
     mu3: 4e-5
     tau: 0.0001
 
-  # -- admm
+  # -- unrolled admm
   unrolled_admm:
     n_iter: 20
     disp_iter: 2
-    checkpoint_fp: null
+    # download from here: https://drive.switch.ch/index.php/s/A4Aq6rTSBwzcyUP
+    checkpoint_fp: models/UnrolledADMM20_CelebA_20231306.pt
 
 
 postproc:
