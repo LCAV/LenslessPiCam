@@ -243,6 +243,35 @@ async def thumb_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     BUSY = False
 
 
+async def face_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+
+    """
+    1. Use one of the input images
+    2. Send to display
+    3. Capture measurement
+    4. Reconstruct
+    """
+
+    global BUSY
+
+    if BUSY:
+        await update.message.reply_text("Busy processing previous request.")
+        return
+    BUSY = True
+    algo = "admm"
+    vshift = -10
+    brightness = 100
+
+    # -- send to display
+    os.system(
+        f"python scripts/remote_display.py fp=data/original/face.jpg display.vshift={vshift} display.brightness={brightness}"
+    )
+    await update.message.reply_text("Image sent to display.")
+
+    await take_picture_and_reconstruct(update, context, algo)
+    BUSY = False
+
+
 async def psf_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     """
@@ -325,6 +354,7 @@ def main() -> None:
     application.add_handler(CommandHandler("algo", algo_command))
     application.add_handler(CommandHandler("mnist", mnist_command))
     application.add_handler(CommandHandler("thumb", thumb_command))
+    application.add_handler(CommandHandler("face", face_command))
     application.add_handler(CommandHandler("psf", psf_command))
     application.add_handler(CommandHandler("brightness", brightness_command))
 
