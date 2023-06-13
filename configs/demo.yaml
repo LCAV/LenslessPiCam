@@ -83,6 +83,12 @@ recon:
     mu3: 4e-5
     tau: 0.0001
 
+  # -- admm
+  unrolled_admm:
+    n_iter: 20
+    disp_iter: 2
+    checkpoint_fp: null
+
 
 postproc:
   # crop in percent to extract region of interest

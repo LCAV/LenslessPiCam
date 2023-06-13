@@ -12,7 +12,6 @@ from lensless import FISTA, ADMM
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="demo")
 def demo(config):
-
     if config.save:
         if config.output is not None:
             # make sure output directory exists
@@ -99,21 +98,44 @@ def demo(config):
             psf,
             **algo_params,
         )
+    elif config.recon.algo == "unrolled_admm":
+        assert config.recon.use_torch, "Unrolled ADMM only available with torch"
+        from lensless import UnrolledADMM
+
+        algo_params = config.recon.unrolled_admm
+        recon = UnrolledADMM(
+            psf,
+            **algo_params,
+        )
+        print("Loading checkpoint from : ", algo_params.checkpoint_fp)
+        assert os.path.exists(algo_params.checkpoint_fp), "Checkpoint does not exist"
+        recon.load_state_dict(
+            torch.load(algo_params.checkpoint_fp, map_location=config.recon.torch_device)
+        )
     else:
         raise ValueError(f"Unsupported algorithm: {config.recon.algo}")
 
     print("Applying : ", config.recon.algo)
-    recon.set_data(data)
-    final_image, ax = recon.apply(
-        gamma=config.recon.gamma,
-        save=save,
-        plot=config.plot,
-        disp_iter=algo_params["disp_iter"],
-    )
+    if config.recon.use_torch:
+        with torch.no_grad():
+            recon.set_data(data)
+            final_image, ax = recon.apply(
+                gamma=config.recon.gamma,
+                save=save,
+                plot=config.plot,
+                disp_iter=algo_params["disp_iter"],
+            )
+    else:
+        recon.set_data(data)
+        final_image, ax = recon.apply(
+            gamma=config.recon.gamma,
+            save=save,
+            plot=config.plot,
+            disp_iter=algo_params["disp_iter"],
+        )
     print(f"Processing time : {time.time() - start_time} s")
     # save final image ax
     if save:
-
         # take first depth
         final_image = final_image[0]
         if config.recon.use_torch:
