@@ -7,7 +7,7 @@ python scripts/recon/admm.py
 """
 
 import hydra
-from hydra.utils import to_absolute_path
+from hydra.utils import to_absolute_path, get_original_cwd
 import os
 import time
 import pathlib as plib
@@ -46,7 +46,40 @@ def admm(config):
         save = os.getcwd()
 
     start_time = time.time()
-    recon = ADMM(psf, **config.admm)
+
+    if config.admm.PnP:
+        import torch
+        from lensless.util import apply_CWH_denoizer, load_drunet
+        from lensless.admmPnP import ADMM_PnP
+
+        device = config.torch_device
+        drunet = load_drunet(os.path.join(get_original_cwd(), "data/drunet_color.pth")).to(device)
+
+        def denoiserA(x):
+            torch.clip(x, min=0.0, out=x)
+            x_max = torch.amax(x, dim=(-2, -3), keepdim=True) + 1e-6
+            x_denoized = apply_CWH_denoizer(drunet, x / x_max, noise_level=30, device=device)
+            x_denoized = torch.clip(x_denoized, min=0.0) * x_max.to(device)
+            return x_denoized
+
+        recon = ADMM_PnP(
+            psf,
+            denoiserA,
+            mu1=config.admm.mu1,
+            mu2=config.admm.mu2,
+            mu3=config.admm.mu3,
+            tau=config.admm.tau,
+        )
+
+    else:
+        recon = ADMM(
+            psf,
+            mu1=config.admm.mu1,
+            mu2=config.admm.mu2,
+            mu3=config.admm.mu3,
+            tau=config.admm.tau,
+        )
+
     recon.set_data(data)
     print(f"Setup time : {time.time() - start_time} s")
 

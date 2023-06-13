@@ -32,7 +32,7 @@ preprocess:
 display:
   # How many iterations to wait for intermediate plot. 
   # Set to negative value for no intermediate plots.
-  disp: 50
+  disp: 10
   # Whether to plot results.
   plot: True
   # Gamma factor for plotting.
@@ -55,7 +55,8 @@ gradient_descent:
 
 admm:
   # Number of iterations
-  n_iter: 5
+  PnP: False
+  n_iter: 100
   # Hyperparameters
   mu1: 1e-6
   mu2: 1e-5

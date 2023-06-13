@@ -32,6 +32,7 @@ class ADMM_PnP(ReconstructionAlgorithm):
         tau=0.0001,
         pad=False,
         norm="backward",
+        use_projection_dual=False,
         **kwargs,
     ):
         """
@@ -61,6 +62,9 @@ class ADMM_PnP(ReconstructionAlgorithm):
         norm : str
             Normalization to use for the convolution. Options are "forward",
             "backward", and "ortho". Default is "backward".
+        use_projection_dual : bool
+            Whether to use dual update for the user specify projection. This result in an algorithm closer to ADMM.
+            During our testing, it seems to give better result with few iteration (<20) but worst otherwise.  Default is False.
         """
         self._mu1 = mu1
         self._mu2 = mu2
@@ -69,6 +73,7 @@ class ADMM_PnP(ReconstructionAlgorithm):
 
         # TODO add check for proj
         self._proj = proj
+        self._use_projection_dual = use_projection_dual
 
         # 3D ADMM is not supported yet
         assert len(psf.shape) == 4, "PSF must be 4D: (depth, height, width, channels)."
@@ -153,7 +158,10 @@ class ADMM_PnP(ReconstructionAlgorithm):
     def _U_update(self):
         """Total variation update."""
         # to avoid computing sparse operator twice
-        self._U = self._proj(self._image_est, noise_level=1)
+        if self._use_projection_dual:
+            self._U = self._proj(self._U + self._eta / self._mu2)
+        else:
+            self._U = self._proj(self._image_est)
 
     def _X_update(self):
         # to avoid computing forward model twice
@@ -193,10 +201,14 @@ class ADMM_PnP(ReconstructionAlgorithm):
         # to avoid computing forward model twice
         self._xi += self._mu1 * (self._forward_out - self._X)
 
+    def _eta_update(self):
+        # to avoid finite difference operataion again?
+        self._eta += self._mu2 * (self._image_est - self._U)
+
     def _rho_update(self):
         self._rho += self._mu3 * (self._image_est - self._W)
 
-    def _update(self, iter, n_iter):
+    def _update(self, iter):
         self._U_update()
         if torch.isnan(self._U).any():
             raise RuntimeError("NaN encountered in U update.")
@@ -214,6 +226,8 @@ class ADMM_PnP(ReconstructionAlgorithm):
         self._forward_out = self._convolver.convolve(self._image_est)
 
         self._xi_update()
+        if self._use_projection_dual:
+            self._eta_update()
         self._rho_update()
 
     def _form_image(self):
@@ -224,11 +238,3 @@ class ADMM_PnP(ReconstructionAlgorithm):
 
         image[image < 0] = 0
         return image
-
-
-def soft_thresh(x, thresh):
-    if torch_available and isinstance(x, torch.Tensor):
-        return torch.sign(x) * torch.max(torch.abs(x) - thresh, torch.zeros_like(x))
-    else:
-        # numpy automatically applies functions to each element of the array
-        return np.sign(x) * np.maximum(0, np.abs(x) - thresh)
