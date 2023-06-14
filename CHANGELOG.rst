@@ -6,8 +6,30 @@ All notable changes to `LenslessPiCam
 
 The format is based on `Keep a Changelog <http://keepachangelog.com/en/1.0.0/>`__.
 
+
 Unreleased
 ----------
+
+Added
+~~~~~
+
+- 
+
+
+Changed
+~~~~~~~
+
+- 
+
+
+Bugfix
+~~~~~~
+
+- 
+
+
+1.0.3 - (2023-06-14)
+--------------------
 
 Added
 ~~~~~
