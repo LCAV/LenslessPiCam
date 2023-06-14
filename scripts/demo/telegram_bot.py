@@ -63,7 +63,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
     await update.message.reply_html(
-        rf"Hi {user.mention_html()}!",
+        rf"Hi {user.mention_html()}! Try one of the commands to reconstruct one of the available content, or send a (portrait) picture.",
         reply_markup=ForceReply(selective=True),
     )
 
