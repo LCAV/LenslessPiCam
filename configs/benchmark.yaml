@@ -7,13 +7,13 @@ hydra:
 
 device: "cuda"
 # numbers of iterations to benchmark
-n_iter_range: [5, 10, 30, 60, 100, 200, 300]
+n_iter_range: [5, 10, 25, 30, 40, 60, 100]
 # number of files to benchmark
 n_files: 200
 #How much should the image be downsampled
 downsample: 8
 #algorithm to benchmark
-algorithms: ["ADMM", "ADMM_Monakhova2019", "FISTA", "GradientDescent", "NesterovGradientDescent"]
+algorithms: ["ADMM", ADMMPnPDruNet] #["ADMM", "ADMM_Monakhova2019", "FISTA", "GradientDescent", "NesterovGradientDescent"]
 
 # Hyperparameters
 nesterov:
@@ -21,8 +21,13 @@ nesterov:
   mu: 0.9
 fista:
   tk: 1
+  PnP:
+    noiselevel: 0.5
 admm:
   mu1: 1e-6
   mu2: 1e-5
   mu3: 4e-5
   tau: 0.0001
+  PnP:
+    projection_dual: False #whether to use dual update for the denoizer
+    noiselevel: 30 #noise level of the denoiser. Best results with 30 (if projection_dual is False) and 50 (if projection_dual is True)
