@@ -22,7 +22,7 @@ nesterov:
 fista:
   tk: 1
   PnP:
-    noiselevel: 0.5
+    noise_level: 0.5
 admm:
   mu1: 1e-6
   mu2: 1e-5
@@ -30,4 +30,4 @@ admm:
   tau: 0.0001
   PnP:
     projection_dual: False #whether to use dual update for the denoizer
-    noiselevel: 30 #noise level of the denoiser. Best results with 30 (if projection_dual is False) and 50 (if projection_dual is True)
+    noise_level: 30 #noise level of the denoiser. Best results with 30 (if projection_dual is False) and 50 (if projection_dual is True)
