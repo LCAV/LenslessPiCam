@@ -119,13 +119,13 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         algo = "admm"
 
-    # get shape of picture, must be landscape
+    # get shape of picture, must be portrait
     await photo_file.download_to_drive(INPUT_FP)
     img = np.array(Image.open(INPUT_FP))
 
-    # -- check if landscape
+    # -- check if portrait
     if img.shape[0] < img.shape[1]:
-        await update.message.reply_text("Please send a landscape photo.")
+        await update.message.reply_text("Please send a portrait photo.")
         return
     else:
         await update.message.reply_text("Got photo of resolution: " + str(img.shape))
