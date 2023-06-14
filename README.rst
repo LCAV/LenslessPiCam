@@ -47,7 +47,7 @@ For plotting, you may also need to install
 For performing measurements, the expected workflow is to have a local 
 computer which interfaces remotely with a Raspberry Pi equipped with 
 the HQ camera sensor (or V2 sensor). Instructions on building the camera
-can be found here :ref:`here<Building the camera>`.
+can be found `here <https://lensless.readthedocs.io/en/latest/building.html>`__.
 
 The software from this repository has to be installed on **both** your
 local machine and the Raspberry Pi. Note that we highly recommend using

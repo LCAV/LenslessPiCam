@@ -111,14 +111,22 @@ After merging to the ``main`` branch and from the ``main`` branch (!):
 1. Edit the ``lensless/version.py`` file.
 2. Update ``CHANGELOG.rst`` with new release version, and create a new 
    section for ``Unreleased``.
-3. Create new tag. 
+3. Commit and push new version to GitHub.
+
+   .. code:: bash
+
+      git add lensless/version.py CHANGELOG.rst
+      git commit -m "Bump version to vX.X.X."
+      git push origin main
+
+4. Create new tag. 
 
    .. code:: bash
 
       git tag -a vX.X.X -m "Description."
       git push origin vX.X.X
 
-4. Create package and upload to Pypi (``pip install twine`` if not
+5. Create package and upload to Pypi (``pip install twine`` if not
    already done).
 
    .. code:: bash
@@ -126,7 +134,7 @@ After merging to the ``main`` branch and from the ``main`` branch (!):
       python setup.py sdist
       python -m twine upload  dist/lensless-X.X.X.tar.gz
 
-5. On `GitHub <https://github.com/LCAV/LenslessPiCam/tags>`__ set the
+6. On `GitHub <https://github.com/LCAV/LenslessPiCam/tags>`__ set the
    new tag by (1) clicking "…" and selecting "Create release" and (2) at
    the bottom pressing "Publish release".
 
