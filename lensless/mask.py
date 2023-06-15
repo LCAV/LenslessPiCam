@@ -137,7 +137,7 @@ class CodedAperture(Mask):
             upscale_factor_width = self.sensor_size_px[1] / self.mask.shape[1]
             upscaled_mask = zoom(self.mask, (upscale_factor_height, upscale_factor_width))
             upscaled_mask = np.clip(upscaled_mask, 0, 1)
-            self.mask = np.round(upscaled_mask)
+            self.mask = np.round(upscaled_mask).astype(int)
 
 
     def is_prime(self, n):
