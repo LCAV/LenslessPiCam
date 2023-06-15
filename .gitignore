@@ -100,6 +100,9 @@ target/
 data/celeba_mini
 data/celeba_mini_tape
 
+# Cloned gGit repos
+masks/FlatCam/flatcam
+
 # YAML files
 *.yaml
 
