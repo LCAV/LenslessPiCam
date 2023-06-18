@@ -21,6 +21,7 @@ def load_image(
     back=None,
     nbits_out=None,
     as_4d=False,
+    downsample=None,
 ):
     """
     Load image as numpy array.
@@ -50,6 +51,8 @@ def load_image(
     as_4d : bool
         Add depth and color dimensions if necessary so that image is 4D: (depth,
         height, width, color).
+    downsample : int, optional
+        Downsampling factor. Recommended for image reconstruction.
 
     Returns
     -------
@@ -111,6 +114,9 @@ def load_image(
             img = img[np.newaxis, :, :, :]
         elif len(img.shape) == 2:
             img = img[np.newaxis, :, :, np.newaxis]
+
+    if downsample is not None:
+        img = resize(img, factor=1 / downsample)
 
     return img
 
@@ -250,7 +256,8 @@ def load_psf(
         bg = np.array(bg)
 
     # resize
-    psf = resize(psf, shape=shape, factor=1 / downsample)
+    if downsample != 1:
+        psf = resize(psf, shape=shape, factor=1 / downsample)
 
     if single_psf:
         if not grayscale:
@@ -434,6 +441,9 @@ def load_data(
 
 def save_image(img, fp, max_val=255):
     """Save as uint8 image."""
+
+    if img.dtype == np.uint16:
+        img = img.astype(np.float32)
 
     if img.dtype == np.float64 or img.dtype == np.float32:
         img -= img.min()

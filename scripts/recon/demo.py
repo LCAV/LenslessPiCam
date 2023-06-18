@@ -12,6 +12,9 @@ from lensless import FISTA, ADMM
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="demo")
 def demo(config):
+
+    start_time = time.time()
+
     if config.save:
         if config.output is not None:
             # make sure output directory exists
@@ -23,31 +26,16 @@ def demo(config):
         save = False
 
     # prepare data
-    # -- PSF
-    psf, bg = load_psf(
-        to_absolute_path(config.camera.psf),
-        downsample=config.recon.downsample,
-        return_float=True,
-        return_bg=True,
-        dtype=config.recon.dtype,
-    )
-    psf = np.array(psf, dtype=config.recon.dtype)
-    ax = plot_image(psf[0], gamma=config.recon.gamma)
-    ax.set_title("PSF")
-    if save:
-        plt.savefig(os.path.join(save, "psf.png"))
-
-    # load image
+    # -- load raw data
     localfile = f"{config.capture.raw_data_fn}.png"
     if save:
         localfile = os.path.join(save, localfile)
-    print(localfile)
     print("\nLoading picture...")
     if config.capture.bayer:
         img = load_image(
             localfile,
-            verbose=True,
-            bayer=True,
+            verbose=False,
+            bayer=False if config.capture.rgb else True,
             blue_gain=config.camera.blue_gain,
             red_gain=config.camera.red_gain,
             nbits_out=config.capture.nbits_out,
@@ -56,32 +44,75 @@ def demo(config):
         img = load_image(localfile, verbose=True, bayer=False)
 
     data = np.array(img, dtype=config.recon.dtype)
-    data -= bg
-    data = np.clip(data, a_min=0, a_max=data.max())
-
     if len(data.shape) == 3:
         data = data[np.newaxis, :, :, :]
     elif len(data.shape) == 2:
         data = data[np.newaxis, :, :, np.newaxis]
 
-    if data.shape != psf.shape:
-        # in DiffuserCam dataset, images are already reshaped
-        data = resize(data, shape=psf.shape)
-    data /= np.linalg.norm(data.ravel())
-    data = np.array(data, dtype=config.recon.dtype)
+    if config.recon.algo == "unet":
 
-    if config.recon.use_torch:
-        import torch
+        # -- resize data to fit model input
+        data = resize(data, shape=config.recon.unet.input_shape)
 
-        if config.recon.dtype == "float32":
-            torch_dtype = torch.float32
-        elif config.recon.dtype == "float64":
-            torch_dtype = torch.float64
+        # -- normalize data between [-1, 1]
+        # data /= np.linalg.norm(data.ravel())
+        data /= data.max()
+        data = np.array(data, dtype=config.recon.dtype)
+        data = data * 2 - 1
+
+    else:
+
+        # -- PSF
+        if config.camera.background is not None:
+            psf = load_psf(
+                to_absolute_path(config.camera.psf),
+                downsample=config.recon.downsample,
+                return_float=True,
+                return_bg=False,
+                dtype=config.recon.dtype,
+            )
+            bg = np.load(to_absolute_path(config.camera.background))
+
         else:
-            raise ValueError("dtype must be float32 or float64")
+            psf, bg = load_psf(
+                to_absolute_path(config.camera.psf),
+                downsample=config.recon.downsample,
+                return_float=True,
+                return_bg=True,
+                dtype=config.recon.dtype,
+            )
+        psf = np.array(psf, dtype=config.recon.dtype)
+        if config.plot:
+            ax = plot_image(psf[0], gamma=config.recon.gamma)
+            ax.set_title("PSF")
+            if save:
+                plt.savefig(os.path.join(save, "psf.png"))
 
-        psf = torch.from_numpy(psf).type(torch_dtype).to(config.recon.torch_device)
-        data = torch.from_numpy(data).type(torch_dtype).to(config.recon.torch_device)
+        # -- prepare data
+        if data.min() > 0:
+            data -= bg
+        data = np.clip(data, a_min=0, a_max=data.max())
+
+        if data.shape != psf.shape:
+            # in DiffuserCam dataset, images are already reshaped
+            data = resize(data, shape=psf.shape)
+        data /= np.linalg.norm(data.ravel())
+        data = np.array(data, dtype=config.recon.dtype)
+
+        if config.recon.use_torch:
+            import torch
+
+            if config.recon.dtype == "float32":
+                torch_dtype = torch.float32
+            elif config.recon.dtype == "float64":
+                torch_dtype = torch.float64
+            else:
+                raise ValueError("dtype must be float32 or float64")
+
+            psf = torch.from_numpy(psf).type(torch_dtype).to(config.recon.torch_device)
+            data = torch.from_numpy(data).type(torch_dtype).to(config.recon.torch_device)
+
+    print(f"Setup time : {time.time() - start_time} s")
 
     # -- apply algo
     start_time = time.time()
@@ -112,28 +143,58 @@ def demo(config):
         recon.load_state_dict(
             torch.load(algo_params.checkpoint_fp, map_location=config.recon.torch_device)
         )
+    elif config.recon.algo == "unet":
+        import tensorflow as tf
+
+        algo_params = config.recon.unet
+
+        if algo_params.gpu:
+            # set gpu to the less used one
+            import setGPU
+        else:
+            os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
+        print("Loading checkpoint from : ", algo_params.model_path)
+        assert os.path.exists(algo_params.model_path), "Model path does not exist"
+
+        model = tf.saved_model.load(algo_params.model_path)
     else:
         raise ValueError(f"Unsupported algorithm: {config.recon.algo}")
 
     print("Applying : ", config.recon.algo)
-    if config.recon.use_torch:
-        with torch.no_grad():
+    if config.recon.algo == "unet":
+
+        import pudb
+
+        pudb.set_trace()
+
+        final_image = model(data)
+
+    else:
+        if config.recon.use_torch:
+            with torch.no_grad():
+                recon.set_data(data)
+                res = recon.apply(
+                    gamma=config.recon.gamma,
+                    save=save,
+                    plot=config.plot,
+                    disp_iter=algo_params["disp_iter"],
+                )
+        else:
             recon.set_data(data)
-            final_image, ax = recon.apply(
+            res = recon.apply(
                 gamma=config.recon.gamma,
                 save=save,
                 plot=config.plot,
                 disp_iter=algo_params["disp_iter"],
             )
-    else:
-        recon.set_data(data)
-        final_image, ax = recon.apply(
-            gamma=config.recon.gamma,
-            save=save,
-            plot=config.plot,
-            disp_iter=algo_params["disp_iter"],
-        )
     print(f"Processing time : {time.time() - start_time} s")
+
+    if config.plot:
+        final_image = res[0]
+    else:
+        final_image = res
+
     # save final image ax
     if save:
         # take first depth
@@ -158,11 +219,12 @@ def demo(config):
                 :,
             ]
 
+        img_norm = img / img.max()
         if config.recon.gamma:
-            img = gamma_correction(img, gamma=config.recon.gamma)
+            img_norm = gamma_correction(img_norm, gamma=config.recon.gamma)
 
         output_fp = os.path.join(save, "reconstructed.png")
-        save_image(img, output_fp)
+        save_image(img_norm, output_fp)
 
     if config.plot:
         plt.show()
