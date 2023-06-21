@@ -4,8 +4,8 @@ rpi_hostname: null
 rpi_lensed_username: null
 rpi_lensed_hostname: null
 idle: False     # run without processing commands
-psf: null
-downsample: 1
+psf: data/psf/tape_rgb_31032023.png
+downsample: 4
 overlay_top_left: null     # path to image to overlay on images
 overlay_top_right: null
 overlay_bottom_left: null

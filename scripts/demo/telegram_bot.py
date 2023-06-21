@@ -52,9 +52,7 @@ OVERLAY_TOPRIGHT = None
 OVERLAY_BOTTOMLEFT = None
 OVERLAY_BOTTOMRIGHT = None
 
-PSF_FP = None
-BACKGROUND_FP = None
-
+SETUP_FP = "scripts/demo/setup.png"
 INPUT_FP = "user_photo.jpg"
 RAW_DATA_FP = "raw_data.png"
 OUTPUT_FOLDER = "demo_lensless_recon"
@@ -63,8 +61,45 @@ supported_algos = ["fista", "admm", "unrolled"]
 supported_input = ["mnist", "thumb"]
 DEFAULT_ALGO = "unrolled"
 TIMEOUT = 1 * 60  # 10 minutes
-ASYNC_PAUSE = 1
+
 BRIGHTNESS = 100
+EXPOSURE = 0.02
+LOW_LIGHT_THRESHOLD = 100
+SATURATION_THRESHOLD = 0.05
+
+PSF_FP = None
+PSF_FP_GAMMA = os.path.join(OUTPUT_FOLDER, "psf_gamma.png")
+BACKGROUND_FP = None
+
+MAX_QUERIES_PER_DAY = 20
+queries_count = dict()
+WHITELIST_USERS = [360264201]
+
+
+HELP_TEXT = (
+    "Through this bot, you can send a photo to the lensless camera setup in our lab at EPFL (shown above). "
+    "The photo will be:\n\n1. Displayed on a screen.\n2. Our lensless camera will "
+    "take a picture.\n3. A reconstruction will be sent back through the bot.\n4. "
+    "The raw data will also be sent back."
+    "\n\nIf you do not feel comfortable sending one "
+    "of your own pictures, you can use the /mnist, /thumb, /face commands to set "
+    "the image on the display with one of our inputs. Or even send an emoij 😎"
+    "\n\nAll previous data is overwritten "
+    "when a new image is sent, and everything is deleted when the process running on the "
+    "server is shut down."
+)
+
+ALGO_TEXT = (
+    "By default, the reconstruction is done with the Unrolled ADMM algorithm, but you "
+    "can specify the algorithm (on the last measurement) with the corresponding "
+    "command: /fista, /admm, /unrolled."
+    "\n\nAll provided algorithms require an estimate of the point spread function (PSF). "
+    "You can measure a (proxy) PSF with /psf (a point source like "
+    "image will be displayed on the screen). "
+    "In practice, we measure the PSF with single white LED. The used PSF is sent also sent "
+    "back with the /psf command."
+    "\n\nMore info: go.epfl.ch/lensless"
+)
 
 
 # Enable logging
@@ -96,10 +131,7 @@ def get_user_folder_from_query(query):
 
 async def check_incoming_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    global BUSY
-
-    # print user
-    print("User: ", update.message.from_user)
+    global BUSY, queries_count
 
     # create folder for user
     user_folder = get_user_folder(update)
@@ -143,7 +175,27 @@ async def check_incoming_message(update: Update, context: ContextTypes.DEFAULT_T
         if len(update.message.text) > 1 or text not in EMOJI_DATA:
             return "Supported text for display is only a single emoji."
 
+    # increment queries count
+    user_id = update.message.from_user.id
+    if user_id not in queries_count:
+        queries_count[user_id] = 1
+    else:
+        queries_count[user_id] += 1
+        if user_id not in WHITELIST_USERS:
+            if queries_count[user_id] > MAX_QUERIES_PER_DAY:
+                return f"Maximum number of queries per day ({MAX_QUERIES_PER_DAY}) exceeded. Please try again tomorrow."
+            return
+
+    # print user
+    print("User: ", update.message.from_user, update.message.from_user.id)
+    print("Queries count: ", queries_count[user_id])
+
+    # reset at midnight
+    if now.hour == 0 and now.minute == 0:
+        queries_count = dict()
+
     BUSY = True
+
     return
 
 
@@ -152,17 +204,18 @@ async def check_incoming_message(update: Update, context: ContextTypes.DEFAULT_T
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
-    await update.message.reply_html(
-        rf"Hi {user.mention_html()}! Through this bot, you can send a photo to our lensless camera setup at EPFL. The photo will be displayed on a screen, our lensless camera will take a picture of it, a reconstruction will be sent back through the bot, and the raw data and a (lensed) picture of the setup will also be sent back. If you do not feel comfortable sending one of your own pictures, you can use the /mnist, /thumb, /face commands to set the image on the display with one of our inputs. All previous data is overwritten when a new image is sent, and everything is deleted when the process running on the server is shut down. You can measure a (proxy) PSF with /psf (a point source like image will be displayed on the screen). The reconstruction is done with the Unrolled ADMM algorithm by default, but you can specify the algorithm (on the currently displayed image) with the corresponding command: /fista, /admm, /unrolled, /unet. More info: go.epfl.ch/lensless",
-        reply_markup=ForceReply(selective=True),
-    )
+    # await update.message.reply_html(
+    #     ,
+    # )
+
+    await update.message.reply_photo(SETUP_FP, caption=f"Hi {user.first_name}! " + HELP_TEXT)
+    await update.message.reply_text(ALGO_TEXT)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /help is issued."""
-    await update.message.reply_text(
-        "Through this bot, you can send a photo to our lensless camera setup at EPFL. The photo will be:\n1. Displayed on a screen.\n2. Our lensless camera will take a picture.\n3. A reconstruction will be sent back through the bot.\n4. The raw data and a (lensed) picture of the setup will also be sent back.\n\nIf you do not feel comfortable sending one of your own pictures, you can use the /mnist, /thumb, /face commands to set the image on the display with one of our inputs. All previous data is overwritten when a new image is sent, and everything is deleted when the process running on the server is shut down.\n\nYou can measure a (proxy) PSF with /psf (a point source like image will be displayed on the screen).\n\nThe reconstruction is done with the Unrolled ADMM algorithm by default, but you can specify the algorithm (on the currently displayed image) with the corresponding command: /fista, /admm, /unrolled, /unet.\n\nMore info: go.epfl.ch/lensless"
-    )
+    await update.message.reply_photo(SETUP_FP, caption=HELP_TEXT)
+    await update.message.reply_text(ALGO_TEXT)
 
 
 async def fista(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -194,7 +247,9 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     4. Reconstruct
     """
 
-    global BUSY
+    global BUSY, EXPOSURE
+
+    # EXPOSURE = 0.02
 
     res = await check_incoming_message(update, context)
     if res is not None:
@@ -240,19 +295,19 @@ async def take_picture(update: Update, context: ContextTypes.DEFAULT_TYPE, query
     if query is not None:
         user_subfolder = get_user_folder_from_query(query)
         await query.message.reply_text(
-            "Taking picture...", reply_to_message_id=query.message.message_id
-        )
-        os.system(
-            f"python scripts/remote_capture.py plot=False rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME} output={user_subfolder}"
+            f"Taking picture with exposure of {EXPOSURE} seconds...",
+            reply_to_message_id=query.message.message_id,
         )
     else:
         user_subfolder = get_user_folder(update)
         await update.message.reply_text(
-            "Taking picture...", reply_to_message_id=update.message.message_id
+            f"Taking picture with exposure of {EXPOSURE} seconds...",
+            reply_to_message_id=update.message.message_id,
         )
-        os.system(
-            f"python scripts/remote_capture.py plot=False rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME} output={user_subfolder}"
-        )
+
+    os.system(
+        f"python scripts/remote_capture.py plot=False rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME} output={user_subfolder} capture.exp={EXPOSURE}"
+    )
 
 
 async def reconstruct(update: Update, context: ContextTypes.DEFAULT_TYPE, algo, query=None) -> None:
@@ -355,10 +410,36 @@ async def take_picture_and_reconstruct(
 
     if query is not None:
         user_subfolder = get_user_folder_from_query(query)
+        responder = query.message
     else:
         user_subfolder = get_user_folder(update)
+        responder = update.message
 
     await take_picture(update, context, query=query)
+
+    # check for saturation
+    OUTPUT_FP = os.path.join(user_subfolder, "raw_data_8bit.png")
+    # -- load picture to check for saturation
+    img = np.array(Image.open(OUTPUT_FP))
+    ratio = np.sum(img == 255) / np.prod(img.shape)
+    if ratio > SATURATION_THRESHOLD:
+
+        if EXPOSURE > 0.02:
+            warning_message = (
+                "ERROR: saturation/clipping detected in raw measurement!"
+                "\nTry reducing the /brightness of the screen, or the /exposure of the camera."
+            )
+        else:
+            warning_message = (
+                "ERROR: saturation/clipping detected in raw measurement!"
+                "\nTry reducing the /brightness of the screen."
+            )
+        await responder.reply_photo(
+            OUTPUT_FP, caption=warning_message, reply_to_message_id=responder.message_id
+        )
+        return
+
+    # -- reconstruct
     await reconstruct(update, context, algo, query=query)
 
     # # -- reconstruct
@@ -370,16 +451,36 @@ async def take_picture_and_reconstruct(
     # # img = np.array(Image.open(OUTPUT_FP))
     # # await update.message.reply_text("Output resolution: " + str(img.shape))
 
-    # -- send picture of raw measurement
-    OUTPUT_FP = os.path.join(user_subfolder, "raw_data_8bit.png")
-    if query is not None:
-        await query.message.reply_photo(
-            OUTPUT_FP, caption="Raw measurement", reply_to_message_id=query.message.message_id
-        )
-    else:
-        await update.message.reply_photo(
-            OUTPUT_FP, caption="Raw measurement", reply_to_message_id=update.message.message_id
-        )
+    # # send picture of raw measurement
+    # OUTPUT_FP = os.path.join(user_subfolder, "raw_data_8bit.png")
+    # # -- load picture to check for saturation
+    # img = np.array(Image.open(OUTPUT_FP))
+    # ratio = np.sum(img == 255) / np.prod(img.shape)
+    # if ratio > 0.05:
+
+    #     if EXPOSURE > 0.02:
+    #         warning_message = ("WARNING: saturation detected in raw measurement!"
+    #             "\nTry reducing the /brightness of the screen, or the /exposure of the camera.")
+    #     else:
+    #         warning_message = ("WARNING: saturation detected in raw measurement!"
+    #             "\nTry reducing the /brightness of the screen.")
+
+    #     await responder.reply_photo(
+    #         OUTPUT_FP,
+    #         caption=warning_message,
+    #         reply_to_message_id=responder.message_id
+    #     )
+
+    # # -- check if low light -> send warning to increase exposure
+    # if np.max(img) < LOW_LIGHT_THRESHOLD:
+    #     caption = "Raw measurement.\nWARNING: low light measurement. Try increasing the /exposure of the camera."
+    # else:
+    caption = "Raw measurement"
+
+    # else:
+    await responder.reply_photo(
+        OUTPUT_FP, caption=caption, reply_to_message_id=responder.message_id
+    )
 
     # -- send picture of setup (lensed)
     if RPI_LENSED_HOSTNAME is not None and RPI_LENSED_USERNAME is not None:
@@ -387,14 +488,9 @@ async def take_picture_and_reconstruct(
             f"python scripts/remote_capture.py rpi.username={RPI_LENSED_USERNAME} rpi.hostname={RPI_LENSED_HOSTNAME} plot=False capture.bayer=False capture.down=8 capture.raw_data_fn=lensed capture.awb_gains=null"
         )
         OUTPUT_FP = os.path.join(user_subfolder, "lensed.png")
-        if query is not None:
-            await query.message.reply_photo(
-                OUTPUT_FP, caption="Picture of setup", reply_to_message_id=query.message.message_id
-            )
-        else:
-            await update.message.reply_photo(
-                OUTPUT_FP, caption="Picture of setup", reply_to_message_id=update.message.message_id
-            )
+        await responder.reply_photo(
+            OUTPUT_FP, caption="Picture of setup", reply_to_message_id=query.message.message_id
+        )
 
 
 async def mnist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -406,7 +502,7 @@ async def mnist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     4. Reconstruct
     """
 
-    global BUSY
+    global BUSY, EXPOSURE
 
     res = await check_incoming_message(update, context)
     if res is not None:
@@ -416,6 +512,7 @@ async def mnist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     algo = DEFAULT_ALGO
     vshift = -10
     brightness = 100
+    # EXPOSURE = 0.08
 
     # copy image to INPUT_FP
     user_folder = get_user_folder(update)
@@ -444,7 +541,7 @@ async def thumb_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     4. Reconstruct
     """
 
-    global BUSY
+    global BUSY, EXPOSURE
 
     res = await check_incoming_message(update, context)
     if res is not None:
@@ -454,6 +551,7 @@ async def thumb_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     algo = DEFAULT_ALGO
     vshift = -10
     brightness = 80
+    # EXPOSURE = 0.02
 
     # copy image to INPUT_FP
     user_folder = get_user_folder(update)
@@ -482,7 +580,7 @@ async def face_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     4. Reconstruct
     """
 
-    global BUSY
+    global BUSY, EXPOSURE
 
     res = await check_incoming_message(update, context)
     if res is not None:
@@ -491,7 +589,8 @@ async def face_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     algo = DEFAULT_ALGO
     vshift = 0
-    brightness = 100
+    brightness = 80
+    # EXPOSURE = 0.02
 
     # copy image to INPUT_FP
     user_folder = get_user_folder(update)
@@ -546,14 +645,22 @@ async def psf_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         caption="PSF (zoom in to see caustic pattern)",
         reply_to_message_id=update.message.message_id,
     )
+
+    # send back ground truth PSF
+    if PSF_FP is not None:
+        await update.message.reply_photo(
+            PSF_FP_GAMMA,
+            caption="PSF used for reconstructions",
+            reply_to_message_id=update.message.message_id,
+        )
+
     BUSY = False
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Parses the CallbackQuery and updates the message text."""
 
-    global BRIGHTNESS
-    global BUSY
+    global BRIGHTNESS, EXPOSURE, BUSY
     BUSY = True
 
     query = update.callback_query
@@ -567,18 +674,25 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await query.edit_message_text(text="Cancelled.")
         return
 
-    BRIGHTNESS = int(query.data)
+    if "brightness" in query.message.text:
 
-    await query.edit_message_text(text=f"Screen brightness set to: {query.data}")
+        BRIGHTNESS = int(query.data)
 
-    # -- resend to display
-    user_folder = get_user_folder_from_query(query)
-    original_file_path = os.path.join(user_folder, INPUT_FP)
-    os.system(
-        f"python scripts/remote_display.py fp={original_file_path} display.brightness={BRIGHTNESS} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
-    )
-    await query.edit_message_text(text=f"Image sent to display with brightness {BRIGHTNESS}.")
-    # await update.message.reply_text("Image sent to display.", reply_to_message_id=update.message.message_id)
+        await query.edit_message_text(text=f"Screen brightness set to: {query.data}")
+
+        # -- resend to display
+        user_folder = get_user_folder_from_query(query)
+        original_file_path = os.path.join(user_folder, INPUT_FP)
+        os.system(
+            f"python scripts/remote_display.py fp={original_file_path} display.brightness={BRIGHTNESS} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+        )
+        await query.edit_message_text(text=f"Image sent to display with brightness {BRIGHTNESS}.")
+        # await update.message.reply_text("Image sent to display.", reply_to_message_id=update.message.message_id)
+
+    elif "exposure" in query.message.text:
+
+        EXPOSURE = float(query.data)
+        # await query.edit_message_text(text=f"Image sent to display with exposure of {EXPOSURE} seconds.")
 
     algo = DEFAULT_ALGO
     # send query instead of update as it has the message data
@@ -634,9 +748,59 @@ async def brightness_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
 
+async def exposure_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+
+    """
+    Set exposure, re-capture, and reconstruct.
+    """
+
+    # check INPUT_FP exists
+    user_folder = get_user_folder(update)
+    original_file_path = os.path.join(user_folder, INPUT_FP)
+    if not os.path.exists(original_file_path):
+        await update.message.reply_text(
+            "Please set an image first.", reply_to_message_id=update.message.message_id
+        )
+        return
+
+    res = await check_incoming_message(update, context)
+    if res is not None:
+        await update.message.reply_text(res, reply_to_message_id=update.message.message_id)
+        return
+
+    # vals = {0.02: "very low", 0.05: "low", 0.1: "medium", 0.2: "high", 0.5: "very high"}
+    vals = {0.02: "very low", 0.035: "low", 0.05: "medium", 0.065: "high", 0.08: "very high"}
+
+    current_exp = vals[EXPOSURE]
+    del vals[EXPOSURE]
+    keys = list(vals.keys())
+    keyboard = [
+        [
+            InlineKeyboardButton(f"{vals[keys[0]]} ({keys[0]})", callback_data=f"{keys[0]}"),
+            InlineKeyboardButton(f"{vals[keys[1]]} ({keys[1]})", callback_data=f"{keys[1]}"),
+        ],
+        [
+            InlineKeyboardButton(f"{vals[keys[2]]} ({keys[2]})", callback_data=f"{keys[2]}"),
+            InlineKeyboardButton(f"{vals[keys[3]]} ({keys[3]})", callback_data=f"{keys[3]}"),
+        ],
+        [
+            InlineKeyboardButton("Cancel", callback_data="Cancel"),
+        ],
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        f"Please specify a value for the camera exposure. Current value is '{current_exp}' ({EXPOSURE} seconds).",
+        reply_markup=reply_markup,
+    )
+
+
 async def emoji(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
-    global BUSY
+    global BUSY, EXPOSURE
+
+    # EXPOSURE = 0.02
 
     res = await check_incoming_message(update, context)
     if res is not None:
@@ -661,7 +825,7 @@ async def emoji(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # display
     vshift = -10
-    brightness = 100
+    brightness = 80
     os.system(
         f"python scripts/remote_display.py fp={original_file_path} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME} display.vshift={vshift} display.brightness={brightness}"
     )
@@ -743,6 +907,12 @@ def main(config) -> None:
         PSF_FP = os.path.join(OUTPUT_FOLDER, "psf.png")
         save_image(psf[0], PSF_FP)
 
+        # save with gamma correction
+        from lensless.util import gamma_correction
+
+        psf_gamma = gamma_correction(psf[0], gamma=1.5)
+        save_image(psf_gamma, PSF_FP_GAMMA)
+
         # save background array
         BACKGROUND_FP = os.path.join(OUTPUT_FOLDER, "psf_bg.npy")
         np.save(BACKGROUND_FP, bg)
@@ -778,6 +948,10 @@ def main(config) -> None:
 
         # brightness input
         application.add_handler(CommandHandler("brightness", brightness_command, block=False))
+        application.add_handler(CallbackQueryHandler(button))
+
+        # exposure input
+        application.add_handler(CommandHandler("exposure", exposure_command, block=False))
         application.add_handler(CallbackQueryHandler(button))
 
         # emoji input
