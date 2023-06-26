@@ -14,14 +14,13 @@ import os
 import subprocess
 import cv2
 from pprint import pprint
-import numpy as np
 import matplotlib.pyplot as plt
 import rawpy
 
 
 from lensless.util import rgb2gray, print_image_info, check_username_hostname
 from lensless.plot import plot_image, pixel_histogram
-from lensless.io import load_image
+from lensless.io import load_image, save_image
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="demo")
@@ -50,16 +49,16 @@ def liveview(config):
         save = False
 
     # proceed with capture
-    if bayer:
-        assert not rgb
-        assert not gray
+    # if bayer:
+    #     assert not rgb
+    #     assert not gray
     assert hostname is not None
 
     # take picture
     remote_fn = "remote_capture"
     print("\nTaking picture...")
     pic_command = (
-        f"{config.rpi.python} {config.capture.script} bayer=True fn={remote_fn} exp={config.capture.exp} iso={config.capture.iso} "
+        f"{config.rpi.python} {config.capture.script} bayer={bayer} fn={remote_fn} exp={config.capture.exp} iso={config.capture.iso} "
         f"config_pause={config.capture.config_pause} sensor_mode={config.capture.sensor_mode} nbits_out={config.capture.nbits_out}"
     )
     if config.capture.nbits > 8:
@@ -72,7 +71,8 @@ def liveview(config):
         pic_command += " gray=True"
     if config.capture.down:
         pic_command += f" down={config.capture.down}"
-
+    if config.capture.awb_gains:
+        pic_command += f" awb_gains=[{config.capture.awb_gains[0]},{config.capture.awb_gains[1]}]"
 
     print(f"COMMAND : {pic_command}")
     ssh = subprocess.Popen(
@@ -181,10 +181,11 @@ def liveview(config):
 
             # load image
             print("\nLoading picture...")
+
             img = load_image(
                 localfile,
                 verbose=True,
-                bayer=True,
+                bayer=bayer,
                 blue_gain=blue_gain,
                 red_gain=red_gain,
                 nbits_out=nbits_out,
@@ -194,47 +195,51 @@ def liveview(config):
             if not bayer:
                 cv2.imwrite(localfile, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
+    # save image as viewable 8 bit
+    fp = os.path.join(save, f"{fn}_8bit.png")
+    save_image(img, fp)
+
     # plot RGB
-    if not gray:
-        ax = plot_image(img, gamma=gamma)
-        ax.set_title("RGB")
-        if save:
-            plt.savefig(os.path.join(save, "raw.png"))
-
-        # plot red channel
-        if source == "red":
-            img_1chan = img[:, :, 0]
-        elif source == "green":
-            img_1chan = img[:, :, 1]
-        elif source == "blue":
-            img_1chan = img[:, :, 2]
-        else:
-            img_1chan = rgb2gray(img[None, :, :, :])
-        ax = plot_image(img_1chan)
-        if source == "white":
-            ax.set_title("Gray scale")
-        else:
-            ax.set_title(f"{source} channel")
-        if save:
-            plt.savefig(os.path.join(save, "raw_1chan.png"))
-
-        # plot histogram, useful for checking clipping
-        pixel_histogram(img)
-        if save:
-            plt.savefig(os.path.join(save, "raw_hist.png"))
-        pixel_histogram(img_1chan)
-        if save:
-            plt.savefig(os.path.join(save, "raw_1chan_hist.png"))
-
-    else:
-        ax = plot_image(img, gamma=gamma)
-        if save:
-            plt.savefig(os.path.join(save, "raw.png"))
-        pixel_histogram(img)
-        if save:
-            plt.savefig(os.path.join(save, "raw_hist.png"))
-
     if plot:
+        if not gray:
+            ax = plot_image(img, gamma=gamma)
+            ax.set_title("RGB")
+            if save:
+                plt.savefig(os.path.join(save, f"{fn}_plot.png"))
+
+            # plot red channel
+            if source == "red":
+                img_1chan = img[:, :, 0]
+            elif source == "green":
+                img_1chan = img[:, :, 1]
+            elif source == "blue":
+                img_1chan = img[:, :, 2]
+            else:
+                img_1chan = rgb2gray(img[None, :, :, :])
+            ax = plot_image(img_1chan)
+            if source == "white":
+                ax.set_title("Gray scale")
+            else:
+                ax.set_title(f"{source} channel")
+            if save:
+                plt.savefig(os.path.join(save, f"{fn}_1chan.png"))
+
+            # plot histogram, useful for checking clipping
+            pixel_histogram(img)
+            if save:
+                plt.savefig(os.path.join(save, f"{fn}_hist.png"))
+            pixel_histogram(img_1chan)
+            if save:
+                plt.savefig(os.path.join(save, f"{fn}_1chan_hist.png"))
+
+        else:
+            ax = plot_image(img, gamma=gamma)
+            if save:
+                plt.savefig(os.path.join(save, f"{fn}_plot.png"))
+            pixel_histogram(img)
+            if save:
+                plt.savefig(os.path.join(save, f"{fn}_hist.png"))
+
         plt.show()
 
     if save:

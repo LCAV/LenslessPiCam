@@ -6,7 +6,7 @@
 fp: data/original/thumbs_up.png
 output: demo_lensless_recon   # output folder for results
 save: True
-plot: True
+plot: False
 
 rpi:
   username: null
@@ -35,48 +35,74 @@ capture:
   iso: 100
   config_pause: 2
   sensor_mode: "0"
-  nbits_out: 12
+  # nbits_out: 12
+  nbits_out: 8    # light data transer, doesn't seem to worsen performance
   nbits: 12
   legacy: True
-  bayer: True
-  rgb: False
   gray: False
-  down: null
   raw_data_fn: raw_data
-
-  #
+  bayer: True
   source: white
+
+  # remote script return Bayer data, full res
+  # awb_gains: null
+  # rgb: False
+  # down: null
+
+  # remote script returns RGB data
+  rgb: True
+  down: 4
+  awb_gains: [1.9, 1.2]
+
 
 camera:
   red_gain: 1.9
   blue_gain: 1.2
   psf: data/psf/tape_rgb_31032023.png
+  background: null
 
 
 recon:
-  gamma: 2.2  # for visualization
+  gamma: 1.5  # for visualization
   downsample: 4
   dtype: float32
+
+  use_gpu: True
+
   use_torch: True
-  torch_device: cuda:0
+  torch_device: cuda:1
   
   algo: admm
 
   # -- fista
   fista:
     n_iter: 300
-    disp_iter: 50
+    disp_iter: null
     tk: 1
 
   # -- admm
   admm:
     n_iter: 10
-    disp_iter: 2
+    disp_iter: null
     mu1: 1e-6
     mu2: 1e-5
     mu3: 4e-5
     tau: 0.0001
 
+  # -- unrolled admm
+  unrolled_admm:
+    n_iter: 20
+    disp_iter: null
+    # download from here: https://drive.switch.ch/index.php/s/A4Aq6rTSBwzcyUP
+    checkpoint_fp: models/UnrolledADMM20_CelebA_20231306.pt
+
+  # -- unet
+  unet:
+    gpu: True
+    # download from here: https://drive.switch.ch/index.php/s/A4Aq6rTSBwzcyUP
+    model_path: models/wallerlab_unet.pb
+    # model_path: models/wallerlab_unet_inversion.pb
+    input_shape: [1, 270, 480, 3]
 
 postproc:
   # crop in percent to extract region of interest
