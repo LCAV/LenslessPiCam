@@ -175,6 +175,11 @@ def capture(config):
                     n_bits = 12  # assuming Raspberry Pi HQ
                 else:
                     n_bits = 8
+
+                if config.awb_gains is not None:
+                    red_gain = config.awb_gains[0]
+                    blue_gain = config.awb_gains[1]
+
                 output_rgb = bayer2rgb(
                     output,
                     nbits=n_bits,
@@ -186,12 +191,14 @@ def capture(config):
                 )
 
                 if down:
-                    output_rgb = resize(output_rgb, 1 / down, interpolation=cv2.INTER_CUBIC)
+                    output_rgb = resize(
+                        output_rgb[None, ...], 1 / down, interpolation=cv2.INTER_CUBIC
+                    )[0]
 
                 # need OpenCV to save 16-bit RGB image
                 if gray:
-                    output_gray = rgb2gray(output_rgb)
-                    output_gray = output_gray.astype(output.dtype)
+                    output_gray = rgb2gray(output_rgb[None, ...])
+                    output_gray = output_gray.astype(output_rgb.dtype).squeeze()
                     cv2.imwrite(fn, output_gray)
                 else:
                     cv2.imwrite(fn, cv2.cvtColor(output_rgb, cv2.COLOR_RGB2BGR))
