@@ -32,6 +32,8 @@ class ADMM(ReconstructionAlgorithm):
         psi=None,
         psi_adj=None,
         psi_gram=None,
+        pad=False,
+        norm="backward",
         **kwargs
     ):
         """
@@ -40,9 +42,9 @@ class ADMM(ReconstructionAlgorithm):
         ----------
         psf : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
             Point spread function (PSF) that models forward propagation.
-            2D (grayscale) or 3D (RGB) data can be provided and the shape will
-            be used to determine which reconstruction (and allocate the
-            appropriate memory).
+            Must be of shape (depth, height, width, channels) even if
+            depth = 1 and channels = 1. You can use :py:func:`~lensless.io.load_psf`
+            to load a PSF from a file such that it is in the correct format.
         dtype : float32 or float64
             Data type to use for optimization. Default is float32.
         mu1 : float
@@ -61,15 +63,27 @@ class ADMM(ReconstructionAlgorithm):
             Adjoint of `psi`.
         psi_gram : :py:class:`function`
             Function to compute gram of `psi`.
+        pad : bool
+            Whether to pad the image with zeros before applying the PSF. Default
+            is False, as optimized data is already padded.
+        norm : str
+            Normalization to use for the convolution. Options are "forward",
+            "backward", and "ortho". Default is "backward".
         """
         self._mu1 = mu1
         self._mu2 = mu2
         self._mu3 = mu3
         self._tau = tau
 
+        # 3D ADMM is not supported yet
+        assert len(psf.shape) == 4, "PSF must be 4D: (depth, height, width, channels)."
+        if psf.shape[0] > 1:
+            raise NotImplementedError(
+                "3D ADMM is not supported yet, use gradient descent or APGD instead."
+            )
+
         # call reset() to initialize matrices
-        super(ADMM, self).__init__(psf, dtype, pad=False, norm="backward")
-        # super(ADMM, self).__init__(psf, dtype, pad=False, norm="ortho")
+        super(ADMM, self).__init__(psf, dtype, pad=pad, norm=norm, **kwargs)
 
         # set prior
         if psi is None:
@@ -88,7 +102,6 @@ class ADMM(ReconstructionAlgorithm):
 
         # precompute_R_divmat (self._H computed by constructor with reset())
         if self.is_torch:
-
             self._PsiTPsi = self._PsiTPsi.to(self._psf.device)
             self._R_divmat = 1.0 / (
                 self._mu1 * (torch.abs(self._convolver._Hadj * self._convolver._H))
@@ -116,13 +129,16 @@ class ADMM(ReconstructionAlgorithm):
         return finite_diff_adj(U)
 
     def reset(self):
-
         if self.is_torch:
-
             # TODO initialize without padding
-            self._image_est = torch.zeros(self._padded_shape, dtype=self._dtype).to(
-                self._psf.device
-            )
+            # initialize image estimate as [Batch, Depth, Height, Width, Channels]
+            if self._initial_est is not None:
+                self._image_est = self._initial_est
+            else:
+                self._image_est = torch.zeros([1] + self._padded_shape, dtype=self._dtype).to(
+                    self._psf.device
+                )
+
             # self._image_est = torch.zeros_like(self._psf)
             self._X = torch.zeros_like(self._image_est)
             self._U = torch.zeros_like(self._Psi(self._image_est))
@@ -145,10 +161,13 @@ class ADMM(ReconstructionAlgorithm):
             # self._X_divmat = 1.0 / (torch.ones_like(self._psf) + self._mu1)
 
         else:
+            if self._initial_est is not None:
+                self._image_est = self._initial_est
+            else:
+                self._image_est = np.zeros([1] + self._padded_shape, dtype=self._dtype)
 
-            self._X = np.zeros(self._padded_shape, dtype=self._dtype)
             # self._U = np.zeros(np.r_[self._padded_shape, [2]], dtype=self._dtype)
-            self._image_est = np.zeros_like(self._X)
+            self._X = np.zeros_like(self._image_est)
             self._U = np.zeros_like(self._Psi(self._image_est))
             self._W = np.zeros_like(self._X)
             if self._image_est.max():
@@ -181,6 +200,15 @@ class ADMM(ReconstructionAlgorithm):
             self._xi + self._mu1 * self._forward_out + self._convolver._pad(self._data)
         )
 
+    def _W_update(self):
+        """Non-negativity update"""
+        if self.is_torch:
+            self._W = torch.maximum(
+                self._rho / self._mu3 + self._image_est, torch.zeros_like(self._image_est)
+            )
+        else:
+            self._W = np.maximum(self._rho / self._mu3 + self._image_est, 0)
+
     def _image_update(self):
         rk = (
             (self._mu3 * self._W - self._rho)
@@ -191,22 +219,13 @@ class ADMM(ReconstructionAlgorithm):
         # rk = self._convolver._pad(rk)
 
         if self.is_torch:
-            freq_space_result = self._R_divmat * torch.fft.rfft2(rk, dim=(0, 1))
-            self._image_est = torch.fft.irfft2(freq_space_result, dim=(0, 1))
+            freq_space_result = self._R_divmat * torch.fft.rfft2(rk, dim=(-3, -2))
+            self._image_est = torch.fft.irfft2(freq_space_result, dim=(-3, -2))
         else:
-            freq_space_result = self._R_divmat * fft.rfft2(rk, axes=(0, 1))
-            self._image_est = fft.irfft2(freq_space_result, axes=(0, 1))
+            freq_space_result = self._R_divmat * fft.rfft2(rk, axes=(-3, -2))
+            self._image_est = fft.irfft2(freq_space_result, axes=(-3, -2))
 
         # self._image_est = self._convolver._crop(res)
-
-    def _W_update(self):
-        """Non-negativity update"""
-        if self.is_torch:
-            self._W = torch.maximum(
-                self._rho / self._mu3 + self._image_est, torch.zeros_like(self._image_est)
-            )
-        else:
-            self._W = np.maximum(self._rho / self._mu3 + self._image_est, 0)
 
     def _xi_update(self):
         # to avoid computing forward model twice
@@ -219,17 +238,16 @@ class ADMM(ReconstructionAlgorithm):
     def _rho_update(self):
         self._rho += self._mu3 * (self._image_est - self._W)
 
-    def _update(self):
-
+    def _update(self, iter):
         self._U_update()
         self._X_update()
+        self._W_update()
         self._image_update()
 
         # update forward and sparse operators
         self._forward_out = self._convolver.convolve(self._image_est)
         self._Psi_out = self._Psi(self._image_est)
 
-        self._W_update()
         self._xi_update()
         self._eta_update()
         self._rho_update()
@@ -241,7 +259,7 @@ class ADMM(ReconstructionAlgorithm):
         # image = self._image_est
 
         image[image < 0] = 0
-        return image.squeeze()
+        return image
 
 
 def soft_thresh(x, thresh):
@@ -256,11 +274,11 @@ def finite_diff(x):
     """Gradient of image estimate, approximated by finite difference. Space where image is assumed sparse."""
     if torch_available and isinstance(x, torch.Tensor):
         return torch.stack(
-            (torch.roll(x, 1, dims=0) - x, torch.roll(x, 1, dims=1) - x), dim=len(x.shape)
+            (torch.roll(x, 1, dims=-3) - x, torch.roll(x, 1, dims=-2) - x), dim=len(x.shape)
         )
     else:
         return np.stack(
-            (np.roll(x, 1, axis=0) - x, np.roll(x, 1, axis=1) - x),
+            (np.roll(x, 1, axis=-3) - x, np.roll(x, 1, axis=-2) - x),
             axis=len(x.shape),
         )
 
@@ -268,11 +286,11 @@ def finite_diff(x):
 def finite_diff_adj(x):
     """Adjoint of finite difference operator."""
     if torch_available and isinstance(x, torch.Tensor):
-        diff1 = torch.roll(x[..., 0], -1, dims=0) - x[..., 0]
-        diff2 = torch.roll(x[..., 1], -1, dims=1) - x[..., 1]
+        diff1 = torch.roll(x[..., 0], -1, dims=-3) - x[..., 0]
+        diff2 = torch.roll(x[..., 1], -1, dims=-2) - x[..., 1]
     else:
-        diff1 = np.roll(x[..., 0], -1, axis=0) - x[..., 0]
-        diff2 = np.roll(x[..., 1], -1, axis=1) - x[..., 1]
+        diff1 = np.roll(x[..., 0], -1, axis=-3) - x[..., 0]
+        diff2 = np.roll(x[..., 1], -1, axis=-2) - x[..., 1]
     return diff1 + diff2
 
 
@@ -288,10 +306,16 @@ def finite_diff_gram(shape, dtype=None, is_torch=False):
             dtype = np.float32
         gram = np.zeros(shape, dtype=dtype)
 
-    gram[0, 0] = 4
-    gram[0, 1] = gram[1, 0] = gram[0, -1] = gram[-1, 0] = -1
+    if shape[0] == 1:
+        gram[0, 0, 0] = 4
+        gram[0, 0, 1] = gram[0, 0, -1] = gram[0, 1, 0] = gram[0, -1, 0] = -1
+    else:
+        gram[0, 0, 0] = 6
+        gram[0, 0, 1] = gram[0, 0, -1] = gram[0, 1, 0] = gram[0, -1, 0] = gram[1, 0, 0] = gram[
+            -1, 0, 0
+        ] = -1
 
     if is_torch:
-        return torch.fft.rfft2(gram, dim=(0, 1))
+        return torch.fft.rfft2(gram, dim=(-3, -2))
     else:
-        return fft.rfft2(gram, axes=(0, 1))
+        return fft.rfft2(gram, axes=(-3, -2))

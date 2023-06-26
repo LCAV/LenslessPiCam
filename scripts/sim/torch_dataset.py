@@ -35,7 +35,7 @@ def simulate(config):
         psf = load_psf(psf_fp, downsample=config.simulation.downsample)
         if config.simulation.grayscale:
             psf = rgb2gray(psf)
-        psf = transforms.ToTensor()(psf)
+        psf = transforms.ToTensor()(psf[0])  # first depth
     else:
         assert config.simulation.output_dim is not None
         psf = None

@@ -137,7 +137,7 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
     ax = plot_image(img, gamma=gamma, normalize=True, ax=ax_rgb[0])
     ax.set_title("RGB")
 
-    img_grey = rgb2gray(img)
+    img_grey = rgb2gray(img[None, ...])
     ax = plot_image(img_grey, gamma=gamma, normalize=True, ax=ax_gray[0])
     ax.set_title("Grayscale")
 

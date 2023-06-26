@@ -1,0 +1,27 @@
+#Hydra config
+hydra:
+  run:
+    dir: "benchmark/${now:%Y-%m-%d}/${now:%H-%M-%S}"
+  job:
+    chdir: True
+
+# numbers of iterations to benchmark
+n_iter_range: [5, 10, 30, 60, 100, 200, 300]
+# number of files to benchmark
+n_files: 200
+#How much should the image be downsampled
+downsample: 8
+#algorithm to benchmark
+algorithms: ["ADMM", "ADMM_Monakhova2019", "FISTA", "GradientDescent", "NesterovGradientDescent"]
+
+# Hyperparameters
+nesterov:
+  p: 0
+  mu: 0.9
+fista:
+  tk: 1
+admm:
+  mu1: 1e-6
+  mu2: 1e-5
+  mu3: 4e-5
+  tau: 0.0001

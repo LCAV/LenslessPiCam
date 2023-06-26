@@ -46,7 +46,6 @@ import click
 )
 @click.option("-v", "--verbose", is_flag=True)
 def collect_mnist(hostname, camera_hostname, output_dir, n_files, verbose, test, bayer, downsample):
-
     assert hostname is not None
     assert output_dir is not None
 
@@ -99,7 +98,6 @@ def collect_mnist(hostname, camera_hostname, output_dir, n_files, verbose, test,
     labels = []
     start_time = time.time()
     for i in range(n_files):
-
         if verbose:
             print(f"\nFILE : {i+1} / {n_files}")
         img, label = dataset[i]
@@ -108,7 +106,6 @@ def collect_mnist(hostname, camera_hostname, output_dir, n_files, verbose, test,
         # TODO check if measurement already exists
         output_fp = subdir / f"img{i}.png"
         if not os.path.isfile(output_fp):
-
             # load and save as PNG
             img.save(local_display_file)
 

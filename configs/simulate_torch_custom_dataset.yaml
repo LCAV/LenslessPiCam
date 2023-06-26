@@ -1,7 +1,6 @@
 # RGB simulation and reconstruction
 
 files:
-  # Can be downloaded here: https://drive.switch.ch/index.php/s/Q5OdDQMwhucIlt8
   dataset: data/celeba_mini
   image_ext: jpg
   n_files: null    # null to use all

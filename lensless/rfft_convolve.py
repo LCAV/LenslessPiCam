@@ -1,6 +1,7 @@
 """
 2D convolution in Fourier domain, with same real-valued kernel.
 """
+
 import numpy as np
 from scipy import fft
 from scipy.fftpack import next_fast_len
@@ -22,9 +23,18 @@ class RealFFTConvolve2D:
         Parameters
         ----------
         psf :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
-            2D filter to use.
+            Point spread function (PSF) that models forward propagation.
+            Must be of shape (depth, height, width, channels) even if
+            depth = 1 and channels = 1. You can use :py:func:`~lensless.io.load_psf`
+            to load a PSF from a file such that it is in the correct format.
         dtype : float32 or float64
             Data type to use for optimization.
+        pad : bool, optional
+            Whether data needs to be padded prior to convolution. User may wish to
+            optimize padded data and set this to False, as is done for :py:class:`~lensless.ADMM`.
+            Defaults to True.
+        norm : str, optional
+            Normalization to use for FFT. Defaults to 'ortho'.
         """
 
         self.is_torch = False
@@ -32,15 +42,11 @@ class RealFFTConvolve2D:
             self.is_torch = True
 
         # prepare shapes for reconstruction
-        self._is_rgb = False
-        if len(psf.shape) == 3:
-            if psf.shape[2] == 3:
-                self._is_rgb = True
-            self._psf = psf
-        else:
-            self._psf = psf[:, :, None]
-        self._n_channels = self._psf.shape[2]
-        self._psf_shape = np.array(self._psf.shape)
+
+        assert len(psf.shape) == 4, "Expected 4D PSF of shape (depth, width, height, channels)"
+        self._use_3d = psf.shape[0] != 1
+        self._is_rgb = psf.shape[3] == 3
+        assert self._is_rgb or psf.shape[3] == 1
 
         # set dtype
         if dtype is None:
@@ -48,72 +54,87 @@ class RealFFTConvolve2D:
                 dtype = torch.float32
             else:
                 dtype = np.float32
-        else:
-            if self.is_torch:
-                self._psf = self._psf.type(dtype)
-            else:
-                self._psf = self._psf.astype(dtype)
 
-        # cropping / padding indices
-        self._padded_shape = 2 * self._psf_shape[:2] - 1
+        if self.is_torch:
+            self._psf = psf.type(dtype)
+        else:
+            self._psf = psf.astype(dtype)
+
+        self._psf_shape = np.array(self._psf.shape)
+
+        # cropping / padding indexes
+        self._padded_shape = 2 * self._psf_shape[-3:-1] - 1
         self._padded_shape = np.array([next_fast_len(i) for i in self._padded_shape])
-        self._padded_shape = list(np.r_[self._padded_shape, [self._n_channels]])
-        self._start_idx = (self._padded_shape[:2] - self._psf_shape[:2]) // 2
-        self._end_idx = self._start_idx + self._psf_shape[:2]
+        self._padded_shape = list(
+            np.r_[self._psf_shape[-4], self._padded_shape, self._psf_shape[-1]]
+        )
+        self._start_idx = (self._padded_shape[-3:-1] - self._psf_shape[-3:-1]) // 2
+        self._end_idx = self._start_idx + self._psf_shape[-3:-1]
         self.pad = pad  # Whether necessary to pad provided data
 
         # precompute filter in frequency domain
         if self.is_torch:
             self._H = torch.fft.rfft2(
-                self._pad(self._psf), norm=norm, dim=(0, 1), s=self._padded_shape[:2]
+                self._pad(self._psf), norm=norm, dim=(-3, -2), s=self._padded_shape[-3:-1]
             )
             self._Hadj = torch.conj(self._H)
-            self._padded_data = torch.zeros(size=self._padded_shape, dtype=dtype, device=psf.device)
-
+            self._padded_data = (
+                None  # This must be reinitialized each time to preserve differentiability
+            )
         else:
-            self._H = fft.rfft2(self._pad(self._psf), axes=(0, 1), norm=norm)
+            self._H = fft.rfft2(self._pad(self._psf), axes=(-3, -2), norm=norm)
             self._Hadj = np.conj(self._H)
             self._padded_data = np.zeros(self._padded_shape).astype(dtype)
 
+        self.dtype = dtype
+
     def _crop(self, x):
-        return x[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]]
+        return x[
+            ..., self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1], :
+        ]
 
     def _pad(self, v):
-        if self.is_torch:
-            vpad = torch.zeros(size=self._padded_shape, dtype=v.dtype, device=v.device)
+        if len(v.shape) == 5:
+            batch_size = v.shape[0]
+        elif len(v.shape) == 4:
+            batch_size = 1
         else:
-            vpad = np.zeros(self._padded_shape).astype(v.dtype)
-        vpad[self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]] = v
+            raise ValueError("Expected 4D or 5D tensor")
+        shape = [batch_size] + self._padded_shape
+        if self.is_torch:
+            vpad = torch.zeros(size=shape, dtype=v.dtype, device=v.device)
+        else:
+            vpad = np.zeros(shape).astype(v.dtype)
+        vpad[
+            ..., self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1], :
+        ] = v
         return vpad
 
     def convolve(self, x):
         """
         Convolve with pre-computed FFT of provided PSF.
         """
-
         if self.pad:
-            self._padded_data[
-                self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
-            ] = x
+            self._padded_data = self._pad(x)
         else:
-            self._padded_data[:] = x
+            if self.is_torch:
+                self._padded_data = x  # .type(self.dtype).to(self._psf.device)
+            else:
+                self._padded_data[:] = x  # .astype(self.dtype)
 
         if self.is_torch:
-
             conv_output = torch.fft.ifftshift(
                 torch.fft.irfft2(
-                    torch.fft.rfft2(self._padded_data, dim=(0, 1)) * self._H, dim=(0, 1)
+                    torch.fft.rfft2(self._padded_data, dim=(-3, -2)) * self._H, dim=(-3, -2)
                 ),
-                dim=(0, 1),
+                dim=(-3, -2),
             )
 
         else:
-
             conv_output = fft.ifftshift(
-                fft.irfft2(fft.rfft2(self._padded_data, axes=(0, 1)) * self._H, axes=(0, 1)),
-                axes=(0, 1),
+                fft.irfft2(fft.rfft2(self._padded_data, axes=(-3, -2)) * self._H, axes=(-3, -2)),
+                axes=(-3, -2),
             )
-
         if self.pad:
             return self._crop(conv_output)
         else:
@@ -124,26 +145,24 @@ class RealFFTConvolve2D:
         Deconvolve with adjoint of pre-computed FFT of provided PSF.
         """
         if self.pad:
-            self._padded_data[
-                self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1]
-            ] = y
+            self._padded_data = self._pad(y)
         else:
-            self._padded_data[:] = y
-
+            if self.is_torch:
+                self._padded_data = y  # .type(self.dtype).to(self._psf.device)
+            else:
+                self._padded_data[:] = y  # .astype(self.dtype)
         if self.is_torch:
-
             deconv_output = torch.fft.ifftshift(
                 torch.fft.irfft2(
-                    torch.fft.rfft2(self._padded_data, dim=(0, 1)) * self._Hadj, dim=(0, 1)
+                    torch.fft.rfft2(self._padded_data, dim=(-3, -2)) * self._Hadj, dim=(-3, -2)
                 ),
-                dim=(0, 1),
+                dim=(-3, -2),
             )
 
         else:
-
             deconv_output = fft.ifftshift(
-                fft.irfft2(fft.rfft2(self._padded_data, axes=(0, 1)) * self._Hadj, axes=(0, 1)),
-                axes=(0, 1),
+                fft.irfft2(fft.rfft2(self._padded_data, axes=(-3, -2)) * self._Hadj, axes=(-3, -2)),
+                axes=(-3, -2),
             )
 
         if self.pad:
