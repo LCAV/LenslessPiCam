@@ -18,8 +18,9 @@ TODO
 
 import numpy as np
 from enum import Enum
+from cv2 import resize
 
-from lensless.util import rgb2gray, resize
+from lensless.util import rgb2gray
 from lensless.io import load_image
 
 
@@ -188,12 +189,11 @@ class VirtualSensor(object):
                 else:
                     assert len(scene.shape) == 2
 
-            # resize to keep aspect ratio
+            # rescale and keep aspect ratio
+            scale = np.min(np.array(self.resolution) / np.array(scene.shape[:2]))
+            dsize = tuple((np.array(scene.shape[:2]) * scale).astype(int))
+            scene = resize(scene, dsize=dsize[::-1])
             diff = np.array(self.resolution) - np.array(scene.shape[:2])
-            if np.any(diff < 0):
-                scale = np.min(np.array(self.resolution) / np.array(scene.shape[:2]))
-                scene = resize(scene, factor=scale)
-                diff = np.array(self.resolution) - np.array(scene.shape[:2])
 
             # pad if necessary
             if np.any(diff):
@@ -212,7 +212,7 @@ class VirtualSensor(object):
         # convert to grayscale if necessary
         if not self.color:
             if len(scene.shape) == 3:
-                scene = rgb2gray(scene)
+                scene = rgb2gray(scene, keepchanneldim=False)
 
         else:
             if len(scene.shape) == 2:

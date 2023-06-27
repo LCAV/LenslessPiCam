@@ -1,7 +1,7 @@
 import numpy as np
 import os
 from lensless import VirtualSensor, SensorOptions
-from lensless.io import load_image, save_image
+from lensless.io import load_image
 from lensless.util import rgb2gray
 
 
@@ -74,7 +74,7 @@ def test_virtual_image_from_gray_file():
             ), f"Sensor {sensor_name} image max value is {img.max()}, while expected max value is {2**bit_depth - 1}."
 
 
-def test_virtual_image_from_rgb_data():
+def test_virtual_image_from_rgb_data(save=False):
     fp = os.path.join(os.path.dirname(__file__), "..", "data", "original", "tree.png")
 
     # provided normalized float data
@@ -93,9 +93,12 @@ def test_virtual_image_from_rgb_data():
                 img_cap.max() <= 2**bit_depth - 1
             ), f"Sensor {sensor_name} image max value is {img_cap.max()}, while expected max value is {2**bit_depth - 1}."
 
-        # # save file
-        # save_image(img_cap, f"test_{sensor_name}.png")
-        # print(sensor_name, img_cap.shape)
+        # save file
+        if save:
+            from lensless.io import save_image
+
+            save_image(img_cap, f"test_{sensor_name}.png")
+            print(sensor_name, img_cap.shape)
 
 
 def test_virtual_image_from_gray_data():
@@ -105,7 +108,7 @@ def test_virtual_image_from_gray_data():
     img = load_image(fp)
     img = img.astype(np.float32)
     img /= img.max()
-    img = rgb2gray(img)
+    img = rgb2gray(img, keepchanneldim=False)
     for sensor_name in SensorOptions.values():
         sensor = VirtualSensor.from_name(sensor_name)
 
@@ -125,5 +128,5 @@ if __name__ == "__main__":
     test_virtual_image()
     test_virtual_image_from_rgb_file()
     test_virtual_image_from_gray_file()
-    test_virtual_image_from_rgb_data()
+    test_virtual_image_from_rgb_data(save=True)
     test_virtual_image_from_gray_data()
