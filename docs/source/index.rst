@@ -25,8 +25,8 @@ Contents
    measurement
    reconstruction
    evaluation
+   sensor
    utilities
-
 
 .. toctree::
    :caption: Data

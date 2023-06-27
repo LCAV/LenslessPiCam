@@ -26,7 +26,7 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
     factor : int or float
         Resizing factor.
     shape : tuple
-        (Height, width).
+        Shape to copy ([depth,] height, width, color). If provided, (height, width) is used.
     interpolation : OpenCV interpolation method
         See https://docs.opencv.org/2.4/modules/imgproc/doc/geometric_transformations.html#cv2.resize
 
@@ -68,28 +68,40 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
     return np.clip(resized, min_val, max_val)
 
 
-def rgb2gray(rgb, weights=None):
+def rgb2gray(rgb, weights=None, keepchanneldim=True):
     """
     Convert RGB array to grayscale.
 
     Parameters
     ----------
     rgb : :py:class:`~numpy.ndarray`
-        (Depth, Height, Width, Channel) image.
+        ([Depth,] Height, Width, Channel) image.
     weights : :py:class:`~numpy.ndarray`
         [Optional] (3,) weights to convert from RGB to grayscale.
+    keepchanneldim : bool
+        Whether to keep the channel dimension. Default is True.
 
     Returns
     -------
     img :py:class:`~numpy.ndarray`
-        Grayscale image of dimension (depth, height, width, 1).
+        Grayscale image of dimension ([depth,] height, width [, 1]).
 
     """
-    assert len(rgb.shape) == 4, "Input must be (depth, height, width, channel)"
     if weights is None:
         weights = np.array([0.299, 0.587, 0.114])
     assert len(weights) == 3
-    return np.tensordot(rgb, weights, axes=((3,), 0))[:, :, :, np.newaxis]
+
+    if len(rgb.shape) == 4:
+        image = np.tensordot(rgb, weights, axes=((3,), 0))
+    elif len(rgb.shape) == 3:
+        image = np.tensordot(rgb, weights, axes=((2,), 0))
+    else:
+        raise ValueError("Input must be at least 3D.")
+
+    if keepchanneldim:
+        return image[..., np.newaxis]
+    else:
+        return image
 
 
 def gamma_correction(vals, gamma=2.2):

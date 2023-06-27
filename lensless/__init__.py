@@ -21,6 +21,7 @@ from .gradient_descent import (
     FISTA,
     GradientDescentUpdate,
 )
+from .sensor import VirtualSensor, SensorOptions
 
 try:
     from .trainable_recon import TrainableReconstructionAlgorithm
