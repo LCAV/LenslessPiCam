@@ -38,7 +38,7 @@ from telegram.ext import (
     filters,
     CallbackQueryHandler,
 )
-from telegram import ForceReply, Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 
 
 TOKEN = None
@@ -442,15 +442,6 @@ async def take_picture_and_reconstruct(
     # -- reconstruct
     await reconstruct(update, context, algo, query=query)
 
-    # # -- reconstruct
-    # await update.message.reply_text(f"Reconstructing with {algo}...", reply_to_message_id=update.message.message_id)
-    # os.system(f"python scripts/recon/demo.py plot=False recon.algo={algo}")
-    # OUTPUT_FP = os.path.join(OUTPUT_FOLDER, "reconstructed.png")
-    # # await update.message.reply_photo(OUTPUT_FP, caption=f"Reconstruction ({algo})", reply_to_message_id=update.message.message_id)
-    # await update.message.reply_photo(OUTPUT_FP, caption=f"Reconstruction ({algo})", reply_to_message_id=update.message.message_id)
-    # # img = np.array(Image.open(OUTPUT_FP))
-    # # await update.message.reply_text("Output resolution: " + str(img.shape))
-
     # # send picture of raw measurement
     # OUTPUT_FP = os.path.join(user_subfolder, "raw_data_8bit.png")
     # # -- load picture to check for saturation
@@ -838,34 +829,6 @@ async def emoji(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     BUSY = False
 
 
-# async def overlay_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-
-#     reconstructed_path = os.path.join(OUTPUT_FOLDER, "reconstructed.png")
-#     if not os.path.exists(reconstructed_path):
-#         await update.message.reply_text(f"Please reconstruct an image first.", reply_to_message_id=update.message.message_id)
-#         return
-
-#     img1 = Image.open(reconstructed_path)
-#     img1 = img1.convert("RGBA")
-
-#     # secondary image
-#     img2 = Image.open(OVERLAY_IMG)
-#     img2 = img2.convert("RGBA")
-#     img2.putalpha(75)
-
-#     # resize img2 to width of img1, while maintaining aspect ratio
-#     new_width = int(img1.width * 0.8)
-#     img2 = img2.resize((new_width , int(new_width * img2.height / img2.width)))
-
-#     # overlay
-#     img1.paste(img2, (20,0), mask = img2)
-#     output_fp = os.path.join(OUTPUT_FOLDER, "reconstructed_overlay.png")
-#     img1.convert('RGB').save(output_fp)
-
-#     # return photo
-#     await update.message.reply_photo(output_fp, reply_to_message_id=update.message.message_id)
-
-
 async def not_running_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "The bot is currently not running. Please contact the admin /help.",
@@ -966,11 +929,6 @@ def main(config) -> None:
             assert os.path.exists(OVERLAY_TOPLEFT)
         if OVERLAY_TOPRIGHT is not None:
             assert os.path.exists(OVERLAY_TOPRIGHT)
-
-        # # overlay input
-        # if OVERLAY_IMG is not None:
-        #     assert os.path.exists(OVERLAY_IMG)
-        # application.add_handler(CommandHandler("overlay", overlay_command, block=False))
 
         # Run the bot until the user presses Ctrl-C
         application.run_polling()
