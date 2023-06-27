@@ -287,7 +287,7 @@ class VirtualSensor(object):
 
         """
 
-        assert factor > 0, "Downsample factor must be positive."
+        assert factor > 1, "Downsample factor must be greater than 1."
 
         self.pixel_size *= factor
         self.resolution = (self.resolution / factor).astype(int)
