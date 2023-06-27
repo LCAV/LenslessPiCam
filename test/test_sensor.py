@@ -122,6 +122,24 @@ def test_virtual_image_from_gray_data():
             ), f"Sensor {sensor_name} image max value is {img_cap.max()}, while expected max value is {2**bit_depth - 1}."
 
 
+def test_downsample():
+    fp = os.path.join(os.path.dirname(__file__), "..", "data", "original", "tree.png")
+    downsample = 4
+
+    for sensor_name in SensorOptions.values():
+        sensor = VirtualSensor.from_name(sensor_name)
+        new_res = (sensor.resolution / downsample).astype(int)
+        sensor.downsample(downsample)
+
+        img = sensor.capture(scene=fp)
+        assert np.all(
+            img.shape == sensor.image_shape
+        ), f"Sensor {sensor_name} image shape is {img.shape}, while expected shape is {sensor.image_shape}."
+        assert np.all(
+            img.shape[:2] == new_res
+        ), f"Sensor {sensor_name} image shape is {img.shape}, while expected shape is {new_res}."
+
+
 if __name__ == "__main__":
     test_sensor_size()
     test_sensor_landscape()
@@ -130,3 +148,4 @@ if __name__ == "__main__":
     test_virtual_image_from_gray_file()
     test_virtual_image_from_rgb_data(save=True)
     test_virtual_image_from_gray_data()
+    test_downsample()

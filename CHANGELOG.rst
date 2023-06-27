@@ -13,7 +13,7 @@ Unreleased
 Added
 ~~~~~
 
-- 
+- Sensor module.
 
 
 Changed

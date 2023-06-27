@@ -5,13 +5,19 @@
 # Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
-
 """
 Sensor
 ======
 
-TODO
-- couple with lens / mask / aperture to get virtual image
+This module provides utilities to simulate a camera sensor and obtain its specifications
+(resolution, pixel size, diagonal).
+
+On the roadmap:
+
+* Couple :py:class:`~lensless.sensor.VirtualSensor` with lens / mask / aperture.
+* Add noise to :py:class:`~lensless.sensor.VirtualSensor`.
+* Set object height :py:class:`~lensless.sensor.VirtualSensor`.
+* Similar class as :py:class:`~lensless.sensor.VirtualSensor` for "real" sensors to capture images.
 
 """
 
@@ -25,6 +31,16 @@ from lensless.io import load_image
 
 
 class SensorOptions(Enum):
+    """
+    Available sensor options.
+
+    * ``rpi_hq``: `Raspberry Pi HQ Camera Sensor (IMX 477) <https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera/>`_
+    * ``rpi_gs``: `Raspberry Pi Global Shutter Camera Sensor (IMX 296) <https://www.raspberrypi.com/products/raspberry-pi-global-shutter-camera/>`_
+    * ``rpi_v2``: `Raspberry Pi Camera Module V2 Sensor (IMX 219) <https://www.raspberrypi.com/products/camera-module-v2/>`_
+    * ``basler_287``: `Basler daA720-520um Sensor (IMX 287) <https://www.baslerweb.com/en/products/cameras/area-scan-cameras/dart/daa720-520um-cs-mount/>`_
+    * ``basler_548``: `Basler daA2448-70uc Sensor (IMX 548) <https://www.baslerweb.com/en/products/cameras/area-scan-cameras/dart/daa2448-70uc-cs-mount/>`_
+    """
+
     RPI_HQ = "rpi_hq"
     RPI_GS = "rpi_gs"
     RPI_V2 = "rpi_v2"
@@ -105,12 +121,33 @@ sensor_dict = {
 
 class VirtualSensor(object):
     """
-    Generic sensor class.
-
+    Virtual sensor class to simulate capturing a scene.
     """
 
-    def __init__(self, pixel_size, resolution, diagonal=None, color=True, bit_depth=None):
+    def __init__(
+        self, pixel_size, resolution, diagonal=None, color=True, bit_depth=None, downsample=None
+    ):
+        """
+        Base constructor.
 
+        Parameters
+        ----------
+        pixel_size : array-like
+            2D pixel size in meters.
+        resolution : array-like
+            2D resolution in pixels.
+        diagonal : float, optional
+            Diagonal size in meters.
+        color : bool, optional
+            Whether the sensor is color or monochrome.
+        bit_depth : list, optional
+            List of supported bit depths.
+        downsample : int, optional
+            Downsample the sensor by this factor. Pixel size and resolution are adjusted accordingly.
+
+        """
+
+        assert len(pixel_size) == 2, "Pixel size must be 2D"
         self.pixel_size = pixel_size
         self.resolution = resolution
         self.diagonal = diagonal
@@ -130,11 +167,14 @@ class VirtualSensor(object):
         if self.color:
             self.image_shape = np.append(self.image_shape, 3)
 
+        if downsample is not None:
+            self.downsample(downsample)
+
     # contructor from sensor name
     @classmethod
-    def from_name(cls, name):
+    def from_name(cls, name, downsample=None):
         """
-        Create a sensor from a name.
+        Create a sensor from one of the available options in :py:class:`~lensless.sensor.SensorOptions`.
 
         Parameters
         ----------
@@ -143,19 +183,17 @@ class VirtualSensor(object):
 
         Returns
         -------
-        sensor : :py:class:`~lensless.sensor.Sensor`
+        sensor : :py:class:`~lensless.sensor.VirtualSensor`
             Sensor.
 
         """
         if name not in SensorOptions.values():
             raise ValueError(f"Sensor {name} not supported.")
-        return cls(**sensor_dict[name])
+        return cls(**sensor_dict[name], downsample=downsample)
 
     def capture(self, scene=None, bit_depth=None, bayer=False):
         """
         Virtual capture of a scene (assuming perfectly focused lens).
-
-        TODO: for simulated rescale appropriately; for real, display on screen
 
         Parameters
         ----------
@@ -237,3 +275,23 @@ class VirtualSensor(object):
             scene = scene.astype(np.uint16)
 
         return scene
+
+    def downsample(self, factor):
+        """
+        Downsample the sensor by a given factor. Pixel size and resolution are adjusted accordingly.
+
+        Parameters
+        ----------
+        factor : int
+            Downsample factor.
+
+        """
+
+        assert factor > 0, "Downsample factor must be positive."
+
+        self.pixel_size *= factor
+        self.resolution = (self.resolution / factor).astype(int)
+        self.size = self.pixel_size * self.resolution
+        self.image_shape = self.resolution
+        if self.color:
+            self.image_shape = np.append(self.image_shape, 3)
