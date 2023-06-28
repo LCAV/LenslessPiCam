@@ -245,7 +245,9 @@ class PhaseContour(Mask):
         """
         Creating phase contour from Perlin noise
         """
-        noise = generate_perlin_noise_2d(self.sensor_size_px, self.noise_period)
+        proper_dim_1 = (self.sensor_size_px[0] // self.noise_period[0]) * self.noise_period[0]
+        proper_dim_2 = (self.sensor_size_px[1] // self.noise_period[1]) * self.noise_period[1]
+        noise = generate_perlin_noise_2d((proper_dim_1,proper_dim_2), self.noise_period)
         binary = np.round(np.interp(noise, (-1,1), (0,1)))
         self.target_psf = cv.Canny(np.interp(binary, (-1,1), (0,255)).astype(np.uint8), 0, 255)
         phase_mask, height_map = phase_retrieval(
