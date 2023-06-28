@@ -53,6 +53,7 @@ Added
 - ``train_unrolled.py`` script for training unrolled algorithms.
 - ``benchmark_recon.py`` script for benchmarking and comparing reconstruction algorithms.
 - Added ``reconstruction_error`` to ``ReconstructionAlgorithm`` .
+- Added support for npy/npz image in load_image.
 
 Changed
 ~~~~~~~
