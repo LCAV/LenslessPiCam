@@ -9,6 +9,7 @@ from scipy.signal import max_len_seq
 from scipy.ndimage import zoom
 from waveprop.fresnel import fresnel_conv
 from waveprop.rs import angular_spectrum
+from lensless.sensor import VirtualSensor
 
 
 class Mask(abc.ABC):
@@ -50,6 +51,38 @@ class Mask(abc.ABC):
         self.wavelength = wavelength
         self.create_mask()
         self.compute_psf()
+    
+
+    @classmethod
+    def from_sensor(cls, sensor_name='rpi_hq', downsample=8, **kwargs):
+        """
+        Coded aperture constructor from existing virtual sensor
+        Replace the sensor_size_px, sensor_size_m and feature_size args from __init__()
+
+        Parameters
+        ----------
+        sensor_name: str
+            name of the sensor
+            "rpi_hq" (default), "rpi_gs", "rpi_v2", "basler_287", "basler_548"
+        downsample: int
+            downsampling factor (default value to 8)
+        **kwargs: 
+            all: distance_sensor, wavelength (latter optional)
+            CodedAperture: method, n_bits (both optional)
+            PhaseContour: noise_period, refractive_index, n_iter (all optional)
+            FresnelZoneAperture: radius (optional)
+
+        Example
+        ----------
+        mask = CodedAperture.from_sensor(sensor_name="rpi_hq", downsample=8, ...)
+        """
+        sensor = VirtualSensor.from_name(sensor_name, downsample)
+        return cls(
+            sensor_size_px=tuple(sensor.resolution), 
+            sensor_size_m=tuple(sensor.resolution*sensor.pixel_size), 
+            feature_size=sensor.pixel_size.mean(), 
+            **kwargs
+        )
     
 
     @abc.abstractmethod
