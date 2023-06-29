@@ -54,7 +54,7 @@ class Mask(abc.ABC):
     
 
     @classmethod
-    def from_sensor(cls, sensor_name='rpi_hq', downsample=8, **kwargs):
+    def from_sensor(cls, sensor_name, downsample=None, **kwargs):
         """
         Coded aperture constructor from existing virtual sensor
         Replace the sensor_size_px, sensor_size_m and feature_size args from __init__()
@@ -63,9 +63,9 @@ class Mask(abc.ABC):
         ----------
         sensor_name: str
             name of the sensor
-            "rpi_hq" (default), "rpi_gs", "rpi_v2", "basler_287", "basler_548"
+            "rpi_hq", "rpi_gs", "rpi_v2", "basler_287", "basler_548"
         downsample: int
-            downsampling factor (default value to 8)
+            downsampling factor
         **kwargs: 
             all: distance_sensor, wavelength (latter optional)
             CodedAperture: method, n_bits (both optional)
@@ -111,7 +111,6 @@ class Mask(abc.ABC):
         self.psf = np.stack((psf_2d,)*3, axis=-1)
 
 
-
 class CodedAperture(Mask):
     """
     Coded aperture subclass of the Mask class
@@ -154,6 +153,7 @@ class CodedAperture(Mask):
         """
         assert self.method in ['MURA', 'MLS'], "Method should be either 'MLS' or 'MURA'"
         
+            # Generating pattern
         if self.method == 'MURA':
             self.mask = self.squarepattern(4*self.n_bits+1)[1:,1:]
             self.row = 2 * self.mask[0,:] - 1
@@ -165,6 +165,7 @@ class CodedAperture(Mask):
             self.column = h_r
             self.mask = (np.outer(h_r, h_r) + 1) / 2
 
+            # Upscaling
         if self.sensor_size_px != self.mask.shape:
             upscale_factor_height = self.sensor_size_px[0] / self.mask.shape[0]
             upscale_factor_width = self.sensor_size_px[1] / self.mask.shape[1]
@@ -245,11 +246,22 @@ class PhaseContour(Mask):
         """
         Creating phase contour from Perlin noise
         """
+            # Creating Perlin noise
         proper_dim_1 = (self.sensor_size_px[0] // self.noise_period[0]) * self.noise_period[0]
         proper_dim_2 = (self.sensor_size_px[1] // self.noise_period[1]) * self.noise_period[1]
         noise = generate_perlin_noise_2d((proper_dim_1,proper_dim_2), self.noise_period)
-        binary = np.round(np.interp(noise, (-1,1), (0,1)))
+        
+            # Upscaling to correspond to sensor size
+        if self.sensor_size_px != noise.shape:
+            upscale_factor_height = self.sensor_size_px[0] / noise.shape[0]
+            upscale_factor_width = self.sensor_size_px[1] / noise.shape[1]
+            noise = zoom(noise, (upscale_factor_height, upscale_factor_width))
+
+            # Edge detection
+        binary = np.clip(np.round(np.interp(noise, (-1,1), (0,1))), a_min=0, a_max=1)
         self.target_psf = cv.Canny(np.interp(binary, (-1,1), (0,255)).astype(np.uint8), 0, 255)
+
+            # Computing mask and height map
         phase_mask, height_map = phase_retrieval(
             target_psf=self.target_psf,
             lambd=self.wavelength, 
@@ -342,3 +354,4 @@ def phase_retrieval(target_psf, lambd, d1, dz, n=1.2, n_iter=10, height_map=Fals
         return phi, lambd * phi / (2 * np.pi * (n-1))
     else:
         return phi
+    
