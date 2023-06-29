@@ -6,7 +6,7 @@ with open("lensless/version.py") as f:
     exec(f.read())
 assert __version__ is not None
 
-with open("README.rst", "r") as fh:
+with open("README.rst", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
@@ -16,7 +16,7 @@ setuptools.setup(
     author_email="ebezzam@gmail.com",
     description="Package to control and image with a lensless camera running on a Raspberry Pi.",
     long_description=long_description,
-    long_description_content_type="text/markdown",
+    long_description_content_type="text/x-rst",
     url="https://github.com/LCAV/LenslessPiCam",
     packages=setuptools.find_packages(),
     classifiers=[

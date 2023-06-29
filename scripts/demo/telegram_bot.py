@@ -39,7 +39,7 @@ from telegram.ext import (
     filters,
     CallbackQueryHandler,
 )
-from telegram import ForceReply, Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 
 
 TOKEN = None
@@ -408,15 +408,6 @@ async def take_picture_and_reconstruct(
 
     # -- reconstruct
     await reconstruct(update, context, algo, query=query)
-
-    # # -- reconstruct
-    # await update.message.reply_text(f"Reconstructing with {algo}...", reply_to_message_id=update.message.message_id)
-    # os.system(f"python scripts/recon/demo.py plot=False recon.algo={algo}")
-    # OUTPUT_FP = os.path.join(OUTPUT_FOLDER, "reconstructed.png")
-    # # await update.message.reply_photo(OUTPUT_FP, caption=f"Reconstruction ({algo})", reply_to_message_id=update.message.message_id)
-    # await update.message.reply_photo(OUTPUT_FP, caption=f"Reconstruction ({algo})", reply_to_message_id=update.message.message_id)
-    # # img = np.array(Image.open(OUTPUT_FP))
-    # # await update.message.reply_text("Output resolution: " + str(img.shape))
 
     # # send picture of raw measurement
     # OUTPUT_FP = os.path.join(user_subfolder, "raw_data_8bit.png")
