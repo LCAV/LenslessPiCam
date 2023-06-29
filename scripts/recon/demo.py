@@ -51,6 +51,8 @@ def demo(config):
 
     if config.recon.algo == "unet":
 
+        raise ValueError("Not implemented yet. Issues with TensorFlow and PyTorch compatability...")
+
         # -- resize data to fit model input
         data = resize(data, shape=config.recon.unet.input_shape)
 
@@ -163,10 +165,6 @@ def demo(config):
 
     print("Applying : ", config.recon.algo)
     if config.recon.algo == "unet":
-
-        import pudb
-
-        pudb.set_trace()
 
         final_image = model(data)
 

@@ -12,6 +12,7 @@ from PIL import Image, ImageFont
 import shutil
 import pytz
 from datetime import datetime
+from lensless.util import check_username_hostname
 
 # for displaying emojis
 from emoji import EMOJI_DATA
@@ -46,11 +47,15 @@ RPI_USERNAME = None
 RPI_HOSTNAME = None
 RPI_LENSED_USERNAME = None
 RPI_LENSED_HOSTNAME = None
+CONFIG_FN = None
+DEFAULT_ALGO = None
+ALGO_TEXT = None
 
-OVERLAY_TOPLEFT = None  # e.g. logo of event/company
-OVERLAY_TOPRIGHT = None
-OVERLAY_BOTTOMLEFT = None
-OVERLAY_BOTTOMRIGHT = None
+
+OVERLAY_ALPHA = None
+OVERLAY_1 = None
+OVERLAY_2 = None
+OVERLAY_3 = None
 
 SETUP_FP = "scripts/demo/setup.png"
 INPUT_FP = "user_photo.jpg"
@@ -58,8 +63,7 @@ RAW_DATA_FP = "raw_data.png"
 OUTPUT_FOLDER = "demo_lensless_recon"
 BUSY = False
 supported_algos = ["fista", "admm", "unrolled"]
-supported_input = ["mnist", "thumb"]
-DEFAULT_ALGO = "unrolled"
+supported_input = ["mnist", "thumb", "face"]
 TIMEOUT = 1 * 60  # 10 minutes
 
 BRIGHTNESS = 100
@@ -73,33 +77,7 @@ BACKGROUND_FP = None
 
 MAX_QUERIES_PER_DAY = 20
 queries_count = dict()
-WHITELIST_USERS = [360264201]
-
-
-HELP_TEXT = (
-    "Through this bot, you can send a photo to the lensless camera setup in our lab at EPFL (shown above). "
-    "The photo will be:\n\n1. Displayed on a screen.\n2. Our lensless camera will "
-    "take a picture.\n3. A reconstruction will be sent back through the bot.\n4. "
-    "The raw data will also be sent back."
-    "\n\nIf you do not feel comfortable sending one "
-    "of your own pictures, you can use the /mnist, /thumb, /face commands to set "
-    "the image on the display with one of our inputs. Or even send an emoij 😎"
-    "\n\nAll previous data is overwritten "
-    "when a new image is sent, and everything is deleted when the process running on the "
-    "server is shut down."
-)
-
-ALGO_TEXT = (
-    "By default, the reconstruction is done with the Unrolled ADMM algorithm, but you "
-    "can specify the algorithm (on the last measurement) with the corresponding "
-    "command: /fista, /admm, /unrolled."
-    "\n\nAll provided algorithms require an estimate of the point spread function (PSF). "
-    "You can measure a (proxy) PSF with /psf (a point source like "
-    "image will be displayed on the screen). "
-    "In practice, we measure the PSF with single white LED. The used PSF is sent also sent "
-    "back with the /psf command."
-    "\n\nMore info: go.epfl.ch/lensless"
-)
+WHITELIST_USERS = None
 
 
 # Enable logging
@@ -271,7 +249,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_folder = get_user_folder(update)
         original_file_path = os.path.join(user_folder, INPUT_FP)
         os.system(
-            f"python scripts/remote_display.py fp={original_file_path} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+            f"python scripts/remote_display.py -cn {CONFIG_FN} fp={original_file_path} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
         )
         await update.message.reply_text(
             "Image sent to display.", reply_to_message_id=update.message.message_id
@@ -306,11 +284,19 @@ async def take_picture(update: Update, context: ContextTypes.DEFAULT_TYPE, query
         )
 
     os.system(
-        f"python scripts/remote_capture.py plot=False rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME} output={user_subfolder} capture.exp={EXPOSURE}"
+        f"python scripts/remote_capture.py -cn {CONFIG_FN} plot=False rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME} output={user_subfolder} capture.exp={EXPOSURE}"
     )
 
 
 async def reconstruct(update: Update, context: ContextTypes.DEFAULT_TYPE, algo, query=None) -> None:
+
+    supported = check_algo(algo)
+    if not supported:
+        await update.message.reply_text(
+            f"Unsupported algorithm: {algo}. Please specify from: {supported_algos}",
+            reply_to_message_id=update.message.message_id,
+        )
+        return
 
     # get user subfolder
     if query is not None:
@@ -334,57 +320,38 @@ async def reconstruct(update: Update, context: ContextTypes.DEFAULT_TYPE, algo, 
     )
     if PSF_FP is not None:
         os.system(
-            f"python scripts/recon/demo.py plot=False recon.algo={algo} output={user_subfolder} camera.psf={PSF_FP} recon.downsample=1 camera.background={BACKGROUND_FP}"
+            f"python scripts/recon/demo.py -cn {CONFIG_FN} plot=False recon.algo={algo} output={user_subfolder} camera.psf={PSF_FP} recon.downsample=1 camera.background={BACKGROUND_FP}"
         )
     else:
         os.system(
-            f"python scripts/recon/demo.py plot=False recon.algo={algo} output={user_subfolder}"
+            f"python scripts/recon/demo.py -cn {CONFIG_FN} plot=False recon.algo={algo} output={user_subfolder}"
         )
 
     # -- send back, with watermark if provided
-    if (
-        OVERLAY_BOTTOMLEFT is not None
-        or OVERLAY_TOPRIGHT is not None
-        or OVERLAY_BOTTOMRIGHT is not None
-        or OVERLAY_TOPLEFT is not None
-    ):
+    if OVERLAY_1 is not None or OVERLAY_2 is not None or OVERLAY_3 is not None:
 
-        alpha = 60
+        alpha = OVERLAY_ALPHA
 
         reconstructed_path = os.path.join(user_subfolder, "reconstructed.png")
 
         img1 = Image.open(reconstructed_path)
         img1 = img1.convert("RGBA")
 
-        # first overlay
-        if OVERLAY_TOPLEFT is not None:
-            img2 = Image.open(OVERLAY_TOPLEFT)
-            img2 = img2.convert("RGBA")
-            img2.putalpha(alpha)
-            new_width = int(img1.width * 0.7)
-            img2 = img2.resize((new_width, int(new_width * img2.height / img2.width)))
+        for overlay_config in [OVERLAY_1, OVERLAY_2, OVERLAY_3]:
+            if overlay_config is not None:
+                overlay_img = Image.open(overlay_config.fp)
+                overlay_img = overlay_img.convert("RGBA")
+                overlay_img.putalpha(alpha)
+                new_width = int(img1.width * overlay_config.scaling)
+                overlay_img = overlay_img.resize(
+                    (new_width, int(new_width * overlay_img.height / overlay_img.width))
+                )
+                img1.paste(
+                    overlay_img,
+                    (overlay_config.position[0], overlay_config.position[1]),
+                    overlay_img,
+                )
 
-        if OVERLAY_BOTTOMLEFT is not None:
-            img3 = Image.open(OVERLAY_BOTTOMLEFT)
-            img3 = img3.convert("RGBA")
-            img3.putalpha(alpha)
-            new_width = int(img1.width * 0.2)
-            img3 = img3.resize((new_width, int(new_width * img3.height / img3.width)))
-
-        if OVERLAY_BOTTOMRIGHT is not None:
-            img4 = Image.open(OVERLAY_BOTTOMRIGHT)
-            img4 = img4.convert("RGBA")
-            img4.putalpha(alpha)
-            new_width = int(img1.width * 0.23)
-            img4 = img4.resize((new_width, int(new_width * img4.height / img4.width)))
-
-        # overlay
-        # img1.paste(img2, (20,0), mask = img2)
-        # img1.paste(img3, (10, img1.height - img3.height - 10), mask = img3)
-        # img1.paste(img4, (img1.width - img4.width, img1.height - img4.height - 10), mask = img4)
-        img1.paste(img2, (20, 0), mask=img2)
-        img1.paste(img3, (img2.width + 35, 25), mask=img3)
-        img1.paste(img4, (img2.width + 27, 25 + img3.height), mask=img4)
         OUTPUT_FP = os.path.join(user_subfolder, "reconstructed_overlay.png")
         img1.convert("RGB").save(OUTPUT_FP)
 
@@ -485,11 +452,11 @@ async def take_picture_and_reconstruct(
     # -- send picture of setup (lensed)
     if RPI_LENSED_HOSTNAME is not None and RPI_LENSED_USERNAME is not None:
         os.system(
-            f"python scripts/remote_capture.py rpi.username={RPI_LENSED_USERNAME} rpi.hostname={RPI_LENSED_HOSTNAME} plot=False capture.bayer=False capture.down=8 capture.raw_data_fn=lensed capture.awb_gains=null"
+            f"python scripts/remote_capture.py -cn {CONFIG_FN} rpi.username={RPI_LENSED_USERNAME} rpi.hostname={RPI_LENSED_HOSTNAME} plot=False capture.bayer=False capture.down=8 output={user_subfolder} capture.raw_data_fn=lensed capture.awb_gains=null"
         )
         OUTPUT_FP = os.path.join(user_subfolder, "lensed.png")
         await responder.reply_photo(
-            OUTPUT_FP, caption="Picture of setup", reply_to_message_id=query.message.message_id
+            OUTPUT_FP, caption="Picture of setup", reply_to_message_id=responder.message_id
         )
 
 
@@ -521,7 +488,7 @@ async def mnist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # -- send to display
     os.system(
-        f"python scripts/remote_display.py fp={original_file_path} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+        f"python scripts/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
     )
     await update.message.reply_text(
         f"Image sent to display with brightness {brightness}.",
@@ -560,7 +527,7 @@ async def thumb_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # -- send to display
     os.system(
-        f"python scripts/remote_display.py fp={original_file_path} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+        f"python scripts/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
     )
     await update.message.reply_text(
         f"Image sent to display with brightness {brightness}.",
@@ -599,7 +566,7 @@ async def face_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     # -- send to display
     os.system(
-        f"python scripts/remote_display.py fp={original_file_path} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+        f"python scripts/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
     )
     await update.message.reply_text(
         f"Image sent to display with brightness {brightness}.",
@@ -628,7 +595,7 @@ async def psf_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     # -- send to display
     os.system(
-        f"python scripts/remote_display.py display.psf={psf_size} display.vshift={vshift} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+        f"python scripts/remote_display.py -cn {CONFIG_FN} display.psf={psf_size} display.vshift={vshift} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
     )
     await update.message.reply_text(
         f"PSF of {psf_size}x{psf_size} pixels set on display.",
@@ -684,7 +651,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_folder = get_user_folder_from_query(query)
         original_file_path = os.path.join(user_folder, INPUT_FP)
         os.system(
-            f"python scripts/remote_display.py fp={original_file_path} display.brightness={BRIGHTNESS} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+            f"python scripts/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.brightness={BRIGHTNESS} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
         )
         await query.edit_message_text(text=f"Image sent to display with brightness {BRIGHTNESS}.")
         # await update.message.reply_text("Image sent to display.", reply_to_message_id=update.message.message_id)
@@ -827,7 +794,7 @@ async def emoji(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     vshift = -10
     brightness = 80
     os.system(
-        f"python scripts/remote_display.py fp={original_file_path} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME} display.vshift={vshift} display.brightness={brightness}"
+        f"python scripts/remote_display.py -cn {CONFIG_FN} fp={original_file_path} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME} display.vshift={vshift} display.brightness={brightness}"
     )
     await update.message.reply_text(
         f"Image sent to display with brightness {brightness}.",
@@ -838,37 +805,9 @@ async def emoji(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     BUSY = False
 
 
-# async def overlay_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-
-#     reconstructed_path = os.path.join(OUTPUT_FOLDER, "reconstructed.png")
-#     if not os.path.exists(reconstructed_path):
-#         await update.message.reply_text(f"Please reconstruct an image first.", reply_to_message_id=update.message.message_id)
-#         return
-
-#     img1 = Image.open(reconstructed_path)
-#     img1 = img1.convert("RGBA")
-
-#     # secondary image
-#     img2 = Image.open(OVERLAY_IMG)
-#     img2 = img2.convert("RGBA")
-#     img2.putalpha(75)
-
-#     # resize img2 to width of img1, while maintaining aspect ratio
-#     new_width = int(img1.width * 0.8)
-#     img2 = img2.resize((new_width , int(new_width * img2.height / img2.width)))
-
-#     # overlay
-#     img1.paste(img2, (20,0), mask = img2)
-#     output_fp = os.path.join(OUTPUT_FOLDER, "reconstructed_overlay.png")
-#     img1.convert('RGB').save(output_fp)
-
-#     # return photo
-#     await update.message.reply_photo(output_fp, reply_to_message_id=update.message.message_id)
-
-
 async def not_running_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
-        "The bot is currently not running. Please contact the admin /help.",
+        "The bot is currently not running. If you want to try it out, please contact the admin.",
         reply_to_message_id=update.message.message_id,
     )
 
@@ -877,19 +816,66 @@ async def not_running_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 def main(config) -> None:
     """Start the bot."""
 
-    global TOKEN, RPI_USERNAME, RPI_HOSTNAME, RPI_LENSED_USERNAME, RPI_LENSED_HOSTNAME
-    global OVERLAY_BOTTOMLEFT, OVERLAY_BOTTOMRIGHT, OVERLAY_TOPLEFT, OVERLAY_TOPRIGHT
+    global TOKEN, WHITELIST_USERS, RPI_USERNAME, RPI_HOSTNAME, RPI_LENSED_USERNAME, RPI_LENSED_HOSTNAME, CONFIG_FN
+    global DEFAULT_ALGO, ALGO_TEXT, HELP_TEXT, supported_algos
+    # global OVERLAY_BOTTOMLEFT, OVERLAY_BOTTOMRIGHT, OVERLAY_TOPLEFT, OVERLAY_TOPRIGHT
+    global OVERLAY_ALPHA, OVERLAY_1, OVERLAY_2, OVERLAY_3
     global PSF_FP, BACKGROUND_FP
 
     TOKEN = config.token
+
+    WHITELIST_USERS = config.whitelist
+    if WHITELIST_USERS is None:
+        WHITELIST_USERS = []
+
     RPI_USERNAME = config.rpi_username
     RPI_HOSTNAME = config.rpi_hostname
     RPI_LENSED_USERNAME = config.rpi_lensed_username
     RPI_LENSED_HOSTNAME = config.rpi_lensed_hostname
-    OVERLAY_BOTTOMRIGHT = config.overlay_bottom_right
-    OVERLAY_BOTTOMLEFT = config.overlay_bottom_left
-    OVERLAY_TOPRIGHT = config.overlay_top_right
-    OVERLAY_TOPLEFT = config.overlay_top_left
+    CONFIG_FN = config.config_name
+    DEFAULT_ALGO = config.default_algo
+
+    OVERLAY_ALPHA = config.overlay.alpha
+    OVERLAY_1 = config.overlay.img1
+    OVERLAY_2 = config.overlay.img2
+    OVERLAY_3 = config.overlay.img3
+
+    if OVERLAY_1 is not None:
+        assert os.path.exists(OVERLAY_1.fp)
+    if OVERLAY_2 is not None:
+        assert os.path.exists(OVERLAY_2.fp)
+    if OVERLAY_3 is not None:
+        assert os.path.exists(OVERLAY_3.fp)
+
+    input_commands = ["/" + input for input in supported_input]
+    HELP_TEXT = (
+        "Through this bot, you can send a photo to the lensless camera setup in our lab at EPFL (shown above). "
+        "The photo will be:\n\n1. Displayed on a screen.\n2. Our lensless camera will "
+        "take a picture.\n3. A reconstruction will be sent back through the bot.\n4. "
+        "The raw data will also be sent back."
+        "\n\nIf you do not feel comfortable sending one "
+        f"of your own pictures, you can use the {input_commands} commands to set "
+        "the image on the display with one of our inputs. Or even send an emoij 😎"
+        "\n\nAll previous data is overwritten "
+        "when a new image is sent, and everything is deleted when the process running on the "
+        "server is shut down."
+    )
+
+    if config.supported_algos is not None:
+        supported_algos = config.supported_algos
+
+    algo_commands = ["/" + algo for algo in supported_algos]
+    ALGO_TEXT = (
+        f"By default, the reconstruction is done with /{DEFAULT_ALGO}, but you "
+        "can specify the algorithm (on the last measurement) with the corresponding "
+        f"command: {algo_commands}."
+        "\n\nAll provided algorithms require an estimate of the point spread function (PSF). "
+        "You can measure a (proxy) PSF with /psf (a point source like "
+        "image will be displayed on the screen). "
+        "In practice, we measure the PSF with single white LED. The used PSF is sent also sent "
+        "back with the /psf command."
+        "\n\nMore info: go.epfl.ch/lensless"
+    )
 
     # make output folder
     if not os.path.exists(OUTPUT_FOLDER):
@@ -900,7 +886,7 @@ def main(config) -> None:
         from lensless.io import load_psf, save_image
 
         psf, bg = load_psf(
-            config.psf, downsample=config.downsample, return_float=True, return_bg=True
+            config.psf.fp, downsample=config.psf.downsample, return_float=True, return_bg=True
         )
 
         # save to demo folder
@@ -925,6 +911,10 @@ def main(config) -> None:
 
         assert RPI_USERNAME is not None
         assert RPI_HOSTNAME is not None
+
+        check_username_hostname(RPI_USERNAME, RPI_HOSTNAME)
+        if RPI_LENSED_USERNAME is not None or RPI_LENSED_HOSTNAME is not None:
+            check_username_hostname(RPI_LENSED_USERNAME, RPI_LENSED_HOSTNAME)
 
         # on different commands - answer in Telegram
         application.add_handler(CommandHandler("start", start))
@@ -956,21 +946,6 @@ def main(config) -> None:
 
         # emoji input
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, emoji, block=False))
-
-        # overlay images
-        if OVERLAY_BOTTOMLEFT is not None:
-            assert os.path.exists(OVERLAY_BOTTOMLEFT)
-        if OVERLAY_BOTTOMRIGHT is not None:
-            assert os.path.exists(OVERLAY_BOTTOMRIGHT)
-        if OVERLAY_TOPLEFT is not None:
-            assert os.path.exists(OVERLAY_TOPLEFT)
-        if OVERLAY_TOPRIGHT is not None:
-            assert os.path.exists(OVERLAY_TOPRIGHT)
-
-        # # overlay input
-        # if OVERLAY_IMG is not None:
-        #     assert os.path.exists(OVERLAY_IMG)
-        # application.add_handler(CommandHandler("overlay", overlay_command, block=False))
 
         # Run the bot until the user presses Ctrl-C
         application.run_polling()

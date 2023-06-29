@@ -1,12 +1,38 @@
+# for Telegram
 token: null
+whitelist: []
+idle: False     # run without processing commands
+
+# usernames and IP address
 rpi_username: null
 rpi_hostname: null
 rpi_lensed_username: null
 rpi_lensed_hostname: null
-idle: False     # run without processing commands
-psf: data/psf/tape_rgb_31032023.png
-downsample: 4
-overlay_top_left: null     # path to image to overlay on images
-overlay_top_right: null
-overlay_bottom_left: null
-overlay_bottom_right: null
+
+# can pre-load PSF so it doesn't have to be loaded and resize at each reconstruction
+# psf: null
+psf:
+  fp: data/psf/tape_rgb_31032023.png
+  downsample: 4
+
+# which hydra config to use and available algos
+config_name: demo
+default_algo: unrolled   # note that this requires GPU
+supported_algos: ["fista", "admm", "unrolled"]
+
+
+# overlaying logos on the reconstruction
+overlay:
+  alpha: 60
+
+  img1: null
+
+  img2:
+    fp: data/original/lcav_white.png
+    scaling: 0.2
+    position: [382,25]
+
+  img3:
+    fp: data/original/epfl_white.png
+    scaling: 0.23
+    position: [374,75]

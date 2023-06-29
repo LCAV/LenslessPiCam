@@ -489,7 +489,7 @@ class ReconstructionAlgorithm(abc.ABC):
         if n_iter is None:
             n_iter = self._n_iter
 
-        if plot and disp_iter is not None:
+        if (plot or save) and disp_iter is not None:
             if ax is None:
                 ax = plot_image(self._get_numpy_data(self._data[0]), gamma=gamma)
         else:
@@ -499,7 +499,7 @@ class ReconstructionAlgorithm(abc.ABC):
         for i in range(n_iter):
             self._update(i)
 
-            if plot and (i + 1) % disp_iter == 0:
+            if (plot or save) and (i + 1) % disp_iter == 0:
                 self._progress()
                 img = self._form_image()
                 ax = plot_image(self._get_numpy_data(img[0]), ax=ax, gamma=gamma)

@@ -7,18 +7,17 @@ import time
 from pprint import pprint
 from lensless.plot import plot_image, pixel_histogram
 from lensless.io import load_image, load_psf, save_image
-from lensless.util import resize
+from lensless.util import resize, check_username_hostname
 import cv2
 import matplotlib.pyplot as plt
 from lensless import FISTA, ADMM
 from lensless.io import display_image
 
-# create this file and place these variables here
-from lensless.secrets import RPI_USERNAME, RPI_HOSTNAME
-
 
 @hydra.main(version_base=None, config_path="../configs", config_name="demo")
 def demo(config):
+
+    RPI_USERNAME, RPI_HOSTNAME = check_username_hostname(config.rpi.username, config.rpi.hostname)
 
     display_fp = to_absolute_path(config.fp)
     if config.save:

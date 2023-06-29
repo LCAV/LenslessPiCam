@@ -66,9 +66,6 @@ recon:
   gamma: 1.5  # for visualization
   downsample: 4
   dtype: float32
-
-  use_gpu: True
-
   use_torch: True
   torch_device: cuda:1
   

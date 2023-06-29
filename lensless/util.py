@@ -1,6 +1,9 @@
 import cv2
 import csv
 import numpy as np
+import paramiko
+from paramiko.ssh_exception import BadHostKeyException, AuthenticationException, SSHException
+import socket
 from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
 try:
@@ -285,25 +288,14 @@ def autocorr2d(vals, pad_mode="reflect"):
     return autocorr[shape[0] // 2 : -shape[0] // 2, shape[1] // 2 : -shape[1] // 2]
 
 
-def check_username_hostname(username, hostname):
+def check_username_hostname(username, hostname, timeout=10):
 
-    if username is None:
-        try:
-            from lensless.secrets import RPI_USERNAME
+    client = paramiko.client.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-            username = RPI_USERNAME
-        except ImportError:
-            username = None
-
-    if hostname is None:
-        try:
-            from lensless.secrets import RPI_HOSTNAME
-
-            hostname = RPI_HOSTNAME
-        except ImportError:
-            hostname = None
-
-    assert username is not None, "Provide username."
-    assert hostname is not None, "Provide hostname / IP address."
+    try:
+        client.connect(hostname, username=username, timeout=timeout)
+    except (BadHostKeyException, AuthenticationException, SSHException, socket.error) as e:
+        raise ValueError(f"Could not connect to {username}@{hostname}\n{e}")
 
     return username, hostname
