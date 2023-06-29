@@ -63,11 +63,11 @@ camera:
 
 
 recon:
-  gamma: 1.5  # for visualization
+  gamma: 2.2  # for visualization
   downsample: 4
   dtype: float32
   use_torch: True
-  torch_device: cuda:1
+  torch_device: cuda:0
   
   algo: admm
 

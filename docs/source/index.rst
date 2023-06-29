@@ -27,6 +27,7 @@ Contents
    evaluation
    sensor
    utilities
+   demo
 
 .. toctree::
    :caption: Data

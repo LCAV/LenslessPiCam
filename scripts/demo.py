@@ -55,6 +55,8 @@ def demo(config):
         pic_command += " gray=True"
     if config.capture.down:
         pic_command += f" down={config.capture.down}"
+    if config.capture.awb_gains:
+        pic_command += f" awb_gains=[{config.capture.awb_gains[0]},{config.capture.awb_gains[1]}]"
 
     print(f"COMMAND : {pic_command}")
     ssh = subprocess.Popen(
@@ -121,6 +123,7 @@ def demo(config):
 
     # plot image and histogram (useful to check clipping)
     ax = plot_image(img, gamma=config.capture.gamma)
+    ax.set_title("Raw data")
     if save:
         plt.savefig(os.path.join(save, "raw.png"))
     pixel_histogram(img)
@@ -190,13 +193,19 @@ def demo(config):
         raise ValueError(f"Unsupported algorithm: {config.recon.algo}")
 
     recon.set_data(data)
-    final_image, ax = recon.apply(
+    res = recon.apply(
         gamma=config.recon.gamma,
         save=save,
         plot=config.plot,
         disp_iter=algo_params["disp_iter"],
     )
     print(f"Processing time : {time.time() - start_time} s")
+
+    if config.plot:
+        final_image = res[0]
+    else:
+        final_image = res
+
     # save final image ax
     if save:
 
