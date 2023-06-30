@@ -1,3 +1,12 @@
+# #############################################################################
+# apgd.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# Julien SAHLI [julien.sahli@epfl.ch]
+# #############################################################################
+
+
 from lensless.recon import ReconstructionAlgorithm
 import inspect
 import numpy as np

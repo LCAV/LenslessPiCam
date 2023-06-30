@@ -76,18 +76,23 @@ Then we can use ``feh`` to launch the image viewer.
 Then from your laptop you can use the following script to display an
 image on the Raspberry Pi:
 
-.. code:: bash
 
-   python scripts/remote_display.py --fp <FP> --hostname <HOSTNAME> \
-   --pad 80 --vshift 10 --brightness 90
+.. code-block:: bash
 
-where ``<HOSTNAME>`` is the hostname or IP address of your Raspberry Pi,
-``<FP>`` is the path on your local computer of the image you would like
-to display, and the other arguments can be used to adjust the
-positioning of the image and its brightness.
+    python scripts/remote_display.py \
+        rpi.username=USERNAME \
+        rpi.hostname=HOSTNAME \
+        fp=FP
 
-When collecting a dataset, you can disable screen blanking (the screen
-from entering power saving mode) by following these `steps <https://pimylifeup.com/raspberry-pi-disable-screen-blanking/>`__.
+where ``USERNAME`` and ``HOSTNAME`` are the username and hostname of the RPi,
+and ``FP`` is the path on your local computer of the image you would like
+to display. The default parameters can be found in ``config/demo.yaml``,
+specifically the ``display`` section, where you may be interested in
+adjusting the screen resolution, positioning, brightness, padding, and
+rotation.
+
+It is recommended to disable screen blanking (the screen from entering
+power saving mode and turning off) by following these `steps <https://pimylifeup.com/raspberry-pi-disable-screen-blanking/>`__.
 
 Collecting MNIST 
 ----------------

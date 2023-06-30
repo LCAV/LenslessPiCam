@@ -1,3 +1,12 @@
+# #############################################################################
+# io.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# Julien SAHLI [julien.sahli@epfl.ch]
+# #############################################################################
+
+
 import os.path
 import subprocess
 import cv2

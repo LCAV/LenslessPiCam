@@ -1,3 +1,12 @@
+# #############################################################################
+# util.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# Julien SAHLI [julien.sahli@epfl.ch]
+# #############################################################################
+
+
 import cv2
 import csv
 import numpy as np

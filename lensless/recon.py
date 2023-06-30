@@ -1,5 +1,5 @@
 # #############################################################################
-# reconstruction.py
+# recon.py
 # =================
 # Authors :
 # Eric BEZZAM [ebezzam@gmail.com]
