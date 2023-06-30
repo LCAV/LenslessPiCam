@@ -7,9 +7,9 @@ LenslessPiCam
     :alt: Documentation Status
 
 
-reStructuredText:
 .. image:: https://joss.theoj.org/papers/10.21105/joss.04747/status.svg
-   :target: https://doi.org/10.21105/joss.04747
+      :target: https://doi.org/10.21105/joss.04747
+      :alt: DOI
 
 *A Hardware and Software Toolkit for Lensless Computational Imaging with a Raspberry Pi*
 -----------------------------------------------------------------------------------------
