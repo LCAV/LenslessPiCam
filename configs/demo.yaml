@@ -4,7 +4,7 @@
 
 
 fp: data/original/thumbs_up.png
-output: demo_lensless_recon   # output folder for results
+output: demo_lensless   # output folder for results
 save: True
 plot: False
 
@@ -56,6 +56,7 @@ capture:
 
 
 camera:
+  # these gains are not applied if rgb=True
   red_gain: 1.9
   blue_gain: 1.2
   psf: data/psf/tape_rgb_31032023.png

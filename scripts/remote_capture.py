@@ -163,13 +163,17 @@ def liveview(config):
 
         else:
 
-            red_gain = config.camera.red_gain
-            blue_gain = config.camera.blue_gain
-            # get white balance gains
-            if red_gain is None:
-                red_gain = float(result_dict["Red gain"])
-            if blue_gain is None:
-                blue_gain = float(result_dict["Blue gain"])
+            if not bayer:
+                red_gain = config.camera.red_gain
+                blue_gain = config.camera.blue_gain
+            else:
+                red_gain = None
+                blue_gain = None
+            # # get white balance gains
+            # if red_gain is None:
+            #     red_gain = float(result_dict["Red gain"])
+            # if blue_gain is None:
+            #     blue_gain = float(result_dict["Blue gain"])
 
             # # get white balance gains
             # if bayer:
