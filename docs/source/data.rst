@@ -5,7 +5,7 @@ You can download example PSFs and raw data that we've measured
 `here <https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww>`__. We
 recommend placing this content in the ``data`` folder.
 
-The commands below to download the data and place it in the``data`` 
+The commands below to download the data and place it in the ``data`` 
 folder.
 
 .. code:: bash

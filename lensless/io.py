@@ -1,5 +1,14 @@
+# #############################################################################
+# io.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# Julien SAHLI [julien.sahli@epfl.ch]
+# #############################################################################
+
+
 import os.path
-import rawpy
+import subprocess
 import cv2
 from PIL import Image
 import numpy as np
@@ -21,6 +30,7 @@ def load_image(
     back=None,
     nbits_out=None,
     as_4d=False,
+    downsample=None,
 ):
     """
     Load image as numpy array.
@@ -50,6 +60,8 @@ def load_image(
     as_4d : bool
         Add depth and color dimensions if necessary so that image is 4D: (depth,
         height, width, color).
+    downsample : int, optional
+        Downsampling factor. Recommended for image reconstruction.
 
     Returns
     -------
@@ -58,6 +70,8 @@ def load_image(
     """
     assert os.path.isfile(fp)
     if "dng" in fp:
+        import rawpy
+
         assert bayer
         raw = rawpy.imread(fp)
         img = raw.raw_image
@@ -111,6 +125,9 @@ def load_image(
             img = img[np.newaxis, :, :, :]
         elif len(img.shape) == 2:
             img = img[np.newaxis, :, :, np.newaxis]
+
+    if downsample is not None:
+        img = resize(img, factor=1 / downsample)
 
     return img
 
@@ -250,7 +267,8 @@ def load_psf(
         bg = np.array(bg)
 
     # resize
-    psf = resize(psf, shape=shape, factor=1 / downsample)
+    if downsample != 1:
+        psf = resize(psf, shape=shape, factor=1 / downsample)
 
     if single_psf:
         if not grayscale:
@@ -435,17 +453,63 @@ def load_data(
 def save_image(img, fp, max_val=255):
     """Save as uint8 image."""
 
+    if img.dtype == np.uint16:
+        img = img.astype(np.float32)
+
     if img.dtype == np.float64 or img.dtype == np.float32:
         img -= img.min()
         img /= img.max()
         img *= max_val
         img = img.astype(np.uint8)
 
-    elif img.dtype == np.uint16:
-        img = img.astype(np.float32)
-        img /= img.max()
-        img *= max_val
-        img = img.astype(np.uint8)
-
     img = Image.fromarray(img)
     img.save(fp)
+
+
+def display_image(
+    fp,
+    rpi_username,
+    rpi_hostname,
+    screen_res,
+    brightness=100,
+    rot90=0,
+    pad=0,
+    vshift=0,
+    hshift=0,
+    **kwargs,
+):
+    """
+    Display image on a screen.
+
+    Assumes setup described here: https://lensless.readthedocs.io/en/latest/measurement.html#remote-display
+
+    Parameters
+    ----------
+    fp : str
+        File path to image.
+    rpi_username : str
+        Username of Raspberry Pi.
+    rpi_hostname : str
+        Hostname of Raspberry Pi.
+    screen_res : tuple
+        Screen resolution of Raspberry Pi.
+
+    """
+
+    # assumes that `LenslessPiCam` is in home directory and environment inside `LenslessPiCam`
+    rpi_python = "~/LenslessPiCam/lensless_env/bin/python"
+    script = "~/LenslessPiCam/scripts/prep_display_image.py"
+    remote_tmp_file = "~/tmp_display.png"
+    display_path = "~/LenslessPiCam_display/test.png"
+
+    os.system('scp %s "%s@%s:%s" ' % (fp, rpi_username, rpi_hostname, remote_tmp_file))
+
+    # run script on Raspberry Pi to prepare image to display
+    prep_command = f"{rpi_python} {script} --fp {remote_tmp_file} \
+        --pad {pad} --vshift {vshift} --hshift {hshift} --screen_res {screen_res[0]} {screen_res[1]} \
+        --brightness {brightness} --rot90 {rot90} --output_path {display_path} "
+    # print(f"COMMAND : {prep_command}")
+    subprocess.Popen(
+        ["ssh", "%s@%s" % (rpi_username, rpi_hostname), prep_command],
+        shell=False,
+    )

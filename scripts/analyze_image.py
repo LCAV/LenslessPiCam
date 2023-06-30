@@ -120,7 +120,7 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
     else:
         _, ax_gray = plt.subplots(ncols=2, nrows=1, num="Grayscale", figsize=(15, 5))
 
-    # load PSF
+    # load PSF/image
     img = load_image(
         fp,
         verbose=True,

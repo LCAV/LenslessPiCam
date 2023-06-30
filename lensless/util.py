@@ -1,6 +1,18 @@
+# #############################################################################
+# util.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# Julien SAHLI [julien.sahli@epfl.ch]
+# #############################################################################
+
+
 import cv2
 import csv
 import numpy as np
+import paramiko
+from paramiko.ssh_exception import BadHostKeyException, AuthenticationException, SSHException
+import socket
 from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
 try:
@@ -295,3 +307,16 @@ def autocorr2d(vals, pad_mode="reflect"):
 
     # remove padding
     return autocorr[shape[0] // 2 : -shape[0] // 2, shape[1] // 2 : -shape[1] // 2]
+
+
+def check_username_hostname(username, hostname, timeout=10):
+
+    client = paramiko.client.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    try:
+        client.connect(hostname, username=username, timeout=timeout)
+    except (BadHostKeyException, AuthenticationException, SSHException, socket.error) as e:
+        raise ValueError(f"Could not connect to {username}@{hostname}\n{e}")
+
+    return username, hostname

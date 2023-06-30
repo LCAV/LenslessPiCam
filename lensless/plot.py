@@ -1,3 +1,12 @@
+# #############################################################################
+# plot.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# Julien SAHLI [julien.sahli@epfl.ch]
+# #############################################################################
+
+
 import numpy as np
 import warnings
 import matplotlib.pyplot as plt

@@ -27,6 +27,8 @@ MOCK_MODULES = [
     "pycsou.util.ptype",
     "PIL",
     "tqdm",
+    "paramiko",
+    "paramiko.ssh_exception"
 ]
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
@@ -36,7 +38,7 @@ sys.path.insert(0, os.path.abspath(os.path.join("..", "..")))
 from lensless import __version__
 
 project = "LenslessPiCam"
-copyright = f"{datetime.date.today().year}, Eric Bezzam, Julien Sahli"
+copyright = f"{datetime.date.today().year}, Eric Bezzam"
 author = "Eric Bezzam"
 version = __version__
 release = version

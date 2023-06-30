@@ -1,3 +1,11 @@
+# #############################################################################
+# mirflickr.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# #############################################################################
+
+
 import numpy as np
 from lensless.admm import ADMM
 import cv2
