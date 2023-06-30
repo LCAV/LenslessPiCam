@@ -1,6 +1,6 @@
 from diffusercam_gd import grad_descent, GradientDescentUpdate
-from lensless.gradient_descent import FISTA
-from lensless.apgd import APGD, APGDPriors
+from lensless.recon.gd import FISTA
+from lensless.recon.apgd import APGD, APGDPriors
 from lensless.io import load_data
 import time
 import pathlib as plib

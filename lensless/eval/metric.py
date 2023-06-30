@@ -113,7 +113,7 @@ from skimage.metrics import mean_squared_error, peak_signal_noise_ratio, structu
 import lpips as lpips_lib
 import torch
 from scipy.ndimage import rotate
-from lensless.util import resize
+from lensless.image_utils import resize
 
 
 def mse(true, est, normalize=True):

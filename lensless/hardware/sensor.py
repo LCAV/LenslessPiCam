@@ -26,7 +26,7 @@ import numpy as np
 from enum import Enum
 from cv2 import resize
 
-from lensless.util import rgb2gray
+from lensless.image_utils import rgb2gray
 from lensless.io import load_image
 
 

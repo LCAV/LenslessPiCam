@@ -5,9 +5,8 @@
 # Yohann PERRON [yohann.perron@gmail.com]
 # #############################################################################
 
-from lensless.trainable_recon import TrainableReconstructionAlgorithm
-from lensless.admm import soft_thresh, finite_diff, finite_diff_adj, finite_diff_gram
-
+from lensless.recon.trainable_recon import TrainableReconstructionAlgorithm
+from lensless.recon.admm import soft_thresh, finite_diff, finite_diff_adj, finite_diff_gram
 
 try:
     import torch

@@ -18,9 +18,9 @@ import hydra
 from hydra.utils import to_absolute_path
 import numpy as np
 import matplotlib.pyplot as plt
-from lensless.plot import plot_image
+from lensless.eval.plot import plot_image
 from lensless.io import load_image
-from lensless.metric import mse, psnr, ssim, lpips, extract
+from lensless.eval.metric import mse, psnr, ssim, lpips, extract
 import matplotlib
 
 font = {"family": "DejaVu Sans", "size": 18}

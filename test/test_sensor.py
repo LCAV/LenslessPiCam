@@ -2,7 +2,7 @@ import numpy as np
 import os
 from lensless import VirtualSensor, SensorOptions
 from lensless.io import load_image
-from lensless.util import rgb2gray
+from lensless.image_utils import rgb2gray
 
 
 def test_sensor_size():

@@ -41,8 +41,8 @@ import click
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from lensless.util import rgb2gray
-from lensless.plot import plot_image, pixel_histogram, plot_cross_section, plot_autocorr2d
+from lensless.image_utils import rgb2gray
+from lensless.eval.plot import plot_image, pixel_histogram, plot_cross_section, plot_autocorr2d
 from lensless.io import load_image
 
 

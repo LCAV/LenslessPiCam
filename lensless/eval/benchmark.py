@@ -9,10 +9,12 @@
 
 import glob
 import os
-from lensless.io import load_psf, load_image
-from lensless.util import resize
+from lensless.io import load_psf
+from lensless.image_utils import resize
 import numpy as np
 from tqdm import tqdm
+
+from lensless.io import load_image
 
 try:
     import torch

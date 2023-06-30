@@ -16,11 +16,13 @@ import cv2
 from pprint import pprint
 import matplotlib.pyplot as plt
 import rawpy
+from lensless.hardware.utils import check_username_hostname
 
 
-from lensless.util import rgb2gray, print_image_info, check_username_hostname
-from lensless.plot import plot_image, pixel_histogram
-from lensless.io import load_image, save_image
+from lensless.image_utils import rgb2gray, print_image_info
+from lensless.eval.plot import plot_image, pixel_histogram
+from lensless.io import save_image
+from lensless.io import load_image
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="demo")

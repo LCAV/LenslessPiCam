@@ -11,7 +11,7 @@ import numpy as np
 import warnings
 import matplotlib.pyplot as plt
 
-from lensless.util import FLOAT_DTYPES, get_max_val, gamma_correction, autocorr2d
+from lensless.image_utils import FLOAT_DTYPES, get_max_val, gamma_correction, autocorr2d
 
 
 def plot_image(img, ax=None, gamma=None, normalize=True, axis=0):

@@ -28,8 +28,8 @@ import os
 import numpy as np
 from PIL import Image
 import hydra
-from lensless.io import display_image
-from lensless.util import check_username_hostname
+from lensless.hardware.utils import display
+from lensless.hardware.utils import check_username_hostname
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="demo")
@@ -61,7 +61,7 @@ def remote_display(config):
     """ processing on remote machine, less issues with copying """
     # copy picture to Raspberry Pi
     print("\nCopying over picture...")
-    display_image(fp=fp, rpi_username=username, rpi_hostname=hostname, **config.display)
+    display(fp=fp, rpi_username=username, rpi_hostname=hostname, **config.display)
 
     if psf or black:
         os.remove(fp)

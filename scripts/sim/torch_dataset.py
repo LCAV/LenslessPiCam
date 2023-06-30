@@ -3,7 +3,7 @@ import hydra
 from hydra.utils import to_absolute_path
 import os
 from lensless.io import load_psf
-from lensless.util import rgb2gray
+from lensless.image_utils import rgb2gray
 import torch
 import time
 import numpy as np

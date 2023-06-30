@@ -2,7 +2,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from lensless.plot import plot_image
+from lensless.eval.plot import plot_image
 import inspect
 import pathlib as plib
 
@@ -199,7 +199,9 @@ def grad_descent(
     if non_neg_constraint:
         proj = non_neg  # Enforce non-negativity at every gradient step.
     else:
-        proj = lambda x: x
+
+        def proj(x):
+            return x
 
     H = []
     Hadj = []

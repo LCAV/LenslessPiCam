@@ -5,13 +5,14 @@ import subprocess
 import numpy as np
 import time
 from pprint import pprint
-from lensless.plot import plot_image, pixel_histogram
-from lensless.io import load_image, load_psf, save_image
-from lensless.util import resize, check_username_hostname
+from lensless.eval.plot import plot_image, pixel_histogram
+from lensless.io import save_image
+from lensless.image_utils import resize
 import cv2
 import matplotlib.pyplot as plt
 from lensless import FISTA, ADMM
-from lensless.io import display_image
+from lensless.hardware.utils import check_username_hostname, display
+from lensless.io import load_image, load_psf
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="demo")
@@ -32,9 +33,7 @@ def demo(config):
 
     # 1) Copy file to Raspberry Pi
     print("\nCopying over picture...")
-    display_image(
-        fp=display_fp, rpi_username=RPI_USERNAME, rpi_hostname=RPI_HOSTNAME, **config.display
-    )
+    display(fp=display_fp, rpi_username=RPI_USERNAME, rpi_hostname=RPI_HOSTNAME, **config.display)
 
     # 2) Take picture
     time.sleep(config.capture.delay)  # for picture to display

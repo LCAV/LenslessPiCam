@@ -22,8 +22,8 @@ import time
 import matplotlib.pyplot as plt
 from lensless import UnrolledFISTA, UnrolledADMM
 from waveprop.dataset_util import SimulatedPytorchDataset
-from lensless.util import rgb2gray
-from lensless.benchmark import benchmark, DiffuserCamTestDataset
+from lensless.image_utils import rgb2gray
+from lensless.eval.benchmark import benchmark, DiffuserCamTestDataset
 import torch
 from torchvision import transforms, datasets
 from tqdm import tqdm
@@ -163,7 +163,7 @@ def train_unrolled(
     # load dataset and create dataloader
     if config.files.dataset == "DiffuserCam":
         # Use a ParallelDataset
-        from lensless.benchmark import ParallelDataset
+        from lensless.eval.benchmark import ParallelDataset
 
         data_path = os.path.join(get_original_cwd(), "data", "DiffuserCam")
         dataset = ParallelDataset(
