@@ -14,12 +14,15 @@ Added
 ~~~~~
 
 - Sensor module.
+- Single-script and Telegram demo.
+- Link and citation for JOSS.
+- Authors at top of source code files.
 
 
 Changed
 ~~~~~~~
 
-- 
+- Simpler remote capture and display scripts with Hydra.
 
 
 Bugfix
