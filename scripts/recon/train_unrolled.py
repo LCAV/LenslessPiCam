@@ -243,14 +243,16 @@ def train_unrolled(
     # Backward hook that detect NAN in the gradient and print the layer weights
     def detect_nan(grad):
         if torch.isnan(grad).any():
-            print(grad)
+            print(grad, flush=True)
             for name, param in recon.named_parameters():
-                print(name, param)
+                if param.requires_grad:
+                    print(name, param)
             raise ValueError("Gradient is NaN")
         return grad
 
     for param in recon.parameters():
-        param.register_hook(detect_nan)
+        if param.requires_grad:
+            param.register_hook(detect_nan)
 
     # Training loop
     for epoch in range(config.training.epoch):
