@@ -137,17 +137,16 @@ def train_unrolled(
     start_time = time.time()
     # Load post process model
     if config.reconstruction.post_process.network == "DruNet":
-        from lensless.util import load_drunet
+        from lensless.utils.image import load_drunet
 
-        post_process_model = load_drunet(
+        post_process = load_drunet(
             os.path.join(get_original_cwd(), "data/drunet_color.pth"), requires_grad=True
         ).to(device)
-        post_process = True
     elif config.reconstruction.post_process.network == "UnetRes":
         from lensless.drunet.network_unet import UNetRes
 
         n_channels = 3
-        post_process_model = UNetRes(
+        post_process = UNetRes(
             in_nc=n_channels + 1,
             out_nc=n_channels,
             nc=[64, 128, 256, 512],
@@ -155,14 +154,7 @@ def train_unrolled(
             act_mode="R",
             downsample_mode="strideconv",
             upsample_mode="convtranspose",
-        )
-        post_process = True
-
-    # convert model to function
-    if "post_process_model" in locals():
-        from lensless.util import process_with_DruNet
-
-        post_process = process_with_DruNet(post_process_model, device=device, mode="train")
+        ).to(device)
     else:
         post_process = None
     pre_process = None
@@ -195,10 +187,6 @@ def train_unrolled(
 
     # print number of parameters
     print(f"Training model with {sum(p.numel() for p in recon.parameters())} parameters")
-    if "post_process_model" in locals():
-        print(
-            f"Post processing model with {sum(p.numel() for p in post_process_model.parameters())} parameters"
-        )
     # transform from BGR to RGB
     transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
 
@@ -256,8 +244,6 @@ def train_unrolled(
     if config.optimizer.type == "Adam":
         # the parameters of the base model and extra porcess must be added separatly
         parameters = [{"params": recon.parameters()}]
-        if "post_process_model" in locals():
-            parameters.append({"params": post_process_model.parameters()})
         optimizer = torch.optim.Adam(parameters, lr=config.optimizer.lr)
     else:
         raise ValueError(f"Unsuported optimizer : {config.optimizer.type}")
@@ -292,8 +278,6 @@ def train_unrolled(
     for param in recon.parameters():
         if param.requires_grad:
             param.register_hook(detect_nan)
-    if "post_process_model" in locals():
-        for param in post_process_model.parameters():
             if param.requires_grad:
                 param.register_hook(detect_nan)
 
@@ -341,8 +325,6 @@ def train_unrolled(
                 loss_v = loss_v + config.lpips * torch.mean(loss_lpips(2 * y_pred - 1, 2 * y - 1))
             loss_v.backward()
             torch.nn.utils.clip_grad_norm_(recon.parameters(), 1.0)
-            if "post_process_model" in locals():
-                torch.nn.utils.clip_grad_norm_(post_process_model.parameters(), 1.0)
             optimizer.step()
 
             mean_loss += (loss_v.item() - mean_loss) * (1 / i)

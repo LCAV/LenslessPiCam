@@ -10,7 +10,6 @@ from lensless.recon.recon import ReconstructionAlgorithm
 
 try:
     import torch
-    from lensless.util import apply_denoizer
 
 except ImportError:
     raise ImportError("Pytorch is require to use trainable reconstruction algorithms.")
@@ -66,14 +65,25 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
                 Data type to use for optimization.
             n_iter : int
                 Number of iterations for unrolled algorithm.
-            post_process : :py:class:`function`, optional
-                Function to apply to the image estimate after the whole ADMM algorithm. If it include learnable parameters, they will not be added to the parameter list of the algorithm.
+            post_process : :py:class:`function` or :py:class:`~torch.nn.Module`, optional
+                If :py:class:`function` : Function to apply to the image estimate after the whole ADMM algorithm. Its input most be (image to process, noise_level), where noise_level is a learnable parameter. If it include aditional learnable parameters, they will not be added to the parameter list of the algorithm. To allow for traning, the function must be autograd compatible.
+                If :py:class:`~torch.nn.Module` : A DruNet like network. The network will be included as a submodule of the algorithm and its parameters will be added to the parameter list of the algorithm. If this isn't intended behavior, set requires_grad=False.
         """
         assert isinstance(psf, torch.Tensor), "PSF must be a torch.Tensor"
         super(TrainableReconstructionAlgorithm, self).__init__(
             psf, dtype=dtype, n_iter=n_iter, **kwargs
         )
-        self.post_process = post_process
+        if isinstance(post_process, torch.nn.Module):
+            # If the post_process is a torch module, we assume it is a DruNet like network.
+            from lensless.utils.image import process_with_DruNet
+
+            self.post_process_model = post_process
+            self.post_process = process_with_DruNet(
+                self.post_process_model, self._psf.device, mode="train"
+            )
+        else:
+            # Otherwise, we assume it is a function.
+            self.post_process = post_process
         if self.post_process is not None:
             self.noise_level = torch.nn.Parameter(torch.tensor([1.0], device=self._psf.device))
 
