@@ -167,6 +167,8 @@ def train_unrolled(
     else:
         raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
 
+    # print number of parameters
+    print(f"Training model with {sum(p.numel() for p in recon.parameters())} parameters")
     # transform from BGR to RGB
     transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
 
@@ -232,7 +234,8 @@ def train_unrolled(
         "LOSS": [],
         "MSE": [],
         "MAE": [],
-        "LPIPS": [],
+        "LPIPS_V": [],
+        "LPIPS_A": [],
         "PSNR": [],
         "SSIM": [],
         "ReconstructionError": [],
@@ -301,7 +304,7 @@ def train_unrolled(
             optimizer.step()
 
             mean_loss += (loss_v.item() - mean_loss) * (1 / i)
-            pbar.set_description(f"loss : {mean_loss}, noise : {recon.noise_level.item():.4f}")
+            pbar.set_description(f"loss : {mean_loss}")
             i += 1
 
         # benchmarking
