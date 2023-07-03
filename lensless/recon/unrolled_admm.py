@@ -7,7 +7,6 @@
 
 from lensless.recon.trainable_recon import TrainableReconstructionAlgorithm
 from lensless.recon.admm import soft_thresh, finite_diff, finite_diff_adj, finite_diff_gram
-from lensless.utils.image import apply_CWH_denoizer
 
 
 try:
@@ -37,7 +36,6 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         psi_gram=None,
         pad=False,
         norm="backward",
-        post_process=None,
         **kwargs,
     ):
         """
@@ -74,8 +72,6 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         norm : str
             Normalization to use for the convolution. Options are "forward",
             "backward", and "ortho". Default is "backward".
-        post_process : :py:class:`function`, optional
-            Function to apply to the image estimate after the whole ADMM algorithm.
         """
 
         super(UnrolledADMM, self).__init__(
@@ -86,10 +82,6 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         self._mu2_p = torch.nn.Parameter(torch.ones(self._n_iter, device=self._psf.device) * mu2)
         self._mu3_p = torch.nn.Parameter(torch.ones(self._n_iter, device=self._psf.device) * mu3)
         self._tau_p = torch.nn.Parameter(torch.ones(self._n_iter, device=self._psf.device) * tau)
-
-        self.post_process = post_process
-        if self.post_process is not None:
-            self.noise_level = torch.nn.Parameter(torch.tensor([1.0], device=self._psf.device))
 
         # set prior
         if psi is None:
@@ -223,41 +215,4 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
     def _form_image(self):
         image = self._convolver._crop(self._image_est)
         image[image < 0] = 0
-        if self.post_process is not None:
-            x_max = torch.amax(image, dim=(-2, -3), keepdim=True) + 1e-6
-            image = apply_CWH_denoizer(
-                self.post_process,
-                image,
-                noise_level=self.noise_level,
-                device=self._psf.device,
-                mode="train",
-            )
-            image = torch.clip(image, min=0.0) * x_max
         return image
-
-    def batch_call(self, batch):
-        """
-        Method for performing iterative reconstruction on a batch of images.
-        This implementation is a properly vectorized implementation of ADMM.
-
-        Parameters
-        ----------
-        batch : :py:class:`~torch.Tensor` of shape (N, D, C, H, W)
-            The lensless images to reconstruct.
-
-        Returns
-        -------
-        :py:class:`~torch.Tensor` of shape (N, D, C, H, W)
-            The reconstructed images.
-        """
-        self._data = batch
-        assert len(self._data.shape) == 5, "batch must be of shape (N, D, C, H, W)"
-        batch_size = batch.shape[0]
-
-        self.reset(batch_size=batch_size)
-
-        for i in range(self._n_iter):
-            self._update(i)
-
-        image_est = self._form_image()
-        return image_est

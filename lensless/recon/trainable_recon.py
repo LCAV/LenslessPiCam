@@ -10,6 +10,7 @@ from lensless.recon.recon import ReconstructionAlgorithm
 
 try:
     import torch
+    from lensless.util import apply_denoizer
 
 except ImportError:
     raise ImportError("Pytorch is require to use trainable reconstruction algorithms.")
@@ -41,7 +42,14 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
     """
 
-    def __init__(self, psf, dtype=None, n_iter=1, **kwargs):
+    def __init__(
+        self,
+        psf,
+        dtype=None,
+        n_iter=1,
+        post_process=None,
+        **kwargs,
+    ):
         """
         Base constructor. Derived constructor may define new state variables
         here and also reset them in `reset`.
@@ -58,29 +66,45 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
                 Data type to use for optimization.
             n_iter : int
                 Number of iterations for unrolled algorithm.
+            post_process : :py:class:`function`, optional
+                Function to apply to the image estimate after the whole ADMM algorithm. If it include learnable parameters, they will not be added to the parameter list of the algorithm.
         """
         assert isinstance(psf, torch.Tensor), "PSF must be a torch.Tensor"
         super(TrainableReconstructionAlgorithm, self).__init__(
             psf, dtype=dtype, n_iter=n_iter, **kwargs
         )
+        self.post_process = post_process
+        if self.post_process is not None:
+            self.noise_level = torch.nn.Parameter(torch.tensor([1.0], device=self._psf.device))
 
-    @abc.abstractmethod
     def batch_call(self, batch):
         """
         Method for performing iterative reconstruction on a batch of images.
-        This implementation simply calls `apply` on each image in the batch.
-        Training algorithms are expected to override this method with a properly vectorized implementation.
+        This implementation is a properly vectorized implementation of FISTA.
 
         Parameters
         ----------
-        batch : :py:class:`~torch.Tensor` of shape (batch, depth, height, width, channels)
+        batch : :py:class:`~torch.Tensor` of shape (N, D, C, H, W)
             The lensless images to reconstruct.
 
         Returns
         -------
-        :py:class:`~torch.Tensor` of shape (batch, depth, height, width, channels)
+        :py:class:`~torch.Tensor` of shape (N, D, C, H, W)
             The reconstructed images.
         """
+        self._data = batch
+        assert len(self._data.shape) == 5, "batch must be of shape (N, D, C, H, W)"
+        batch_size = batch.shape[0]
+
+        self.reset(batch_size=batch_size)
+
+        for i in range(self._n_iter):
+            self._update(i)
+
+        image_est = self._form_image()
+        if self.post_process is not None:
+            image_est = self.post_process(image_est, self.noise_level)
+        return image_est
 
     def apply(
         self, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None, reset=True
@@ -128,4 +152,5 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             ax=ax,
             reset=reset,
         )
+        self.post_process(im)
         return im

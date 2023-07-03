@@ -55,7 +55,7 @@ reconstruction:
     mu3: 1e-4
     tau: 2e-4
   post_process: 
-    network : UnetRes  # UnetRes or DruNet
+    network : DruNet  # UnetRes or DruNet
     depth : 1 # depth of each up/downsampling layer. Ignore if network is DruNet
 
 # Train Dataset
@@ -92,8 +92,8 @@ simulation:
 #Training
 
 training:
-  batch_size: 8
-  epoch: 50
+  batch_size: 10
+  epoch: 10
 
 optimizer:
   type: Adam

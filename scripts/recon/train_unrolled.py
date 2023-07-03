@@ -135,6 +135,38 @@ def train_unrolled(
         save = os.getcwd()
 
     start_time = time.time()
+    # Load post process model
+    if config.reconstruction.post_process.network == "DruNet":
+        from lensless.util import load_drunet
+
+        post_process_model = load_drunet(
+            os.path.join(get_original_cwd(), "data/drunet_color.pth"), requires_grad=True
+        ).to(device)
+        post_process = True
+    elif config.reconstruction.post_process.network == "UnetRes":
+        from lensless.drunet.network_unet import UNetRes
+
+        n_channels = 3
+        post_process_model = UNetRes(
+            in_nc=n_channels + 1,
+            out_nc=n_channels,
+            nc=[64, 128, 256, 512],
+            nb=config.reconstruction.post_process.depth,
+            act_mode="R",
+            downsample_mode="strideconv",
+            upsample_mode="convtranspose",
+        )
+        post_process = True
+
+    # convert model to function
+    if "post_process_model" in locals():
+        from lensless.util import process_with_DruNet
+
+        post_process = process_with_DruNet(post_process_model, device=device, mode="train")
+    else:
+        post_process = None
+    pre_process = None
+
     if config.reconstruction.method == "unrolled_fista":
         recon = UnrolledFISTA(
             psf,
@@ -142,33 +174,11 @@ def train_unrolled(
             tk=config.reconstruction.unrolled_fista.tk,
             pad=True,
             learn_tk=config.reconstruction.unrolled_fista.learn_tk,
+            pre_process=pre_process,
+            post_process=post_process,
         ).to(device)
         n_iter = config.reconstruction.unrolled_fista.n_iter
     elif config.reconstruction.method == "unrolled_admm":
-        if config.reconstruction.post_process.network == "DruNet":
-            from lensless.util import load_drunet
-
-            post_process = load_drunet(
-                os.path.join(get_original_cwd(), "data/drunet_color.pth"), requires_grad=True
-            ).to(device)
-        elif config.reconstruction.post_process.network == "UnetRes":
-            from lensless.drunet.network_unet import UNetRes
-
-            n_channels = 3
-            post_process = UNetRes(
-                in_nc=n_channels + 1,
-                out_nc=n_channels,
-                nc=[64, 128, 256, 512],
-                nb=config.reconstruction.post_process.depth,
-                act_mode="R",
-                downsample_mode="strideconv",
-                upsample_mode="convtranspose",
-            )
-        else:
-            post_process = None
-
-        pre_process = None
-
         recon = UnrolledADMM(
             psf,
             n_iter=config.reconstruction.unrolled_admm.n_iter,
@@ -185,6 +195,10 @@ def train_unrolled(
 
     # print number of parameters
     print(f"Training model with {sum(p.numel() for p in recon.parameters())} parameters")
+    if "post_process_model" in locals():
+        print(
+            f"Post processing model with {sum(p.numel() for p in post_process_model.parameters())} parameters"
+        )
     # transform from BGR to RGB
     transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
 
@@ -240,7 +254,11 @@ def train_unrolled(
 
     # optimizer
     if config.optimizer.type == "Adam":
-        optimizer = torch.optim.Adam(recon.parameters(), lr=config.optimizer.lr)
+        # the parameters of the base model and extra porcess must be added separatly
+        parameters = [{"params": recon.parameters()}]
+        if "post_process_model" in locals():
+            parameters.append({"params": post_process_model.parameters()})
+        optimizer = torch.optim.Adam(parameters, lr=config.optimizer.lr)
     else:
         raise ValueError(f"Unsuported optimizer : {config.optimizer.type}")
     algorithm = config.reconstruction.method
@@ -274,6 +292,10 @@ def train_unrolled(
     for param in recon.parameters():
         if param.requires_grad:
             param.register_hook(detect_nan)
+    if "post_process_model" in locals():
+        for param in post_process_model.parameters():
+            if param.requires_grad:
+                param.register_hook(detect_nan)
 
     # Training loop
     for epoch in range(config.training.epoch):
@@ -319,6 +341,8 @@ def train_unrolled(
                 loss_v = loss_v + config.lpips * torch.mean(loss_lpips(2 * y_pred - 1, 2 * y - 1))
             loss_v.backward()
             torch.nn.utils.clip_grad_norm_(recon.parameters(), 1.0)
+            if "post_process_model" in locals():
+                torch.nn.utils.clip_grad_norm_(post_process_model.parameters(), 1.0)
             optimizer.step()
 
             mean_loss += (loss_v.item() - mean_loss) * (1 / i)

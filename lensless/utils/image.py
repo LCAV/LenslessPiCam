@@ -377,3 +377,32 @@ def apply_denoizer(model, image, noise_level=10, device="cpu", mode="inference")
     image = image.movedim(-3, -1)
     image = image.reshape(-1, depth, *image.shape[-3:])
     return image
+
+
+def process_with_DruNet(model, device="cpu", mode="inference"):
+    """
+    Return a porcessing function that applies the DruNet model to an image.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        DruNet like denoiser model
+    device : str
+        Device to use for computation. Can be "cpu" or "cuda".
+    mode : str
+        Mode to use for model. Can be "inference" or "train".
+    """
+
+    def process(image, noise_level):
+        x_max = torch.amax(image, dim=(-2, -3), keepdim=True) + 1e-6
+        image = apply_denoizer(
+            model,
+            image,
+            noise_level=noise_level,
+            device=device,
+            mode="train",
+        )
+        image = torch.clip(image, min=0.0) * x_max
+        return image
+
+    return process
