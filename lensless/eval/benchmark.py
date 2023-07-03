@@ -283,7 +283,7 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
         prediction = prediction.reshape(-1, *prediction.shape[-3:]).movedim(-1, -3)
         lensed = lensed.reshape(-1, *lensed.shape[-3:]).movedim(-1, -3)
         # normalization
-        prediction_max = torch.amax(prediction, dim=(1, 2, 3), keepdim=True)
+        prediction_max = torch.amax(prediction, dim=(-1, -2, -3), keepdim=True)
         if torch.all(prediction_max != 0):
             prediction = prediction / prediction_max
         else:
