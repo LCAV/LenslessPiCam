@@ -313,7 +313,7 @@ def load_drunet(model_path, n_channels=3):
     return model
 
 
-def apply_CWH_denoizer(model, image, noise_level_model=10):
+def apply_CWH_denoizer(model, image, noise_level=10, device="cpu"):
     """
     Apply a pre-trained denoizing model with CHW support.
 
@@ -340,12 +340,13 @@ def apply_CWH_denoizer(model, image, noise_level_model=10):
     right = (8 - image.shape[-1] % 8) - left
     image = torch.nn.functional.pad(image, (left, right, top, bottom), mode="constant", value=0)
     # add noise level as extra channel
+    image = image.to(device)
     image = torch.cat(
         (
             image,
-            torch.FloatTensor([noise_level_model / 255.0]).repeat(
-                1, 1, image.shape[2], image.shape[3]
-            ),
+            torch.FloatTensor([noise_level / 255.0])
+            .repeat(1, 1, image.shape[2], image.shape[3])
+            .to(device),
         ),
         dim=1,
     )
