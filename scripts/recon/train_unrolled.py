@@ -294,7 +294,8 @@ def train_unrolled(
 
             loss_v = Loss(y_pred, y)
             if config.lpips:
-                loss_v = loss_v + config.lpips * torch.mean(loss_lpips(y_pred, y))
+                # value for LPIPS needs to be in range [-1, 1]
+                loss_v = loss_v + config.lpips * torch.mean(loss_lpips(2 * y_pred - 1, 2 * y - 1))
             loss_v.backward()
             torch.nn.utils.clip_grad_norm_(recon.parameters(), 1.0)
             optimizer.step()
