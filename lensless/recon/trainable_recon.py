@@ -162,5 +162,6 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             ax=ax,
             reset=reset,
         )
-        self.post_process(im)
+        if self.post_process is not None:
+            im = self.post_process(im)
         return im
