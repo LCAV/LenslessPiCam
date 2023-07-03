@@ -26,8 +26,8 @@ import numpy as np
 from enum import Enum
 from cv2 import resize
 
-from lensless.image_utils import rgb2gray
-from lensless.io import load_image
+from lensless.utils.image import rgb2gray
+from lensless.utils.io import load_image
 
 
 class SensorOptions(Enum):

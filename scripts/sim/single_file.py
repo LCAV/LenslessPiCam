@@ -12,17 +12,17 @@ Reconstruct with ADMM and evaluate.
 
 import hydra
 from hydra.utils import to_absolute_path
-from lensless.io import save_image
-from lensless.image_utils import rgb2gray
+from lensless.utils.io import save_image
+from lensless.utils.image import rgb2gray
 import numpy as np
 import matplotlib.pyplot as plt
 from lensless import ADMM
-from lensless.eval.plot import plot_image
+from lensless.utils.plot import plot_image
 from lensless.eval.metric import mse, psnr, ssim, lpips
 from waveprop.simulation import FarFieldSimulator
 import os
 
-from lensless.io import load_image, load_psf
+from lensless.utils.io import load_image, load_psf
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="simulate_single_file")

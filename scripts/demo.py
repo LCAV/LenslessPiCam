@@ -5,14 +5,14 @@ import subprocess
 import numpy as np
 import time
 from pprint import pprint
-from lensless.eval.plot import plot_image, pixel_histogram
-from lensless.io import save_image
-from lensless.image_utils import resize
+from lensless.utils.plot import plot_image, pixel_histogram
+from lensless.utils.io import save_image
+from lensless.utils.image import resize
 import cv2
 import matplotlib.pyplot as plt
 from lensless import FISTA, ADMM
 from lensless.hardware.utils import check_username_hostname, display
-from lensless.io import load_image, load_psf
+from lensless.utils.io import load_image, load_psf
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="demo")

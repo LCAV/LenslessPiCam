@@ -4,9 +4,9 @@ import cv2
 import numpy as np
 import os.path
 
-from lensless.eval.plot import plot_image
+from lensless.utils.plot import plot_image
 from lensless.hardware.constants import RPI_HQ_CAMERA_BLACK_LEVEL, RPI_HQ_CAMERA_CCM_MATRIX
-from lensless.image_utils import bayer2rgb, print_image_info, resize, rgb2gray
+from lensless.utils.image import bayer2rgb, print_image_info, resize, rgb2gray
 
 
 def load_image(

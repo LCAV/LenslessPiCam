@@ -1,4 +1,4 @@
-.. automodule:: lensless.recon
+.. automodule:: lensless.recon.recon
 
 
    Reconstruction API

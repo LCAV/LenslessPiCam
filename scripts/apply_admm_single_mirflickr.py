@@ -13,9 +13,9 @@ import hydra
 from hydra.utils import to_absolute_path
 import glob
 import numpy as np
-from lensless.image_utils import print_image_info
-from lensless.io import load_psf
-from lensless.eval.plot import plot_image
+from lensless.utils.image import print_image_info
+from lensless.utils.io import load_psf
+from lensless.utils.plot import plot_image
 import matplotlib.pyplot as plt
 from datetime import datetime
 import pathlib as plib
@@ -24,7 +24,7 @@ import random
 
 # import click
 import time
-from lensless.io import load_image
+from lensless.utils.io import load_image
 from lensless.recon.mirflickr import ADMM_MIRFLICKR, postprocess
 from lensless.eval.metric import mse, psnr, ssim, lpips
 import matplotlib

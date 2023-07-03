@@ -3,12 +3,12 @@ import hydra
 from hydra.utils import to_absolute_path
 import numpy as np
 import time
-from lensless.eval.plot import plot_image
-from lensless.io import save_image
-from lensless.image_utils import resize, gamma_correction
+from lensless.utils.plot import plot_image
+from lensless.utils.io import save_image
+from lensless.utils.image import resize, gamma_correction
 import matplotlib.pyplot as plt
 from lensless import FISTA, ADMM
-from lensless.io import load_image, load_psf
+from lensless.utils.io import load_image, load_psf
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="demo")

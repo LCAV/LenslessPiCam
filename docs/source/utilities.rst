@@ -5,7 +5,7 @@ Utilities
 Data loading
 ------------
 
-.. automodule:: lensless.io
+.. automodule:: lensless.utils.io
     :members:
     :undoc-members:
     :show-inheritance:
@@ -13,7 +13,7 @@ Data loading
 Plotting
 --------
 
-.. automodule:: lensless.eval.plot
+.. automodule:: lensless.utils.plot
     :members:
     :undoc-members:
     :show-inheritance:
@@ -21,18 +21,18 @@ Plotting
 Image processing
 ----------------
 
-.. autofunction:: lensless.image_utils.resize
+.. autofunction:: lensless.utils.image.resize
 
-.. autofunction:: lensless.image_utils.bayer2rgb
+.. autofunction:: lensless.utils.image.bayer2rgb
 
-.. autofunction:: lensless.image_utils.rgb2gray
+.. autofunction:: lensless.utils.image.rgb2gray
 
-.. autofunction:: lensless.image_utils.gamma_correction
+.. autofunction:: lensless.utils.image.gamma_correction
 
 
 Image analysis
 --------------
 
-.. autofunction:: lensless.image_utils.autocorr2d
+.. autofunction:: lensless.utils.image.autocorr2d
 
-.. autofunction:: lensless.image_utils.print_image_info
+.. autofunction:: lensless.utils.image.print_image_info

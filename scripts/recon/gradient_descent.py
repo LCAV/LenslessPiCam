@@ -14,7 +14,7 @@ import numpy as np
 import time
 import pathlib as plib
 import matplotlib.pyplot as plt
-from lensless.io import load_data
+from lensless.utils.io import load_data
 from lensless import (
     GradientDescentUpdate,
     GradientDescent,

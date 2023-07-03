@@ -3,7 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pathlib as plib
-from lensless.eval.plot import plot_image
+from lensless.utils.plot import plot_image
 
 
 def U_update(eta, image_est, param):

@@ -19,7 +19,7 @@ import numpy as np
 from time import sleep
 from PIL import Image
 from lensless.hardware.utils import get_distro
-from lensless.image_utils import bayer2rgb, rgb2gray, resize
+from lensless.utils.image import bayer2rgb, rgb2gray, resize
 from lensless.hardware.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 from fractions import Fraction
 import time

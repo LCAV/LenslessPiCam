@@ -2,7 +2,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from lensless.eval.plot import plot_image
+from lensless.utils.plot import plot_image
 import inspect
 import pathlib as plib
 

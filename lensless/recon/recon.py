@@ -153,7 +153,7 @@ import abc
 import numpy as np
 import pathlib as plib
 import matplotlib.pyplot as plt
-from lensless.eval.plot import plot_image
+from lensless.utils.plot import plot_image
 from lensless.recon.rfft_convolve import RealFFTConvolve2D
 
 try:

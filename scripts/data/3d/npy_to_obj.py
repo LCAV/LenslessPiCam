@@ -1,6 +1,6 @@
 import sys
 import numpy as np
-from lensless.image_utils import resize3d
+from lensless.utils.image import resize3d
 
 if len(sys.argv) < 2:
     print("Error : no filename provided. Aborting.")

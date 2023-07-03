@@ -1,8 +1,8 @@
 import numpy as np
 import os
 from lensless import VirtualSensor, SensorOptions
-from lensless.io import load_image
-from lensless.image_utils import rgb2gray
+from lensless.utils.io import load_image
+from lensless.utils.image import rgb2gray
 
 
 def test_sensor_size():
@@ -95,7 +95,7 @@ def test_virtual_image_from_rgb_data(save=False):
 
         # save file
         if save:
-            from lensless.io import save_image
+            from lensless.utils.io import save_image
 
             save_image(img_cap, f"test_{sensor_name}.png")
             print(sensor_name, img_cap.shape)

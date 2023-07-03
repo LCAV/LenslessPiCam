@@ -1,6 +1,6 @@
 from diffusercam_admm import apply_admm
 from lensless.recon.admm import ADMM
-from lensless.io import load_data
+from lensless.utils.io import load_data
 import time
 import pathlib as plib
 import numpy as np

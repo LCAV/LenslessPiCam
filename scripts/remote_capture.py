@@ -19,10 +19,10 @@ import rawpy
 from lensless.hardware.utils import check_username_hostname
 
 
-from lensless.image_utils import rgb2gray, print_image_info
-from lensless.eval.plot import plot_image, pixel_histogram
-from lensless.io import save_image
-from lensless.io import load_image
+from lensless.utils.image import rgb2gray, print_image_info
+from lensless.utils.plot import plot_image, pixel_histogram
+from lensless.utils.io import save_image
+from lensless.utils.io import load_image
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="demo")

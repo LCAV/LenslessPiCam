@@ -16,7 +16,7 @@ from lensless.hardware.utils import check_username_hostname
 
 # for displaying emojis
 from emoji import EMOJI_DATA
-from lensless.io import load_psf
+from lensless.utils.io import load_psf
 from pilmoji import Pilmoji
 
 from telegram import __version__ as TG_VER
@@ -875,7 +875,7 @@ def main(config) -> None:
 
     # load and downsample PSF beforehand
     if config.psf is not None:
-        from lensless.io import save_image
+        from lensless.utils.io import save_image
 
         psf, bg = load_psf(
             config.psf.fp, downsample=config.psf.downsample, return_float=True, return_bg=True
@@ -886,7 +886,7 @@ def main(config) -> None:
         save_image(psf[0], PSF_FP)
 
         # save with gamma correction
-        from lensless.image_utils import gamma_correction
+        from lensless.utils.image import gamma_correction
 
         psf_gamma = gamma_correction(psf[0], gamma=1.5)
         save_image(psf_gamma, PSF_FP_GAMMA)

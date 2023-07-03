@@ -22,7 +22,7 @@ import time
 import matplotlib.pyplot as plt
 from lensless import UnrolledFISTA, UnrolledADMM
 from waveprop.dataset_util import SimulatedPytorchDataset
-from lensless.image_utils import rgb2gray
+from lensless.utils.image import rgb2gray
 from lensless.eval.benchmark import benchmark, DiffuserCamTestDataset
 import torch
 from torchvision import transforms, datasets

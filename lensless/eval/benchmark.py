@@ -9,12 +9,12 @@
 
 import glob
 import os
-from lensless.io import load_psf
-from lensless.image_utils import resize
+from lensless.utils.io import load_psf
+from lensless.utils.image import resize
 import numpy as np
 from tqdm import tqdm
 
-from lensless.io import load_image
+from lensless.utils.io import load_image
 
 try:
     import torch
@@ -23,7 +23,9 @@ try:
     from torchmetrics import StructuralSimilarityIndexMeasure
     from torchmetrics.image import lpip, psnr
 except ImportError:
-    raise ImportError("Torch, torchvision, and torchmetrics are needed to benchmark reconstruction algorithm.")
+    raise ImportError(
+        "Torch, torchvision, and torchmetrics are needed to benchmark reconstruction algorithm."
+    )
 
 
 class ParallelDataset(Dataset):
@@ -208,6 +210,7 @@ class DiffuserCamTestDataset(ParallelDataset):
 
         # transform from BGR to RGB
         from torchvision import transforms
+
         transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
 
         self.psf = transform_BRG2RGB(torch.from_numpy(psf))
