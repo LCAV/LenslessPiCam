@@ -25,7 +25,7 @@ def load_image(
 ):
     """
     Load image as numpy array.
-    
+
     Parameters
     ----------
     fp : str
@@ -147,7 +147,7 @@ def load_psf(
     * (Optionally) subtract background. Recommended.
     * (Optionally) resize to more manageable size
     * (Optionally) normalize within [0, 1] if using for reconstruction; otherwise cast back to uint for analysis.
-    
+
     Parameters
     ----------
     fp : str
@@ -179,6 +179,7 @@ def load_psf(
         Whether to sum RGB channels into single PSF, same across channels. Done
         in "Learned reconstructions for practical mask-based lensless imaging"
         of Kristina Monakhova et. al.
+
     Returns
     -------
     psf : :py:class:`~numpy.ndarray`
@@ -335,7 +336,7 @@ def load_data(
         Whether to sum RGB channels into single PSF, same across channels. Done
         in "Learned reconstructions for practical mask-based lensless imaging"
         of Kristina Monakhova et. al.
-    
+
     Returns
     -------
     psf : :py:class:`~numpy.ndarray`
