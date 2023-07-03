@@ -276,3 +276,87 @@ def autocorr2d(vals, pad_mode="reflect"):
 
     # remove padding
     return autocorr[shape[0] // 2 : -shape[0] // 2, shape[1] // 2 : -shape[1] // 2]
+
+
+def load_drunet(model_path, n_channels=3):
+    """
+    Load a pre-trained Drunet model.
+
+    Parameters
+    ----------
+    model_path : str
+        Path to pre-trained model.
+    n_channels : int
+        Number of channels in input image.
+
+    Returns
+    -------
+    model : :py:class:`~torch.nn.Module`
+        Loaded model.
+    """
+    from lensless.drunet.network_unet import UNetRes
+
+    model = UNetRes(
+        in_nc=n_channels + 1,
+        out_nc=n_channels,
+        nc=[64, 128, 256, 512],
+        nb=4,
+        act_mode="R",
+        downsample_mode="strideconv",
+        upsample_mode="convtranspose",
+    )
+    model.load_state_dict(torch.load(model_path), strict=True)
+    model.eval()
+    for k, v in model.named_parameters():
+        v.requires_grad = False
+
+    return model
+
+
+def apply_CWH_denoizer(model, image, noise_level_model=10):
+    """
+    Apply a pre-trained denoizing model with CHW support.
+
+    Parameters
+    ----------
+    model : :py:class:`~torch.nn.Module`
+        Loaded model.
+    image : :py:class:`~torch.Tensor`
+        Input image.
+
+    Returns
+    -------
+    image : :py:class:`~torch.Tensor`
+        Reconstructed image.
+    """
+    # convert from NDHWC to NCHW
+    depth = image.shape[-4]
+    image = image.movedim(-1, -3)
+    image = image.reshape(-1, *image.shape[-3:])
+    # pad image H and W to next multiple of 8
+    top = (8 - image.shape[-2] % 8) // 2
+    bottom = (8 - image.shape[-2] % 8) - top
+    left = (8 - image.shape[-1] % 8) // 2
+    right = (8 - image.shape[-1] % 8) - left
+    image = torch.nn.functional.pad(image, (left, right, top, bottom), mode="constant", value=0)
+    # add noise level as extra channel
+    image = torch.cat(
+        (
+            image,
+            torch.FloatTensor([noise_level_model / 255.0]).repeat(
+                1, 1, image.shape[2], image.shape[3]
+            ),
+        ),
+        dim=1,
+    )
+
+    # apply model
+    with torch.no_grad():
+        image = model(image)
+
+    # remove padding
+    image = image[:, :, top:-bottom, left:-right]
+    # convert back to NDHWC
+    image = image.movedim(-3, -1)
+    image = image.reshape(-1, depth, *image.shape[-3:])
+    return image
