@@ -2,7 +2,7 @@ from waveprop.dataset_util import SimulatedDatasetFolder
 import hydra
 from hydra.utils import to_absolute_path
 import os
-from lensless.io import load_psf
+from lensless.utils.io import load_psf
 import torch
 from torchvision.transforms import ToTensor
 import time

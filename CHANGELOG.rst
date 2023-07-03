@@ -24,6 +24,7 @@ Changed
 ~~~~~~~
 
 - Simpler remote capture and display scripts with Hydra.
+- Group source code into four modules: ``hardware``, ``recon``, ``utils``, ``eval``.
 
 
 Bugfix

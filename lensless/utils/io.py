@@ -1,21 +1,12 @@
-# #############################################################################
-# io.py
-# =================
-# Authors :
-# Eric BEZZAM [ebezzam@gmail.com]
-# Julien SAHLI [julien.sahli@epfl.ch]
-# #############################################################################
-
-
-import os.path
-import subprocess
-import cv2
-from PIL import Image
-import numpy as np
 import warnings
-from lensless.util import resize, bayer2rgb, rgb2gray, print_image_info
-from lensless.plot import plot_image
-from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
+from PIL import Image
+import cv2
+import numpy as np
+import os.path
+
+from lensless.utils.plot import plot_image
+from lensless.hardware.constants import RPI_HQ_CAMERA_BLACK_LEVEL, RPI_HQ_CAMERA_CCM_MATRIX
+from lensless.utils.image import bayer2rgb, print_image_info, resize, rgb2gray
 
 
 def load_image(
@@ -62,7 +53,6 @@ def load_image(
         height, width, color).
     downsample : int, optional
         Downsampling factor. Recommended for image reconstruction.
-
     Returns
     -------
     img : :py:class:`~numpy.ndarray`
@@ -153,10 +143,10 @@ def load_psf(
     Load and process PSF for analysis or for reconstruction.
 
     Basic steps are:
-    - Load image.
-    - (Optionally) subtract background. Recommended.
-    - (Optionally) resize to more manageable size
-    - (Optionally) normalize within [0, 1] if using for reconstruction; otherwise cast back to uint for analysis.
+    * Load image.
+    * (Optionally) subtract background. Recommended.
+    * (Optionally) resize to more manageable size
+    * (Optionally) normalize within [0, 1] if using for reconstruction; otherwise cast back to uint for analysis.
 
     Parameters
     ----------
@@ -464,52 +454,3 @@ def save_image(img, fp, max_val=255):
 
     img = Image.fromarray(img)
     img.save(fp)
-
-
-def display_image(
-    fp,
-    rpi_username,
-    rpi_hostname,
-    screen_res,
-    brightness=100,
-    rot90=0,
-    pad=0,
-    vshift=0,
-    hshift=0,
-    **kwargs,
-):
-    """
-    Display image on a screen.
-
-    Assumes setup described here: https://lensless.readthedocs.io/en/latest/measurement.html#remote-display
-
-    Parameters
-    ----------
-    fp : str
-        File path to image.
-    rpi_username : str
-        Username of Raspberry Pi.
-    rpi_hostname : str
-        Hostname of Raspberry Pi.
-    screen_res : tuple
-        Screen resolution of Raspberry Pi.
-
-    """
-
-    # assumes that `LenslessPiCam` is in home directory and environment inside `LenslessPiCam`
-    rpi_python = "~/LenslessPiCam/lensless_env/bin/python"
-    script = "~/LenslessPiCam/scripts/prep_display_image.py"
-    remote_tmp_file = "~/tmp_display.png"
-    display_path = "~/LenslessPiCam_display/test.png"
-
-    os.system('scp %s "%s@%s:%s" ' % (fp, rpi_username, rpi_hostname, remote_tmp_file))
-
-    # run script on Raspberry Pi to prepare image to display
-    prep_command = f"{rpi_python} {script} --fp {remote_tmp_file} \
-        --pad {pad} --vshift {vshift} --hshift {hshift} --screen_res {screen_res[0]} {screen_res[1]} \
-        --brightness {brightness} --rot90 {rot90} --output_path {display_path} "
-    # print(f"COMMAND : {prep_command}")
-    subprocess.Popen(
-        ["ssh", "%s@%s" % (rpi_username, rpi_hostname), prep_command],
-        shell=False,
-    )

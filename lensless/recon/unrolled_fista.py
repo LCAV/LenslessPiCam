@@ -6,9 +6,8 @@
 # #############################################################################
 
 import numpy as np
-from lensless.trainable_recon import TrainableReconstructionAlgorithm
-from lensless.gradient_descent import non_neg
-
+from lensless.recon.trainable_recon import TrainableReconstructionAlgorithm
+from lensless.recon.gd import non_neg
 
 try:
     import torch

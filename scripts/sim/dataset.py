@@ -9,15 +9,17 @@ This script shows:
 
 import hydra
 from hydra.utils import to_absolute_path
-from lensless.io import load_image, load_psf, save_image
-from lensless.util import rgb2gray, resize
+from lensless.utils.io import save_image
+from lensless.utils.image import rgb2gray, resize
 import numpy as np
 from lensless import ADMM
-from lensless.metric import mse, psnr, ssim, lpips, LPIPS_MIN_DIM
+from lensless.eval.metric import mse, psnr, ssim, lpips, LPIPS_MIN_DIM
 from waveprop.simulation import FarFieldSimulator
 import glob
 import os
 from tqdm import tqdm
+
+from lensless.utils.io import load_image, load_psf
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="simulate_dataset")

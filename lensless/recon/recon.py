@@ -153,8 +153,8 @@ import abc
 import numpy as np
 import pathlib as plib
 import matplotlib.pyplot as plt
-from lensless.plot import plot_image
-from lensless.rfft_convolve import RealFFTConvolve2D
+from lensless.utils.plot import plot_image
+from lensless.recon.rfft_convolve import RealFFTConvolve2D
 
 try:
     import torch

@@ -6,7 +6,7 @@
 # #############################################################################
 
 import abc
-from lensless.recon import ReconstructionAlgorithm
+from lensless.recon.recon import ReconstructionAlgorithm
 
 try:
     import torch

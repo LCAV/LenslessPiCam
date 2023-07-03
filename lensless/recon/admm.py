@@ -8,7 +8,7 @@
 
 
 import numpy as np
-from lensless.recon import ReconstructionAlgorithm
+from lensless.recon.recon import ReconstructionAlgorithm
 from scipy import fft
 
 try:

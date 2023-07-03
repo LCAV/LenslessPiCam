@@ -19,7 +19,7 @@ import os
 import pathlib as plib
 from shutil import copyfile
 from PIL import Image
-from lensless.mirflickr import postprocess
+from lensless.recon.mirflickr import postprocess
 
 
 @click.command()
