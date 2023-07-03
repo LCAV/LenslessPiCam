@@ -288,6 +288,8 @@ def load_drunet(model_path, n_channels=3, requires_grad=False):
         Path to pre-trained model.
     n_channels : int
         Number of channels in input image.
+    requires_grad : bool
+        Whether to require gradients for model parameters.
 
     Returns
     -------
@@ -323,6 +325,12 @@ def apply_CWH_denoizer(model, image, noise_level=10, device="cpu", mode="inferen
         Loaded model.
     image : :py:class:`~torch.Tensor`
         Input image.
+    noise_level : float or :py:class:`~torch.Tensor`
+        Noise level in the image.
+    device : str
+        Device to use for computation. Can be "cpu" or "cuda".
+    mode : str
+        Mode to use for model. Can be "inference" or "train".
 
     Returns
     -------

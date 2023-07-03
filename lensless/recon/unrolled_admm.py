@@ -74,6 +74,8 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         norm : str
             Normalization to use for the convolution. Options are "forward",
             "backward", and "ortho". Default is "backward".
+        post_process : :py:class:`function`, optional
+            Function to apply to the image estimate after the whole ADMM algorithm.
         """
 
         super(UnrolledADMM, self).__init__(
