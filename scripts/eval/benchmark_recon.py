@@ -37,8 +37,8 @@ def benchmark_recon(config):
     n_iter_range = config.n_iter_range
 
     # check if GPU is available
-    if torch.cuda.is_available():
-        device = "cuda"
+    if torch.cuda.is_available() and config.device[:4] == "cuda":
+        device = config.device
     else:
         device = "cpu"
 
