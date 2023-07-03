@@ -113,7 +113,9 @@ def train_unrolled(
 
     # benchmarking dataset:
     path = os.path.join(get_original_cwd(), "data")
-    benchmark_dataset = DiffuserCamTestDataset(data_dir=path)
+    benchmark_dataset = DiffuserCamTestDataset(
+        data_dir=path, downsample=config.simulation.downsample
+    )
 
     psf = benchmark_dataset.psf.to(device)
     background = benchmark_dataset.background
