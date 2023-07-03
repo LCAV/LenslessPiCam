@@ -18,8 +18,8 @@ Added
 - Link and citation for JOSS.
 - Authors at top of source code files.
 - Add paramiko as dependency for remote capture and display.
-- Support for postprocessing in unrolled_ADMM. Both trainable and fix postprocessing can be used.
-- Utilities to load a trained DruNet model for use as postprocessing in unrolled_ADMM. 
+- Support for postprocessing, such as denoising, in ``TrainableReconstructionAlgorithm``. Both trainable and fix postprocessing can be used.
+- Utilities to load a trained DruNet model for use as postprocessing in ``TrainableReconstructionAlgorithm``. 
 
 
 Changed

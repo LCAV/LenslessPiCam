@@ -256,10 +256,10 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
         metrics = {
             "MSE": MSELoss().to(device),
             "MAE": L1Loss().to(device),
-            "LPIPS_V": lpip.LearnedPerceptualImagePatchSimilarity(
+            "LPIPS_Vgg": lpip.LearnedPerceptualImagePatchSimilarity(
                 net_type="vgg", normalize=True
             ).to(device),
-            "LPIPS_A": lpip.LearnedPerceptualImagePatchSimilarity(
+            "LPIPS_Alex": lpip.LearnedPerceptualImagePatchSimilarity(
                 net_type="alex", normalize=True
             ).to(device),
             "PSNR": psnr.PeakSignalNoiseRatio().to(device),

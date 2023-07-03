@@ -116,12 +116,12 @@ def benchmark_recon(config):
     # Baseline results
     baseline_results = {
         "MSE": 0.0618,
-        "LPIPS_A": 0.4434,
+        "LPIPS_Alex": 0.4434,
         "ReconstructionError": 13.70,
     }
 
     # for each metrics plot the results comparing each model
-    metrics_to_plot = ["SSIM", "PSNR", "MSE", "LPIPS_V", "LPIPS_A", "ReconstructionError"]
+    metrics_to_plot = ["SSIM", "PSNR", "MSE", "LPIPS_Vgg", "LPIPS_Alex", "ReconstructionError"]
     for metric in metrics_to_plot:
         plt.figure()
         # plot benchmarked algorithm

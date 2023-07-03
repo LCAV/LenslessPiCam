@@ -315,9 +315,10 @@ def load_drunet(model_path, n_channels=3, requires_grad=False):
     return model
 
 
-def apply_CWH_denoizer(model, image, noise_level=10, device="cpu", mode="inference"):
+def apply_denoizer(model, image, noise_level=10, device="cpu", mode="inference"):
     """
-    Apply a pre-trained denoizing model with CHW support.
+    Apply a pre-trained denoising model with input in the format Channel, Height, Width.
+    An additionnal channel is added for the noise level as done in Drunet.
 
     Parameters
     ----------
