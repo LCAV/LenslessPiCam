@@ -27,7 +27,7 @@
    .. autoclass:: lensless.FISTA
       :special-members: __init__
 
-   .. autofunction:: lensless.gradient_descent.non_neg
+   .. autofunction:: lensless.recon.gd.non_neg
 
 
    ADMM
@@ -36,13 +36,13 @@
    .. autoclass:: lensless.ADMM
       :special-members: __init__
 
-   .. autofunction:: lensless.admm.soft_thresh
+   .. autofunction:: lensless.recon.admm.soft_thresh
 
-   .. autofunction:: lensless.admm.finite_diff
+   .. autofunction:: lensless.recon.admm.finite_diff
 
-   .. autofunction:: lensless.admm.finite_diff_adj
+   .. autofunction:: lensless.recon.admm.finite_diff_adj
 
-   .. autofunction:: lensless.admm.finite_diff_gram
+   .. autofunction:: lensless.recon.admm.finite_diff_gram
 
    Accelerated Proximal Gradient Descent (APGD)
    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -61,7 +61,7 @@
    
 
    .. autoclass:: lensless.TrainableReconstructionAlgorithm
-      :members: batch_call, apply, get_image_est, reset, set_data
+      :members: batch_call, apply, reset, set_data
       :special-members: __init__
       :show-inheritance:
 

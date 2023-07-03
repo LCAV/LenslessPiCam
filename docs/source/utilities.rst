@@ -13,27 +13,26 @@ Data loading
 Plotting
 --------
 
-.. automodule:: lensless.plot
+.. automodule:: lensless.eval.plot
     :members:
     :undoc-members:
     :show-inheritance:
 
-
 Image processing
 ----------------
 
-.. autofunction:: lensless.util.resize
+.. autofunction:: lensless.image_utils.resize
 
-.. autofunction:: lensless.util.bayer2rgb
+.. autofunction:: lensless.image_utils.bayer2rgb
 
-.. autofunction:: lensless.util.rgb2gray
+.. autofunction:: lensless.image_utils.rgb2gray
 
-.. autofunction:: lensless.util.gamma_correction
+.. autofunction:: lensless.image_utils.gamma_correction
 
 
 Image analysis
 --------------
 
-.. autofunction:: lensless.util.autocorr2d
+.. autofunction:: lensless.image_utils.autocorr2d
 
-.. autofunction:: lensless.util.print_image_info
+.. autofunction:: lensless.image_utils.print_image_info

@@ -22,9 +22,8 @@ try:
     from torch.nn import MSELoss, L1Loss
     from torchmetrics import StructuralSimilarityIndexMeasure
     from torchmetrics.image import lpip, psnr
-    from torchvision import transforms
 except ImportError:
-    raise ImportError("Torch and torchmetrics are needed to benchmark reconstruction algorithm")
+    raise ImportError("Torch, torchvision, and torchmetrics are needed to benchmark reconstruction algorithm.")
 
 
 class ParallelDataset(Dataset):
@@ -208,6 +207,7 @@ class DiffuserCamTestDataset(ParallelDataset):
         )
 
         # transform from BGR to RGB
+        from torchvision import transforms
         transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
 
         self.psf = transform_BRG2RGB(torch.from_numpy(psf))

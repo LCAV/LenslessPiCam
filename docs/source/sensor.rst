@@ -1,14 +1,14 @@
-.. automodule:: lensless.sensor
+.. automodule:: lensless.hardware.sensor
 
 
    Options
    ~~~~~~~
 
-   .. autoclass:: lensless.sensor.SensorOptions
+   .. autoclass:: lensless.hardware.sensor.SensorOptions
 
    Virtual Sensor
    ~~~~~~~~~~~~~~
 
-   .. autoclass:: lensless.sensor.VirtualSensor
+   .. autoclass:: lensless.hardware.sensor.VirtualSensor
       :members:
       :special-members: __init__
