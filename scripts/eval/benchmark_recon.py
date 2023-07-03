@@ -113,6 +113,13 @@ def benchmark_recon(config):
                 else:
                     unrolled_results[model_name][metric] = result[metric]
 
+    # Baseline results
+    baseline_results = {
+        "MSE": 0.0618,
+        "LPIPS": 0.4434,
+        "ReconstructionError": 13.70,
+    }
+
     # for each metrics plot the results comparing each model
     metrics_to_plot = ["SSIM", "PSNR", "MSE", "LPIPS", "ReconstructionError"]
     for metric in metrics_to_plot:
@@ -123,6 +130,16 @@ def benchmark_recon(config):
                 [result["n_iter"] for result in results[model_name]],
                 [result[metric] for result in results[model_name]],
                 label=model_name,
+            )
+        # plot baseline as horizontal dotted line
+        if metric in baseline_results.keys():
+            plt.hlines(
+                baseline_results[metric],
+                0,
+                max(n_iter_range),
+                linestyles="dashed",
+                label="Unrolled MONAKHOVA 5iter",
+                color="orange",
             )
 
         # plot unrolled algorithms results
@@ -136,8 +153,10 @@ def benchmark_recon(config):
                 plot_name = model_name
 
             # set color depending on plot name using same color for same algorithm
+            first = False
             if plot_name not in algorithm_colors.keys():
                 algorithm_colors[plot_name] = color_list.pop()
+                first = True
             color = algorithm_colors[plot_name]
 
             # check if metric is defined
@@ -155,17 +174,25 @@ def benchmark_recon(config):
                 )
             else:
                 # plot as point
-                plt.plot(
-                    unrolled_results[model_name]["n_iter"],
-                    unrolled_results[model_name][metric],
-                    label=plot_name,
-                    marker="o",
-                    color=color,
-                )
+                if first:
+                    plt.plot(
+                        unrolled_results[model_name]["n_iter"],
+                        unrolled_results[model_name][metric],
+                        label=plot_name,
+                        marker="o",
+                        color=color,
+                    )
+                else:
+                    plt.plot(
+                        unrolled_results[model_name]["n_iter"],
+                        unrolled_results[model_name][metric],
+                        marker="o",
+                        color=color,
+                    )
         plt.title(metric)
         plt.xlabel("Number of iterations")
         plt.ylabel(metric)
-        plt.legend()
+        plt.legend(fontsize="8")
         plt.savefig(f"{metric}.png")
 
 
