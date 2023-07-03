@@ -145,14 +145,29 @@ def train_unrolled(
         ).to(device)
         n_iter = config.reconstruction.unrolled_fista.n_iter
     elif config.reconstruction.method == "unrolled_admm":
-        if config.reconstruction.post_process == "DruNet":
+        if config.reconstruction.post_process.network == "DruNet":
             from lensless.util import load_drunet
 
             post_process = load_drunet(
                 os.path.join(get_original_cwd(), "data/drunet_color.pth"), requires_grad=True
             ).to(device)
+        elif config.reconstruction.post_process.network == "UnetRes":
+            from lensless.drunet.network_unet import UNetRes
+
+            n_channels = 3
+            post_process = UNetRes(
+                in_nc=n_channels + 1,
+                out_nc=n_channels,
+                nc=[64, 128, 256, 512],
+                nb=config.reconstruction.post_process.depth,
+                act_mode="R",
+                downsample_mode="strideconv",
+                upsample_mode="convtranspose",
+            )
         else:
             post_process = None
+
+        pre_process = None
 
         recon = UnrolledADMM(
             psf,
@@ -161,6 +176,7 @@ def train_unrolled(
             mu2=config.reconstruction.unrolled_admm.mu2,
             mu3=config.reconstruction.unrolled_admm.mu3,
             tau=config.reconstruction.unrolled_admm.tau,
+            pre_process=pre_process,
             post_process=post_process,
         ).to(device)
         n_iter = config.reconstruction.unrolled_admm.n_iter
@@ -228,8 +244,10 @@ def train_unrolled(
     else:
         raise ValueError(f"Unsuported optimizer : {config.optimizer.type}")
     algorithm = config.reconstruction.method
-    if config.reconstruction.post_process == "DruNet":
+    if config.reconstruction.post_process.network == "DruNet":
         algorithm += "_DruNet"
+    elif config.reconstruction.post_process.network == "UnetRes":
+        algorithm += "_UnetRes"
     metrics = {
         "LOSS": [],
         "MSE": [],

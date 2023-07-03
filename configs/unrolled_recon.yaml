@@ -27,7 +27,7 @@ preprocess:
 display:
   # How many iterations to wait for intermediate plot. 
   # Set to negative value for no intermediate plots.
-  disp: 100
+  disp: 400
   # Whether to plot results.
   plot: True
   # Gamma factor for plotting.
@@ -48,13 +48,15 @@ reconstruction:
     learn_tk: True
   unrolled_admm:
     # Number of iterations
-    n_iter: 1
+    n_iter: 5
     # Hyperparameters
     mu1: 1e-4
     mu2: 1e-4
     mu3: 1e-4
     tau: 2e-4
-  post_process: DruNet
+  post_process: 
+    network : DruNet  # UnetRes or DruNet
+    depth : 1 # depth of each up/downsampling layer. Ignore if network is DruNet
 
 # Train Dataset
 
@@ -90,8 +92,8 @@ simulation:
 #Training
 
 training:
-  batch_size: 16
-  epoch: 10
+  batch_size: 8
+  epoch: 50
 
 optimizer:
   type: Adam
