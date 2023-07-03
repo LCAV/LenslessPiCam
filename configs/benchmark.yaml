@@ -13,7 +13,7 @@ n_files: 200
 #How much should the image be downsampled
 downsample: 8
 #algorithm to benchmark
-algorithms: ["ADMM", "ADMM_Monakhova2019", "FISTA", "GradientDescent", "NesterovGradientDescent"]
+algorithms: ["ADMM", "ADMM_Monakhova2019", "FISTA"] #["ADMM", "ADMM_Monakhova2019", "FISTA", "GradientDescent", "NesterovGradientDescent"]
 
 # Hyperparameters
 nesterov:

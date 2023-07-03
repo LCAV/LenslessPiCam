@@ -278,7 +278,7 @@ def autocorr2d(vals, pad_mode="reflect"):
     return autocorr[shape[0] // 2 : -shape[0] // 2, shape[1] // 2 : -shape[1] // 2]
 
 
-def load_drunet(model_path, n_channels=3):
+def load_drunet(model_path, n_channels=3, requires_grad=False):
     """
     Load a pre-trained Drunet model.
 
@@ -308,12 +308,12 @@ def load_drunet(model_path, n_channels=3):
     model.load_state_dict(torch.load(model_path), strict=True)
     model.eval()
     for k, v in model.named_parameters():
-        v.requires_grad = False
+        v.requires_grad = requires_grad
 
     return model
 
 
-def apply_CWH_denoizer(model, image, noise_level=10, device="cpu"):
+def apply_CWH_denoizer(model, image, noise_level=10, device="cpu", mode="inference"):
     """
     Apply a pre-trained denoizing model with CHW support.
 
@@ -341,19 +341,26 @@ def apply_CWH_denoizer(model, image, noise_level=10, device="cpu"):
     image = torch.nn.functional.pad(image, (left, right, top, bottom), mode="constant", value=0)
     # add noise level as extra channel
     image = image.to(device)
+    if isinstance(noise_level, torch.Tensor):
+        noise_level = noise_level / 255.0
+    else:
+        noise_level = torch.tensor([noise_level / 255.0]).to(device)
     image = torch.cat(
         (
             image,
-            torch.FloatTensor([noise_level / 255.0])
-            .repeat(1, 1, image.shape[2], image.shape[3])
-            .to(device),
+            noise_level.repeat(image.shape[0], 1, image.shape[2], image.shape[3]),
         ),
         dim=1,
     )
 
     # apply model
-    with torch.no_grad():
+    if mode == "inference":
+        with torch.no_grad():
+            image = model(image)
+    elif mode == "train":
         image = model(image)
+    else:
+        raise ValueError("mode must be 'inference' or 'train'")
 
     # remove padding
     image = image[:, :, top:-bottom, left:-right]

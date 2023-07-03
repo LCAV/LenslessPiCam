@@ -145,6 +145,15 @@ def train_unrolled(
         ).to(device)
         n_iter = config.reconstruction.unrolled_fista.n_iter
     elif config.reconstruction.method == "unrolled_admm":
+        if config.reconstruction.post_process == "DruNet":
+            from lensless.util import load_drunet
+
+            post_process = load_drunet(
+                os.path.join(get_original_cwd(), "data/drunet_color.pth"), requires_grad=True
+            ).to(device)
+        else:
+            post_process = None
+
         recon = UnrolledADMM(
             psf,
             n_iter=config.reconstruction.unrolled_admm.n_iter,
@@ -152,6 +161,7 @@ def train_unrolled(
             mu2=config.reconstruction.unrolled_admm.mu2,
             mu3=config.reconstruction.unrolled_admm.mu3,
             tau=config.reconstruction.unrolled_admm.tau,
+            post_process=post_process,
         ).to(device)
         n_iter = config.reconstruction.unrolled_admm.n_iter
     else:
@@ -215,6 +225,9 @@ def train_unrolled(
         optimizer = torch.optim.Adam(recon.parameters(), lr=config.optimizer.lr)
     else:
         raise ValueError(f"Unsuported optimizer : {config.optimizer.type}")
+    algorithm = config.reconstruction.method
+    if config.reconstruction.post_process == "DruNet":
+        algorithm += "_DruNet"
     metrics = {
         "LOSS": [],
         "MSE": [],
@@ -224,7 +237,7 @@ def train_unrolled(
         "SSIM": [],
         "ReconstructionError": [],
         "n_iter": n_iter,
-        "algorithm": config.reconstruction.method,
+        "algorithm": algorithm,
     }
 
     # Backward hook that detect NAN in the gradient and print the layer weights
@@ -285,8 +298,7 @@ def train_unrolled(
             optimizer.step()
 
             mean_loss += (loss_v.item() - mean_loss) * (1 / i)
-
-            pbar.set_description(f"loss : {mean_loss}")
+            pbar.set_description(f"loss : {mean_loss}, noise : {recon.noise_level.item():.4f}")
             i += 1
 
         # benchmarking
