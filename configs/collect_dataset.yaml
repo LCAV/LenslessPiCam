@@ -24,7 +24,7 @@ display:
   pad: 0
   hshift: 0
   vshift: -10
-  brightness: 50
+  brightness: 80   # max brightness
   rot90: 3
 
 capture:
@@ -32,7 +32,7 @@ capture:
   config_pause: 2
   iso: 100
   res: null
-  down: 8
-  exposure: 0.02
+  down: 4
+  exposure: 0.02    # min exposure
   awb_gains: [1.9, 1.2]  # red, blue
   # awb_gains: null

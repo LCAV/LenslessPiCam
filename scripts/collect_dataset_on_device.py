@@ -18,6 +18,11 @@ import pathlib as plib
 import shutil
 import tqdm
 from fractions import Fraction
+from PIL import Image
+
+MAX_TRIES = 6
+MIN_LEVEL = 220
+MAX_LEVEL = 254
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="collect_dataset")
@@ -97,9 +102,10 @@ def collect_dataset(config):
         # Now fix the values
         if config.capture.exposure:
             # in microseconds
-            camera.shutter_speed = int(config.capture.exposure * 1e6)
+            init_shutter_speed = int(config.capture.exposure * 1e6)
         else:
-            camera.shutter_speed = camera.exposure_speed
+            init_shutter_speed = camera.exposure_speed
+        camera.shutter_speed = init_shutter_speed
         camera.exposure_mode = "off"
 
         # AWB
@@ -114,12 +120,24 @@ def collect_dataset(config):
         camera.awb_gains = g
 
         # for parameters to settle
-        time.sleep(0.1)
+        time.sleep(5)
 
         print("Capturing at resolution: ", res)
         print("AWB gains", float(camera.awb_gains[0]), float(camera.awb_gains[1]))
 
+        # # allocate memory for image
+        # # -- https://picamera.readthedocs.io/en/release-1.13/recipes2.html#capturing-to-a-numpy-array
+        # # vertical is rounded to multiple of 16, horizontal to multiple of 32
+        # res_ver = int(np.ceil(res[0] / 16) * 16)
+        # res_hor = int(np.ceil(res[1] / 32) * 32)
+        # output = np.empty((res_ver * res_hor * 3,), dtype=np.uint8)
+
+    init_brightness = config.display.brightness
+
     # loop over files with tqdm
+    exposure_vals = []
+    brightness_vals = []
+    n_tries_vals = []
     for i, _file in enumerate(tqdm.tqdm(files), start=start_idx):
 
         # save file in output directory as PNG
@@ -140,7 +158,7 @@ def collect_dataset(config):
                 hshift = config.display.hshift
                 vshift = config.display.vshift
                 pad = config.display.pad
-                brightness = config.display.brightness
+                brightness = init_brightness
                 display_image_path = config.display.output_fp
                 rot90 = config.display.rot90
                 os.system(
@@ -150,7 +168,115 @@ def collect_dataset(config):
                 time.sleep(config.capture.delay)
 
                 # -- take picture
-                camera.capture(str(output_fp))
+                max_pixel_val = 0
+                fact = 2
+                n_tries = 0
+
+                camera.shutter_speed = init_shutter_speed
+                time.sleep(5)
+
+                current_screen_brightness = init_brightness
+                current_shutter_speed = camera.shutter_speed
+                print(f"current shutter speed: {current_shutter_speed}")
+                print(f"current screen brightness: {current_screen_brightness}")
+
+                while max_pixel_val < MIN_LEVEL or max_pixel_val > MAX_LEVEL:
+
+                    if n_tries > MAX_TRIES:
+                        print("Max number of tries reached!")
+                        break
+
+                    # # -- save to file
+                    # camera.capture(str(output_fp))
+                    # # camera.capture(str(output_fp), 'rgb')
+                    # output = np.array(Image.open(output_fp))[..., :3]
+
+                    # # -- save directly to numpy array
+                    # camera.capture(output, "rgb")
+                    # output = output.reshape((res_hor, res_ver, 3))
+                    # output = output[: res[1], : res[0], :]
+
+                    # get bayer data
+                    from lensless.hardware.constants import (
+                        RPI_HQ_CAMERA_CCM_MATRIX,
+                        RPI_HQ_CAMERA_BLACK_LEVEL,
+                    )
+                    import picamerax.array
+                    from lensless.utils.image import bayer2rgb, resize
+                    import cv2
+
+                    stream = picamerax.array.PiBayerArray(camera)
+                    camera.capture(stream, "jpeg", bayer=True)
+                    output_bayer = np.sum(stream.array, axis=2).astype(np.uint16)
+
+                    # convert to RGB
+                    output = bayer2rgb(
+                        output_bayer,
+                        nbits=12,
+                        blue_gain=float(g[1]),
+                        red_gain=float(g[0]),
+                        black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
+                        ccm=RPI_HQ_CAMERA_CCM_MATRIX,
+                        nbits_out=8,
+                    )
+
+                    if down:
+                        output = resize(output[None, ...], 1 / down, interpolation=cv2.INTER_CUBIC)[
+                            0
+                        ]
+
+                    # print range
+                    print(f"{output_fp}, range: {output.min()} - {output.max()}")
+                    max_pixel_val = output.max()
+
+                    if max_pixel_val < MIN_LEVEL:
+                        current_shutter_speed = init_shutter_speed * fact
+                        camera.shutter_speed = current_shutter_speed
+                        time.sleep(5)
+                        print(f"increasing shutter speed to {current_shutter_speed}")
+                        fact += 1
+
+                    elif max_pixel_val > MAX_LEVEL:
+
+                        current_screen_brightness = current_screen_brightness - 10
+
+                        screen_res = np.array(config.display.screen_res)
+                        hshift = config.display.hshift
+                        vshift = config.display.vshift
+                        pad = config.display.pad
+                        brightness = current_screen_brightness
+                        display_image_path = config.display.output_fp
+                        rot90 = config.display.rot90
+                        os.system(
+                            f"python scripts/prep_display_image.py --fp {_file} --output_path {display_image_path} --screen_res {screen_res[0]} {screen_res[1]} --hshift {hshift} --vshift {vshift} --pad {pad} --brightness {brightness} --rot90 {rot90}"
+                        )
+                        print(f"decreasing screen brightness to {current_screen_brightness}")
+
+                        time.sleep(config.capture.delay)
+
+                    n_tries += 1
+
+                    # save image
+                    from lensless.utils.io import save_image
+
+                    save_image(output, output_fp)
+
+                    # # check for low light / saturation
+                    # from lensless.utils.plot import pixel_histogram, plot_image
+                    # import matplotlib.pyplot as plt
+
+                    # plot_image(output)
+                    # plt.savefig("plot.png")
+
+                    # # save histogram
+                    # pixel_histogram(output, nbits=8)
+                    # plt.savefig("histogram.png")
+
+                    # import pudb; pudb.set_trace()
+
+                exposure_vals.append(current_shutter_speed / 1e6)
+                brightness_vals.append(current_screen_brightness)
+                n_tries_vals.append(n_tries)
 
         # check if runtime is exceeded
         if config.runtime:
@@ -161,6 +287,14 @@ def collect_dataset(config):
 
     proc_time = time.time() - start_time
     print(f"\nFinished, {proc_time/60.:.3f} minutes.")
+
+    # print brightness and exposure range and average
+    print(f"brightness range: {np.min(brightness_vals)} - {np.max(brightness_vals)}")
+    print(f"exposure range: {np.min(exposure_vals)} - {np.max(exposure_vals)}")
+    print(f"n_tries range: {np.min(n_tries_vals)} - {np.max(n_tries_vals)}")
+    print(f"brightness average: {np.mean(brightness_vals)}")
+    print(f"exposure average: {np.mean(exposure_vals)}")
+    print(f"n_tries average: {np.mean(n_tries_vals)}")
 
 
 if __name__ == "__main__":
