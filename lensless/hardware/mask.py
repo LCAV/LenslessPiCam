@@ -9,7 +9,7 @@ from scipy.signal import max_len_seq
 from scipy.ndimage import zoom
 from waveprop.fresnel import fresnel_conv
 from waveprop.rs import angular_spectrum
-from lensless.sensor import VirtualSensor
+from lensless.hardware.sensor import VirtualSensor
 
 
 class Mask(abc.ABC):
