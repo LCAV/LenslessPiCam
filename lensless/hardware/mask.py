@@ -80,9 +80,9 @@ class Mask(abc.ABC):
         """
         sensor = VirtualSensor.from_name(sensor_name, downsample)
         return cls(
-            sensor_size_px=tuple(sensor.resolution),
-            sensor_size_m=tuple(sensor.size),
-            feature_size=sensor.pixel_size,
+            sensor_size_px=tuple(sensor.resolution.copy()),
+            sensor_size_m=tuple(sensor.size.copy()),
+            feature_size=sensor.pixel_size.copy(),
             **kwargs
         )
 
