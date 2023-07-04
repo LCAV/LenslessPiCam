@@ -8,11 +8,12 @@ from waveprop.fresnel import fresnel_conv
 
 # warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-lambd, sensor_size, nb_px, dz = 532e-9, 5e-3, 256, 0.5e-3
-d1 = sensor_size / nb_px
-
 
 def test_flatcam():
+
+    lambd, sensor_size, nb_px, dz = 532e-9, 5e-3, 256, 0.5e-3
+    d1 = sensor_size / nb_px
+
     mask1 = CodedAperture(
         method="MURA",
         n_bits=25,
@@ -39,6 +40,10 @@ def test_flatcam():
 
 
 def test_phlatcam():
+
+    lambd, sensor_size, nb_px, dz = 532e-9, 5e-3, 256, 0.5e-3
+    d1 = sensor_size / nb_px
+
     mask = PhaseContour(
         noise_period=(8, 8),
         sensor_size_px=(380, 507),
@@ -59,6 +64,10 @@ def test_phlatcam():
 
 
 def test_fza():
+
+    lambd, sensor_size, nb_px, dz = 532e-9, 5e-3, 256, 0.5e-3
+    d1 = sensor_size / nb_px
+
     mask = FresnelZoneAperture(
         radius=30.0,
         sensor_size_px=(380, 507),
@@ -72,6 +81,7 @@ def test_fza():
 
 
 def test_classmethod():
+
     mask1 = CodedAperture.from_sensor(sensor_name="rpi_hq", downsample=8, distance_sensor=4e-3)
     assert mask1.mask.shape == (380, 507)
     assert mask1.psf.shape == (380, 507, 3)
@@ -87,7 +97,8 @@ def test_classmethod():
     assert mask3.psf.shape == (380, 507, 3)
 
 
-test_flatcam()
-test_phlatcam()
-test_fza()
-test_classmethod()
+if __name__ == "__main__":
+    test_flatcam()
+    test_phlatcam()
+    test_fza()
+    test_classmethod()
