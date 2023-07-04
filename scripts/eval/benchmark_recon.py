@@ -20,7 +20,7 @@ import glob
 import json
 import os
 import pathlib as plib
-from lensless.benchmark import benchmark, DiffuserCamTestDataset
+from lensless.eval.benchmark import benchmark, DiffuserCamTestDataset
 import matplotlib.pyplot as plt
 from lensless import ADMM, FISTA, GradientDescent, NesterovGradientDescent
 

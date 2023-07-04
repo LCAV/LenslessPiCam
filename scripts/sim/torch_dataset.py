@@ -2,8 +2,8 @@ from waveprop.dataset_util import SimulatedPytorchDataset
 import hydra
 from hydra.utils import to_absolute_path
 import os
-from lensless.io import load_psf
-from lensless.util import rgb2gray
+from lensless.utils.io import load_psf
+from lensless.utils.image import rgb2gray
 import torch
 import time
 import numpy as np
@@ -35,7 +35,7 @@ def simulate(config):
         psf = load_psf(psf_fp, downsample=config.simulation.downsample)
         if config.simulation.grayscale:
             psf = rgb2gray(psf)
-        psf = transforms.ToTensor()(psf)
+        psf = transforms.ToTensor()(psf[0])  # first depth
     else:
         assert config.simulation.output_dim is not None
         psf = None

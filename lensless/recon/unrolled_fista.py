@@ -6,9 +6,8 @@
 # #############################################################################
 
 import numpy as np
-from lensless.trainable_recon import TrainableReconstructionAlgorithm
-from lensless.gradient_descent import non_neg
-
+from lensless.recon.trainable_recon import TrainableReconstructionAlgorithm
+from lensless.recon.gd import non_neg
 
 try:
     import torch
@@ -85,7 +84,10 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
         return self._convolver.deconvolve(diff)
 
     def reset(self, batch_size=1):
-        self._image_est = self._image_init.expand(batch_size, -1, -1, -1, -1)
+        if self._initial_est is not None:
+            self._image_est = self._initial_est
+        else:
+            self._image_est = self._image_init.expand(batch_size, -1, -1, -1, -1)
         self._xk = self._image_est
 
         # enforce positivity

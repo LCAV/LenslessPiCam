@@ -1,7 +1,15 @@
+# #############################################################################
+# image_utils.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# Julien SAHLI [julien.sahli@epfl.ch]
+# #############################################################################
+
+
 import cv2
-import csv
 import numpy as np
-from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
+from lensless.hardware.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
 try:
     import torch
@@ -26,7 +34,7 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
     factor : int or float
         Resizing factor.
     shape : tuple
-        (Height, width).
+        Shape to copy ([depth,] height, width, color). If provided, (height, width) is used.
     interpolation : OpenCV interpolation method
         See https://docs.opencv.org/2.4/modules/imgproc/doc/geometric_transformations.html#cv2.resize
 
@@ -68,27 +76,40 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
     return np.clip(resized, min_val, max_val)
 
 
-def rgb2gray(rgb, weights=None):
+def rgb2gray(rgb, weights=None, keepchanneldim=True):
     """
     Convert RGB array to grayscale.
 
     Parameters
     ----------
     rgb : :py:class:`~numpy.ndarray`
-        (N_height, N_width, N_channel) image.
+        ([Depth,] Height, Width, Channel) image.
     weights : :py:class:`~numpy.ndarray`
         [Optional] (3,) weights to convert from RGB to grayscale.
+    keepchanneldim : bool
+        Whether to keep the channel dimension. Default is True.
 
     Returns
     -------
     img :py:class:`~numpy.ndarray`
-        Grayscale image of dimension (depth, height, width, 1).
+        Grayscale image of dimension ([depth,] height, width [, 1]).
 
     """
     if weights is None:
         weights = np.array([0.299, 0.587, 0.114])
     assert len(weights) == 3
-    return np.tensordot(rgb, weights, axes=((3,), 0))[:, :, :, np.newaxis]
+
+    if len(rgb.shape) == 4:
+        image = np.tensordot(rgb, weights, axes=((3,), 0))
+    elif len(rgb.shape) == 3:
+        image = np.tensordot(rgb, weights, axes=((2,), 0))
+    else:
+        raise ValueError("Input must be at least 3D.")
+
+    if keepchanneldim:
+        return image[..., np.newaxis]
+    else:
+        return image
 
 
 def gamma_correction(vals, gamma=2.2):
@@ -210,33 +231,6 @@ def bayer2rgb(
     img[img < 0] = 0
     img[img > 1] = 1
     return (img * (2**nbits_out - 1)).astype(dtype)
-
-
-def get_distro():
-    """
-    Get current OS distribution.
-
-    Returns
-    -------
-    result : str
-        Name and version of OS.
-    """
-    # https://majornetwork.net/2019/11/get-linux-distribution-name-and-version-with-python/
-    RELEASE_DATA = {}
-    with open("/etc/os-release") as f:
-        reader = csv.reader(f, delimiter="=")
-        for row in reader:
-            if row:
-                RELEASE_DATA[row[0]] = row[1]
-    if RELEASE_DATA["ID"] in ["debian", "raspbian"]:
-        with open("/etc/debian_version") as f:
-            DEBIAN_VERSION = f.readline().strip()
-        major_version = DEBIAN_VERSION.split(".")[0]
-        version_split = RELEASE_DATA["VERSION"].split(" ", maxsplit=1)
-        if version_split[0] == major_version:
-            # Just major version shown, replace it with the full version
-            RELEASE_DATA["VERSION"] = " ".join([DEBIAN_VERSION] + version_split[1:])
-    return f"{RELEASE_DATA['NAME']} {RELEASE_DATA['VERSION']}"
 
 
 def print_image_info(img):

@@ -5,9 +5,8 @@
 # Yohann PERRON [yohann.perron@gmail.com]
 # #############################################################################
 
-from lensless.trainable_recon import TrainableReconstructionAlgorithm
-from lensless.admm import soft_thresh, finite_diff, finite_diff_adj, finite_diff_gram
-
+from lensless.recon.trainable_recon import TrainableReconstructionAlgorithm
+from lensless.recon.admm import soft_thresh, finite_diff, finite_diff_adj, finite_diff_gram
 
 try:
     import torch
@@ -123,10 +122,12 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         self._tau = torch.abs(self._tau_p)
 
         # TODO initialize without padding
-
-        self._image_est = torch.zeros([1] + self._padded_shape, dtype=self._dtype).to(
-            self._psf.device
-        )
+        if self._initial_est is not None:
+            self._image_est = self._initial_est
+        else:
+            self._image_est = torch.zeros([1] + self._padded_shape, dtype=self._dtype).to(
+                self._psf.device
+            )
 
         self._X = torch.zeros_like(self._image_est)
         self._U = torch.zeros_like(self._Psi(self._image_est))

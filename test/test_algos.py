@@ -1,5 +1,6 @@
 import pytest
-from lensless.io import load_data
+from lensless.utils.io import load_data
+import numpy as np
 
 try:
     import pycsou
@@ -33,6 +34,56 @@ _n_iter = 5
 
 # classical algorithms
 standard_algos = [GradientDescent, NesterovGradientDescent, FISTA, ADMM]
+
+
+@pytest.mark.parametrize("algorithm", standard_algos)
+def test_set_initial_est(algorithm):
+    for gray in [True, False]:
+        psf, _ = load_data(
+            psf_fp=psf_fp,
+            data_fp=data_fp,
+            downsample=downsample,
+            plot=False,
+            gray=gray,
+            torch=False,
+        )
+        recon = algorithm(psf)
+        assert recon._initial_est is None
+        random_init = np.random.rand(*recon._image_est_shape)
+        recon._set_initial_estimate(random_init)
+        assert isinstance(recon._initial_est, np.ndarray)
+        assert np.allclose(recon._initial_est, random_init)
+
+        # # set from constructor
+        recon = algorithm(psf, initial_est=random_init)
+        assert isinstance(recon._initial_est, np.ndarray)
+        assert np.allclose(recon._initial_est, random_init)
+
+
+@pytest.mark.parametrize("algorithm", trainable_algos)
+def test_set_initial_est_unrolled(algorithm):
+    if not torch_is_available:
+        return
+    for gray in [True, False]:
+        psf, _ = load_data(
+            psf_fp=psf_fp,
+            data_fp=data_fp,
+            downsample=downsample,
+            plot=False,
+            gray=gray,
+            torch=True,
+        )
+        recon = algorithm(psf)
+        assert recon._initial_est is None
+        random_init = torch.rand(*recon._image_est.shape)
+        recon._set_initial_estimate(random_init)
+        assert isinstance(recon._initial_est, torch.Tensor)
+        assert np.allclose(recon._initial_est, random_init)
+
+        # set from constructor
+        recon = algorithm(psf, initial_est=random_init)
+        assert isinstance(recon._initial_est, torch.Tensor)
+        assert np.allclose(recon._initial_est, random_init)
 
 
 @pytest.mark.parametrize("algorithm", standard_algos)

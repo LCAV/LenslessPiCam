@@ -1,8 +1,17 @@
-from lensless.recon import ReconstructionAlgorithm
+# #############################################################################
+# apgd.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# Julien SAHLI [julien.sahli@epfl.ch]
+# #############################################################################
+
+
+from lensless.recon.recon import ReconstructionAlgorithm
 import inspect
 import numpy as np
 from typing import Optional
-from lensless.rfft_convolve import RealFFTConvolve2D as Convolver
+from lensless.recon.rfft_convolve import RealFFTConvolve2D as Convolver
 
 import pycsou.abc as pyca
 import pycsou.operator.func as func
@@ -208,7 +217,9 @@ class APGD(ReconstructionAlgorithm):
         )
 
     def reset(self):
-        if self._image_est is None:
+        if self._initial_est is not None:
+            self._image_est = self._initial_est
+        else:
             self._image_est = np.zeros(self._original_size, dtype=self._dtype)
 
     def _update(self, iter):

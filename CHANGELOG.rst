@@ -6,8 +6,43 @@ All notable changes to `LenslessPiCam
 
 The format is based on `Keep a Changelog <http://keepachangelog.com/en/1.0.0/>`__.
 
+
 Unreleased
 ----------
+
+Added
+~~~~~
+
+- Sensor module.
+- Single-script and Telegram demo.
+- Link and citation for JOSS.
+- Authors at top of source code files.
+- Add paramiko as dependency for remote capture and display.
+
+
+Changed
+~~~~~~~
+
+- Simpler remote capture and display scripts with Hydra.
+- Group source code into four modules: ``hardware``, ``recon``, ``utils``, ``eval``.
+
+
+Bugfix
+~~~~~~
+
+- 
+
+1.0.4 - (2023-06-14)
+--------------------
+
+Bugfix
+~~~~~~
+
+- Fix rendering of README on PyPI.
+
+
+1.0.3 - (2023-06-14)
+--------------------
 
 Added
 ~~~~~
@@ -24,6 +59,7 @@ Added
 - ``benchmark_recon.py`` script for benchmarking and comparing reconstruction algorithms.
 - Added ``reconstruction_error`` to ``ReconstructionAlgorithm`` .
 - Displaying 3D reconstructions now shows projections on all three axis
+- Added support for npy/npz image in load_image.
 
 Changed
 ~~~~~~~
@@ -38,6 +74,7 @@ Changed
 -  ``ReconstructionAlgorithm.update`` now take the number of the current iteration to allow for unrolled algorithms.
 -  ``ReconstructionAlgorithm.apply`` now takes a reset parameter (default true) to automaticaly call reset.
 -  Call to reset in ``ReconstructionAlgorithm.__init__`` is now optional (see reset parameter).
+-  Make sure image estimate is reset when reset() is called, either to zeros/mean data or to self._initial_est if set.
 
 Bugfix
 ~~~~~~

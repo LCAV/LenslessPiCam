@@ -1,0 +1,109 @@
+# hydra:
+#   job:
+#     chdir: True    # change to output folder
+
+
+fp: data/original/thumbs_up.png
+output: demo_lensless   # output folder for results
+save: True
+plot: False
+
+rpi:
+  username: null
+  hostname: null
+  python: ~/LenslessPiCam/lensless_env/bin/python
+  
+display:
+  # default to this screen: https://www.dell.com/en-us/work/shop/dell-ultrasharp-usb-c-hub-monitor-u2421e/apd/210-axmg/monitors-monitor-accessories#techspecs_section
+  screen_res: [1920, 1200]   # width, height
+  pad: 0
+  hshift: 0
+  vshift: 0
+  brightness: 100
+  rot90: 3
+
+  # display point source on screen (provide number of pixels)
+  psf: null
+  # all black screen
+  black: False
+
+capture:
+  gamma: null # for visualization
+  exp: 0.02
+  delay: 2
+  script: ~/LenslessPiCam/scripts/on_device_capture.py
+  iso: 100
+  config_pause: 2
+  sensor_mode: "0"
+  # nbits_out: 12
+  nbits_out: 8    # light data transer, doesn't seem to worsen performance
+  nbits: 12
+  legacy: True
+  gray: False
+  raw_data_fn: raw_data
+  bayer: True
+  source: white
+
+  # remote script return Bayer data, full res
+  # awb_gains: null
+  # rgb: False
+  # down: null
+
+  # remote script returns RGB data
+  rgb: True
+  down: 4
+  awb_gains: [1.9, 1.2]
+
+
+camera:
+  # these gains are not applied if rgb=True
+  red_gain: 1.9
+  blue_gain: 1.2
+  psf: data/psf/tape_rgb_31032023.png
+  background: null
+
+
+recon:
+  gamma: 2.2  # for visualization
+  downsample: 4
+  dtype: float32
+  use_torch: True
+  torch_device: cuda:0
+  
+  algo: admm
+
+  # -- fista
+  fista:
+    n_iter: 300
+    disp_iter: null
+    tk: 1
+
+  # -- admm
+  admm:
+    n_iter: 10
+    disp_iter: null
+    mu1: 1e-6
+    mu2: 1e-5
+    mu3: 4e-5
+    tau: 0.0001
+
+  # -- unrolled admm
+  unrolled_admm:
+    n_iter: 20
+    disp_iter: null
+    # download from here: https://drive.switch.ch/index.php/s/A4Aq6rTSBwzcyUP
+    checkpoint_fp: models/UnrolledADMM20_CelebA_20231306.pt
+
+  # -- unet
+  unet:
+    gpu: True
+    # download from here: https://drive.switch.ch/index.php/s/A4Aq6rTSBwzcyUP
+    model_path: models/wallerlab_unet.pb
+    # model_path: models/wallerlab_unet_inversion.pb
+    input_shape: [1, 270, 480, 3]
+
+postproc:
+  # crop in percent to extract region of interest
+  # set to null to skip
+  crop_hor: [0.22, 0.71]
+  crop_vert: [0., 0.86]
