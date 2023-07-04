@@ -98,17 +98,6 @@ target/
 
 # Datasets
 data/celeba_mini
-data/celeba_mini_tape
-
-# Cloned gGit repos
-masks/FlatCam/flatcam
-
-# YAML files
-*.yaml
-
-# Test Python files
-scripts/sim/test_single_file.py
-scripts/sim/test_dataset.py
 
 # IPython
 profile_default/
