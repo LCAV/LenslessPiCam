@@ -189,7 +189,8 @@ class VirtualSensor(object):
         """
         if name not in SensorOptions.values():
             raise ValueError(f"Sensor {name} not supported.")
-        return cls(**sensor_dict[name], downsample=downsample)
+        sensor_specs = sensor_dict[name].copy()
+        return cls(**sensor_specs, downsample=downsample)
 
     def capture(self, scene=None, bit_depth=None, bayer=False):
         """
