@@ -17,11 +17,14 @@ class Mask(abc.ABC):
     Parent Mask class
     """
 
-    def __init__(self, sensor_size_px: tuple, 
-                 sensor_size_m: tuple, 
-                 feature_size: tuple, 
-                 distance_sensor: float, 
-                 wavelength=532e-9):
+    def __init__(
+        self,
+        sensor_size_px: tuple,
+        sensor_size_m: tuple,
+        feature_size: tuple,
+        distance_sensor: float,
+        wavelength=532e-9,
+    ):
         """
         Parent mask contructor.
         Attributes common to each type of mask.
@@ -40,7 +43,7 @@ class Mask(abc.ABC):
         wavelength: float, optional
             wavelength to simulate PSF (m)
         """
-        
+
         self.mask = None
         self.psf = None
         self.phase_mask = None
@@ -51,7 +54,6 @@ class Mask(abc.ABC):
         self.wavelength = wavelength
         self.create_mask()
         self.compute_psf()
-    
 
     @classmethod
     def from_sensor(cls, sensor_name, downsample=None, **kwargs):
@@ -66,7 +68,7 @@ class Mask(abc.ABC):
             "rpi_hq", "rpi_gs", "rpi_v2", "basler_287", "basler_548"
         downsample: int
             downsampling factor
-        **kwargs: 
+        **kwargs:
             all: distance_sensor, wavelength (latter optional)
             CodedAperture: method, n_bits (both optional)
             PhaseContour: noise_period, refractive_index, n_iter (all optional)
@@ -78,12 +80,11 @@ class Mask(abc.ABC):
         """
         sensor = VirtualSensor.from_name(sensor_name, downsample)
         return cls(
-            sensor_size_px=tuple(sensor.resolution), 
-            sensor_size_m=tuple(sensor.resolution*sensor.pixel_size), 
-            feature_size=sensor.pixel_size.mean(), 
+            sensor_size_px=tuple(sensor.resolution),
+            sensor_size_m=tuple(sensor.resolution * sensor.pixel_size),
+            feature_size=sensor.pixel_size.mean(),
             **kwargs
         )
-    
 
     @abc.abstractmethod
     def create_mask(self):
@@ -92,7 +93,6 @@ class Mask(abc.ABC):
         Creating mask with subclass-specific function.
         """
         pass
-
 
     def compute_psf(self):
         """
@@ -105,10 +105,10 @@ class Mask(abc.ABC):
             d1=self.feature_size,
             dz=self.distance_sensor,
             dtype=np.float32,
-            bandlimit=True
+            bandlimit=True,
         )
         psf_2d = np.abs(amplitude) ** 2
-        self.psf = np.stack((psf_2d,)*3, axis=-1)
+        self.psf = np.stack((psf_2d,) * 3, axis=-1)
 
 
 class CodedAperture(Mask):
@@ -117,7 +117,7 @@ class CodedAperture(Mask):
     From the FlatCam article https://arxiv.org/abs/1509.00116
     """
 
-    def __init__(self, method='MLS', n_bits=8, **kwargs):
+    def __init__(self, method="MLS", n_bits=8, **kwargs):
         """
         Coded aperture mask contructor (FlatCam).
 
@@ -131,14 +131,14 @@ class CodedAperture(Mask):
             size = 4*n_bits + 1 for MURA
                    2^n - 1 for MLS
             default value: 8 (for a 255x255 MLS mask)
-        **kwargs: 
-            sensor_size_px, 
+        **kwargs:
+            sensor_size_px,
             sensor_size_m, ``
-            feature_size, 
-            distance_sensor, 
+            feature_size,
+            distance_sensor,
             wavelength (optional)
         """
-        
+
         self.row = None
         self.column = None
         self.method = method
@@ -146,18 +146,17 @@ class CodedAperture(Mask):
 
         super().__init__(**kwargs)
 
-
     def create_mask(self):
         """
         Creating coded aperture mask using either the MURA of MLS method
         """
-        assert self.method in ['MURA', 'MLS'], "Method should be either 'MLS' or 'MURA'"
-        
-            # Generating pattern
-        if self.method == 'MURA':
-            self.mask = self.squarepattern(4*self.n_bits+1)[1:,1:]
-            self.row = 2 * self.mask[0,:] - 1
-            self.column = 2 * self.mask[:,0] - 1
+        assert self.method in ["MURA", "MLS"], "Method should be either 'MLS' or 'MURA'"
+
+        # Generating pattern
+        if self.method == "MURA":
+            self.mask = self.squarepattern(4 * self.n_bits + 1)[1:, 1:]
+            self.row = 2 * self.mask[0, :] - 1
+            self.column = 2 * self.mask[:, 0] - 1
         else:
             seq = max_len_seq(self.n_bits)[0] * 2 - 1
             h_r = np.r_[seq, seq]
@@ -173,7 +172,6 @@ class CodedAperture(Mask):
             upscaled_mask = np.clip(upscaled_mask, 0, 1)
             self.mask = np.round(upscaled_mask).astype(int)
 
-
     def is_prime(self, n):
         """
         Assess whether a number is prime or not
@@ -183,10 +181,9 @@ class CodedAperture(Mask):
         n: int
             the number we want to check
         """
-        if n % 2 == 0 and n > 2: 
+        if n % 2 == 0 and n > 2:
             return False
         return all(n % i for i in range(3, int(sqrt(n)) + 1, 2))
-    
 
     def squarepattern(self, p):
         """
@@ -215,7 +212,7 @@ class PhaseContour(Mask):
     From the PhlatCam article https://ieeexplore.ieee.org/document/9076617
     """
 
-    def __init__(self, noise_period=(8,8), refractive_index=1.2, n_iter=10, **kwargs):
+    def __init__(self, noise_period=(8, 8), refractive_index=1.2, n_iter=10, **kwargs):
         """
         Phase contour mask contructor (PhlatCam).
 
@@ -224,11 +221,11 @@ class PhaseContour(Mask):
         noise_period: tuple (dim=2)
             noise period of the Perlin noise (px)
             default value: (8,8)
-        **kwargs: 
-            sensor_size_px, 
+        **kwargs:
+            sensor_size_px,
             sensor_size_m, ``
-            feature_size, 
-            distance_sensor, 
+            feature_size,
+            distance_sensor,
             wavelength (optional)
         """
 
@@ -240,36 +237,35 @@ class PhaseContour(Mask):
         self.n_iter = n_iter
 
         super().__init__(**kwargs)
-    
 
     def create_mask(self):
         """
         Creating phase contour from Perlin noise
         """
-            # Creating Perlin noise
+        # Creating Perlin noise
         proper_dim_1 = (self.sensor_size_px[0] // self.noise_period[0]) * self.noise_period[0]
         proper_dim_2 = (self.sensor_size_px[1] // self.noise_period[1]) * self.noise_period[1]
-        noise = generate_perlin_noise_2d((proper_dim_1,proper_dim_2), self.noise_period)
-        
-            # Upscaling to correspond to sensor size
+        noise = generate_perlin_noise_2d((proper_dim_1, proper_dim_2), self.noise_period)
+
+        # Upscaling to correspond to sensor size
         if self.sensor_size_px != noise.shape:
             upscale_factor_height = self.sensor_size_px[0] / noise.shape[0]
             upscale_factor_width = self.sensor_size_px[1] / noise.shape[1]
             noise = zoom(noise, (upscale_factor_height, upscale_factor_width))
 
             # Edge detection
-        binary = np.clip(np.round(np.interp(noise, (-1,1), (0,1))), a_min=0, a_max=1)
-        self.target_psf = cv.Canny(np.interp(binary, (-1,1), (0,255)).astype(np.uint8), 0, 255)
+        binary = np.clip(np.round(np.interp(noise, (-1, 1), (0, 1))), a_min=0, a_max=1)
+        self.target_psf = cv.Canny(np.interp(binary, (-1, 1), (0, 255)).astype(np.uint8), 0, 255)
 
-            # Computing mask and height map
+        # Computing mask and height map
         phase_mask, height_map = phase_retrieval(
             target_psf=self.target_psf,
-            lambd=self.wavelength, 
+            lambd=self.wavelength,
             d1=self.feature_size,
-            dz=self.distance_sensor, 
-            n=self.refractive_index, 
-            n_iter=self.n_iter, 
-            height_map=True
+            dz=self.distance_sensor,
+            n=self.refractive_index,
+            n_iter=self.n_iter,
+            height_map=True,
         )
         self.height_map = height_map
         self.phase_pattern = phase_mask
@@ -282,7 +278,7 @@ class FresnelZoneAperture(Mask):
     From the FZA article https://www.nature.com/articles/s41377-020-0289-9
     """
 
-    def __init__(self, radius=30., **kwargs):
+    def __init__(self, radius=30.0, **kwargs):
         """
         Fresnel Zone Aperture mask contructor.
 
@@ -291,25 +287,27 @@ class FresnelZoneAperture(Mask):
         radius: float
             characteristic radius of the FZA (px)
             default value: 30
-        **kwargs: 
-            sensor_size_px, 
+        **kwargs:
+            sensor_size_px,
             sensor_size_m, ``
-            feature_size, 
-            distance_sensor, 
+            feature_size,
+            distance_sensor,
             wavelength (optional)
         """
 
         self.radius = radius
-        
+
         super().__init__(**kwargs)
-        
 
     def create_mask(self):
         """
         Creating binary Fresnel Zone Aperture mask using either the MURA of MLS method
         """
         dim = self.sensor_size_px
-        x, y = np.meshgrid(np.linspace(-dim[1]/2, dim[1]/2-1, dim[1]), np.linspace(-dim[0]/2, dim[0]/2-1, dim[0]))
+        x, y = np.meshgrid(
+            np.linspace(-dim[1] / 2, dim[1] / 2 - 1, dim[1]),
+            np.linspace(-dim[0] / 2, dim[0] / 2 - 1, dim[0]),
+        )
         mask = 0.5 * (1 + np.cos(np.pi * (x**2 + y**2) / self.radius**2))
         self.mask = np.round(mask)
 
@@ -339,19 +337,18 @@ def phase_retrieval(target_psf, lambd, d1, dz, n=1.2, n_iter=10, height_map=Fals
     else:
         iterator = range(n_iter)
     for _ in iterator:
-            # back propagate from sensor to mask
+        # back propagate from sensor to mask
         M_phi = fresnel_conv(M_p, lambd, d1, -dz, dtype=np.float32)[0]
-            # constrain amplitude at mask to be unity, i.e. phase pattern
+        # constrain amplitude at mask to be unity, i.e. phase pattern
         M_phi = np.exp(1j * np.angle(M_phi))
-            # forward propagate from mask to sensor
+        # forward propagate from mask to sensor
         M_p = fresnel_conv(M_phi, lambd, d1, dz, dtype=np.float32)[0]
-            # constrain amplitude to be sqrt(PSF)
+        # constrain amplitude to be sqrt(PSF)
         M_p = np.sqrt(target_psf) * np.exp(1j * np.angle(M_p))
 
     phi = (np.angle(M_phi) + 2 * np.pi) % (2 * np.pi)
 
     if height_map:
-        return phi, lambd * phi / (2 * np.pi * (n-1))
+        return phi, lambd * phi / (2 * np.pi * (n - 1))
     else:
         return phi
-    
