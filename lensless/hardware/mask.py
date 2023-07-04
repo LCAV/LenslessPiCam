@@ -1,4 +1,5 @@
 import abc
+import warnings
 import numpy as np
 import cv2 as cv
 from math import sqrt
@@ -80,8 +81,8 @@ class Mask(abc.ABC):
         sensor = VirtualSensor.from_name(sensor_name, downsample)
         return cls(
             sensor_size_px=tuple(sensor.resolution),
-            sensor_size_m=tuple(sensor.resolution * sensor.pixel_size),
-            feature_size=sensor.pixel_size.mean(),
+            sensor_size_m=tuple(sensor.size),
+            feature_size=sensor.pixel_size,
             **kwargs
         )
 
@@ -331,6 +332,12 @@ def phase_retrieval(target_psf, lambd, d1, dz, n=1.2, n_iter=10, height_map=Fals
         default value: 10
     """
     M_p = np.sqrt(target_psf)
+
+    if hasattr(d1, "__len__"):
+        if d1[0] != d1[1]:
+            warnings.warn("Non square pixel, first dimension taken as feature size")
+        d1 = d1[0]
+
     for _ in range(n_iter):
         # back propagate from sensor to mask
         M_phi = fresnel_conv(M_p, lambd, d1, -dz, dtype=np.float32)[0]
