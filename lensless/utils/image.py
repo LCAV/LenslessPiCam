@@ -1,7 +1,15 @@
+# #############################################################################
+# image_utils.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# Julien SAHLI [julien.sahli@epfl.ch]
+# #############################################################################
+
+
 import cv2
-import csv
 import numpy as np
-from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
+from lensless.hardware.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
 try:
     import torch
@@ -224,33 +232,6 @@ def bayer2rgb(
     img[img < 0] = 0
     img[img > 1] = 1
     return (img * (2**nbits_out - 1)).astype(dtype)
-
-
-def get_distro():
-    """
-    Get current OS distribution.
-
-    Returns
-    -------
-    result : str
-        Name and version of OS.
-    """
-    # https://majornetwork.net/2019/11/get-linux-distribution-name-and-version-with-python/
-    RELEASE_DATA = {}
-    with open("/etc/os-release") as f:
-        reader = csv.reader(f, delimiter="=")
-        for row in reader:
-            if row:
-                RELEASE_DATA[row[0]] = row[1]
-    if RELEASE_DATA["ID"] in ["debian", "raspbian"]:
-        with open("/etc/debian_version") as f:
-            DEBIAN_VERSION = f.readline().strip()
-        major_version = DEBIAN_VERSION.split(".")[0]
-        version_split = RELEASE_DATA["VERSION"].split(" ", maxsplit=1)
-        if version_split[0] == major_version:
-            # Just major version shown, replace it with the full version
-            RELEASE_DATA["VERSION"] = " ".join([DEBIAN_VERSION] + version_split[1:])
-    return f"{RELEASE_DATA['NAME']} {RELEASE_DATA['VERSION']}"
 
 
 def print_image_info(img):

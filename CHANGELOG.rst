@@ -14,12 +14,17 @@ Added
 ~~~~~
 
 - Sensor module.
+- Single-script and Telegram demo.
+- Link and citation for JOSS.
+- Authors at top of source code files.
+- Add paramiko as dependency for remote capture and display.
 
 
 Changed
 ~~~~~~~
 
-- 
+- Simpler remote capture and display scripts with Hydra.
+- Group source code into four modules: ``hardware``, ``recon``, ``utils``, ``eval``.
 
 
 Bugfix
@@ -53,6 +58,7 @@ Added
 - ``train_unrolled.py`` script for training unrolled algorithms.
 - ``benchmark_recon.py`` script for benchmarking and comparing reconstruction algorithms.
 - Added ``reconstruction_error`` to ``ReconstructionAlgorithm`` .
+- Added support for npy/npz image in load_image.
 
 Changed
 ~~~~~~~

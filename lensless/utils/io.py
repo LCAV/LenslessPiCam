@@ -1,12 +1,12 @@
-import os.path
-import rawpy
-import cv2
-from PIL import Image
-import numpy as np
 import warnings
-from lensless.util import resize, bayer2rgb, rgb2gray, print_image_info
-from lensless.plot import plot_image
-from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
+from PIL import Image
+import cv2
+import numpy as np
+import os.path
+
+from lensless.utils.plot import plot_image
+from lensless.hardware.constants import RPI_HQ_CAMERA_BLACK_LEVEL, RPI_HQ_CAMERA_CCM_MATRIX
+from lensless.utils.image import bayer2rgb, print_image_info, resize, rgb2gray
 
 
 def load_image(
@@ -21,6 +21,7 @@ def load_image(
     back=None,
     nbits_out=None,
     as_4d=False,
+    downsample=None,
 ):
     """
     Load image as numpy array.
@@ -50,7 +51,8 @@ def load_image(
     as_4d : bool
         Add depth and color dimensions if necessary so that image is 4D: (depth,
         height, width, color).
-
+    downsample : int, optional
+        Downsampling factor. Recommended for image reconstruction.
     Returns
     -------
     img : :py:class:`~numpy.ndarray`
@@ -58,12 +60,16 @@ def load_image(
     """
     assert os.path.isfile(fp)
     if "dng" in fp:
+        import rawpy
+
         assert bayer
         raw = rawpy.imread(fp)
         img = raw.raw_image
         # TODO : use raw.postprocess?
         ccm = raw.color_matrix[:, :3]
         black_level = np.array(raw.black_level_per_channel[:3]).astype(np.float32)
+    elif "npy" in fp or "npz" in fp:
+        img = np.load(fp)
     else:
         img = cv2.imread(fp, cv2.IMREAD_UNCHANGED)
 
@@ -110,6 +116,9 @@ def load_image(
         elif len(img.shape) == 2:
             img = img[np.newaxis, :, :, np.newaxis]
 
+    if downsample is not None:
+        img = resize(img, factor=1 / downsample)
+
     return img
 
 
@@ -134,10 +143,10 @@ def load_psf(
     Load and process PSF for analysis or for reconstruction.
 
     Basic steps are:
-    - Load image.
-    - (Optionally) subtract background. Recommended.
-    - (Optionally) resize to more manageable size
-    - (Optionally) normalize within [0, 1] if using for reconstruction; otherwise cast back to uint for analysis.
+    * Load image.
+    * (Optionally) subtract background. Recommended.
+    * (Optionally) resize to more manageable size
+    * (Optionally) normalize within [0, 1] if using for reconstruction; otherwise cast back to uint for analysis.
 
     Parameters
     ----------
@@ -248,7 +257,8 @@ def load_psf(
         bg = np.array(bg)
 
     # resize
-    psf = resize(psf, shape=shape, factor=1 / downsample)
+    if downsample != 1:
+        psf = resize(psf, shape=shape, factor=1 / downsample)
 
     if single_psf:
         if not grayscale:
@@ -433,14 +443,11 @@ def load_data(
 def save_image(img, fp, max_val=255):
     """Save as uint8 image."""
 
+    if img.dtype == np.uint16:
+        img = img.astype(np.float32)
+
     if img.dtype == np.float64 or img.dtype == np.float32:
         img -= img.min()
-        img /= img.max()
-        img *= max_val
-        img = img.astype(np.uint8)
-
-    elif img.dtype == np.uint16:
-        img = img.astype(np.float32)
         img /= img.max()
         img *= max_val
         img = img.astype(np.uint8)

@@ -9,9 +9,13 @@ Refresh shouldn't be too fast, otherwise copying may have an issue.
 Consequently, after running this script, the displayed image will be reloaded
 on the display of the Raspberry Pi.
 ```
-python scripts/remote_display.py --fp data/original/mnist_3.png --pad 50 \
-    --hostname <IP_ADDRESS>
+python scripts/remote_display.py
 ```
+
+Check out the `configs/demo.yaml` file for parameters, specifically:
+
+- `fp`: path to image to display
+- `display`: parameters for displaying image
 
 Procedure is as follows:
 - Image is copied to Raspberry Pi
@@ -21,82 +25,24 @@ by `feh`
 """
 
 import os
-import click
 import numpy as np
 from PIL import Image
-import subprocess
+import hydra
+from lensless.hardware.utils import display
+from lensless.hardware.utils import check_username_hostname
 
 
-REMOTE_PYTHON = "~/LenslessPiCam/lensless_env/bin/python"
-REMOTE_IMAGE_PREP_SCRIPT = "~/LenslessPiCam/scripts/prep_display_image.py"
-REMOTE_DISPLAY_PATH = "~/LenslessPiCam_display/test.png"
-REMOTE_TMP_PATH = "~/tmp_display.png"
+@hydra.main(version_base=None, config_path="../configs", config_name="demo")
+def remote_display(config):
 
+    username, hostname = check_username_hostname(config.rpi.username, config.rpi.hostname)
 
-@click.command()
-@click.option(
-    "--fp",
-    type=str,
-    help="Image to display on RPi display.",
-)
-@click.option(
-    "--hostname",
-    type=str,
-    help="Hostname or IP address.",
-)
-@click.option(
-    "--pad",
-    default=0,
-    type=float,
-    help="Padding percentage.",
-)
-@click.option(
-    "--psf",
-    default=0,
-    type=int,
-    help="Number of pixels for PSF if positive",
-)
-@click.option(
-    "--black",
-    is_flag=True,
-    help="All black background",
-)
-@click.option(
-    "--vshift",
-    default=0,
-    type=float,
-    help="Vertical shift percentage.",
-)
-@click.option(
-    "--hshift",
-    default=0,
-    type=float,
-    help="Horizontal shift percentage.",
-)
-@click.option(
-    "--brightness",
-    default=100,
-    type=float,
-    help="Brightness percentage.",
-)
-@click.option(
-    "--screen_res",
-    default=None,
-    nargs=2,
-    type=int,
-    help="Screen resolution in pixels (width, height).",
-)
-def remote_display(fp, hostname, pad, vshift, brightness, psf, black, hshift, screen_res):
-    assert hostname is not None, "Provide hostname / IP address."
-
-    if screen_res:
-        shape = screen_res
-    else:
-        # create image, size of https://www.dell.com/en-us/work/shop/dell-ultrasharp-usb-c-hub-monitor-u2421e/apd/210-axmg/monitors-monitor-accessories#techspecs_section
-        shape = np.array((1920, 1200))
+    fp = config.fp
+    shape = np.array(config.display.screen_res)
+    psf = config.display.psf
+    black = config.display.black
 
     if psf:
-        assert fp is None
         point_source = np.zeros(tuple(shape) + (3,))
         mid_point = shape // 2
         start_point = mid_point - psf // 2
@@ -105,8 +51,8 @@ def remote_display(fp, hostname, pad, vshift, brightness, psf, black, hshift, sc
         fp = "tmp_display.png"
         im = Image.fromarray(point_source.astype("uint8"), "RGB")
         im.save(fp)
+
     elif black:
-        assert fp is None
         point_source = np.zeros(tuple(shape) + (3,))
         fp = "tmp_display.png"
         im = Image.fromarray(point_source.astype("uint8"), "RGB")
@@ -115,18 +61,9 @@ def remote_display(fp, hostname, pad, vshift, brightness, psf, black, hshift, sc
     """ processing on remote machine, less issues with copying """
     # copy picture to Raspberry Pi
     print("\nCopying over picture...")
-    os.system('scp %s "pi@%s:%s" ' % (fp, hostname, REMOTE_TMP_PATH))
+    display(fp=fp, rpi_username=username, rpi_hostname=hostname, **config.display)
 
-    prep_command = f"{REMOTE_PYTHON} {REMOTE_IMAGE_PREP_SCRIPT} --fp {REMOTE_TMP_PATH} \
-        --pad {pad} --vshift {vshift} --hshift {hshift} --screen_res {shape[0]} {shape[1]} \
-        --brightness {brightness} --output_path {REMOTE_DISPLAY_PATH} "
-    print(f"COMMAND : {prep_command}")
-    subprocess.Popen(
-        ["ssh", "pi@%s" % hostname, prep_command],
-        shell=False,
-    )
-
-    if psf:
+    if psf or black:
         os.remove(fp)
 
 

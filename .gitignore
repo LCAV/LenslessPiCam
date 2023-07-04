@@ -6,7 +6,11 @@ scripts/gd_*
 DiffuserCam_Mirflickr*
 paper/paper.pdf
 data/*
+models/*
 *.png
+*.jpg
+
+configs/telegram_demo_secret.yaml
 
 # from hydra
 outputs/*     

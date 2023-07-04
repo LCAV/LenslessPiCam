@@ -1,4 +1,4 @@
-from lensless.rfft_convolve import RealFFTConvolve2D
+from lensless.recon.rfft_convolve import RealFFTConvolve2D
 import numpy as np
 import torch
 

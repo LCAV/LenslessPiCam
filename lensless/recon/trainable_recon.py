@@ -1,12 +1,12 @@
 # #############################################################################
 # trainable_recon.py
-# =================
+# ==================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
 # #############################################################################
 
 import abc
-from lensless.recon import ReconstructionAlgorithm
+from lensless.recon.recon import ReconstructionAlgorithm
 
 try:
     import torch

@@ -1,5 +1,5 @@
 # #############################################################################
-# reconstruction.py
+# recon.py
 # =================
 # Authors :
 # Eric BEZZAM [ebezzam@gmail.com]
@@ -153,8 +153,8 @@ import abc
 import numpy as np
 import pathlib as plib
 import matplotlib.pyplot as plt
-from lensless.plot import plot_image
-from lensless.rfft_convolve import RealFFTConvolve2D
+from lensless.utils.plot import plot_image
+from lensless.recon.rfft_convolve import RealFFTConvolve2D
 
 try:
     import torch
@@ -511,7 +511,7 @@ class ReconstructionAlgorithm(abc.ABC):
                     plt.pause(plot_pause)
 
         final_im = self._form_image()[0]
-        if plot or save:
+        if plot:
             ax = plot_image(self._get_numpy_data(final_im), ax=ax, gamma=gamma)
             ax.set_title("Final reconstruction after {} iterations".format(n_iter))
             if save:

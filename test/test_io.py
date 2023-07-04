@@ -1,4 +1,4 @@
-from lensless.io import load_data
+from lensless.utils.io import load_data
 import numpy as np
 
 psf_fp = "data/psf/tape_rgb.png"

@@ -1,0 +1,16 @@
+defaults:
+  - demo
+  - _self_
+
+plot: False
+  
+display:
+  psf: 10
+
+capture:
+  exp: 1.8
+  down: 4
+  gray: True
+  awb_gains: [1.15,1.05]
+  nbits_out: 8
+  nbits: 8

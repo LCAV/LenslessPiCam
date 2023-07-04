@@ -31,6 +31,7 @@ setuptools.setup(
         "image>=1.5.33",
         "matplotlib>=3.4.2",
         "rawpy>=0.16.0",
+        "paramiko>=3.2.0",
     ],
     extra_requires={"dev": ["pudb", "black"]},
 )

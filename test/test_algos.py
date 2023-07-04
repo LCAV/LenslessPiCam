@@ -1,5 +1,5 @@
 import pytest
-from lensless.io import load_data
+from lensless.utils.io import load_data
 import numpy as np
 
 try:

@@ -1,3 +1,12 @@
+# #############################################################################
+# rfft_convolve.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# Julien SAHLI [julien.sahli@epfl.ch]
+# #############################################################################
+
+
 """
 2D convolution in Fourier domain, with same real-valued kernel.
 """

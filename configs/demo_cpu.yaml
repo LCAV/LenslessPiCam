@@ -1,0 +1,7 @@
+defaults:
+  - demo
+  - _self_
+
+recon:
+  downsample: 8
+  use_torch: False
