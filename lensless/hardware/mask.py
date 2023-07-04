@@ -1,5 +1,4 @@
 import abc
-import progressbar
 import numpy as np
 import cv2 as cv
 from math import sqrt
@@ -332,11 +331,7 @@ def phase_retrieval(target_psf, lambd, d1, dz, n=1.2, n_iter=10, height_map=Fals
         default value: 10
     """
     M_p = np.sqrt(target_psf)
-    if pbar:
-        iterator = progressbar.ProgressBar()(range(n_iter))
-    else:
-        iterator = range(n_iter)
-    for _ in iterator:
+    for _ in range(n_iter):
         # back propagate from sensor to mask
         M_phi = fresnel_conv(M_p, lambd, d1, -dz, dtype=np.float32)[0]
         # constrain amplitude at mask to be unity, i.e. phase pattern
