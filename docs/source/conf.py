@@ -7,6 +7,7 @@ from unittest import mock
 
 MOCK_MODULES = [
     "scipy",
+    "scipy.signal",
     "pycsou",
     "matplotlib",
     "matplotlib.pyplot",
@@ -28,7 +29,11 @@ MOCK_MODULES = [
     "PIL",
     "tqdm",
     "paramiko",
-    "paramiko.ssh_exception"
+    "paramiko.ssh_exception",
+    "perlin_numpy",
+    "waveprop",
+    "waveprop.fresnel",
+    "waveprop.rs"
 ]
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
