@@ -181,7 +181,7 @@ class VirtualSensor(object):
     @classmethod
     def from_name(cls, name, downsample=None):
         """
-        Create a sensor from one of the available options in :py:class:`~lensless.sensor.SensorOptions`.
+        Create a sensor from one of the available options in :py:class:`~lensless.hardware.sensor.SensorOptions`.
 
         Parameters
         ----------

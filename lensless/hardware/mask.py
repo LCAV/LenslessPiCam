@@ -8,7 +8,7 @@
 
 """
 Mask
-======
+====
 
 This module provides utilities to create different types of masks (Coded Aperture, Phase Contour, Fresnel Zone Aperture) and simulate the resulting PSF.
 
@@ -31,7 +31,7 @@ from lensless.hardware.sensor import VirtualSensor
 
 class Mask(abc.ABC):
     """
-    Parent Mask class
+    Parent ``Mask`` class. Attributes common to each type of mask.
     """
 
     def __init__(
@@ -43,19 +43,17 @@ class Mask(abc.ABC):
         psf_wavelength=[532e-9, 650e-9, 780e-9],
     ):
         """
-        Parent mask contructor.
-        Attributes common to each type of mask.
 
         Parameters
         ----------
         sensor_resolution: array-like (dim=2)
-            size of the sensor (px)
+            Size of the sensor (px).
         distance_sensor: float
-            distance between the mask and the sensor (m)
+            Distance between the mask and the sensor (m).
         sensor_size: array_like (dim=2)
-            size of the sensor (m)
+            Size of the sensor (m).
         feature_size: array_like (dim=2)
-            size of the feature (m)
+            Size of the feature (m).
         psf_wavelength: list, optional
             List of wavelengths to simulate PSF (m).
         """
@@ -98,25 +96,27 @@ class Mask(abc.ABC):
     @classmethod
     def from_sensor(cls, sensor_name, downsample=None, **kwargs):
         """
-        Coded aperture constructor from existing virtual sensor
-        Replace the sensor_size_px, sensor_size_m and feature_size args from __init__()
+        Constructor from existing virtual sensor that copies over the sensor parameters
+        (sensor_resolution, sensor_size, pixel size).
 
         Parameters
         ----------
         sensor_name: str
-            name of the sensor
-            "rpi_hq", "rpi_gs", "rpi_v2", "basler_287", "basler_548"
-        downsample: int
-            downsampling factor
+            Name of the sensor. See :py:class:`~lensless.hardware.sensor.SensorOptions`.
+        downsample: float, optional
+            Downsampling factor.
         **kwargs:
-            all: distance_sensor, wavelength (latter optional)
-            CodedAperture: method, n_bits (both optional)
-            PhaseContour: noise_period, refractive_index, n_iter (all optional)
-            FresnelZoneAperture: radius (optional)
+            | all: distance_sensor, wavelength (latter optional)
+            | :py:class:`~lensless.hardware.mask.CodedAperture`: method, n_bits (both optional)
+            | :py:class:`~lensless.hardware.mask.PhaseContour`: noise_period, refractive_index, n_iter (all optional)
+            | :py:class:`~lensless.hardware.mask.FresnelZoneAperture`: radius (optional)
 
         Example
-        ----------
-        mask = CodedAperture.from_sensor(sensor_name="rpi_hq", downsample=8, ...)
+        -------
+
+        .. code-block:: python
+
+            mask = CodedAperture.from_sensor(sensor_name=SensorOptions.RPI_HQ, downsample=8, ...)
         """
         sensor = VirtualSensor.from_name(sensor_name, downsample)
         return cls(
@@ -136,7 +136,7 @@ class Mask(abc.ABC):
 
     def compute_psf(self):
         """
-        Computing the intensity PSF.
+        Computing the intensity PSF with bandlimited angular spectrum (BLAS) for each wavelength.
         Common to all types of masks.
         """
         psf = np.zeros(
@@ -158,8 +158,7 @@ class Mask(abc.ABC):
 
 class CodedAperture(Mask):
     """
-    Coded aperture subclass of the Mask class
-    From the FlatCam article https://arxiv.org/abs/1509.00116
+    Coded aperture mask as in `FlatCam <https://arxiv.org/abs/1509.00116>`_.
     """
 
     def __init__(self, method="MLS", n_bits=8, **kwargs):
@@ -171,17 +170,10 @@ class CodedAperture(Mask):
         method: str
             pattern generation method (MURA or MLS)
             default value: MLS
-        n_bits: int
-            characteristic number for pattern generation
-            size = 4*n_bits + 1 for MURA
-                   2^n - 1 for MLS
-            default value: 8 (for a 255x255 MLS mask)
-        **kwargs:
-            sensor_resolution,
-            distance_sensor,
-            sensor_size (optional if feature_size is specified),
-            feature_size (optional if sensor_size is specified),
-            psf_wavelength (optional)
+        n_bits: int, optional
+            Number of bits for row/column for pattern generation.
+            size = `4*n_bits + 1` for MURA and `2^n - 1` for MLS.
+            Default is 8 (for a 255x255 MLS mask).
         """
 
         self.row = None
@@ -193,7 +185,7 @@ class CodedAperture(Mask):
 
     def create_mask(self):
         """
-        Creating coded aperture mask using either the MURA of MLS method
+        Creating coded aperture mask using either the MURA of MLS method.
         """
         assert self.method in ["MURA", "MLS"], "Method should be either 'MLS' or 'MURA'"
 
@@ -219,12 +211,12 @@ class CodedAperture(Mask):
 
     def is_prime(self, n):
         """
-        Assess whether a number is prime or not
+        Assess whether a number is prime or not.
 
         Parameters
         ----------
         n: int
-            the number we want to check
+            The number we want to check.
         """
         if n % 2 == 0 and n > 2:
             return False
@@ -232,12 +224,12 @@ class CodedAperture(Mask):
 
     def squarepattern(self, p):
         """
-        Generate MURA square pattern
+        Generate MURA square pattern.
 
         Parameters
         ----------
         p: int
-            number of bits
+            number of bits.
         """
         if not self.is_prime(p):
             raise ValueError("p is not a valid length. It must be prime.")
