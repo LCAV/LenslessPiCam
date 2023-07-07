@@ -15,3 +15,19 @@
    .. autoclass:: lensless.hardware.mask.CodedAperture
       :members:
       :special-members: __init__
+   
+
+   Phase Contour
+   ~~~~~~~~~~~~~
+
+   .. autoclass:: lensless.hardware.mask.PhaseContour
+      :members:
+      :special-members: __init__
+    
+
+   Fresnel Zone Aperture
+   ~~~~~~~~~~~~~~~~~~~~~
+
+   .. autoclass:: lensless.hardware.mask.FresnelZoneAperture
+      :members:
+      :special-members: __init__
