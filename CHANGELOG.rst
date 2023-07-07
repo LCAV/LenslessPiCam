@@ -18,6 +18,7 @@ Added
 - Link and citation for JOSS.
 - Authors at top of source code files.
 - Add paramiko as dependency for remote capture and display.
+- Mask module, for CodedAperture (FlatCam), PhaseContour (PhlatCam), and FresnelZoneAperture.
 
 
 Changed
