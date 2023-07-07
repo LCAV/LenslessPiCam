@@ -132,7 +132,7 @@ class VirtualSensor(object):
 
         Parameters
         ----------
-        pixel_size : array-like
+        pixel_size : array-like or float
             2D pixel size in meters.
         resolution : array-like
             2D resolution in pixels.
@@ -147,9 +147,16 @@ class VirtualSensor(object):
 
         """
 
+        assert len(resolution) == 2, "Resolution must be 2D"
+        self.resolution = (
+            resolution.copy()
+        )  # to not overwrite original values when using downsample
+
+        if isinstance(pixel_size, float):
+            pixel_size = np.array([pixel_size, pixel_size])
         assert len(pixel_size) == 2, "Pixel size must be 2D"
-        self.pixel_size = pixel_size
-        self.resolution = resolution
+        self.pixel_size = pixel_size.copy()
+
         self.diagonal = diagonal
         self.color = color
         if bit_depth is None:
@@ -290,7 +297,7 @@ class VirtualSensor(object):
 
         assert factor > 1, "Downsample factor must be greater than 1."
 
-        self.pixel_size *= factor
+        self.pixel_size = self.pixel_size * factor
         self.resolution = (self.resolution / factor).astype(int)
         self.size = self.pixel_size * self.resolution
         self.image_shape = self.resolution

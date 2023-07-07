@@ -30,7 +30,7 @@ Changed
 Bugfix
 ~~~~~~
 
-- 
+- Fix overwriting of sensor parameters when downsampling.
 
 1.0.4 - (2023-06-14)
 --------------------
