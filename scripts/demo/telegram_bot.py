@@ -97,14 +97,16 @@ def check_algo(algo):
 
 
 def get_user_folder(update):
-    name = update.message.from_user.full_name.replace(" ", "-")
-    user_subfolder = f"{update.message.from_user.id}_{name}"
+    # name = update.message.from_user.full_name.replace(" ", "-")
+    # user_subfolder = f"{update.message.from_user.id}_{name}"
+    user_subfolder = f"{update.message.from_user.id}"
     return os.path.join(OUTPUT_FOLDER, user_subfolder)
 
 
 def get_user_folder_from_query(query):
-    name = query.message.chat.full_name.replace(" ", "-")
-    user_subfolder = f"{query.message.chat.id}_{name}"
+    # name = query.message.from_user.full_name.replace(" ", "-")
+    # user_subfolder = f"{query.message.from_user.id}_{name}"
+    user_subfolder = f"{query.message.from_user.id}"
     return os.path.join(OUTPUT_FOLDER, user_subfolder)
 
 
