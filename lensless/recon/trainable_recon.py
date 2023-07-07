@@ -94,12 +94,12 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
         Parameters
         ----------
-        batch : :py:class:`~torch.Tensor` of shape (N, D, C, H, W)
+        batch : :py:class:`~torch.Tensor` of shape (batch, depth, channels, height, width)
             The lensless images to reconstruct.
 
         Returns
         -------
-        :py:class:`~torch.Tensor` of shape (N, D, C, H, W)
+        :py:class:`~torch.Tensor` of shape (batch, depth, channels, height, width)
             The reconstructed images.
         """
         self._data = batch

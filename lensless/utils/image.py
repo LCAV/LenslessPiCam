@@ -315,7 +315,7 @@ def load_drunet(model_path, n_channels=3, requires_grad=False):
     return model
 
 
-def apply_denoizer(model, image, noise_level=10, device="cpu", mode="inference"):
+def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference"):
     """
     Apply a pre-trained denoising model with input in the format Channel, Height, Width.
     An additionnal channel is added for the noise level as done in Drunet.
@@ -395,7 +395,7 @@ def process_with_DruNet(model, device="cpu", mode="inference"):
 
     def process(image, noise_level):
         x_max = torch.amax(image, dim=(-2, -3), keepdim=True) + 1e-6
-        image = apply_denoizer(
+        image = apply_denoiser(
             model,
             image,
             noise_level=noise_level,
