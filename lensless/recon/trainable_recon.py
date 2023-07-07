@@ -85,7 +85,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             # Otherwise, we assume it is a function.
             self.post_process = post_process
         if self.post_process is not None:
-            self.noise_level = torch.nn.Parameter(torch.tensor([1.0], device=self._psf.device))
+            self.post_process_param = torch.nn.Parameter(
+                torch.tensor([1.0], device=self._psf.device)
+            )
 
     def batch_call(self, batch):
         """
@@ -113,7 +115,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
         image_est = self._form_image()
         if self.post_process is not None:
-            image_est = self.post_process(image_est, self.noise_level)
+            image_est = self.post_process(image_est, self.post_process_param)
         return image_est
 
     def apply(
@@ -163,5 +165,5 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             reset=reset,
         )
         if self.post_process is not None:
-            im = self.post_process(im, self.noise_level)
+            im = self.post_process(im, self.post_process_param)
         return im
