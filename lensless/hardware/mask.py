@@ -1,3 +1,20 @@
+# #############################################################################
+# mask.py
+# =================
+# Authors :
+# Aaron FARGEON [aa.fargeon@gmail.com]
+# Eric BEZZAM [ebezzam@gmail.com]
+# #############################################################################
+
+"""
+Mask
+======
+
+This module provides utilities to create different types of masks (Coded Aperture, Phase Contour, Fresnel Zone Aperture) and simulate the resulting PSF.
+
+"""
+
+
 import abc
 import warnings
 import numpy as np
@@ -19,10 +36,10 @@ class Mask(abc.ABC):
 
     def __init__(
         self,
-        sensor_resolution: tuple,
-        distance_sensor: float,
-        sensor_size: tuple = None,
-        feature_size: tuple = None,
+        sensor_resolution,
+        distance_sensor,
+        sensor_size=None,
+        feature_size=None,
         psf_wavelength=[532e-9, 650e-9, 780e-9],
     ):
         """
@@ -31,17 +48,14 @@ class Mask(abc.ABC):
 
         Parameters
         ----------
-        sensor_resolution: tuple (dim=2)
+        sensor_resolution: array-like (dim=2)
             size of the sensor (px)
-        sensor_size: tuple (dim=2)
-            size of the sensor (m)
-        feature_size: float (tuple ?)
-            TODO, make it work for tuples (cf fresnel_conv)
-            size of the feature (m)
         distance_sensor: float
             distance between the mask and the sensor (m)
-        wavelength: float, optional
-            wavelength to simulate PSF (m)
+        sensor_size: array_like (dim=2)
+            size of the sensor (m)
+        feature_size: array_like (dim=2)
+            size of the feature (m)
         psf_wavelength: list, optional
             List of wavelengths to simulate PSF (m).
         """
@@ -163,11 +177,11 @@ class CodedAperture(Mask):
                    2^n - 1 for MLS
             default value: 8 (for a 255x255 MLS mask)
         **kwargs:
-            sensor_size_px,
-            sensor_size_m, ``
-            feature_size,
+            sensor_resolution,
             distance_sensor,
-            wavelength (optional)
+            sensor_size (optional if feature_size is specified),
+            feature_size (optional if sensor_size is specified),
+            psf_wavelength (optional)
         """
 
         self.row = None
@@ -257,11 +271,11 @@ class PhaseContour(Mask):
         design_wv: float
             Wavelength used to design the mask (m)
         **kwargs:
-            sensor_size_px,
-            sensor_size_m, ``
-            feature_size,
+            sensor_resolution,
             distance_sensor,
-            wavelength (optional)
+            sensor_size (optional if feature_size is specified),
+            feature_size (optional if sensor_size is specified),
+            psf_wavelength (optional)
         """
 
         self.target_psf = None
@@ -308,46 +322,6 @@ class PhaseContour(Mask):
         self.mask = np.exp(1j * phase_mask)
 
 
-class FresnelZoneAperture(Mask):
-    """
-    Fresnel Zone Aperture subclass of the Mask class
-    From the FZA article https://www.nature.com/articles/s41377-020-0289-9
-    """
-
-    def __init__(self, radius=30.0, **kwargs):
-        """
-        Fresnel Zone Aperture mask contructor.
-
-        Parameters
-        ----------
-        radius: float
-            characteristic radius of the FZA (px)
-            default value: 30
-        **kwargs:
-            sensor_size_px,
-            sensor_size_m, ``
-            feature_size,
-            distance_sensor,
-            wavelength (optional)
-        """
-
-        self.radius = radius
-
-        super().__init__(**kwargs)
-
-    def create_mask(self):
-        """
-        Creating binary Fresnel Zone Aperture mask using either the MURA of MLS method
-        """
-        dim = self.sensor_resolution
-        x, y = np.meshgrid(
-            np.linspace(-dim[1] / 2, dim[1] / 2 - 1, dim[1]),
-            np.linspace(-dim[0] / 2, dim[0] / 2 - 1, dim[0]),
-        )
-        mask = 0.5 * (1 + np.cos(np.pi * (x**2 + y**2) / self.radius**2))
-        self.mask = np.round(mask)
-
-
 def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False, pbar=False):
     """
     Iterative phase retrieval algorithm from the PhlatCam article (https://ieeexplore.ieee.org/document/9076617)
@@ -390,3 +364,43 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False, 
         return phi, wv * phi / (2 * np.pi * (n - 1))
     else:
         return phi
+
+
+class FresnelZoneAperture(Mask):
+    """
+    Fresnel Zone Aperture subclass of the Mask class
+    From the FZA article https://www.nature.com/articles/s41377-020-0289-9
+    """
+
+    def __init__(self, radius=30.0, **kwargs):
+        """
+        Fresnel Zone Aperture mask contructor.
+
+        Parameters
+        ----------
+        radius: float
+            characteristic radius of the FZA (px)
+            default value: 30
+        **kwargs:
+            sensor_resolution,
+            distance_sensor,
+            sensor_size (optional if feature_size is specified),
+            feature_size (optional if sensor_size is specified),
+            psf_wavelength (optional)
+        """
+
+        self.radius = radius
+
+        super().__init__(**kwargs)
+
+    def create_mask(self):
+        """
+        Creating binary Fresnel Zone Aperture mask using either the MURA of MLS method
+        """
+        dim = self.sensor_resolution
+        x, y = np.meshgrid(
+            np.linspace(-dim[1] / 2, dim[1] / 2 - 1, dim[1]),
+            np.linspace(-dim[0] / 2, dim[0] / 2 - 1, dim[0]),
+        )
+        mask = 0.5 * (1 + np.cos(np.pi * (x**2 + y**2) / self.radius**2))
+        self.mask = np.round(mask)
