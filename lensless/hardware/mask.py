@@ -106,7 +106,7 @@ class Mask(abc.ABC):
         downsample: float, optional
             Downsampling factor.
         **kwargs:
-            | all: distance_sensor, wavelength (latter optional)
+            | All: distance_sensor, wavelength (latter optional)
             | :py:class:`~lensless.hardware.mask.CodedAperture`: method, n_bits (both optional)
             | :py:class:`~lensless.hardware.mask.PhaseContour`: noise_period, refractive_index, n_iter (all optional)
             | :py:class:`~lensless.hardware.mask.FresnelZoneAperture`: radius (optional)
@@ -168,12 +168,18 @@ class CodedAperture(Mask):
         Parameters
         ----------
         method: str
-            pattern generation method (MURA or MLS)
-            default value: MLS
+            Pattern generation method (MURA or MLS).
+            Default is ``MLS``.
         n_bits: int, optional
             Number of bits for row/column for pattern generation.
-            size = `4*n_bits + 1` for MURA and `2^n - 1` for MLS.
+            Size is `4*n_bits + 1` for ``MURA`` and `2^n - 1` for ``MLS``.
             Default is 8 (for a 255x255 MLS mask).
+        **kwargs:
+            `sensor_resolution`,
+            `distance_sensor`,
+            `sensor_size` (optional if `feature_size` is specified),
+            `feature_size` (optional if `sensor_size` is specified),
+            `psf_wavelength` (optional)
         """
 
         self.row = None
@@ -229,7 +235,7 @@ class CodedAperture(Mask):
         Parameters
         ----------
         p: int
-            number of bits.
+            Number of bits.
         """
         if not self.is_prime(p):
             raise ValueError("p is not a valid length. It must be prime.")
@@ -258,16 +264,16 @@ class PhaseContour(Mask):
         Parameters
         ----------
         noise_period: tuple (dim=2)
-            noise period of the Perlin noise (px)
-            default value: (8,8)
+            Noise period of the Perlin noise (px).
+            Default is (8,8).
         design_wv: float
-            Wavelength used to design the mask (m)
+            Wavelength used to design the mask (m).
         **kwargs:
-            sensor_resolution,
-            distance_sensor,
-            sensor_size (optional if feature_size is specified),
-            feature_size (optional if sensor_size is specified),
-            psf_wavelength (optional)
+            `sensor_resolution`,
+            `distance_sensor`,
+            `sensor_size` (optional if `feature_size` is specified),
+            `feature_size` (optional if `sensor_size` is specified),
+            `psf_wavelength` (optional)
         """
 
         self.target_psf = None
@@ -321,17 +327,17 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False, 
     Parameters
     ----------
     lambd: float
-        wavelength (m)
+        Wavelength (m).
     d1: float
-        sample period on the sensor i.e. pixel size (m)
+        Sample period on the sensor i.e. pixel size (m).
     dz: float
-        propagation distance between the mask and the sensor
+        Propagation distance between the mask and the sensor.
     n: float
-        refractive index of the mask substrate
-        default value: 1.2
+        Refractive index of the mask substrate.
+        Default is 1.2.
     n_iter: int
         number of iterations
-        default value: 10
+        Default value is 10.
     """
     M_p = np.sqrt(target_psf)
 
@@ -374,11 +380,11 @@ class FresnelZoneAperture(Mask):
             characteristic radius of the FZA (px)
             default value: 30
         **kwargs:
-            sensor_resolution,
-            distance_sensor,
-            sensor_size (optional if feature_size is specified),
-            feature_size (optional if sensor_size is specified),
-            psf_wavelength (optional)
+            `sensor_resolution`,
+            `distance_sensor`,
+            `sensor_size` (optional if `feature_size` is specified),
+            `feature_size` (optional if `sensor_size` is specified),
+            `psf_wavelength` (optional)
         """
 
         self.radius = radius
