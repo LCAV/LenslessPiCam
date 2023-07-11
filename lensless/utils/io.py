@@ -1,12 +1,12 @@
-import os.path
-import rawpy
-import cv2
-from PIL import Image
-import numpy as np
 import warnings
-from lensless.util import resize, bayer2rgb, rgb2gray, print_image_info
-from lensless.plot import plot_image
-from lensless.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
+from PIL import Image
+import cv2
+import numpy as np
+import os.path
+
+from lensless.utils.plot import plot_image
+from lensless.hardware.constants import RPI_HQ_CAMERA_BLACK_LEVEL, RPI_HQ_CAMERA_CCM_MATRIX
+from lensless.utils.image import bayer2rgb, print_image_info, resize, rgb2gray
 
 
 def load_image(
@@ -20,6 +20,8 @@ def load_image(
     ccm=RPI_HQ_CAMERA_CCM_MATRIX,
     back=None,
     nbits_out=None,
+    as_4d=False,
+    downsample=None,
 ):
     """
     Load image as numpy array.
@@ -46,7 +48,11 @@ def load_image(
         Background level to subtract.
     nbits_out : int
         Output bit depth. Default is to use that of input.
-
+    as_4d : bool
+        Add depth and color dimensions if necessary so that image is 4D: (depth,
+        height, width, color).
+    downsample : int, optional
+        Downsampling factor. Recommended for image reconstruction.
     Returns
     -------
     img : :py:class:`~numpy.ndarray`
@@ -54,12 +60,16 @@ def load_image(
     """
     assert os.path.isfile(fp)
     if "dng" in fp:
+        import rawpy
+
         assert bayer
         raw = rawpy.imread(fp)
         img = raw.raw_image
         # TODO : use raw.postprocess?
         ccm = raw.color_matrix[:, :3]
         black_level = np.array(raw.black_level_per_channel[:3]).astype(np.float32)
+    elif "npy" in fp or "npz" in fp:
+        img = np.load(fp)
     else:
         img = cv2.imread(fp, cv2.IMREAD_UNCHANGED)
 
@@ -100,6 +110,15 @@ def load_image(
     if verbose:
         print_image_info(img)
 
+    if as_4d:
+        if len(img.shape) == 3:
+            img = img[np.newaxis, :, :, :]
+        elif len(img.shape) == 2:
+            img = img[np.newaxis, :, :, np.newaxis]
+
+    if downsample is not None:
+        img = resize(img, factor=1 / downsample)
+
     return img
 
 
@@ -118,15 +137,16 @@ def load_psf(
     nbits_out=None,
     single_psf=False,
     shape=None,
+    use_3d=False,
 ):
     """
     Load and process PSF for analysis or for reconstruction.
 
     Basic steps are:
-    - Load image.
-    - (Optionally) subtract background. Recommended.
-    - (Optionally) resize to more manageable size
-    - (Optionally) normalize within [0, 1] if using for reconstruction; otherwise cast back to uint for analysis.
+    * Load image.
+    * (Optionally) subtract background. Recommended.
+    * (Optionally) resize to more manageable size
+    * (Optionally) normalize within [0, 1] if using for reconstruction; otherwise cast back to uint for analysis.
 
     Parameters
     ----------
@@ -163,57 +183,89 @@ def load_psf(
     Returns
     -------
     psf : :py:class:`~numpy.ndarray`
-        2-D array of PSF.
+        4-D array of PSF.
     """
 
     # load image data and extract necessary channels
-    psf = load_image(
-        fp,
-        verbose=verbose,
-        flip=flip,
-        bayer=bayer,
-        blue_gain=blue_gain,
-        red_gain=red_gain,
-        nbits_out=nbits_out,
-    )
+    if use_3d:
+        assert os.path.isfile(fp)
+        if fp.endswith(".npy"):
+            psf = np.load(fp)
+        elif fp.endswith(".npz"):
+            archive = np.load(fp)
+            if len(archive.files) > 1:
+                print("Warning: more than one array in .npz archive, using first")
+            elif len(archive.files) == 0:
+                raise ValueError("No arrays in .npz archive")
+            psf = np.load(fp)[archive.files[0]]
+        else:
+            raise ValueError("File format not supported")
+    else:
+        psf = load_image(
+            fp,
+            verbose=verbose,
+            flip=flip,
+            bayer=bayer,
+            blue_gain=blue_gain,
+            red_gain=red_gain,
+            nbits_out=nbits_out,
+        )
 
     original_dtype = psf.dtype
     psf = np.array(psf, dtype=dtype)
 
-    # subtract background, assume black edges
+    if use_3d:
+        if len(psf.shape) == 3:
+            grayscale = True
+            psf = psf[:, :, :, np.newaxis]
+        else:
+            assert len(psf.shape) == 4
+            grayscale = False
 
+    else:
+        if len(psf.shape) == 3:
+            grayscale = False
+            psf = psf[np.newaxis, :, :, :]
+        else:
+            assert len(psf.shape) == 2
+            grayscale = True
+            psf = psf[np.newaxis, :, :, np.newaxis]
+
+    # check that all depths of the psf have the same shape.
+    for i in range(len(psf)):
+        assert psf[0].shape == psf[i].shape
+
+    # subtract background, assume black edges
     if bg_pix is None:
         bg = np.zeros(len(np.shape(psf)))
 
     else:
         # grayscale
-        if len(np.shape(psf)) < 3:
-            bg = np.mean(psf[bg_pix[0] : bg_pix[1], bg_pix[0] : bg_pix[1]])
+        if grayscale:
+            bg = np.mean(psf[:, bg_pix[0] : bg_pix[1], bg_pix[0] : bg_pix[1], :])
             psf -= bg
 
         # rgb
         else:
             bg = []
-            for i in range(3):
-                bg_i = np.mean(psf[bg_pix[0] : bg_pix[1], bg_pix[0] : bg_pix[1], i])
-                psf[:, :, i] -= bg_i
+            for i in range(psf.shape[3]):
+                bg_i = np.mean(psf[:, bg_pix[0] : bg_pix[1], bg_pix[0] : bg_pix[1], i])
+                psf[:, :, :, i] -= bg_i
                 bg.append(bg_i)
 
         psf = np.clip(psf, a_min=0, a_max=psf.max())
         bg = np.array(bg)
 
     # resize
-    if shape:
-        psf = resize(psf, shape=shape)
-    elif downsample != 1:
-        psf = resize(psf, factor=1 / downsample)
+    if downsample != 1:
+        psf = resize(psf, shape=shape, factor=1 / downsample)
 
     if single_psf:
-        if len(psf.shape) == 3:
+        if not grayscale:
             # TODO : in Lensless Learning, they sum channels --> `psf_diffuser = np.sum(psf_diffuser,2)`
             # https://github.com/Waller-Lab/LenslessLearning/blob/master/pre-trained%20reconstructions.ipynb
-            psf = np.sum(psf, 2)
-            psf = psf[:, :, np.newaxis]
+            psf = np.sum(psf, axis=3)
+            psf = psf[:, :, :, np.newaxis]
         else:
             warnings.warn("Notice : single_psf has no effect for grayscale psf")
             single_psf = False
@@ -307,6 +359,8 @@ def load_data(
     else:
         raise ValueError("dtype must be float32 or float64")
 
+    use_3d = psf_fp.endswith(".npy") or psf_fp.endswith(".npz")
+
     # load and process PSF data
     psf, bg = load_psf(
         psf_fp,
@@ -321,6 +375,7 @@ def load_data(
         dtype=dtype,
         single_psf=single_psf,
         shape=shape,
+        use_3d=use_3d,
     )
 
     # load and process raw measurement
@@ -329,19 +384,44 @@ def load_data(
 
     data -= bg
     data = np.clip(data, a_min=0, a_max=data.max())
+
+    if len(data.shape) == 3:
+        data = data[np.newaxis, :, :, :]
+    elif len(data.shape) == 2:
+        data = data[np.newaxis, :, :, np.newaxis]
+
     if data.shape != psf.shape:
         # in DiffuserCam dataset, images are already reshaped
-        data = resize(data, shape=psf.shape[:2])
+        data = resize(data, shape=psf.shape)
     data /= np.linalg.norm(data.ravel())
 
+    if data.shape[3] > 1 and psf.shape[3] == 1:
+        warnings.warn(
+            "Warning: loaded a grayscale PSF with RGB data. Repeating PSF across channels."
+            "This may be an error as the PSF and the data are likely from different datasets."
+        )
+        psf = np.repeat(psf, data.shape[3], axis=3)
+
+    if data.shape[3] == 1 and psf.shape[3] > 1:
+        warnings.warn(
+            "Warning: loaded a RGB PSF with grayscale data. Repeating data across channels."
+            "This may be an error as the PSF and the data are likely from different datasets."
+        )
+        data = np.repeat(data, psf.shape[3], axis=3)
+
+    if data.shape[3] != psf.shape[3]:
+        raise ValueError(
+            "PSF and data must have same number of channels, check that they are from the same dataset."
+        )
+
     if gray:
-        psf = rgb2gray(psf)
-        data = rgb2gray(data)
+        psf = np.array(rgb2gray(psf), np.newaxis)
+        data = np.array(rgb2gray(data), np.newaxis)
 
     if plot:
-        ax = plot_image(psf, gamma=gamma)
-        ax.set_title("PSF")
-        ax = plot_image(data, gamma=gamma)
+        ax = plot_image(psf[0], gamma=gamma)
+        ax.set_title("PSF of the first depth")
+        ax = plot_image(data[0], gamma=gamma)
         ax.set_title("Raw data")
 
     psf = np.array(psf, dtype=dtype)
@@ -362,6 +442,9 @@ def load_data(
 
 def save_image(img, fp, max_val=255):
     """Save as uint8 image."""
+
+    if img.dtype == np.uint16:
+        img = img.astype(np.float32)
 
     if img.dtype == np.float64 or img.dtype == np.float32:
         img -= img.min()

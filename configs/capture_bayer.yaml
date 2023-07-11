@@ -1,0 +1,36 @@
+defaults:
+  - demo
+  - _self_
+
+output: demo_lensless   # output folder for results
+save: True
+plot: True
+
+rpi:
+  username: null
+  hostname: null
+  python: ~/LenslessPiCam/lensless_env/bin/python
+
+capture:
+  gamma: null # for visualization
+  exp: 0.02
+  delay: 2
+  script: ~/LenslessPiCam/scripts/on_device_capture.py
+  iso: 100
+  config_pause: 2
+  sensor_mode: "0"
+  nbits_out: 12
+  nbits: 12
+  legacy: True
+  gray: False
+  raw_data_fn: raw_data
+  bayer: True
+  source: white
+  awb_gains: null
+  rgb: False
+  down: null
+
+
+camera:
+  red_gain: null
+  blue_gain: null

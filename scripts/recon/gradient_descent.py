@@ -14,7 +14,7 @@ import numpy as np
 import time
 import pathlib as plib
 import matplotlib.pyplot as plt
-from lensless.io import load_data
+from lensless.utils.io import load_data
 from lensless import (
     GradientDescentUpdate,
     GradientDescent,
@@ -27,7 +27,6 @@ from lensless import (
 def gradient_descent(
     config,
 ):
-
     psf, data = load_data(
         psf_fp=to_absolute_path(config.input.psf),
         data_fp=to_absolute_path(config.input.data),

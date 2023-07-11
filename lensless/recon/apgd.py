@@ -1,8 +1,17 @@
-from lensless.recon import ReconstructionAlgorithm
+# #############################################################################
+# apgd.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# Julien SAHLI [julien.sahli@epfl.ch]
+# #############################################################################
+
+
+from lensless.recon.recon import ReconstructionAlgorithm
 import inspect
 import numpy as np
 from typing import Optional
-from lensless.rfft_convolve import RealFFTConvolve2D as Convolver
+from lensless.recon.rfft_convolve import RealFFTConvolve2D as Convolver
 
 import pycsou.abc as pyca
 import pycsou.operator.func as func
@@ -25,7 +34,6 @@ class APGDPriors:
 
     @staticmethod
     def all_values():
-
         vals = []
         for i in inspect.getmembers(APGDPriors):
             # remove private and protected functions, and this function
@@ -52,8 +60,7 @@ class RealFFTConvolve2D(pyca.LinOp):
         norm : str
             Normalization to use for convolution. See :py:class:`~lensless.rfft_convolve.RealFFTConvolve2D`
         """
-
-        assert len(filter.shape) == 3
+        assert len(filter.shape) == 4, "Filter must be of shape (depth, height, width, channels)"
         self._filter_shape = np.array(filter.shape)
         self._convolver = Convolver(filter, dtype=dtype, norm=norm)
 
@@ -97,7 +104,10 @@ class APGD(ReconstructionAlgorithm):
         Parameters
         ----------
         psf : :py:class:`~numpy.ndarray`
-            PSF that models forward propagation.
+            Point spread function (PSF) that models forward propagation.
+            Must be of shape (depth, height, width, channels) even if
+            depth = 1 and channels = 1. You can use :py:func:`~lensless.io.load_psf`
+            to load a PSF from a file such that it is in the correct format.
         max_iter : int, optional
             Maximal number of iterations.
         dtype : float32 or float64
@@ -124,6 +134,8 @@ class APGD(ReconstructionAlgorithm):
             Tolerance to compute Lipschitz constant. Default is 1.
         """
 
+        assert isinstance(psf, np.ndarray), "PSF must be a numpy array"
+
         # PSF and data are the same size / shape
         self._original_shape = psf.shape
         self._original_size = psf.size
@@ -139,6 +151,7 @@ class APGD(ReconstructionAlgorithm):
         self._disp = disp
 
         # Convolution operator
+
         self._H = RealFFTConvolve2D(self._psf, dtype=dtype)
         self._H.lipschitz(tol=lipschitz_tol, tight=lipschitz_tight)
 
@@ -179,11 +192,9 @@ class APGD(ReconstructionAlgorithm):
              3D (RGB).
 
         """
-        if not self._is_rgb:
-            assert len(data.shape) == 2
-            data = data[:, :, np.newaxis]
-        assert len(self._psf_shape) == len(data.shape)
-        self._data = data
+        super(APGD, self).set_data(
+            np.repeat(data, self._original_shape[-4], axis=0)
+        )  # we repeat the data for each depth to match the size of the PSF
 
         """ Set up problem """
         # Cost function
@@ -206,9 +217,12 @@ class APGD(ReconstructionAlgorithm):
         )
 
     def reset(self):
-        self._image_est = np.zeros(self._original_size, dtype=self._dtype)
+        if self._initial_est is not None:
+            self._image_est = self._initial_est
+        else:
+            self._image_est = np.zeros(self._original_size, dtype=self._dtype)
 
-    def _update(self):
+    def _update(self, iter):
         res = next(self._apgd.steps())
         self._image_est[:] = res["x"]
 

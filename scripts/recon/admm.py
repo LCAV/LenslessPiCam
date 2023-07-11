@@ -13,13 +13,12 @@ import time
 import pathlib as plib
 import matplotlib.pyplot as plt
 import numpy as np
-from lensless.io import load_data
+from lensless.utils.io import load_data
 from lensless import ADMM
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="defaults_recon")
 def admm(config):
-
     psf, data = load_data(
         psf_fp=to_absolute_path(config.input.psf),
         data_fp=to_absolute_path(config.input.data),

@@ -1,0 +1,38 @@
+input_dir: data/celeba_mini
+input_file_ext: jpg
+
+# can pass existing folder to continue measurement
+output_dir: null
+output_file_ext: png
+
+# files to measure
+n_files: 15
+start_idx: 0        # start index, TODO implement
+
+# timing
+runtime: null   # in hours
+start_delay: null   # how much time (in minutes) to wait before starting
+
+# measurement parameters
+dummy: False    # simply copy file to output folder for testing
+
+# -- display parameters
+display:
+  output_fp: "~/LenslessPiCam_display/test.png"
+  # default to this screen: https://www.dell.com/en-us/work/shop/dell-ultrasharp-usb-c-hub-monitor-u2421e/apd/210-axmg/monitors-monitor-accessories#techspecs_section
+  screen_res: [1920, 1200]   # width, height
+  pad: 0
+  hshift: 0
+  vshift: -10
+  brightness: 50
+  rot90: 3
+
+capture:
+  delay: 2    # to allow picture to display
+  config_pause: 2
+  iso: 100
+  res: null
+  down: 8
+  exposure: 0.02
+  awb_gains: [1.9, 1.2]  # red, blue
+  # awb_gains: null
