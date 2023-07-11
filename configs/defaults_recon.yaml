@@ -61,6 +61,9 @@ admm:
   mu2: 1e-5
   mu3: 4e-5
   tau: 0.0001
+  #Loading unrolled model
+  load_unrolled: false
+  checkpoint_fp: null
 
 apgd:
   # Stopping criteria
