@@ -320,6 +320,8 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False, 
 
     Parameters
     ----------
+    target_psf: array_like
+        Target PSF to optimize the phase mask for.
     wv: float
         Wavelength (m).
     d1: float
