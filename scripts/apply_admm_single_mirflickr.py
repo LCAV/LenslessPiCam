@@ -13,9 +13,9 @@ import hydra
 from hydra.utils import to_absolute_path
 import glob
 import numpy as np
-from lensless.util import print_image_info
-from lensless.io import load_image, load_psf
-from lensless.plot import plot_image
+from lensless.utils.image import print_image_info
+from lensless.utils.io import load_psf
+from lensless.utils.plot import plot_image
 import matplotlib.pyplot as plt
 from datetime import datetime
 import pathlib as plib
@@ -24,8 +24,9 @@ import random
 
 # import click
 import time
-from lensless.mirflickr import ADMM_MIRFLICKR, postprocess
-from lensless.metric import mse, psnr, ssim, lpips
+from lensless.utils.io import load_image
+from lensless.recon.mirflickr import ADMM_MIRFLICKR, postprocess
+from lensless.eval.metric import mse, psnr, ssim, lpips
 import matplotlib
 
 font = {"family": "DejaVu Sans", "size": 18}
@@ -34,7 +35,6 @@ matplotlib.rc("font", **font)
 
 @hydra.main(version_base=None, config_path="../configs", config_name="apply_admm_single_mirflickr")
 def apply_admm(config):
-
     data = to_absolute_path(config.dataset)
     fid = config.fid
     gamma = config.display.gamma
@@ -122,7 +122,7 @@ def apply_admm(config):
 
     # -- compute metrics
     print("\nReconstruction")
-    est = recon.get_image_est()
+    est = recon.get_image_estimate()
     print_image_info(est)
 
     print("\nMSE", mse(lensed, est))

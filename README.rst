@@ -6,6 +6,11 @@ LenslessPiCam
     :target: http://lensless.readthedocs.io/en/latest/
     :alt: Documentation Status
 
+
+.. image:: https://joss.theoj.org/papers/10.21105/joss.04747/status.svg
+      :target: https://doi.org/10.21105/joss.04747
+      :alt: DOI
+
 *A Hardware and Software Toolkit for Lensless Computational Imaging with a Raspberry Pi*
 -----------------------------------------------------------------------------------------
 
@@ -47,7 +52,7 @@ For plotting, you may also need to install
 For performing measurements, the expected workflow is to have a local 
 computer which interfaces remotely with a Raspberry Pi equipped with 
 the HQ camera sensor (or V2 sensor). Instructions on building the camera
-can be found here :ref:`here<Building the camera>`.
+can be found `here <https://lensless.readthedocs.io/en/latest/building.html>`__.
 
 The software from this repository has to be installed on **both** your
 local machine and the Raspberry Pi. Note that we highly recommend using
@@ -136,7 +141,10 @@ the work that has inspired this toolkit:
 * `Build your own DiffuserCam tutorial <https://waller-lab.github.io/DiffuserCam/tutorial>`__.
 * `DiffuserCam Lensless MIR Flickr dataset <https://waller-lab.github.io/LenslessLearning/dataset.html>`__ [2]_. 
 
+A few students at EPFL have also contributed to this project:
 
+* Julien Sahli: support and extension of algorithms for 3D.
+* Yohann Perron: unrolled algorithms for reconstruction.
 
 Citing this work
 ----------------
@@ -145,12 +153,17 @@ If you use these tools in your own research, please cite the following:
 
 ::
 
-   @misc{lenslesspicam,
-       url = {https://infoscience.epfl.ch/record/294041?&ln=en},
-       author = {Bezzam, Eric and Kashani, Sepand and Vetterli, Martin and Simeoni, Matthieu},
-       title = {Lensless{P}i{C}am: A Hardware and Software Platform for Lensless Computational Imaging with a {R}aspberry {P}i},
-       publisher = {Infoscience},
-       year = {2022},
+   @article{Bezzam2023,
+      doi = {10.21105/joss.04747},
+      url = {https://doi.org/10.21105/joss.04747},
+      year = {2023},
+      publisher = {The Open Journal},
+      volume = {8},
+      number = {86},
+      pages = {4747},
+      author = {Eric Bezzam and Sepand Kashani and Martin Vetterli and Matthieu Simeoni},
+      title = {LenslessPiCam: A Hardware and Software Platform for Lensless Computational Imaging with a Raspberry Pi},
+      journal = {Journal of Open Source Software}
    }
 
 References

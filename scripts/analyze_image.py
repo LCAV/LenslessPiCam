@@ -41,9 +41,9 @@ import click
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from lensless.util import rgb2gray
-from lensless.plot import plot_image, pixel_histogram, plot_cross_section, plot_autocorr2d
-from lensless.io import load_image
+from lensless.utils.image import rgb2gray
+from lensless.utils.plot import plot_image, pixel_histogram, plot_cross_section, plot_autocorr2d
+from lensless.utils.io import load_image
 
 
 @click.command()
@@ -120,7 +120,7 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
     else:
         _, ax_gray = plt.subplots(ncols=2, nrows=1, num="Grayscale", figsize=(15, 5))
 
-    # load PSF
+    # load PSF/image
     img = load_image(
         fp,
         verbose=True,
@@ -137,7 +137,7 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
     ax = plot_image(img, gamma=gamma, normalize=True, ax=ax_rgb[0])
     ax.set_title("RGB")
 
-    img_grey = rgb2gray(img)
+    img_grey = rgb2gray(img[None, ...])
     ax = plot_image(img_grey, gamma=gamma, normalize=True, ax=ax_gray[0])
     ax.set_title("Grayscale")
 

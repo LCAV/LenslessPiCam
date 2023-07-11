@@ -1,6 +1,6 @@
 # #############################################################################
-# metric.py
-# =========
+# benchmark.py
+# =================
 # Authors :
 # Yohann PERRON
 # Eric BEZZAM [ebezzam@gmail.com]
@@ -9,10 +9,12 @@
 
 import glob
 import os
-from lensless.io import load_psf, load_image
-from lensless.util import resize
+from lensless.utils.io import load_psf
+from lensless.utils.image import resize
 import numpy as np
 from tqdm import tqdm
+
+from lensless.utils.io import load_image
 
 try:
     import torch
@@ -21,7 +23,9 @@ try:
     from torchmetrics import StructuralSimilarityIndexMeasure
     from torchmetrics.image import lpip, psnr
 except ImportError:
-    raise ImportError("Torch and torchmetrics are needed to benchmark reconstruction algorithm")
+    raise ImportError(
+        "Torch, torchvision, and torchmetrics are needed to benchmark reconstruction algorithm."
+    )
 
 
 class ParallelDataset(Dataset):
@@ -131,6 +135,12 @@ class ParallelDataset(Dataset):
         lensless = torch.from_numpy(lensless)
         lensed = torch.from_numpy(lensed)
 
+        # If [H, W, C] -> [D, H, W, C]
+        if len(lensless.shape) == 3:
+            lensless = lensless.unsqueeze(0)
+        if len(lensed.shape) == 3:
+            lensed = lensed.unsqueeze(0)
+
         if self.background is not None:
             lensless = lensless - self.background
 
@@ -145,6 +155,78 @@ class ParallelDataset(Dataset):
             lensed = self.transform_lensed(lensed)
 
         return lensless, lensed
+
+
+class DiffuserCamTestDataset(ParallelDataset):
+    """
+    Dataset consisting of lensless and corresponding lensed image. This is the standard dataset used for benchmarking.
+    """
+
+    def __init__(
+        self,
+        data_dir="data",
+        n_files=200,
+        downsample=8,
+    ):
+        """
+        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the test set of DiffuserCam
+        Lensless Mirflickr Dataset (DLMD).
+
+        Parameters
+        ----------
+        data_dir : str, optional
+            The path to the folder containing the DiffuserCam_Test dataset, by default "data"
+        n_files : int, optional
+            Number of image pair to load in the dataset , by default 200
+        downsample : int, optional
+            Downsample factor of the lensless images, by default 8
+        """
+        # download dataset if necessary
+        main_dir = data_dir
+        data_dir = os.path.join(data_dir, "DiffuserCam_Test")
+        if not os.path.isdir(data_dir):
+            print("No dataset found for benchmarking.")
+            try:
+                from torchvision.datasets.utils import download_and_extract_archive
+            except ImportError:
+                exit()
+            msg = "Do you want to download the sample dataset (3.5GB)?"
+
+            # default to yes if no input is given
+            valid = input("%s (Y/n) " % msg).lower() != "n"
+            if valid:
+                url = "https://drive.switch.ch/index.php/s/D3eRJ6PRljfHoH8/download"
+                filename = "DiffuserCam_Test.zip"
+                download_and_extract_archive(url, main_dir, filename=filename, remove_finished=True)
+
+        psf_fp = os.path.join(data_dir, "psf.tiff")
+        psf, background = load_psf(
+            psf_fp,
+            downsample=downsample,
+            return_float=True,
+            return_bg=True,
+            bg_pix=(0, 15),
+        )
+
+        # transform from BGR to RGB
+        from torchvision import transforms
+
+        transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
+
+        self.psf = transform_BRG2RGB(torch.from_numpy(psf))
+
+        super().__init__(
+            data_dir,
+            n_files,
+            background,
+            downsample,
+            flip=False,
+            transform_lensless=transform_BRG2RGB,
+            transform_lensed=transform_BRG2RGB,
+            lensless_fn="diffuser",
+            lensed_fn="lensed",
+            image_ext="npy",
+        )
 
 
 def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
@@ -177,6 +259,7 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
             "LPIPS": lpip.LearnedPerceptualImagePatchSimilarity(net_type="vgg").to(device),
             "PSNR": psnr.PeakSignalNoiseRatio().to(device),
             "SSIM": StructuralSimilarityIndexMeasure().to(device),
+            "ReconstructionError": None,
         }
     metrics_values = {key: 0.0 for key in metrics}
 
@@ -184,28 +267,35 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
     dataloader = DataLoader(dataset, batch_size=batchsize, pin_memory=(device != "cpu"))
     model.reset()
     for lensless, lensed in tqdm(dataloader):
-        lensless = lensless.to(device).squeeze()
-        lensed = lensed.to(device).permute(0, 3, 1, 2)
+        lensless = lensless.to(device)
+        lensed = lensed.to(device)
 
         # compute predictions
         with torch.no_grad():
             if batchsize == 1:
                 model.set_data(lensless)
-                prediction = model.apply(plot=False, save=False, **kwargs)[None, :, :, :].permute(
-                    0, 3, 1, 2
-                )
-            else:
-                prediction = model.batch_call(lensless, **kwargs).permute(0, 3, 1, 2)
+                prediction = model.apply(plot=False, save=False, **kwargs)
 
+            else:
+                prediction = model.batch_call(lensless, **kwargs)
+
+        # Convert to [N*D, C, H, W] for torchmetrics
+        prediction = prediction.reshape(-1, *prediction.shape[-3:]).movedim(-1, -3)
+        lensed = lensed.reshape(-1, *lensed.shape[-3:]).movedim(-1, -3)
         # normalization
         prediction_max = torch.amax(prediction, dim=(1, 2, 3), keepdim=True)
-        prediction = prediction / prediction_max
+        if torch.all(prediction_max != 0):
+            prediction = prediction / prediction_max
+        else:
+            print("Warning: prediction is zero")
         lensed_max = torch.amax(lensed, dim=(1, 2, 3), keepdim=True)
         lensed = lensed / lensed_max
-
         # compute metrics
         for metric in metrics:
-            metrics_values[metric] += metrics[metric](prediction, lensed).cpu().item()
+            if metric == "ReconstructionError":
+                metrics_values[metric] += model.reconstruction_error().cpu().item()
+            else:
+                metrics_values[metric] += metrics[metric](prediction, lensed).cpu().item()
 
         model.reset()
 
@@ -219,10 +309,9 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
 if __name__ == "__main__":
     from lensless import ADMM
 
-    downsample = 4
+    downsample = 1.0
     batchsize = 1
     n_files = 10
-    image_ext = "npy"
     n_iter = 100
 
     # check if GPU is available
@@ -231,39 +320,12 @@ if __name__ == "__main__":
     else:
         device = "cpu"
 
-    # download dataset if necessary
-    data = "data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11"
-    if not os.path.isdir(data):
-        print("No dataset found for benchmarking.")
-        try:
-            from torchvision.datasets.utils import download_and_extract_archive
-        except ImportError:
-            exit()
-        msg = "Do you want to download the sample dataset (725MB)?"
-
-        # default to yes if no input is given
-        valid = input("%s (Y/n) " % msg).lower() != "n"
-        if valid:
-            url = "https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE/download"
-            filename = "DiffuserCam_Mirflickr_200_3011302021_11h43_seed11.zip"
-            download_and_extract_archive(url, "data/", filename=filename, remove_finished=True)
-
     # prepare dataset
-    psf_fp = os.path.join(data, "psf.tiff")
-    psf_float, background = load_psf(
-        psf_fp,
-        downsample=downsample,
-        return_float=True,
-        return_bg=True,
-        bg_pix=(0, 15),
-    )
-    dataset = ParallelDataset(
-        data, n_files=n_files, background=background, downsample=downsample, image_ext=image_ext
-    )
+    dataset = DiffuserCamTestDataset(n_files=n_files, downsample=downsample)
 
     # prepare model
-    psf = torch.from_numpy(psf_float).to(device)
-    model = ADMM(psf, max_iter=n_iter)
+    psf = dataset.psf.to(device)
+    model = ADMM(psf, n_iter=n_iter)
 
     # run benchmark
     print(benchmark(model, dataset, batchsize=batchsize))

@@ -1,3 +1,11 @@
+# #############################################################################
+# constants.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# #############################################################################
+
+
 import numpy as np
 
 # estimated here: https://www.strollswithmydog.com/open-raspberry-pi-high-quality-camera-raw

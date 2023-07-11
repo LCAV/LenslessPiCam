@@ -9,24 +9,43 @@ This script shows:
 
 import hydra
 from hydra.utils import to_absolute_path
-from lensless.io import load_image, load_psf, save_image
-from lensless.util import rgb2gray, resize
+from lensless.utils.io import save_image
+from lensless.utils.image import rgb2gray, resize
 import numpy as np
 from lensless import ADMM
-from lensless.metric import mse, psnr, ssim, lpips, LPIPS_MIN_DIM
+from lensless.eval.metric import mse, psnr, ssim, lpips, LPIPS_MIN_DIM
 from waveprop.simulation import FarFieldSimulator
 import glob
 import os
 from tqdm import tqdm
 
+from lensless.utils.io import load_image, load_psf
+
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="simulate_dataset")
 def simulate(config):
 
+    # set seed
+    np.random.seed(config.seed)
+
     dataset = to_absolute_path(config.files.dataset)
-    assert os.path.exists(
-        dataset
-    ), f"Dataset {dataset} does not exist. Download from `celeb_mini` from: https://drive.switch.ch/index.php/s/Q5OdDQMwhucIlt8"
+    if not os.path.isdir(dataset):
+        print(f"No dataset found at {dataset}")
+        try:
+            from torchvision.datasets.utils import download_and_extract_archive, download_url
+        except ImportError:
+            exit()
+        msg = "Do you want to download the sample CelebA dataset (764KB)?"
+
+        # default to yes if no input is given
+        valid = input("%s (Y/n) " % msg).lower() != "n"
+        if valid:
+            url = "https://drive.switch.ch/index.php/s/Q5OdDQMwhucIlt8/download"
+            filename = "celeb_mini.zip"
+            download_and_extract_archive(
+                url, os.path.dirname(dataset), filename=filename, remove_finished=True
+            )
+
     psf_fp = to_absolute_path(config.files.psf)
     assert os.path.exists(psf_fp), f"PSF {psf_fp} does not exist."
 
@@ -41,13 +60,16 @@ def simulate(config):
     # load psf as numpy array
     print("\nPSF:")
     psf = load_psf(psf_fp, verbose=True, downsample=config.simulation.downsample)
-    if config.simulation.grayscale and len(psf.shape) == 3:
-        psf = rgb2gray(psf)
+
+    # remove depth dimension, as 3D not supported by FarFieldSimulator
+    psf_sim = psf[0]
+    if config.simulation.grayscale and len(psf_sim.shape) == 3:
+        psf_sim = rgb2gray(psf_sim)
     if config.simulation.downsample > 1:
-        print(f"Downsampled to {psf.shape}.")
+        print(f"Downsampled to {psf_sim.shape}.")
 
     # prepare simulator object
-    simulator = FarFieldSimulator(psf=psf, **config.simulation)
+    simulator = FarFieldSimulator(psf=psf_sim, **config.simulation)
 
     # loop over files in dataset
     print("\nSimulating dataset...")
@@ -103,13 +125,14 @@ def simulate(config):
         files = glob.glob(os.path.join(save_dir, "sensor_plane", "*.png"))
         if config.files.n_files is not None:
             files = files[: config.files.n_files]
+
         for fp in tqdm(files):
 
-            lensless = load_image(fp)
+            lensless = load_image(fp, as_4d=True)
             lensless = lensless / np.max(lensless)
             recon.set_data(lensless)
-            res = recon.apply(n_iter=config.admm.n_iter, disp_iter=config.admm.disp_iter)
-            recovered = res[0]
+            res, _ = recon.apply(n_iter=config.admm.n_iter, disp_iter=config.admm.disp_iter)
+            recovered = res[0]  # first depth
 
             if config.save.bool:
                 bn = os.path.basename(fp).split(".")[0] + ".png"

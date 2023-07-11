@@ -2,7 +2,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from lensless.plot import plot_image
+from lensless.utils.plot import plot_image
 import inspect
 import pathlib as plib
 
@@ -88,7 +88,6 @@ def calcAHerm(Hadj, diff, pad):
 
 
 def gd_update(params, parent_var):
-
     # extract variables
     vk = params["vk"]
     H, Hadj, b, crop, pad, alpha, proj = parent_var
@@ -104,7 +103,6 @@ def gd_update(params, parent_var):
 
 
 def nesterov_update(params, parent_var):
-
     # extract variables
     vk = params["vk"]
     p = params["p"]
@@ -125,7 +123,6 @@ def nesterov_update(params, parent_var):
 
 
 def fista_update(params, parent_var):
-
     # extract variables
     vk = params["vk"]
     xk = params["xk"]
@@ -202,7 +199,9 @@ def grad_descent(
     if non_neg_constraint:
         proj = non_neg  # Enforce non-negativity at every gradient step.
     else:
-        proj = lambda x: x
+
+        def proj(x):
+            return x
 
     H = []
     Hadj = []

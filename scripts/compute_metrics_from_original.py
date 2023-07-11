@@ -18,9 +18,9 @@ import hydra
 from hydra.utils import to_absolute_path
 import numpy as np
 import matplotlib.pyplot as plt
-from lensless.plot import plot_image
-from lensless.io import load_image
-from lensless.metric import mse, psnr, ssim, lpips, extract
+from lensless.utils.plot import plot_image
+from lensless.utils.io import load_image
+from lensless.eval.metric import mse, psnr, ssim, lpips, extract
 import matplotlib
 
 font = {"family": "DejaVu Sans", "size": 18}
@@ -31,7 +31,6 @@ matplotlib.rc("font", **font)
     version_base=None, config_path="../configs", config_name="compute_metrics_from_original"
 )
 def compute_metrics(config):
-
     recon = to_absolute_path(config.files.recon)
     original = to_absolute_path(config.files.original)
     vertical_crop = config.alignment.vertical_crop
