@@ -9,16 +9,16 @@
       :special-members: __init__
 
 
-   Coded Aperture
-   ~~~~~~~~~~~~~~
+   Coded Aperture (FlatCam)
+   ~~~~~~~~~~~~~~~~~~~~~~~~
 
    .. autoclass:: lensless.hardware.mask.CodedAperture
       :members:
       :special-members: __init__
    
 
-   Phase Contour
-   ~~~~~~~~~~~~~
+   Phase Contour (PhlatCam)
+   ~~~~~~~~~~~~~~~~~~~~~~~~
 
    .. autoclass:: lensless.hardware.mask.PhaseContour
       :members:
