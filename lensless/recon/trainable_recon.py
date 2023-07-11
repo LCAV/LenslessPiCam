@@ -84,9 +84,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             self.pre_process = process_with_DruNet(
                 self.pre_process_model, self._psf.device, mode="train"
             )
-        else:
+        elif pre_process is None:
             # Otherwise, we assume it is a function.
-            assert callable(post_process), "post_process must be a callable function"
+            assert callable(pre_process), "pre_process must be a callable function"
             self.pre_process = pre_process
         if self.pre_process is not None:
             self.pre_process_param = torch.nn.Parameter(
@@ -102,7 +102,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             self.post_process = process_with_DruNet(
                 self.post_process_model, self._psf.device, mode="train"
             )
-        else:
+        elif post_process is not None:
             # Otherwise, we assume it is a function.
             assert callable(post_process), "post_process must be a callable function"
             self.post_process = post_process
