@@ -159,7 +159,22 @@ def train_unrolled(
         ).to(device)
     else:
         post_process = None
-    pre_process = None
+
+    if config.reconstruction.pre_process.network == "UnetRes":
+        from lensless.drunet.network_unet import UNetRes
+
+        n_channels = 3
+        pre_process = UNetRes(
+            in_nc=n_channels + 1,
+            out_nc=n_channels,
+            nc=[64, 128, 256, 512],
+            nb=config.reconstruction.pre_process.depth,
+            act_mode="R",
+            downsample_mode="strideconv",
+            upsample_mode="convtranspose",
+        ).to(device)
+    else:
+        pre_process = None
 
     if config.reconstruction.method == "unrolled_fista":
         recon = UnrolledFISTA(
@@ -244,16 +259,19 @@ def train_unrolled(
 
     # optimizer
     if config.optimizer.type == "Adam":
-        # the parameters of the base model and extra porcess must be added separatly
+        # the parameters of the base model and non torch.Module process must be added separatly
         parameters = [{"params": recon.parameters()}]
         optimizer = torch.optim.Adam(parameters, lr=config.optimizer.lr)
     else:
         raise ValueError(f"Unsuported optimizer : {config.optimizer.type}")
+    # constructing algorithm name by appending pre and post process
     algorithm = config.reconstruction.method
     if config.reconstruction.post_process.network == "DruNet":
         algorithm += "_DruNet"
     elif config.reconstruction.post_process.network == "UnetRes":
         algorithm += "_UnetRes"
+    if config.reconstruction.pre_process.network == "DruNet":
+        algorithm = "PreDruNet" + algorithm
     metrics = {
         "LOSS": [],
         "MSE": [],

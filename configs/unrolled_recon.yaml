@@ -54,9 +54,12 @@ reconstruction:
     mu2: 1e-4
     mu3: 1e-4
     tau: 2e-4
+  pre_process: 
+    network : UnetRes  # UnetRes or null
+    depth : 2 # depth of each up/downsampling layer.
   post_process: 
-    network : DruNet  # UnetRes or DruNet
-    depth : 1 # depth of each up/downsampling layer. Ignore if network is DruNet
+    network : UnetRes  # UnetRes or DruNet
+    depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
 
 # Train Dataset
 
@@ -92,8 +95,8 @@ simulation:
 #Training
 
 training:
-  batch_size: 10
-  epoch: 10
+  batch_size: 8
+  epoch: 50
 
 optimizer:
   type: Adam
@@ -101,4 +104,4 @@ optimizer:
   
 loss: 'l2'
 # set lpips to false to deactivate. Otherwise, give the weigth for the loss (the main loss l2/l1 always having a weigth of 1)
-lpips: 0.6
+lpips: 1.0

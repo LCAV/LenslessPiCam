@@ -46,6 +46,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         psf,
         dtype=None,
         n_iter=1,
+        pre_process=None,
         post_process=None,
         **kwargs,
     ):
@@ -73,6 +74,26 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         super(TrainableReconstructionAlgorithm, self).__init__(
             psf, dtype=dtype, n_iter=n_iter, **kwargs
         )
+
+        # pre processing
+        if isinstance(pre_process, torch.nn.Module):
+            # If the post_process is a torch module, we assume it is a DruNet like network.
+            from lensless.utils.image import process_with_DruNet
+
+            self.pre_process_model = pre_process
+            self.pre_process = process_with_DruNet(
+                self.pre_process_model, self._psf.device, mode="train"
+            )
+        else:
+            # Otherwise, we assume it is a function.
+            assert callable(post_process), "post_process must be a callable function"
+            self.pre_process = pre_process
+        if self.pre_process is not None:
+            self.pre_process_param = torch.nn.Parameter(
+                torch.tensor([1.0], device=self._psf.device)
+            )
+
+        # post processing
         if isinstance(post_process, torch.nn.Module):
             # If the post_process is a torch module, we assume it is a DruNet like network.
             from lensless.utils.image import process_with_DruNet
@@ -83,6 +104,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             )
         else:
             # Otherwise, we assume it is a function.
+            assert callable(post_process), "post_process must be a callable function"
             self.post_process = post_process
         if self.post_process is not None:
             self.post_process_param = torch.nn.Parameter(
@@ -107,6 +129,10 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         self._data = batch
         assert len(self._data.shape) == 5, "batch must be of shape (N, D, C, H, W)"
         batch_size = batch.shape[0]
+
+        # pre process data
+        if self.pre_process is not None:
+            self._data = self.pre_process(self._data, self.pre_process_param)
 
         self.reset(batch_size=batch_size)
 
@@ -154,6 +180,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             returning if `plot` or `save` is True.
 
         """
+        if self.pre_process is not None:
+            self._data = self.pre_process(self._data, self.pre_process_param)
+
         im = super(TrainableReconstructionAlgorithm, self).apply(
             n_iter=self._n_iter,
             disp_iter=disp_iter,
