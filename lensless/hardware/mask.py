@@ -171,8 +171,8 @@ class CodedAperture(Mask):
             Pattern generation method (MURA or MLS).
             Default is ``MLS``.
         n_bits: int, optional
-            Number of bits for row/column for pattern generation.
-            Size is `4*n_bits + 1` for ``MURA`` and `2^n - 1` for ``MLS``.
+            Number of bits for pattern generation.
+            Size is `4*n_bits + 1` for MURA and `2^n - 1` for MLS.
             Default is 8 (for a 255x255 MLS mask).
         **kwargs:
             `sensor_resolution`,
