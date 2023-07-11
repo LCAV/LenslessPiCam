@@ -109,9 +109,9 @@ class SeparableLayer(tf.keras.layers.Layer, tfmot.sparsity.keras.PrunableLayer, 
     def build(self, input_shape):
         self.in_shape = input_shape
         b, h, w, c = self.in_shape
-        print('W1 shape:', self.W1.shape)
-        print('W2 shape:', self.W2.shape)
-        print('input shape:', self.in_shape)
+        # print('W1 shape:', self.W1.shape)
+        # print('W2 shape:', self.W2.shape)
+        # print('input shape:', self.in_shape)
         assert h == self.W1.shape[0], f"W1 width must be equal to the input height, got {self.W1.shape[0]} and {h}"
         assert w == self.W2.shape[0], f"W1 height must be equal to the input width, got , got {self.W2.shape[0]} and {w}"
 
@@ -221,8 +221,6 @@ class FTLayer(tf.keras.layers.Layer, tfmot.sparsity.keras.PrunableLayer, tfmot.c
         
         psf_shape = np.asarray(self.psf_shape[:2])
         in_shape = np.asarray(input_shape[1:3])
-        print('psf shape', psf_shape)
-        print('in shape', in_shape)
         
         assert np.all(psf_shape >= in_shape), 'PSF shape must be greater than input shape'
 
@@ -238,7 +236,7 @@ class FTLayer(tf.keras.layers.Layer, tfmot.sparsity.keras.PrunableLayer, tfmot.c
         padded_shape = np.asarray(target_shape)
 
         padded_shape = np.array([next_fast_len(i) for i in padded_shape])
-        print('padded shape', padded_shape)
+        # print('padded shape', padded_shape)
         padded_shape = list(np.r_[padded_shape, channel])
 
         start_idx = (padded_shape[0 : 2] - img_shape) // 2
@@ -431,6 +429,8 @@ def u_net(input, enc_filters, maxpool=True, intermediate_nodes=False, first_kern
         x = conv_block(x, enc_filters[0], kernel_size=3, bn_eps=bn_eps, strides=1)
 
     kernel_sizes = [[3,3]] * len(enc_filters)
+    if not first_kernel_size:
+        first_kernel_size = 3
     kernel_sizes[0] = [first_kernel_size,3]
 
     
@@ -547,13 +547,16 @@ def experimental_models(model_name, input, out_shape, model_args):
 #################################################################################################################
 
 
-class ReconstructionModel(keras.Sequential):
+class UnetModel(keras.Sequential):
     """Reconstruction model for deep learning approach
     """
     def __init__(self, 
                  input_shape, 
                  output_shape, 
-                 perceptual_args=None, 
+                 psf=None,
+                 phi_l=None,
+                 phi_r=None,
+                 perceptual_args=None,
                  camera_inversion_args=None, 
                  model_weights_path=None, 
                  name='reconstruction_model'):
@@ -569,24 +572,25 @@ class ReconstructionModel(keras.Sequential):
         if camera_inversion_args:
             # Separable dataset
             if camera_inversion_args['type'] == 'separable':
-                if camera_inversion_args['type']['random_init']:
-
+                if phi_l is None or phi_r is None:
+                    print('phi_l and phi_r not provided, using random init')
                     target_shape = camera_inversion_args['target_shape']
                     slope = camera_inversion_args['slope']
                     phi_l = get_toeplitz_init(target_shape, slope, is_left=True, seed=1)
                     phi_r = get_toeplitz_init(target_shape, slope, is_left=False, seed=1)
-                else:
-                    phi_l, phi_r = camera_inversion_args['phi_l'], camera_inversion_args['phi_r']
+
                 camera_inversion_layer = SeparableLayer(phi_l, phi_r)
 
             # Non separable
-            else:
-                if camera_inversion_args['type']['random_init']:
-                    raise NotImplementedError('Random init (PSF) not implemented for non-separable dataset')
-                else:
-                    psf = camera_inversion_args['psf']
-                # TODO: define args camera_inversion 
+            elif camera_inversion_args['type'] == 'non_separable':
+                if psf is None:
+                    raise NotImplementedError('PSF is None, random init (PSF) not implemented for non-separable dataset')
+                
+                camera_inversion_args =  dict(camera_inversion_args)
+                camera_inversion_args.pop('type')
                 camera_inversion_layer = FTLayer(psf=psf, **camera_inversion_args)
+            else:
+                raise NotImplementedError('Camera inversion type not implemented, choose between separable and non_separable')
 
         self.camera_inversion_layer = camera_inversion_layer
 
@@ -594,7 +598,7 @@ class ReconstructionModel(keras.Sequential):
         if camera_inversion_layer:
             x = camera_inversion_layer(input)
             
-        model_config = perceptual_args['config']
+        model_config = dict(perceptual_args)
         model_type = model_config.pop('type')
 
         if model_type == 'unet':
