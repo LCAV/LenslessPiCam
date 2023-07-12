@@ -1,0 +1,27 @@
+
+
+
+input_shape : [270, 480, 3]
+output_shape : [210, 380, 3]
+
+perceptual_args :
+  type: unet # or unet_plus for more complex U-Nets models
+  maxpool: false
+  enc_filters : [64, 128, 256, 512]
+  first_kernel_size: #7 
+  last_conv_filter: 12
+  depth_space: false
+  output_activation: #tanh
+
+
+camera_inversion_args :
+  type: non_separable
+  activation: linear
+  gamma: 20000
+  pad: False
+
+
+
+model_weights_path : 
+
+name : camera_inversion_unet
