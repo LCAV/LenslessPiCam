@@ -15,9 +15,11 @@ import tensorflow as tf
 import keras
 from keras import Model, regularizers
 from keras.utils.layer_utils import count_params
-from keras.layers import Input, BatchNormalization, UpSampling2D, Concatenate, ZeroPadding2D, Lambda, Cropping2D
+from keras.layers import Input, BatchNormalization, UpSampling2D, Concatenate, ZeroPadding2D, Lambda, Cropping2D, GroupNormalization, GlobalAveragePooling2D, Reshape
 from keras.layers.convolutional import Conv2D, MaxPooling2D
 from keras.layers.core import Activation
+from keras.losses import Loss
+from keras import optimizers
 
 import tensorflow_model_optimization as tfmot
 from keras_unet_collection import models as M_unet
@@ -651,3 +653,170 @@ class UnetModel(keras.Sequential):
             print(f"Trainable params: {trainable_count:,}")
             print(f"Non-trainable params: {non_trainable_count:,}")
             print("_" * line_length)
+
+
+
+#################################################################################################################
+######################################### Discriminator + GAN ###################################################
+#################################################################################################################
+
+######################################### Discriminator #########################################################
+
+class Discriminator(keras.Sequential):
+    def __init__(self,
+                 input_shape, 
+                 filters, 
+                 strides, 
+                 kernel_size, 
+                 activation='swish', 
+                 use_groupnorm=False, 
+                 num_groups=None, 
+                 sigmoid_output=False,
+                 name='discriminator'):
+        
+        assert activation, "activation must be specified"
+        input = Input(shape=input_shape, name="input")
+        x = input
+
+        assert len(filters) == len(strides) and len(strides) == len(kernel_size)
+
+        for i in range(len(filters)):
+            # conv block
+            x = Conv2D(filters[i],
+                    kernel_size=kernel_size[i],
+                    strides=strides[i],
+                    padding='same',
+                    )(x)
+            if use_groupnorm:
+                x = GroupNormalization(groups=num_groups)(x)
+            else:
+                x = BatchNormalization()(x)
+            
+            x = Activation(activation=activation)(x)
+            
+
+        x = GlobalAveragePooling2D(keepdims=True)(x)
+
+        x = Conv2D(1, kernel_size=1, padding='same', activation=None)(x)
+        x = Reshape(target_shape=[])(x)
+
+        if sigmoid_output:
+            x = Activation("sigmoid")(x)
+        
+        m = Model(inputs=[input], outputs=[x], name='discriminator')
+        super().__init__(name=name, layers=m.layers)
+
+
+######################################### GAN ################################################################
+
+class DiscrLoss(Loss):
+    def __init__(self, name='discr_loss', label_smoothing=None, **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.label_smoothing = label_smoothing
+        self.cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True, **kwargs)
+
+
+    def call(self, y_true, y_pred):
+        zeros = tf.zeros_like(y_pred)
+        ones = tf.ones_like(y_pred)
+        if self.label_smoothing:
+            zeros = tf.random.uniform(shape=tf.shape(y_pred), 
+                                       minval=self.label_smoothing['fake_range'][0], 
+                                       maxval=self.label_smoothing['fake_range'][1])
+            ones = tf.random.uniform(shape=tf.shape(y_pred), 
+                                       minval=self.label_smoothing['true_range'][0], 
+                                       maxval=self.label_smoothing['true_range'][1])
+            
+        real_loss = self.cross_entropy(ones, y_true)
+        fake_loss = self.cross_entropy(zeros, y_pred)
+        total_loss = real_loss + fake_loss
+        return total_loss
+
+
+class AdversarialLoss(Loss):
+    def __init__(self, name='adv_loss', **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True, **kwargs)
+
+    def call(self, y_true, y_pred):
+        loss = self.cross_entropy(tf.ones_like(y_pred), y_pred)
+
+        return loss
+
+
+
+class FlatNetGAN(Model):
+    def __init__(self, discriminator, generator, global_batch_size=None, label_smoothing=None, **kwargs):
+        super(FlatNetGAN, self).__init__(**kwargs)
+        self.discriminator = discriminator
+        self.generator = generator
+        self.global_batch_size = global_batch_size
+        self.label_smoothing = label_smoothing
+
+        self.g_adv_loss = AdversarialLoss(name='adv')
+        self.d_loss = DiscrLoss(name='discr', label_smoothing=label_smoothing)
+        
+
+    def compile(self, optimizer, d_optimizer, lpips_loss, mse_loss, adv_weight, mse_weight, perc_weight, metrics, distributed_gpu=False):
+        super(FlatNetGAN, self).compile(metrics=metrics, optimizer=optimizer)
+        self.d_optimizer = optimizers.get(d_optimizer) if isinstance(d_optimizer, str) else d_optimizer
+        self.g_optimizer = optimizers.get(optimizer) if isinstance(optimizer, str) else optimizer
+
+
+
+        self.lpips_loss = lpips_loss
+        self.g_mse_loss = mse_loss
+        self.adv_weight = adv_weight
+        self.mse_weight = mse_weight
+        self.perc_weight = perc_weight
+        
+    def call(self, inputs):
+        return self.generator(inputs)
+
+
+    def train_step(self, inputs):
+        sensor_img, real_img = inputs
+
+        with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+            gen_img = self.generator(sensor_img, training=True)
+            real_output = self.discriminator(real_img, training=True)
+            fake_output = self.discriminator(gen_img, training=True)
+
+            adv_loss = self.g_adv_loss(None, fake_output)
+            mse_loss = self.g_mse_loss(real_img, gen_img)
+            perc_loss = self.lpips_loss(real_img, gen_img)
+            gen_loss = self.adv_weight * adv_loss + self.mse_weight * mse_loss + self.perc_weight * perc_loss
+
+            disc_loss = self.d_loss(real_output, fake_output)
+            
+
+        gen_gradients = gen_tape.gradient(gen_loss, self.generator.trainable_variables)
+        disc_gradients = disc_tape.gradient(disc_loss, self.discriminator.trainable_variables)
+
+        self.g_optimizer.apply_gradients(zip(gen_gradients, self.generator.trainable_variables))
+        self.d_optimizer.apply_gradients(zip(disc_gradients, self.discriminator.trainable_variables))
+        
+        return {"d": disc_loss, "g": gen_loss, "adv": adv_loss, "mse":mse_loss, "lpips" : perc_loss}
+    
+    def summary(self, **kwargs):
+
+        self.generator.summary(**kwargs)
+        self.discriminator.summary(**kwargs)
+    
+    def get_config(self):
+        config = super().get_config()
+
+        config.update({
+            "discriminator": self.discriminator, 
+            "generator": self.generator, 
+            "global_batch_size": self.global_batch_size,
+            "label_smoothing": self.label_smoothing
+        })
+        return config
+    
+
+
+
+
+
+
