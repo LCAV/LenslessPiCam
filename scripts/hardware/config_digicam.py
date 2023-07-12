@@ -1,10 +1,12 @@
-from lensless.hardware.slm import set_programmable_mask
-from lensless.hardware.aperture import rect_aperture, circ_aperture
 import warnings
 import hydra
 import numpy as np
 from slm_controller import slm
 from slm_controller.hardware import SLMParam, slm_devices
+
+from lensless.hardware.slm import set_programmable_mask
+from lensless.hardware.aperture import rect_aperture, circ_aperture
+from lensless.hardware.utils import set_mask_sensor_distance
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="digicam")
@@ -18,6 +20,9 @@ def config_digicam(config):
     if not slm_devices[device][SLMParam.MONOCHROME]:
         shape = (3, *shape)
     pixel_pitch = slm_devices[device][SLMParam.PIXEL_PITCH]
+
+    # set mask to sensor distance
+    set_mask_sensor_distance(config.z, rpi_username, rpi_hostname)
 
     # create random pattern
     pattern = None

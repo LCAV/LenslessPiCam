@@ -5,7 +5,9 @@ rpi:
 device: adafruit
 
 # pattern: random
-# pattern: rect
-pattern: circ
+pattern: rect
+# pattern: circ
 rect_shape: [20, 10]  # if pattern: rect
 radius: 20            # if pattern: circ
+
+z: 6   # mask to sensor distance
