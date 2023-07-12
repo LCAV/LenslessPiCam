@@ -1,3 +1,11 @@
+# #############################################################################
+# slm.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# #############################################################################
+
+
 import os
 import numpy as np
 from lensless.hardware.utils import check_username_hostname
