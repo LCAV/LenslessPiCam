@@ -270,8 +270,8 @@ def train_unrolled(
         algorithm += "_DruNet"
     elif config.reconstruction.post_process.network == "UnetRes":
         algorithm += "_UnetRes"
-    if config.reconstruction.pre_process.network == "DruNet":
-        algorithm = "PreDruNet" + algorithm
+    if config.reconstruction.pre_process.network == "UnetRes":
+        algorithm = "PreUnetRes_" + algorithm
     metrics = {
         "LOSS": [],
         "MSE": [],
