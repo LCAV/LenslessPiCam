@@ -35,7 +35,9 @@ from lensless.hardware.utils import check_username_hostname
 @hydra.main(version_base=None, config_path="../configs", config_name="demo")
 def remote_display(config):
 
-    username, hostname = check_username_hostname(config.rpi.username, config.rpi.hostname)
+    check_username_hostname(config.rpi.username, config.rpi.hostname)
+    username = config.rpi.username
+    hostname = config.rpi.hostname
 
     fp = config.fp
     shape = np.array(config.display.screen_res)

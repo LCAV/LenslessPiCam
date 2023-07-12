@@ -65,7 +65,7 @@ def check_username_hostname(username, hostname, timeout=10):
     except (BadHostKeyException, AuthenticationException, SSHException, socket.error) as e:
         raise ValueError(f"Could not connect to {username}@{hostname}\n{e}")
 
-    return username, hostname
+    return client
 
 
 def get_distro():
