@@ -1,0 +1,11 @@
+rpi:
+  username: null
+  hostname: null
+
+device: adafruit
+
+# pattern: random
+# pattern: rect
+pattern: circ
+rect_shape: [20, 10]  # if pattern: rect
+radius: 20            # if pattern: circ
