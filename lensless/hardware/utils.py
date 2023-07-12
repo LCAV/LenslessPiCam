@@ -112,13 +112,13 @@ def set_mask_sensor_distance(distance, rpi_username, rpi_hostname, motor=1):
         Hostname of Raspberry Pi.
     """
 
-    MAX_DISTANCE = 15  # mm
+    MAX_DISTANCE = 16  # mm
     timeout = 5
 
     client = check_username_hostname(rpi_username, rpi_hostname)
     assert motor in [0, 1]
     assert distance > 0, "Distance must be positive"
-    assert distance < 15, "Distance must be less than 15 mm"
+    assert distance < MAX_DISTANCE, f"Distance must be less than {MAX_DISTANCE} mm"
 
     # assumes that `StepperDriver` is in home directory
     rpi_python = "python3"

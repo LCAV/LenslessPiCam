@@ -10,4 +10,4 @@ pattern: rect
 rect_shape: [20, 10]  # if pattern: rect
 radius: 20            # if pattern: circ
 
-z: 6   # mask to sensor distance
+z: 4   # mask to sensor distance
