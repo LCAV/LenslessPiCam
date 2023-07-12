@@ -1,0 +1,1 @@
+slm_controller @ git+https://github.com/ebezzam/slm-controller.git
