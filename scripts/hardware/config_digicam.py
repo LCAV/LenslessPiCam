@@ -1,5 +1,6 @@
 import warnings
 import hydra
+from datetime import datetime
 import numpy as np
 from slm_controller import slm
 from slm_controller.hardware import SLMParam, slm_devices
@@ -22,13 +23,24 @@ def config_digicam(config):
     pixel_pitch = slm_devices[device][SLMParam.PIXEL_PITCH]
 
     # set mask to sensor distance
-    set_mask_sensor_distance(config.z, rpi_username, rpi_hostname)
+    if config.z is not None:
+        set_mask_sensor_distance(config.z, rpi_username, rpi_hostname)
 
     # create random pattern
     pattern = None
-    if config.pattern == "random":
+    if config.pattern.endswith(".npy"):
+        pattern = np.load(config.pattern)
+    elif config.pattern == "random":
         rng = np.random.RandomState(1)
-        pattern = rng.randint(low=0, high=np.iinfo(np.uint8).max, size=shape, dtype=np.uint8)
+        # pattern = rng.randint(low=0, high=np.iinfo(np.uint8).max, size=shape, dtype=np.uint8)
+        pattern = rng.uniform(low=config.min_val, high=1, size=shape)
+        pattern = (pattern * np.iinfo(np.uint8).max).astype(np.uint8)
+
+        # save pattern
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        pattern_fn = f"random_pattern_{timestamp}.npy"
+        np.save(pattern_fn, pattern)
+        print(f"Saved pattern to {pattern_fn}")
 
     elif config.pattern == "rect":
         rect_shape = config.rect_shape
@@ -54,6 +66,9 @@ def config_digicam(config):
     assert pattern is not None
 
     print("Pattern shape : ", pattern.shape)
+    print("Pattern dtype : ", pattern.dtype)
+    print("Pattern min   : ", pattern.min())
+    print("Pattern max   : ", pattern.max())
 
     set_programmable_mask(pattern, device, rpi_username, rpi_hostname)
 
