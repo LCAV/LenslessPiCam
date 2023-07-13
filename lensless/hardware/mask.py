@@ -10,7 +10,9 @@
 Mask
 ====
 
-This module provides utilities to create different types of masks (Coded Aperture, Phase Contour, Fresnel Zone Aperture) and simulate the resulting PSF.
+This module provides utilities to create different types of masks (:py:class:`~lensless.hardware.mask.CodedAperture`,
+:py:class:`~lensless.hardware.mask.PhaseContour`,
+:py:class:`~lensless.hardware.mask.FresnelZoneAperture`) and simulate the resulting PSF.
 
 """
 
@@ -40,22 +42,22 @@ class Mask(abc.ABC):
         distance_sensor,
         sensor_size=None,
         feature_size=None,
-        psf_wavelength=[532e-9, 650e-9, 780e-9],
+        psf_wavelength=[460e-9, 550e-9, 640e-9],
     ):
         """
 
         Parameters
         ----------
-        sensor_resolution: array-like (dim=2)
-            Size of the sensor (px).
+        sensor_resolution: array_like
+            Resolution of the sensor and therefore the mask (px).
         distance_sensor: float
             Distance between the mask and the sensor (m).
-        sensor_size: array_like (dim=2)
-            Size of the sensor (m).
-        feature_size: array_like (dim=2)
-            Size of the feature (m).
+        sensor_size: array_like
+            Size of the sensor (m). Only one of ``sensor_size`` or ``feature_size`` needs to be specified.
+        feature_size: array_like
+            Size of the feature (m). Only one of ``sensor_size`` or ``feature_size`` needs to be specified.
         psf_wavelength: list, optional
-            List of wavelengths to simulate PSF (m).
+            List of wavelengths to simulate PSF (m). Default is [460e-9, 550e-9, 640e-9] nm (blue, green, red).
         """
 
         sensor_resolution = np.array(sensor_resolution)
@@ -106,10 +108,8 @@ class Mask(abc.ABC):
         downsample: float, optional
             Downsampling factor.
         **kwargs:
-            | All: distance_sensor, wavelength (latter optional)
-            | :py:class:`~lensless.hardware.mask.CodedAperture`: method, n_bits (both optional)
-            | :py:class:`~lensless.hardware.mask.PhaseContour`: noise_period, refractive_index, n_iter (all optional)
-            | :py:class:`~lensless.hardware.mask.FresnelZoneAperture`: radius (optional)
+            Additional arguments for the mask constructor. See the abstract class :py:class:`~lensless.hardware.mask.Mask`
+            and the corresponding subclass for more details.
 
         Example
         -------
@@ -129,14 +129,13 @@ class Mask(abc.ABC):
     @abc.abstractmethod
     def create_mask(self):
         """
-        Abstract mask creation method.
-        Creating mask with subclass-specific function.
+        Abstract mask creation method that creates mask with subclass-specific function.
         """
         pass
 
     def compute_psf(self):
         """
-        Computing the intensity PSF with bandlimited angular spectrum (BLAS) for each wavelength.
+        Compute the intensity PSF with bandlimited angular spectrum (BLAS) for each wavelength.
         Common to all types of masks.
         """
         psf = np.zeros(
@@ -168,18 +167,13 @@ class CodedAperture(Mask):
         Parameters
         ----------
         method: str
-            Pattern generation method (MURA or MLS).
-            Default is ``MLS``.
+            Pattern generation method (MURA or MLS). Default is ``MLS``.
         n_bits: int, optional
             Number of bits for pattern generation.
-            Size is `4*n_bits + 1` for MURA and `2^n - 1` for MLS.
+            Size is ``4*n_bits + 1`` for MURA and ``2^n - 1`` for MLS.
             Default is 8 (for a 255x255 MLS mask).
         **kwargs:
-            `sensor_resolution`,
-            `distance_sensor`,
-            `sensor_size` (optional if `feature_size` is specified),
-            `feature_size` (optional if `sensor_size` is specified),
-            `psf_wavelength` (optional)
+            The keyword arguments are passed to the parent class :py:class:`~lensless.hardware.mask.Mask`.
         """
 
         self.row = None
@@ -207,7 +201,7 @@ class CodedAperture(Mask):
             self.column = h_r
             self.mask = (np.outer(h_r, h_r) + 1) / 2
 
-            # Upscaling
+        # Upscaling
         if np.any(self.sensor_resolution != self.mask.shape):
             upscale_factor_height = self.sensor_resolution[0] / self.mask.shape[0]
             upscale_factor_width = self.sensor_resolution[1] / self.mask.shape[1]
@@ -251,8 +245,7 @@ class CodedAperture(Mask):
 
 class PhaseContour(Mask):
     """
-    Phase contour subclass of the Mask class
-    From the PhlatCam article https://ieeexplore.ieee.org/document/9076617
+    Phase contour mask as in `PhlatCam <https://ieeexplore.ieee.org/document/9076617>`_.
     """
 
     def __init__(
@@ -263,17 +256,16 @@ class PhaseContour(Mask):
 
         Parameters
         ----------
-        noise_period: tuple (dim=2)
-            Noise period of the Perlin noise (px).
-            Default is (8,8).
-        design_wv: float
-            Wavelength used to design the mask (m).
+        noise_period: array_like, optional
+            Noise period of the Perlin noise (px). Default is (8, 8).
+        refractive_index: float, optional
+            Refractive index of the mask substrate. Default is 1.2.
+        n_iter: int, optional
+            Number of iterations for the phase retrieval algorithm. Default is 10.
+        design_wv: float, optional
+            Wavelength used to design the mask (m). Default is 532e-9, as in the PhlatCam paper.
         **kwargs:
-            `sensor_resolution`,
-            `distance_sensor`,
-            `sensor_size` (optional if `feature_size` is specified),
-            `feature_size` (optional if `sensor_size` is specified),
-            `psf_wavelength` (optional)
+            The keyword arguments are passed to the parent class :py:class:`~lensless.hardware.mask.Mask`.
         """
 
         self.target_psf = None
@@ -288,8 +280,9 @@ class PhaseContour(Mask):
 
     def create_mask(self):
         """
-        Creating phase contour from Perlin noise
+        Creating phase contour from edges of Perlin noise.
         """
+
         # Creating Perlin noise
         proper_dim_1 = (self.sensor_resolution[0] // self.noise_period[0]) * self.noise_period[0]
         proper_dim_2 = (self.sensor_resolution[1] // self.noise_period[1]) * self.noise_period[1]
@@ -301,7 +294,7 @@ class PhaseContour(Mask):
             upscale_factor_width = self.sensor_resolution[1] / noise.shape[1]
             noise = zoom(noise, (upscale_factor_height, upscale_factor_width))
 
-            # Edge detection
+        # Edge detection
         binary = np.clip(np.round(np.interp(noise, (-1, 1), (0, 1))), a_min=0, a_max=1)
         self.target_psf = cv.Canny(np.interp(binary, (-1, 1), (0, 255)).astype(np.uint8), 0, 255)
 
@@ -322,28 +315,29 @@ class PhaseContour(Mask):
 
 def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False, pbar=False):
     """
-    Iterative phase retrieval algorithm from the PhlatCam article (https://ieeexplore.ieee.org/document/9076617)
+    Iterative phase retrieval algorithm similar to `PhlatCam <https://ieeexplore.ieee.org/document/9076617>`_,
+    using Fresnel propagation.
 
     Parameters
     ----------
-    lambd: float
+    target_psf: array_like
+        Target PSF to optimize the phase mask for.
+    wv: float
         Wavelength (m).
     d1: float
         Sample period on the sensor i.e. pixel size (m).
     dz: float
         Propagation distance between the mask and the sensor.
     n: float
-        Refractive index of the mask substrate.
-        Default is 1.2.
+        Refractive index of the mask substrate. Default is 1.2.
     n_iter: int
-        number of iterations
-        Default value is 10.
+        Number of iterations. Default value is 10.
     """
     M_p = np.sqrt(target_psf)
 
     if hasattr(d1, "__len__"):
         if d1[0] != d1[1]:
-            warnings.warn("Non square pixel, first dimension taken as feature size")
+            warnings.warn("Non square pixel, first dimension taken as feature size.")
         d1 = d1[0]
 
     for _ in range(n_iter):
@@ -366,8 +360,8 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False, 
 
 class FresnelZoneAperture(Mask):
     """
-    Fresnel Zone Aperture subclass of the Mask class
-    From the FZA article https://www.nature.com/articles/s41377-020-0289-9
+    Fresnel Zone Aperture (FZA) mask as in `this work <https://www.nature.com/articles/s41377-020-0289-9>`_,
+    namely binarized cosine function.
     """
 
     def __init__(self, radius=5e-4, **kwargs):
@@ -380,11 +374,7 @@ class FresnelZoneAperture(Mask):
             characteristic radius of the FZA (m)
             default value: 5e-4
         **kwargs:
-            `sensor_resolution`,
-            `distance_sensor`,
-            `sensor_size` (optional if `feature_size` is specified),
-            `feature_size` (optional if `sensor_size` is specified),
-            `psf_wavelength` (optional)
+            The keyword arguments are passed to the parent class :py:class:`~lensless.hardware.mask.Mask`.
         """
 
         self.radius = radius
@@ -393,7 +383,7 @@ class FresnelZoneAperture(Mask):
 
     def create_mask(self):
         """
-        Creating binary Fresnel Zone Aperture mask using either the MURA of MLS method
+        Creating binary Fresnel Zone Aperture mask.
         """
         dim = self.sensor_resolution
         x, y = np.meshgrid(
