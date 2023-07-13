@@ -370,15 +370,15 @@ class FresnelZoneAperture(Mask):
     From the FZA article https://www.nature.com/articles/s41377-020-0289-9
     """
 
-    def __init__(self, radius=30.0, **kwargs):
+    def __init__(self, radius=5e-4, **kwargs):
         """
         Fresnel Zone Aperture mask contructor.
 
         Parameters
         ----------
         radius: float
-            characteristic radius of the FZA (px)
-            default value: 30
+            characteristic radius of the FZA (m)
+            default value: 5e-4
         **kwargs:
             `sensor_resolution`,
             `distance_sensor`,
@@ -400,5 +400,6 @@ class FresnelZoneAperture(Mask):
             np.linspace(-dim[1] / 2, dim[1] / 2 - 1, dim[1]),
             np.linspace(-dim[0] / 2, dim[0] / 2 - 1, dim[0]),
         )
-        mask = 0.5 * (1 + np.cos(np.pi * (x**2 + y**2) / self.radius**2))
+        radius_px = self.radius / self.feature_size[0]
+        mask = 0.5 * (1 + np.cos(np.pi * (x**2 + y**2) / radius_px**2))
         self.mask = np.round(mask)
