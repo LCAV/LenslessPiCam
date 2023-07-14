@@ -25,10 +25,10 @@ from math import sqrt
 from perlin_numpy import generate_perlin_noise_2d
 from sympy.ntheory import quadratic_residues
 from scipy.signal import max_len_seq
-from scipy.ndimage import zoom
 from waveprop.fresnel import fresnel_conv
 from waveprop.rs import angular_spectrum
 from lensless.hardware.sensor import VirtualSensor
+from lensless.utils.image import resize
 
 
 class Mask(abc.ABC):
@@ -203,9 +203,9 @@ class CodedAperture(Mask):
 
         # Upscaling
         if np.any(self.sensor_resolution != self.mask.shape):
-            upscale_factor_height = self.sensor_resolution[0] / self.mask.shape[0]
-            upscale_factor_width = self.sensor_resolution[1] / self.mask.shape[1]
-            upscaled_mask = zoom(self.mask, (upscale_factor_height, upscale_factor_width))
+            upscaled_mask = resize(
+                self.mask[:, :, np.newaxis], shape=tuple(self.sensor_resolution) + (1,)
+            ).squeeze()
             upscaled_mask = np.clip(upscaled_mask, 0, 1)
             self.mask = np.round(upscaled_mask).astype(int)
 
@@ -290,9 +290,9 @@ class PhaseContour(Mask):
 
         # Upscaling to correspond to sensor size
         if np.any(self.sensor_resolution != noise.shape):
-            upscale_factor_height = self.sensor_resolution[0] / noise.shape[0]
-            upscale_factor_width = self.sensor_resolution[1] / noise.shape[1]
-            noise = zoom(noise, (upscale_factor_height, upscale_factor_width))
+            noise = resize(
+                noise[:, :, np.newaxis], shape=tuple(self.sensor_resolution) + (1,)
+            ).squeeze()
 
         # Edge detection
         binary = np.clip(np.round(np.interp(noise, (-1, 1), (0, 1))), a_min=0, a_max=1)
