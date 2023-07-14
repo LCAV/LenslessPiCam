@@ -103,6 +103,9 @@ target/
 # Datasets
 data/celeba_mini
 
+# FlatCam reconstruction
+masks/FlatCam/flatcam-authors
+
 # IPython
 profile_default/
 ipython_config.py
