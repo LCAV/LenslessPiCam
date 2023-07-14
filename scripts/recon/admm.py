@@ -35,6 +35,7 @@ def admm(config):
         shape=config["preprocess"]["shape"],
         torch=config.torch,
         torch_device=config.torch_device,
+        bg_pix=config.preprocess.bg_pix,
     )
 
     disp = config["display"]["disp"]

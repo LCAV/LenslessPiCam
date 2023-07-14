@@ -117,7 +117,7 @@ def set_mask_sensor_distance(distance, rpi_username, rpi_hostname, motor=1):
 
     client = check_username_hostname(rpi_username, rpi_hostname)
     assert motor in [0, 1]
-    assert distance > 0, "Distance must be positive"
+    assert distance >= 0, "Distance must be non-negative"
     assert distance < MAX_DISTANCE, f"Distance must be less than {MAX_DISTANCE} mm"
 
     # assumes that `StepperDriver` is in home directory
@@ -137,18 +137,18 @@ def set_mask_sensor_distance(distance, rpi_username, rpi_hostname, motor=1):
     client = check_username_hostname(rpi_username, rpi_hostname)
 
     # set to desired distance
-    assert distance != 0, "Distance cannot be 0"
-    print(f"Setting distance to {distance} mm...")
-    distance_um = distance * 1000
-    if distance_um > 0:
-        command = f"{rpi_python} {script} {motor} FWD {distance_um}"
-    else:
-        command = f"{rpi_python} {script} {motor} REV {-1 * distance_um}"
-    print(f"COMMAND : {command}")
-    try:
-        _stdin, _stdout, _stderr = client.exec_command(command, timeout=timeout)
-        print(_stdout.read().decode())
-    except socket.timeout:  # socket.timeout
-        client.close()
+    if distance != 0:
+        print(f"Setting distance to {distance} mm...")
+        distance_um = distance * 1000
+        if distance_um >= 0:
+            command = f"{rpi_python} {script} {motor} FWD {distance_um}"
+        else:
+            command = f"{rpi_python} {script} {motor} REV {-1 * distance_um}"
+        print(f"COMMAND : {command}")
+        try:
+            _stdin, _stdout, _stderr = client.exec_command(command, timeout=timeout)
+            print(_stdout.read().decode())
+        except socket.timeout:  # socket.timeout
+            client.close()
 
     client.close()

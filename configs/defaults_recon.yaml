@@ -27,6 +27,7 @@ preprocess:
   single_psf: False
   # Whether to perform construction in grayscale.
   gray: False
+  bg_pix: [5, 25]   # null to skip
 
 
 display:

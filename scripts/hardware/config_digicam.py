@@ -26,6 +26,8 @@ def config_digicam(config):
     if config.z is not None:
         set_mask_sensor_distance(config.z, rpi_username, rpi_hostname)
 
+    center = np.array(config.center) * pixel_pitch
+
     # create random pattern
     pattern = None
     if config.pattern.endswith(".npy"):
@@ -49,7 +51,7 @@ def config_digicam(config):
             apert_dim=apert_dim,
             slm_shape=slm_devices[device][SLMParam.SLM_SHAPE],
             pixel_pitch=pixel_pitch,
-            center=None,
+            center=center,
         )
         pattern = ap.values
     elif config.pattern == "circ":
@@ -57,11 +59,25 @@ def config_digicam(config):
             radius=config.radius * pixel_pitch[0],
             slm_shape=slm_devices[device][SLMParam.SLM_SHAPE],
             pixel_pitch=pixel_pitch,
-            center=None,
+            center=center,
         )
         pattern = ap.values
     else:
         raise ValueError(f"Pattern {config.pattern} not supported")
+
+    if config.aperture is not None:
+        rect_shape = config.aperture.shape
+        apert_dim = rect_shape[0] * pixel_pitch[0], rect_shape[1] * pixel_pitch[1]
+        ap = rect_aperture(
+            apert_dim=apert_dim,
+            slm_shape=slm_devices[device][SLMParam.SLM_SHAPE],
+            pixel_pitch=pixel_pitch,
+            center=np.array(config.aperture.center) * pixel_pitch,
+        )
+
+        ap.values[ap.values > 0] = 1
+
+        pattern = pattern * ap.values
 
     assert pattern is not None
 

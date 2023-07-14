@@ -382,7 +382,9 @@ def load_data(
     data = load_image(data_fp, flip=flip, bayer=bayer, blue_gain=blue_gain, red_gain=red_gain)
     data = np.array(data, dtype=dtype)
 
-    data -= bg
+    if bg_pix is not None:
+        bg = bg / 4095 * 255
+        data -= bg
     data = np.clip(data, a_min=0, a_max=data.max())
 
     if len(data.shape) == 3:
