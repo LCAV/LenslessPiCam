@@ -74,6 +74,7 @@ class Mask(abc.ABC):
         if feature_size is None:
             feature_size = np.array(sensor_size) / np.array(sensor_resolution)
         else:
+            feature_size = np.array(feature_size)
             assert np.all(feature_size > 0), "Feature size should be positive"
         assert np.all(sensor_resolution * feature_size <= sensor_size)
 
@@ -177,7 +178,7 @@ class CodedAperture(Mask):
         """
 
         self.row = None
-        self.column = None
+        self.col = None
         self.method = method
         self.n_bits = n_bits
 
@@ -193,12 +194,12 @@ class CodedAperture(Mask):
         if self.method == "MURA":
             self.mask = self.squarepattern(4 * self.n_bits + 1)[1:, 1:]
             self.row = 2 * self.mask[0, :] - 1
-            self.column = 2 * self.mask[:, 0] - 1
+            self.col = 2 * self.mask[:, 0] - 1
         else:
             seq = max_len_seq(self.n_bits)[0] * 2 - 1
             h_r = np.r_[seq, seq]
             self.row = h_r
-            self.column = h_r
+            self.col = h_r
             self.mask = (np.outer(h_r, h_r) + 1) / 2
 
         # Upscaling
