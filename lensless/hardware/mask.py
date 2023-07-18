@@ -45,6 +45,7 @@ class Mask(abc.ABC):
         psf_wavelength=[460e-9, 550e-9, 640e-9],
     ):
         """
+        Constructor from parameters of the user's choice.
 
         Parameters
         ----------
@@ -99,8 +100,8 @@ class Mask(abc.ABC):
     @classmethod
     def from_sensor(cls, sensor_name, downsample=None, **kwargs):
         """
-        Constructor from existing virtual sensor that copies over the sensor parameters
-        (sensor_resolution, sensor_size, pixel size).
+        Constructor from an existing virtual sensor that copies over the sensor parameters
+        (sensor resolution, sensor size, feature size).
 
         Parameters
         ----------
