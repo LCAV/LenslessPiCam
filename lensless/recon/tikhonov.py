@@ -5,6 +5,12 @@
 # Aaron FARGEON [aa.fargeon@gmail.com]
 # #############################################################################
 
+"""
+Tikhonov
+========
+
+The py:class:`~lensless.recon.tikhonov.CodedApertureReconstruction` class is meant to recover an image from a py:class:`~lensless.hardware.mask.CodedAperture` lensless capture, using the analytical solution to the Tikhonov optimization problem (least squares problem with L2 regularization term).
+"""
 
 import numpy as np
 from lensless.utils.image import resize
@@ -14,12 +20,21 @@ from scipy.linalg import circulant
 
 class CodedApertureReconstruction:
     """
-    ddd
+    Class for reconstruction method.
     """
 
     def __init__(self, mask, image_shape, lmbd=3e-4):
         """
-        ddd
+        Base constructor
+
+        Parameters
+        ----------
+        mask : py:class:`~lensless.hardware.mask.CodedAperture`
+            Coded aperture mask object.
+        image_shape : (`array-like` or `tuple`)
+            The shape of the image to reconstruct.
+        lmbd: float:
+            Regularization parameter. Default value is `3e-4` as in the `FlatCam paper <https://arxiv.org/abs/1509.00116>`_ authors' `code <https://github.com/tanjasper/flatcam/blob/master/python/demo.py>`_.
         """
 
         self.lmbd = lmbd
@@ -28,13 +43,25 @@ class CodedApertureReconstruction:
 
     def apply(self, img, color_profile="rgb"):
         """
-        ddd
+        Method for performing Tikhinov reconstruction.
+
+        Parameters
+        ----------
+        img : :py:class:`~numpy.ndarray`
+            Lensless capture measurement.
+        image_shape : (:py:class:`~numpy.ndarray` or `tuple`)
+            Color scheme of the measurement: `grayscale`, `rgb`, `bayer_rggb`, `bayer_bggr`, `bayer_grbg`, `bayer_gbrg`.
+
+        Returns
+        -------
+        :py:class:`~numpy.ndarray`
+            Reconstructed image, in the same format as the measurement.
         """
 
         # Squeezing the image to get rid of extra dimensions
         Y = img.squeeze()
 
-        # Verifying
+        # Verifying that the proper
         assert (
             Y.shape[0] == self.P.shape[1]
         ), f"image height of {Y.shape[0]} does not match the expected size of {self.P.shape[1]}"
@@ -46,8 +73,11 @@ class CodedApertureReconstruction:
         assert color_profile in [
             "grayscale",
             "rgb",
+            "bayer_rggb",
             "bayer_bggr",
-        ], "color_profile must be in ['grayscale', 'rgb', 'bayer_bggr]"
+            "bayer_grbg",
+            "bayer_gbrg",
+        ], "color_profile must be in ['grayscale', 'rgb', 'bayer_rggb', 'bayer_bggr', 'bayer_grbg', 'bayer_gbrg']"
         if color_profile == "grayscale":
             assert (
                 len(Y.shape) == 2
@@ -98,6 +128,18 @@ class CodedApertureReconstruction:
 def rgb2bayer(img, pattern):
     """
     Converting RGB image to separated Bayer channels
+
+    Parameters
+    ----------
+    img : :py:class:`~numpy.ndarray`
+        Image in RGB format.
+    pattern : str
+        Bayer pattern: `RGGB`, `BGGR`, `GRBG`, `GBRG`.
+
+    Returns
+    -------
+    :py:class:`~numpy.ndarray`
+        Image converted to the Bayer format `[R, Gr, Gb, B]`. `Gr` and `Gb` are for the green pixels that are on the same line as the red and blue pixels respectively.
     """
 
     # Verifying that the pattern is a proper Bayer pattern
@@ -126,9 +168,9 @@ def rgb2bayer(img, pattern):
         b = resized[1::2, 1::2, 2]
 
     elif pattern == "BGGR":
-        # RGGB pattern *------*
-        #              | R  G |
-        #              | G  B |
+        # BGGR pattern *------*
+        #              | B  G |
+        #              | G  R |
         #              *------*
         r = resized[1::2, 1::2, 0]
         gr = resized[::2, 1::2, 1]
@@ -163,7 +205,19 @@ def rgb2bayer(img, pattern):
 
 def bayer2rgb(X_bayer, normalize=True):
     """
-    Converting 4-channel Bayer image to RGB
+    Converting 4-channel Bayer image to RGB by averaging the two green channels.
+
+    Parameters
+    ----------
+    X_bayer : :py:class:`~numpy.ndarray`
+        Image in RGB format.
+    normalize : bool
+        Whether or not to
+
+    Returns
+    -------
+    :py:class:`~numpy.ndarray`
+        Image converted to the Bayer format `[R, Gr, Gb, B]`. `Gr` and `Gb` are for the green pixels that are on the same line as the red and blue pixels respectively.
     """
     X_rgb = np.empty(X_bayer.shape[:-1] + (3,))
     X_rgb[:, :, 2] = X_bayer[:, :, 0]
