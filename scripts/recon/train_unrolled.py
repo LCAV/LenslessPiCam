@@ -14,6 +14,7 @@ python scripts/recon/train_unrolled.py
 
 """
 
+import math
 import hydra
 from hydra.utils import get_original_cwd
 import os
@@ -271,7 +272,7 @@ def train_unrolled(
             if epoch == 0:
                 return config.training.slow_start
             elif epoch == 1:
-                return torch.sqrt(config.training.slow_start)
+                return math.sqrt(config.training.slow_start)
             else:
                 return 1
 
@@ -337,12 +338,13 @@ def train_unrolled(
 
             y_pred = recon.batch_call(X.to(device))
             # normalizing each output
-            y_pred_max = torch.amax(y_pred, dim=(-1, -2, -3), keepdim=True)
+            eps = 1e-6
+            y_pred_max = torch.amax(y_pred, dim=(-1, -2, -3), keepdim=True) + eps
             y_pred = y_pred / y_pred_max
 
             # normalizing y
             y = y.to(device)
-            y_max = torch.amax(y, dim=(-1, -2, -3), keepdim=True)
+            y_max = torch.amax(y, dim=(-1, -2, -3), keepdim=True) + eps
             y = y / y_max
 
             if i % disp == 1 and config.display.plot:
@@ -374,6 +376,7 @@ def train_unrolled(
                     break
             if is_NAN:
                 print("NAN detected in gradiant, skipping training step")
+                i += 1
                 continue
             optimizer.step()
 
