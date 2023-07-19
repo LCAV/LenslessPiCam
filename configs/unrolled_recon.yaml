@@ -97,6 +97,10 @@ simulation:
 training:
   batch_size: 8
   epoch: 50
+  #In case of instable training
+  skip_NAN: True
+  slow_start: False  #float how much to reduce lr for first epoch
+
 
 optimizer:
   type: Adam
