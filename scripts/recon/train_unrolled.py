@@ -338,7 +338,7 @@ def train_unrolled(
 
             y_pred = recon.batch_call(X.to(device))
             # normalizing each output
-            eps = 1e-6
+            eps = 1e-12
             y_pred_max = torch.amax(y_pred, dim=(-1, -2, -3), keepdim=True) + eps
             y_pred = y_pred / y_pred_max
 
