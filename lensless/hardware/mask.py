@@ -251,7 +251,7 @@ class PhaseContour(Mask):
     """
 
     def __init__(
-        self, noise_period=(8, 8), refractive_index=1.2, n_iter=10, design_wv=532e-9, **kwargs
+        self, noise_period=(16, 16), refractive_index=1.2, n_iter=10, design_wv=532e-9, **kwargs
     ):
         """
         Phase contour mask contructor (PhlatCam).
