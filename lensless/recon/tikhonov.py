@@ -13,7 +13,6 @@ The py:class:`~lensless.recon.tikhonov.CodedApertureReconstruction` class is mea
 """
 
 import numpy as np
-from lensless.utils.image import resize
 from numpy.linalg import multi_dot
 from scipy.linalg import circulant
 
