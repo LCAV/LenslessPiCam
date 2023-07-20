@@ -21,14 +21,20 @@ Simulate FlatCam with PSF simulation and Tikhonov reconstuction:
 python scripts/sim/mask.py mask.type=MURA simulation.flatcam=False recon.algo=tikhonov
 ```
 
-Simulate a Fresnel Zone Aperture mask with PSF simulation and ADMM reconstuction (https://www.nature.com/articles/s41377-020-0289-9):
+Simulate FlatCam with PSF simulation and ADMM reconstruction:
+ (TODO doesn't work)
+```
+python scripts/sim/mask.py mask.type=MURA simulation.flatcam=False recon.algo=admm
+```
+
+SimulateFresnel Zone Aperture camera with PSF simulation and ADMM reconstuction (https://www.nature.com/articles/s41377-020-0289-9):
  (TODO doesn't work)
 ```
 python scripts/sim/mask.py mask.type=FZA recon.algo=admm
 
 ```
 
-Simulate a PhaseContour mask with PSF simulation and ADMM reconstuction (https://www.nature.com/articles/s41377-020-0289-9):
+Simulate PhaseContour camera with PSF simulation and ADMM reconstuction (https://ieeexplore.ieee.org/document/9076617):
 ```
 python scripts/sim/mask.py mask.type=PhaseContour recon.algo=admm
 ```
