@@ -9,7 +9,11 @@
 Tikhonov
 ========
 
-The py:class:`~lensless.recon.tikhonov.CodedApertureReconstruction` class is meant to recover an image from a py:class:`~lensless.hardware.mask.CodedAperture` lensless capture, using the analytical solution to the Tikhonov optimization problem (least squares problem with L2 regularization term).
+The py:class:`~lensless.recon.tikhonov.CodedApertureReconstruction` class is meant 
+to recover an image from a py:class:`~lensless.hardware.mask.CodedAperture` lensless 
+capture, using the analytical solution to the Tikhonov optimization problem 
+(least squares problem with L2 regularization term), as in the `FlatCam paper
+<https://arxiv.org/abs/1509.00116>`_ (Eq. 7).
 """
 
 import numpy as np
@@ -24,7 +28,7 @@ class CodedApertureReconstruction:
 
     def __init__(self, mask, image_shape, P=None, Q=None, lmbd=3e-4):
         """
-        Base constructor
+        Base constructor.
 
         Parameters
         ----------
@@ -58,7 +62,7 @@ class CodedApertureReconstruction:
         ----------
         img : :py:class:`~numpy.ndarray`
             Lensless capture measurement.
-        image_shape : (:py:class:`~numpy.ndarray` or `tuple`)
+        color_profile : str
             Color scheme of the measurement: `grayscale`, `rgb`, `bayer_rggb`, `bayer_bggr`, `bayer_grbg`, `bayer_gbrg`.
 
         Returns
