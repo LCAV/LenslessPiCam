@@ -1,3 +1,5 @@
+# python scripts/collect_dataset_on_device.py -cn collect_dataset
+
 input_dir: data/celeba_mini
 input_file_ext: jpg
 
@@ -15,6 +17,11 @@ start_delay: null   # how much time (in minutes) to wait before starting
 
 # measurement parameters
 dummy: False    # simply copy file to output folder for testing
+
+# ideal image levels
+max_level: 254
+min_level: 200
+max_tries: 6
 
 # -- display parameters
 display:

@@ -20,10 +20,6 @@ import tqdm
 from fractions import Fraction
 from PIL import Image
 
-MAX_TRIES = 6
-MIN_LEVEL = 220
-MAX_LEVEL = 254
-
 
 @hydra.main(version_base=None, config_path="../configs", config_name="collect_dataset")
 def collect_dataset(config):
@@ -33,6 +29,10 @@ def collect_dataset(config):
     if output_dir is None:
         # create in same directory as input with timestamp
         output_dir = input_dir + "_measured_" + time.strftime("%Y%m%d-%H%M%S")
+
+    MAX_TRIES = config.max_tries
+    MIN_LEVEL = config.min_level
+    MAX_LEVEL = config.max_level
 
     # if output dir exists check how many files done
     print(f"Output directory : {output_dir}")
@@ -94,12 +94,19 @@ def collect_dataset(config):
             if down is not None:
                 res = (np.array(res) / down).astype(int)
 
+        # camera = PiCamera(framerate=30)
+        camera.close()
+        camera = PiCamera(
+            framerate=1 / config.capture.exposure, sensor_mode=0, resolution=tuple(res)
+        )
+
         # Set ISO to the desired value
         camera.resolution = tuple(res)
         camera.iso = config.capture.iso
         # Wait for the automatic gain control to settle
         time.sleep(config.capture.config_pause)
         # Now fix the values
+
         if config.capture.exposure:
             # in microseconds
             init_shutter_speed = int(config.capture.exposure * 1e6)
