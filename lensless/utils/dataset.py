@@ -177,6 +177,88 @@ class SimulatedDataset(DualDataset):
             return len([x for x in self.indices if x < self.n_files])
 
 
+class LenslessDataset(DualDataset):
+    """
+    Dataset consisting of lensless image taken form a screen and the corresponding image shown on screen.
+    It can be used with a PyTorch DataLoader to load a batch of lensless and corresponding (recreated) lensed images.
+    """
+
+    def __init__(
+        self,
+        root_dir,
+        lensless_fn="diffuser",
+        original_fn="lensed",
+        image_ext="npy",
+        **kwargs,
+    ):
+        """
+        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the DiffuserCam
+        Lensless Mirflickr Dataset (DLMD).
+        Parameters
+        ----------
+            root_dir : str
+                Path to the test dataset. It is expected to contain two folders: ones of lensless images and one of original images.
+            lensless_fn : str, optional
+                Name of the folder containing the lensless images, by default "diffuser".
+            lensed_fn : str, optional
+                Name of the folder containing the lensed images, by default "lensed".
+            image_ext : str, optional
+                Extension of the images, by default "npy".
+        """
+
+        super(ParallelDataset, self).__init__(**kwargs)
+
+        self.root_dir = root_dir
+        self.lensless_dir = os.path.join(root_dir, lensless_fn)
+        self.original_dir = os.path.join(root_dir, original_fn)
+        self.image_ext = image_ext.lower()
+
+        files = glob.glob(os.path.join(self.lensless_dir, "*." + image_ext))
+        files.sort()
+        self.files = [os.path.basename(fn) for fn in files]
+
+        if len(self.files) == 0:
+            raise FileNotFoundError(
+                f"No files found in {self.lensless_dir} with extension {image_ext}"
+            )
+
+        # initialize simulator
+        self.sim = FarFieldSimulator(is_torch=True, **kwargs)
+
+    def __len__(self):
+        if self.indices is None:
+            return len(self.files)
+        else:
+            return len([i for i in self.indices if i < len(self.files)])
+
+    def _get_images_pair(self, idx):
+        if self.image_ext == "npy":
+            lensless_fp = os.path.join(self.lensless_dir, self.files[idx])
+            original_fp = os.path.join(self.original_dir, self.files[idx])
+            lensless = np.load(lensless_fp)
+            original = np.load(original_fp)
+        else:
+            # more standard image formats: png, jpg, tiff, etc.
+            lensless_fp = os.path.join(self.lensless_dir, self.files[idx])
+            original_fp = os.path.join(self.original_dir, self.files[idx])
+            lensless = load_image(lensless_fp)
+            original = load_image(original_fp)
+
+            # convert to float
+            if lensless.dtype == np.uint8:
+                lensless = lensless.astype(np.float32) / 255
+                original = original.astype(np.float32) / 255
+            else:
+                # 16 bit
+                lensless = lensless.astype(np.float32) / 65535
+                original = original.astype(np.float32) / 65535
+
+        # project original image to lensed space
+        lensed = self.sim.propagate(original)
+
+        return lensless, lensed
+
+
 class ParallelDataset(DualDataset):
     """
     Dataset consisting of lensless and corresponding lensed image.
