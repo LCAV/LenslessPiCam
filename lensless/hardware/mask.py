@@ -43,6 +43,7 @@ class Mask(abc.ABC):
         sensor_size=None,
         feature_size=None,
         psf_wavelength=[460e-9, 550e-9, 640e-9],
+        **kwargs
     ):
         """
         Constructor from parameters of the user's choice.
@@ -91,6 +92,7 @@ class Mask(abc.ABC):
         # create mask
         self.mask = None
         self.create_mask()
+        self.shape = self.mask.shape
 
         # s PSF
         self.psf_wavelength = psf_wavelength
