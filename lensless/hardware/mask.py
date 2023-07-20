@@ -189,10 +189,10 @@ class CodedAperture(Mask):
         """
         Creating coded aperture mask using either the MURA of MLS method.
         """
-        assert self.method in ["MURA", "MLS"], "Method should be either 'MLS' or 'MURA'"
+        assert self.method.upper() in ["MURA", "MLS"], "Method should be either 'MLS' or 'MURA'"
 
         # Generating pattern
-        if self.method == "MURA":
+        if self.method.upper() == "MURA":
             self.mask = self.squarepattern(4 * self.n_bits + 1)[1:, 1:]
             self.row = 2 * self.mask[0, :] - 1
             self.col = 2 * self.mask[:, 0] - 1
