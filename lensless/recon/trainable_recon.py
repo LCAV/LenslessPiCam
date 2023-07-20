@@ -113,6 +113,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             process_model = None
         else:
             process_function = None
+            process_model = None
         if process_function is not None:
             process_param = torch.nn.Parameter(torch.tensor([1.0], device=self._psf.device))
         else:
