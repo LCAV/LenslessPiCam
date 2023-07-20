@@ -64,6 +64,12 @@ admm:
   #Loading unrolled model
   unrolled: false
   checkpoint_fp: null
+  pre_process_model: 
+    network : null  # UnetRes or DruNet or null
+    depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
+  post_process_model: 
+    network : null  # UnetRes or DruNet or null
+    depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
 
 apgd:
   # Stopping criteria

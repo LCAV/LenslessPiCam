@@ -57,8 +57,20 @@ def admm(config):
     else:
         assert config.torch, "Unrolled ADMM only works with torch"
         from lensless.recon.unrolled_admm import UnrolledADMM
+        import train_unrolled
 
-        recon = UnrolledADMM(psf, **config.admm)
+        pre_process = train_unrolled.create_process_network(
+            network=config.admm.pre_process_model.network,
+            depth=config.admm.pre_process_depth.depth,
+            device=config.torch_device,
+        )
+        post_process = train_unrolled.create_process_network(
+            network=config.admm.post_process_model.network,
+            depth=config.admm.post_process_depth.depth,
+            device=config.torch_device,
+        )
+
+        recon = UnrolledADMM(psf, pre_process=pre_process, post_process=post_process, **config.admm)
         path = to_absolute_path(config.admm.checkpoint_fp)
         print("Loading checkpoint from : ", path)
         assert os.path.exists(path), "Checkpoint does not exist"
