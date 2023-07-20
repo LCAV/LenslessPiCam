@@ -2,15 +2,119 @@ import numpy as np
 import glob
 import os
 import torch
+from abc import abstractmethod
 from torch.utils.data import Dataset
 from torchvision import transforms, datasets
 from waveprop.simulation import FarFieldSimulator
 
-from lensless.io import load_image, load_psf
-from lensless.util import resize
+from lensless.utils.io import load_image, load_psf
+from lensless.utils.image import resize
 
 
-class SimulatedDataset(Dataset):
+class DualDataset(Dataset):
+    """
+    Virtual dataset for paired lensed and lensless images.
+    """
+
+    def __init__(
+        self,
+        indices=None,
+        background=None,
+        downsample=1,
+        flip=False,
+        transform_lensless=None,
+        transform_lensed=None,
+        **kwargs,
+    ):
+        """
+        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the DiffuserCam
+        Lensless Mirflickr Dataset (DLMD).
+        Parameters
+        ----------
+            indexes : range or int or None
+                Indexes of the images to use in the dataset (if integer, it should be interpreted as range(indexes)), by default None.
+            background : :py:class:`~torch.Tensor` or None, optional
+                If not ``None``, background is removed from lensless images, by default ``None``.
+            downsample : int, optional
+                Downsample factor of the lensless images, by default 4.
+            flip : bool, optional
+                If ``True``, lensless images are flipped, by default ``False``.
+            transform_lensless : PyTorch Transform or None, optional
+                Transform to apply to the lensless images, by default None
+            transform_lensed : PyTorch Transform or None, optional
+                Transform to apply to the lensed images, by default None
+            lensless_fn : str, optional
+                Name of the folder containing the lensless images, by default "diffuser".
+            lensed_fn : str, optional
+                Name of the folder containing the lensed images, by default "lensed".
+            image_ext : str, optional
+                Extension of the images, by default "npy".
+        """
+        if isinstance(indices, int):
+            indices = range(indices)
+        self.indices = indices
+        self.background = background
+        self.downsample = downsample
+        self.flip = flip
+        self.transform_lensless = transform_lensless
+        self.transform_lensed = transform_lensed
+
+    @abstractmethod
+    def __len__(self):
+        """
+        Abstract method to get the length of the dataset. It should take into account the indices parameter.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def _get_images_pair(self, idx):
+        """Abstract method to get the lansed and lensless images. Supposed to return a pair (lensless, lensled) of numpy array with value in [O,1].
+
+        Parameters
+        ----------
+        idx : int
+            images index
+        """
+        raise NotImplementedError
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.item()
+
+        if self.indices is not None:
+            idx = self.indices[idx]
+        lensless, lensed = self._get_image_pair(idx)
+
+        if self.downsample != 1.0:
+            lensless = resize(lensless, factor=1 / self.downsample)
+            lensed = resize(lensed, factor=1 / self.downsample)
+
+        lensless = torch.from_numpy(lensless)
+        lensed = torch.from_numpy(lensed)
+
+        # If [H, W, C] -> [D, H, W, C]
+        if len(lensless.shape) == 3:
+            lensless = lensless.unsqueeze(0)
+        if len(lensed.shape) == 3:
+            lensed = lensed.unsqueeze(0)
+
+        if self.background is not None:
+            lensless = lensless - self.background
+
+        # flip image x and y if needed
+        if self.flip:
+            lensless = torch.rot90(lensless, dims=(-3, -2))
+            lensed = torch.rot90(lensed, dims=(-3, -2))
+        if self.transform_lensless:
+            lensless = self.transform_lensless(lensless)
+
+        if self.transform_lensed:
+            lensed = self.transform_lensed(lensed)
+
+        return lensless, lensed
+
+
+class SimulatedDataset(DualDataset):
     """
     Dataset of propagated images from a sigle image torch Dataset.
     """
@@ -19,12 +123,9 @@ class SimulatedDataset(Dataset):
         self,
         psf,
         dataset,
-        downsample=4,
-        flip=False,
         pre_transform=None,
-        transform_lensless=None,
-        transform_lensed=None,
         dataset_is_CHW=False,
+        flip=False,
         **kwargs,
     ):
         """
@@ -37,17 +138,16 @@ class SimulatedDataset(Dataset):
             Dataset to propagate. Should output images with shape H W C unless dataset_is_CHW is True.
         """
 
-        super(Dataset, self).__init__()
+        # we do the flipping before the simualtion
+        super(DualDataset, self).__init__(flip=False, **kwargs)
 
         assert isinstance(dataset, Dataset)
         self.dataset = dataset
         self.n_files = len(dataset)
 
         self.dataset_is_CHW = dataset_is_CHW
-        self.flip = flip
         self._pre_transform = pre_transform
-        self._transform_lensless = transform_lensless
-        self._transform_lensed = transform_lensed
+        self.flip = flip
 
         psf = psf.squeeze().movedim(-1, 0)
 
@@ -57,7 +157,7 @@ class SimulatedDataset(Dataset):
     def get_image(self, index):
         return self.dataset[index]
 
-    def __getitem__(self, index):
+    def get_images_pair(self, index):
         # load image
         img, label = self.get_image(index)
         if not self.dataset_is_CHW:
@@ -68,23 +168,16 @@ class SimulatedDataset(Dataset):
             img = self._pre_transform(img)
 
         lensless, lensed = self.sim.propagate(img, return_object_plane=True)
-        if self._transform_lensless is not None:
-            lensless = self._transform_lensless(lensless)
-        if self._transform_lensed is not None:
-            lensed = self._transform_lensed(lensed)
-
-        # convert to DHWC
-        lensless = lensless.movedim(0, -1)
-        lensed = lensed.movedim(0, -1)
-        lensless = lensless[None, ...]
-        lensed = lensed[None, ...]
         return lensless, lensed
 
     def __len__(self):
-        return self.n_files
+        if self.indices is None:
+            return self.n_files
+        else:
+            return len([x for x in self.indices if x < self.n_files])
 
 
-class ParallelDataset(Dataset):
+class ParallelDataset(DualDataset):
     """
     Dataset consisting of lensless and corresponding lensed image.
     It can be used with a PyTorch DataLoader to load a batch of lensless and corresponding lensed images.
@@ -93,12 +186,6 @@ class ParallelDataset(Dataset):
     def __init__(
         self,
         root_dir,
-        n_files=False,
-        background=None,
-        downsample=4,
-        flip=False,
-        transform_lensless=None,
-        transform_lensed=None,
         lensless_fn="diffuser",
         lensed_fn="lensed",
         image_ext="npy",
@@ -131,14 +218,17 @@ class ParallelDataset(Dataset):
                 Extension of the images, by default "npy".
         """
 
+        super(DualDataset, self).__init__(**kwargs)
+
         self.root_dir = root_dir
         self.lensless_dir = os.path.join(root_dir, lensless_fn)
         self.lensed_dir = os.path.join(root_dir, lensed_fn)
         self.image_ext = image_ext.lower()
 
         files = glob.glob(os.path.join(self.lensless_dir, "*." + image_ext))
-        if n_files:
-            files = files[:n_files]
+        if self.indices is not None:
+            files.sort()
+            files = [files[i] for i in self.indices if i < len(files)]
         self.files = [os.path.basename(fn) for fn in files]
 
         if len(self.files) == 0:
@@ -146,19 +236,10 @@ class ParallelDataset(Dataset):
                 f"No files found in {self.lensless_dir} with extension {image_ext}"
             )
 
-        self.background = background
-        self.downsample = downsample / 4
-        self.flip = flip
-        self.transform_lensless = transform_lensless
-        self.transform_lensed = transform_lensed
-
     def __len__(self):
         return len(self.files)
 
-    def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-
+    def _get_images_pair(self, idx):
         if self.image_ext == "npy":
             lensless_fp = os.path.join(self.lensless_dir, self.files[idx])
             lensed_fp = os.path.join(self.lensed_dir, self.files[idx])
@@ -180,32 +261,6 @@ class ParallelDataset(Dataset):
                 lensless = lensless.astype(np.float32) / 65535
                 lensed = lensed.astype(np.float32) / 65535
 
-        if self.downsample != 1.0:
-            lensless = resize(lensless, factor=1 / self.downsample)
-            lensed = resize(lensed, factor=1 / self.downsample)
-
-        lensless = torch.from_numpy(lensless)
-        lensed = torch.from_numpy(lensed)
-
-        # If [H, W, C] -> [D, H, W, C]
-        if len(lensless.shape) == 3:
-            lensless = lensless.unsqueeze(0)
-        if len(lensed.shape) == 3:
-            lensed = lensed.unsqueeze(0)
-
-        if self.background is not None:
-            lensless = lensless - self.background
-
-        # flip image x and y if needed
-        if self.flip:
-            lensless = torch.rot90(lensless, dims=(-3, -2))
-            lensed = torch.rot90(lensed, dims=(-3, -2))
-        if self.transform_lensless:
-            lensless = self.transform_lensless(lensless)
-
-        if self.transform_lensed:
-            lensed = self.transform_lensed(lensed)
-
         return lensless, lensed
 
 
@@ -218,7 +273,7 @@ class DiffuserCamTestDataset(ParallelDataset):
         self,
         data_dir="data",
         n_files=200,
-        downsample=8,
+        downsample=2,
     ):
         """
         Dataset consisting of lensless and corresponding lensed image. Default parameters are for the test set of DiffuserCam
