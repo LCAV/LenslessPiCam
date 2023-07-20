@@ -23,7 +23,7 @@ import time
 import matplotlib.pyplot as plt
 from lensless import UnrolledFISTA, UnrolledADMM
 from lensless.utils.dataset import DiffuserCamTestDataset, SimulatedDataset
-from lensless.util.image.image import rgb2gray
+from lensless.utils.image import rgb2gray
 from lensless.eval.benchmark import benchmark
 import torch
 from torchvision import transforms, datasets
@@ -215,15 +215,19 @@ def train_unrolled(
         # Use a ParallelDataset
         from lensless.utils.dataset import ParallelDataset
 
+        max_indices = 30000
+        if config.files.n_files is not None:
+            max_indices = config.files.n_files + 1000
+
         data_path = os.path.join(get_original_cwd(), "data", "DiffuserCam")
         dataset = ParallelDataset(
             root_dir=data_path,
-            n_files=config.files.n_files,
+            indices=range(1000, max_indices),
             background=background,
             psf=psf,
             lensless_fn="diffuser_images",
             lensed_fn="ground_truth_lensed",
-            downsample=config.simulation.downsample,
+            downsample=config.simulation.downsample / 4,
             transform_lensless=transform_BRG2RGB,
             transform_lensed=transform_BRG2RGB,
         )
