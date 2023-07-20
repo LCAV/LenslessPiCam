@@ -6,7 +6,7 @@ Procedure is as follows:
 
 1) Simulate the mask.
 2) Simulate a measurement with the mask and specified physical parameters.
-2) Reconstruct the image from the measurement.
+3) Reconstruct the image from the measurement.
 
 Example usage:
 
