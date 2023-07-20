@@ -52,7 +52,7 @@ def admm(config):
         save = os.getcwd()
 
     start_time = time.time()
-    if not config.admm.load_unrolled:
+    if not config.admm.unrolled:
         recon = ADMM(psf, **config.admm)
     else:
         assert config.torch, "Unrolled ADMM only works with torch"

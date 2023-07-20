@@ -323,7 +323,7 @@ def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference")
     Parameters
     ----------
     model : :py:class:`~torch.nn.Module`
-        Loaded model.
+        Drunet compatible model. Its input must concist of 4 channels ( RGB + noise level) and outbut an RGB image both in CHW format.
     image : :py:class:`~torch.Tensor`
         Input image.
     noise_level : float or :py:class:`~torch.Tensor`

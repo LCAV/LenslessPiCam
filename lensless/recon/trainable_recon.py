@@ -66,9 +66,12 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
                 Data type to use for optimization.
             n_iter : int
                 Number of iterations for unrolled algorithm.
+            pre_process : :py:class:`function` or :py:class:`~torch.nn.Module`, optional
+                If :py:class:`function` : Function to apply to the image estimate before algorithm. Its input most be (image to process, noise_level), where noise_level is a learnable parameter. If it include aditional learnable parameters, they will not be added to the parameter list of the algorithm. To allow for traning, the function must be autograd compatible.
+                If :py:class:`~torch.nn.Module` : A DruNet compatible network to apply to the image estimate before algorithm. See ``utils.image.apply_denoiser`` for more details. The network will be included as a submodule of the algorithm and its parameters will be added to the parameter list of the algorithm. If this isn't intended behavior, set requires_grad=False.
             post_process : :py:class:`function` or :py:class:`~torch.nn.Module`, optional
-                If :py:class:`function` : Function to apply to the image estimate after the whole ADMM algorithm. Its input most be (image to process, noise_level), where noise_level is a learnable parameter. If it include aditional learnable parameters, they will not be added to the parameter list of the algorithm. To allow for traning, the function must be autograd compatible.
-                If :py:class:`~torch.nn.Module` : A DruNet like network. The network will be included as a submodule of the algorithm and its parameters will be added to the parameter list of the algorithm. If this isn't intended behavior, set requires_grad=False.
+                If :py:class:`function` : Function to apply to the image estimate after the whole algorithm. Its input most be (image to process, noise_level), where noise_level is a learnable parameter. If it include aditional learnable parameters, they will not be added to the parameter list of the algorithm. To allow for traning, the function must be autograd compatible.
+                If :py:class:`~torch.nn.Module` : A DruNet compatible network to apply to the image estimate after the whole algorithm. See ``utils.image.apply_denoiser`` for more details. The network will be included as a submodule of the algorithm and its parameters will be added to the parameter list of the algorithm. If this isn't intended behavior, set requires_grad=False.
         """
         assert isinstance(psf, torch.Tensor), "PSF must be a torch.Tensor"
         super(TrainableReconstructionAlgorithm, self).__init__(
@@ -76,44 +79,46 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         )
 
         # pre processing
-        if isinstance(pre_process, torch.nn.Module):
-            # If the post_process is a torch module, we assume it is a DruNet like network.
-            from lensless.utils.image import process_with_DruNet
-
-            self.pre_process_model = pre_process
-            self.pre_process = process_with_DruNet(
-                self.pre_process_model, self._psf.device, mode="train"
-            )
-        elif pre_process is not None:
-            # Otherwise, we assume it is a function.
-            assert callable(pre_process), "pre_process must be a callable function"
-            self.pre_process = pre_process
-        else:
-            self.pre_process = None
-        if self.pre_process is not None:
-            self.pre_process_param = torch.nn.Parameter(
-                torch.tensor([1.0], device=self._psf.device)
-            )
+        (
+            self.pre_process,
+            self.pre_process_model,
+            self.pre_process_param,
+        ) = self._prepare_process_block(pre_process)
 
         # post processing
-        if isinstance(post_process, torch.nn.Module):
+        (
+            self.post_process,
+            self.post_process_model,
+            self.post_process_param,
+        ) = self._prepare_process_block(post_process)
+
+    def _prepare_process_block(self, process):
+        """
+        Method for preparing the pre or post process block.
+        Parameters
+        ----------
+            process : :py:class:`function` or :py:class:`~torch.nn.Module`, optional
+                Pre or post process block to prepare.
+        """
+        if isinstance(process, torch.nn.Module):
             # If the post_process is a torch module, we assume it is a DruNet like network.
             from lensless.utils.image import process_with_DruNet
 
-            self.post_process_model = post_process
-            self.post_process = process_with_DruNet(
-                self.post_process_model, self._psf.device, mode="train"
-            )
-        elif post_process is not None:
+            process_model = process
+            process_function = process_with_DruNet(process_model, self._psf.device, mode="train")
+        elif process is not None:
             # Otherwise, we assume it is a function.
-            assert callable(post_process), "post_process must be a callable function"
-            self.post_process = post_process
+            assert callable(process), "pre_process must be a callable function"
+            process_function = process
+            process_model = None
         else:
-            self.post_process = None
-        if self.post_process is not None:
-            self.post_process_param = torch.nn.Parameter(
-                torch.tensor([1.0], device=self._psf.device)
-            )
+            process_function = None
+        if process_function is not None:
+            process_param = torch.nn.Parameter(torch.tensor([1.0], device=self._psf.device))
+        else:
+            process_param = None
+
+        return process_function, process_model, process_param
 
     def batch_call(self, batch):
         """

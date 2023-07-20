@@ -62,7 +62,7 @@ admm:
   mu3: 4e-5
   tau: 0.0001
   #Loading unrolled model
-  load_unrolled: false
+  unrolled: false
   checkpoint_fp: null
 
 apgd:
