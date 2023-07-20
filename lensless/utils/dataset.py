@@ -43,12 +43,6 @@ class DualDataset(Dataset):
                 Transform to apply to the lensless images, by default None
             transform_lensed : PyTorch Transform or None, optional
                 Transform to apply to the lensed images, by default None
-            lensless_fn : str, optional
-                Name of the folder containing the lensless images, by default "diffuser".
-            lensed_fn : str, optional
-                Name of the folder containing the lensed images, by default "lensed".
-            image_ext : str, optional
-                Extension of the images, by default "npy".
         """
         if isinstance(indices, int):
             indices = range(indices)
@@ -83,7 +77,7 @@ class DualDataset(Dataset):
 
         if self.indices is not None:
             idx = self.indices[idx]
-        lensless, lensed = self._get_image_pair(idx)
+        lensless, lensed = self._get_images_pair(idx)
 
         if self.downsample != 1.0:
             lensless = resize(lensless, factor=1 / self.downsample)
@@ -136,6 +130,12 @@ class SimulatedDataset(DualDataset):
             For no simated dataset don't support 3D reconstruction.
         dataset : torch.utils.data.Dataset
             Dataset to propagate. Should output images with shape H W C unless dataset_is_CHW is True.
+        pre_transform : PyTorch Transform or None, optional
+            Transform to apply to the images before simulation, by default None
+        dataset_is_CHW : bool, optional
+            If True, the input dataset is expected to output images with shape C H W, by default False
+        flip : bool, optional
+                If True,images are flipped beffore the simulation, by default False.
         """
 
         # we do the flipping before the simualtion
@@ -218,7 +218,7 @@ class ParallelDataset(DualDataset):
                 Extension of the images, by default "npy".
         """
 
-        super(DualDataset, self).__init__(**kwargs)
+        super(ParallelDataset, self).__init__(**kwargs)
 
         self.root_dir = root_dir
         self.lensless_dir = os.path.join(root_dir, lensless_fn)
@@ -226,9 +226,7 @@ class ParallelDataset(DualDataset):
         self.image_ext = image_ext.lower()
 
         files = glob.glob(os.path.join(self.lensless_dir, "*." + image_ext))
-        if self.indices is not None:
-            files.sort()
-            files = [files[i] for i in self.indices if i < len(files)]
+        files.sort()
         self.files = [os.path.basename(fn) for fn in files]
 
         if len(self.files) == 0:
@@ -237,7 +235,10 @@ class ParallelDataset(DualDataset):
             )
 
     def __len__(self):
-        return len(self.files)
+        if self.indices is None:
+            return len(self.files)
+        else:
+            return len([i for i in self.indices if i < len(self.files)])
 
     def _get_images_pair(self, idx):
         if self.image_ext == "npy":
@@ -320,10 +321,10 @@ class DiffuserCamTestDataset(ParallelDataset):
         self.psf = transform_BRG2RGB(torch.from_numpy(psf))
 
         super().__init__(
-            data_dir,
-            n_files,
-            background,
-            downsample,
+            root_dir=data_dir,
+            indices=range(n_files),
+            background=background,
+            downsample=downsample,
             flip=False,
             transform_lensless=transform_BRG2RGB,
             transform_lensed=transform_BRG2RGB,
