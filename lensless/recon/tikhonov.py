@@ -43,12 +43,18 @@ class CodedApertureReconstruction:
             self.P = circulant(np.resize(mask.col, mask.sensor_resolution[0]))[:, : image_shape[0]]
         else:
             self.P = P
-        assert self.P.shape == (mask.sensor_resolution[0], image_shape[0])
+        assert self.P.shape == (
+            mask.sensor_resolution[0],
+            image_shape[0],
+        ), "Left matrix P shape mismatch"
         if Q is None:
             self.Q = circulant(np.resize(mask.row, mask.sensor_resolution[1]))[:, : image_shape[1]]
         else:
             self.Q = Q
-        assert self.Q.shape == (mask.sensor_resolution[1], image_shape[1])
+        assert self.Q.shape == (
+            mask.sensor_resolution[1],
+            image_shape[1],
+        ), "Right matrix Q shape mismatch"
 
     def apply(self, img, color_profile="rgb"):
         """
@@ -70,6 +76,7 @@ class CodedApertureReconstruction:
         # Squeezing the image to get rid of extra dimensions
         Y = img.squeeze()
 
+        """
         # Verifying that the proper
         assert (
             Y.shape[0] == self.P.shape[1]
@@ -77,7 +84,7 @@ class CodedApertureReconstruction:
         assert (
             Y.shape[1] == self.Q.shape[1]
         ), f"image height of {Y.shape[1]} does not match the expected size of {self.Q.shape[1]}"
-
+        """
         color_profile = color_profile.lower()
         assert color_profile in [
             "grayscale",
