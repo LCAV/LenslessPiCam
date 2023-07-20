@@ -4,6 +4,8 @@ To be run on the Raspberry Pi!
 python scripts/collect_dataset_on_device.py
 ```
 
+TODO: scripts expects Raspberry Pi HQ camera
+
 Parameters set in: configs/collect_dataset.yaml
 
 To test on local machine, set dummy=True (which will just copy the files over).
@@ -17,8 +19,18 @@ import os
 import pathlib as plib
 import shutil
 import tqdm
+from picamerax import PiCamera
 from fractions import Fraction
 from PIL import Image
+from lensless.utils.io import save_image
+
+from lensless.hardware.constants import (
+    RPI_HQ_CAMERA_CCM_MATRIX,
+    RPI_HQ_CAMERA_BLACK_LEVEL,
+)
+import picamerax.array
+from lensless.utils.image import bayer2rgb, resize
+import cv2
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="collect_dataset")
@@ -81,8 +93,6 @@ def collect_dataset(config):
         res = config.capture.res
         down = config.capture.down
 
-        from picamerax import PiCamera
-
         # set up camera for consistent photos
         # https://picamera.readthedocs.io/en/release-1.13/recipes1.html#capturing-consistent-images
         # https://picamerax.readthedocs.io/en/latest/fov.html?highlight=camera%20resolution#sensor-modes
@@ -131,13 +141,6 @@ def collect_dataset(config):
 
         print("Capturing at resolution: ", res)
         print("AWB gains", float(camera.awb_gains[0]), float(camera.awb_gains[1]))
-
-        # # allocate memory for image
-        # # -- https://picamera.readthedocs.io/en/release-1.13/recipes2.html#capturing-to-a-numpy-array
-        # # vertical is rounded to multiple of 16, horizontal to multiple of 32
-        # res_ver = int(np.ceil(res[0] / 16) * 16)
-        # res_hor = int(np.ceil(res[1] / 32) * 32)
-        # output = np.empty((res_ver * res_hor * 3,), dtype=np.uint8)
 
     init_brightness = config.display.brightness
 
@@ -193,25 +196,7 @@ def collect_dataset(config):
                         print("Max number of tries reached!")
                         break
 
-                    # # -- save to file
-                    # camera.capture(str(output_fp))
-                    # # camera.capture(str(output_fp), 'rgb')
-                    # output = np.array(Image.open(output_fp))[..., :3]
-
-                    # # -- save directly to numpy array
-                    # camera.capture(output, "rgb")
-                    # output = output.reshape((res_hor, res_ver, 3))
-                    # output = output[: res[1], : res[0], :]
-
                     # get bayer data
-                    from lensless.hardware.constants import (
-                        RPI_HQ_CAMERA_CCM_MATRIX,
-                        RPI_HQ_CAMERA_BLACK_LEVEL,
-                    )
-                    import picamerax.array
-                    from lensless.utils.image import bayer2rgb, resize
-                    import cv2
-
                     stream = picamerax.array.PiBayerArray(camera)
                     camera.capture(stream, "jpeg", bayer=True)
                     output_bayer = np.sum(stream.array, axis=2).astype(np.uint16)
@@ -264,22 +249,7 @@ def collect_dataset(config):
                     n_tries += 1
 
                     # save image
-                    from lensless.utils.io import save_image
-
                     save_image(output, output_fp)
-
-                    # # check for low light / saturation
-                    # from lensless.utils.plot import pixel_histogram, plot_image
-                    # import matplotlib.pyplot as plt
-
-                    # plot_image(output)
-                    # plt.savefig("plot.png")
-
-                    # # save histogram
-                    # pixel_histogram(output, nbits=8)
-                    # plt.savefig("histogram.png")
-
-                    # import pudb; pudb.set_trace()
 
                 exposure_vals.append(current_shutter_speed / 1e6)
                 brightness_vals.append(current_screen_brightness)
