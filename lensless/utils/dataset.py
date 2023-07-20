@@ -36,7 +36,7 @@ class DualDataset(Dataset):
             background : :py:class:`~torch.Tensor` or None, optional
                 If not ``None``, background is removed from lensless images, by default ``None``.
             downsample : int, optional
-                Downsample factor of the lensless images, by default 4.
+                Downsample factor of the lensless images, by default 1.
             flip : bool, optional
                 If ``True``, lensless images are flipped, by default ``False``.
             transform_lensless : PyTorch Transform or None, optional
@@ -79,12 +79,19 @@ class DualDataset(Dataset):
             idx = self.indices[idx]
         lensless, lensed = self._get_images_pair(idx)
 
-        if self.downsample != 1.0:
-            lensless = resize(lensless, factor=1 / self.downsample)
-            lensed = resize(lensed, factor=1 / self.downsample)
+        if isinstance(lensless, np.ndarray):
+            # expected case
+            if self.downsample != 1.0:
+                lensless = resize(lensless, factor=1 / self.downsample)
+                lensed = resize(lensed, factor=1 / self.downsample)
 
-        lensless = torch.from_numpy(lensless)
-        lensed = torch.from_numpy(lensed)
+            lensless = torch.from_numpy(lensless)
+            lensed = torch.from_numpy(lensed)
+        else:
+            # torch tensor
+            # This mean get_images_pair returned a torch tensor. This isn't recommended, if possible get_images_pair should return a numpy array
+            # In this case it should also have applied the downsampling
+            pass
 
         # If [H, W, C] -> [D, H, W, C]
         if len(lensless.shape) == 3:
@@ -101,7 +108,6 @@ class DualDataset(Dataset):
             lensed = torch.rot90(lensed, dims=(-3, -2))
         if self.transform_lensless:
             lensless = self.transform_lensless(lensless)
-
         if self.transform_lensed:
             lensed = self.transform_lensed(lensed)
 
@@ -139,7 +145,7 @@ class SimulatedDataset(DualDataset):
         """
 
         # we do the flipping before the simualtion
-        super(DualDataset, self).__init__(flip=False, **kwargs)
+        super(SimulatedDataset, self).__init__(flip=False, **kwargs)
 
         assert isinstance(dataset, Dataset)
         self.dataset = dataset
@@ -157,7 +163,7 @@ class SimulatedDataset(DualDataset):
     def get_image(self, index):
         return self.dataset[index]
 
-    def get_images_pair(self, index):
+    def _get_images_pair(self, index):
         # load image
         img, label = self.get_image(index)
         if not self.dataset_is_CHW:
@@ -168,6 +174,8 @@ class SimulatedDataset(DualDataset):
             img = self._pre_transform(img)
 
         lensless, lensed = self.sim.propagate(img, return_object_plane=True)
+        lensless = lensless.moveaxis(-3, -1)
+        lensed = lensed.moveaxis(-3, -1)
         return lensless, lensed
 
     def __len__(self):
@@ -189,6 +197,8 @@ class LenslessDataset(DualDataset):
         lensless_fn="diffuser",
         original_fn="lensed",
         image_ext="npy",
+        original_ext=None,
+        downsample=1,
         **kwargs,
     ):
         """
@@ -204,14 +214,19 @@ class LenslessDataset(DualDataset):
                 Name of the folder containing the lensed images, by default "lensed".
             image_ext : str, optional
                 Extension of the images, by default "npy".
+            image_ext : str, optional
+                Extension of the original image if different from lenless, by default None.
+            downsample : int, optional
+                Downsample factor of the lensless images, by default 1.
         """
-
-        super(ParallelDataset, self).__init__(**kwargs)
+        super(LenslessDataset, self).__init__(downsample=1, **kwargs)
+        self.pre_downsample = downsample
 
         self.root_dir = root_dir
         self.lensless_dir = os.path.join(root_dir, lensless_fn)
         self.original_dir = os.path.join(root_dir, original_fn)
         self.image_ext = image_ext.lower()
+        self.original_ext = original_ext.lower() if original_ext is not None else image_ext.lower()
 
         files = glob.glob(os.path.join(self.lensless_dir, "*." + image_ext))
         files.sort()
@@ -236,13 +251,16 @@ class LenslessDataset(DualDataset):
             lensless_fp = os.path.join(self.lensless_dir, self.files[idx])
             original_fp = os.path.join(self.original_dir, self.files[idx])
             lensless = np.load(lensless_fp)
-            original = np.load(original_fp)
+            lensless = resize(lensless, factor=1 / self.downsample)
+            original = np.load(original_fp[:-3] + self.original_ext)
         else:
             # more standard image formats: png, jpg, tiff, etc.
             lensless_fp = os.path.join(self.lensless_dir, self.files[idx])
             original_fp = os.path.join(self.original_dir, self.files[idx])
-            lensless = load_image(lensless_fp)
-            original = load_image(original_fp)
+            lensless = load_image(lensless_fp, downsample=self.pre_downsample)
+            original = load_image(
+                original_fp[:-3] + self.original_ext, downsample=self.pre_downsample
+            )
 
             # convert to float
             if lensless.dtype == np.uint8:
@@ -253,8 +271,13 @@ class LenslessDataset(DualDataset):
                 lensless = lensless.astype(np.float32) / 65535
                 original = original.astype(np.float32) / 65535
 
+        # convert to torch
+        lensless = torch.from_numpy(lensless)
+        original = torch.from_numpy(original)
+
         # project original image to lensed space
-        lensed = self.sim.propagate(original)
+        with torch.no_grad():
+            lensed = self.sim.propagate(original.moveaxis(-1, -3)).moveaxis(-3, -1)
 
         return lensless, lensed
 
@@ -406,7 +429,7 @@ class DiffuserCamTestDataset(ParallelDataset):
             root_dir=data_dir,
             indices=range(n_files),
             background=background,
-            downsample=downsample,
+            downsample=downsample / 4,
             flip=False,
             transform_lensless=transform_BRG2RGB,
             transform_lensed=transform_BRG2RGB,
