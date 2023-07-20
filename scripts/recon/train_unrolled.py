@@ -22,7 +22,7 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 from lensless import UnrolledFISTA, UnrolledADMM
-from lensless.dataset import DiffuserCamTestDataset, SimulatedDataset
+from lensless.utils.dataset import DiffuserCamTestDataset, SimulatedDataset
 from lensless.util.image.image import rgb2gray
 from lensless.eval.benchmark import benchmark
 import torch
@@ -213,7 +213,7 @@ def train_unrolled(
     # load dataset and create dataloader
     if config.files.dataset == "DiffuserCam":
         # Use a ParallelDataset
-        from lensless.dataset import ParallelDataset
+        from lensless.utils.dataset import ParallelDataset
 
         data_path = os.path.join(get_original_cwd(), "data", "DiffuserCam")
         dataset = ParallelDataset(

@@ -7,7 +7,7 @@
 # #############################################################################
 
 
-from lensless.dataset import DiffuserCamTestDataset
+from lensless.utils.dataset import DiffuserCamTestDataset
 from tqdm import tqdm
 
 from lensless.utils.io import load_image
