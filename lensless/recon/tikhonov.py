@@ -23,7 +23,7 @@ class CodedApertureReconstruction:
     Class for reconstruction method.
     """
 
-    def __init__(self, mask, image_shape, lmbd=3e-4):
+    def __init__(self, mask, image_shape, P=None, Q=None, lmbd=3e-4):
         """
         Base constructor
 
@@ -33,13 +33,23 @@ class CodedApertureReconstruction:
             Coded aperture mask object.
         image_shape : (`array-like` or `tuple`)
             The shape of the image to reconstruct.
+        P : :py:class:`~numpy.ndarray`
+            Left convolution matrix in Flatcam measurement simulation. Size must be
         lmbd: float:
             Regularization parameter. Default value is `3e-4` as in the `FlatCam paper <https://arxiv.org/abs/1509.00116>`_ authors' `code <https://github.com/tanjasper/flatcam/blob/master/python/demo.py>`_.
         """
 
         self.lmbd = lmbd
-        self.P = circulant(np.resize(mask.col, mask.sensor_resolution[0]))[:, : image_shape[0]]
-        self.Q = circulant(np.resize(mask.row, mask.sensor_resolution[1]))[:, : image_shape[1]]
+        if P is None:
+            self.P = circulant(np.resize(mask.col, mask.sensor_resolution[0]))[:, : image_shape[0]]
+        else:
+            self.P = P
+        assert self.P.shape == (mask.sensor_resolution[0], image_shape[0])
+        if Q is None:
+            self.Q = circulant(np.resize(mask.row, mask.sensor_resolution[1]))[:, : image_shape[1]]
+        else:
+            self.Q = Q
+        assert self.Q.shape == (mask.sensor_resolution[1], image_shape[1])
 
     def apply(self, img, color_profile="rgb"):
         """
