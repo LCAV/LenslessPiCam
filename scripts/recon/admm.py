@@ -19,6 +19,12 @@ from lensless import ADMM
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="defaults_recon")
 def admm(config):
+    if config.torch:
+        try:
+            import torch
+        except ImportError:
+            raise ImportError("Pytorch not found. Please install pytorch to use torch mode.")
+
     psf, data = load_data(
         psf_fp=to_absolute_path(config.input.psf),
         data_fp=to_absolute_path(config.input.data),
@@ -46,18 +52,48 @@ def admm(config):
         save = os.getcwd()
 
     start_time = time.time()
-    recon = ADMM(psf, **config.admm)
+    if not config.admm.unrolled:
+        recon = ADMM(psf, **config.admm)
+    else:
+        assert config.torch, "Unrolled ADMM only works with torch"
+        from lensless.recon.unrolled_admm import UnrolledADMM
+        import train_unrolled
+
+        pre_process = train_unrolled.create_process_network(
+            network=config.admm.pre_process_model.network,
+            depth=config.admm.pre_process_depth.depth,
+            device=config.torch_device,
+        )
+        post_process = train_unrolled.create_process_network(
+            network=config.admm.post_process_model.network,
+            depth=config.admm.post_process_depth.depth,
+            device=config.torch_device,
+        )
+
+        recon = UnrolledADMM(psf, pre_process=pre_process, post_process=post_process, **config.admm)
+        path = to_absolute_path(config.admm.checkpoint_fp)
+        print("Loading checkpoint from : ", path)
+        assert os.path.exists(path), "Checkpoint does not exist"
+        recon.load_state_dict(torch.load(path, map_location=config.torch_device))
     recon.set_data(data)
     print(f"Setup time : {time.time() - start_time} s")
 
     start_time = time.time()
-    res = recon.apply(
-        n_iter=config["admm"]["n_iter"],
-        disp_iter=disp,
-        save=save,
-        gamma=config["display"]["gamma"],
-        plot=config["display"]["plot"],
-    )
+    if config.torch:
+        with torch.no_grad():
+            res = recon.apply(
+                disp_iter=disp,
+                save=save,
+                gamma=config["display"]["gamma"],
+                plot=config["display"]["plot"],
+            )
+    else:
+        res = recon.apply(
+            disp_iter=disp,
+            save=save,
+            gamma=config["display"]["gamma"],
+            plot=config["display"]["plot"],
+        )
     print(f"Processing time : {time.time() - start_time} s")
 
     if config.torch:
