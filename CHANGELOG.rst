@@ -21,7 +21,9 @@ Added
 - Support for preprocessing and postprocessing, such as denoising, in ``TrainableReconstructionAlgorithm``. Both trainable and fix postprocessing can be used.
 - Utilities to load a trained DruNet model for use as postprocessing in ``TrainableReconstructionAlgorithm``.
 - support for unrolled loading and inference in the script ``admm.py``.
-
+- Unified interface for dataset. See ``utils.dataset.DualDataset``.
+- New simualted dataset compatible with new data format ([(batch_size), depth, width, height, color]). See ``utils.dataset.SimulatedDataset``.
+- New dataset for pair of original image and thair measurement from a screen. See ``utils.dataset.LenslessDataset``.
 
 Changed
 ~~~~~~~
