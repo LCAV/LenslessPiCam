@@ -99,8 +99,8 @@ def fc_simulation(img, mask, P=None, Q=None, format="RGB", SNR=40):
     if Q is None:
         Q = circulant(np.resize(mask.row, mask.mask.shape[1]))[:, : img.shape[1]]
     Y = np.dstack([multi_dot([P, img_[:, :, c], Q.T]) for c in range(n_channels)])
-    Y = (Y - Y.min()) / (Y.max() - Y.min())
-    Y = add_shot_noise(Y, snr_db=SNR)
+    # Y = (Y - Y.min()) / (Y.max() - Y.min())
+    # Y = add_shot_noise(Y, snr_db=SNR)
     Y = (Y - Y.min()) / (Y.max() - Y.min())
 
     return Y
