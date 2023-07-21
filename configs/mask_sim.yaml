@@ -50,7 +50,7 @@ recon:
     reg: 3e-4
 
   admm:
-    n_iter: 10
+    n_iter: 20
     disp_iter: 2
     # Hyperparameters
     mu1: 1e-6
