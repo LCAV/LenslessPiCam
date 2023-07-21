@@ -7,7 +7,7 @@
 
 import torch
 import torch.nn as nn
-import lensless.drunet.basicblock as B
+import lensless.recon.drunet.basicblock as B
 import numpy as np
 
 """

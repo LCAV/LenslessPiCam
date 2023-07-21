@@ -296,7 +296,7 @@ def load_drunet(model_path, n_channels=3, requires_grad=False):
     model : :py:class:`~torch.nn.Module`
         Loaded model.
     """
-    from lensless.drunet.network_unet import UNetRes
+    from lensless.recon.drunet.network_unet import UNetRes
 
     model = UNetRes(
         in_nc=n_channels + 1,

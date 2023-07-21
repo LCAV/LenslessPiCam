@@ -95,7 +95,7 @@ def create_process_network(network, depth, device="cpu"):
         ).to(device)
         process_name = "DruNet"
     elif network == "UnetRes":
-        from lensless.drunet.network_unet import UNetRes
+        from lensless.recon.drunet.network_unet import UNetRes
 
         n_channels = 3
         process = UNetRes(
