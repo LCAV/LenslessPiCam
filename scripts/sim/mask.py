@@ -60,7 +60,13 @@ from lensless.hardware.mask import CodedAperture, PhaseContour, FresnelZoneApert
 from lensless.recon.tikhonov import CodedApertureReconstruction
 
 
-def fc_simulation(img, mask, format="RGB", SNR=40):
+def conv_matrices(img_shape, mask):
+    P = circulant(np.resize(mask.col, mask.mask.shape[0]))[:, : img_shape[0]]
+    Q = circulant(np.resize(mask.row, mask.mask.shape[1]))[:, : img_shape[1]]
+    return P, Q
+
+
+def fc_simulation(img, mask, P=None, Q=None, format="RGB", SNR=40):
     """
     Simulation function
     """
@@ -88,19 +94,19 @@ def fc_simulation(img, mask, format="RGB", SNR=40):
     else:
         n_channels = 4
         img_ = rgb_to_bayer4d(img, pattern=format[-4:])
-    P = circulant(np.resize(mask.col, mask.mask.shape[0]))[:, : img.shape[0]]
-    Q = circulant(np.resize(mask.row, mask.mask.shape[1]))[:, : img.shape[1]]
+    if P is None:
+        P = circulant(np.resize(mask.col, mask.mask.shape[0]))[:, : img.shape[0]]
+    if Q is None:
+        Q = circulant(np.resize(mask.row, mask.mask.shape[1]))[:, : img.shape[1]]
     Y = np.dstack([multi_dot([P, img_[:, :, c], Q.T]) for c in range(n_channels)])
     Y = (Y - Y.min()) / (Y.max() - Y.min())
     Y = add_shot_noise(Y, snr_db=SNR)
     Y = (Y - Y.min()) / (Y.max() - Y.min())
 
-    return Y, P, Q
+    return Y
 
 
-@hydra.main(
-    version_base=None, config_path="../../configs", config_name="mask_sim"
-)
+@hydra.main(version_base=None, config_path="../../configs", config_name="mask_sim")
 def simulate(config):
 
     fp = to_absolute_path(config.files.original)
@@ -124,7 +130,7 @@ def simulate(config):
         bayer = True
     else:
         bayer = False
-    
+
     # 1) simulate mask
     mask_type = config.mask.type
     if mask_type.upper() in ["MURA", "MLS"]:
@@ -137,11 +143,17 @@ def simulate(config):
         )
     elif mask_type.upper() == "FZA":
         mask = FresnelZoneAperture.from_sensor(
-            sensor_name=sensor, downsample=downsample, distance_sensor=mask2sensor, **config.mask,
+            sensor_name=sensor,
+            downsample=downsample,
+            distance_sensor=mask2sensor,
+            **config.mask,
         )
     elif mask_type == "PhaseContour":
         mask = PhaseContour.from_sensor(
-            sensor_name=sensor, downsample=downsample, distance_sensor=mask2sensor, **config.mask,
+            sensor_name=sensor,
+            downsample=downsample,
+            distance_sensor=mask2sensor,
+            **config.mask,
         )
 
     # 2) simulate measurement
@@ -151,7 +163,9 @@ def simulate(config):
 
     flatcam_sim = config.simulation.flatcam
     if flatcam_sim and mask_type.upper() not in ["MURA", "MLS"]:
-        warnings.warn("Flatcam simulation only supported for MURA and MLS masks. Using far field simulation with PSF.")
+        warnings.warn(
+            "Flatcam simulation only supported for MURA and MLS masks. Using far field simulation with PSF."
+        )
         flatcam_sim = False
 
     # use far field simulator to get correct object plane sizing
@@ -168,12 +182,16 @@ def simulate(config):
 
     if flatcam_sim:
         # apply flatcam simulation to object plane
-        image_plane, P, Q = fc_simulation(object_plane, mask, format=image_format, SNR=snr_db)
+        image_plane = fc_simulation(
+            object_plane, mask, P=None, Q=None, format=image_format, SNR=snr_db
+        )
 
     # 3) reconstruct image
     if config.recon.algo.lower() == "tikhonov":
-        _, P, Q = fc_simulation(object_plane, mask, format=image_format, SNR=snr_db)
-        recon = CodedApertureReconstruction(mask, object_plane.shape, P=P, Q=Q, lmbd=config.recon.tikhonov.reg)
+        P, Q = conv_matrices(object_plane.shape, mask)
+        recon = CodedApertureReconstruction(
+            mask, object_plane.shape, P=P, Q=Q, lmbd=config.recon.tikhonov.reg
+        )
         res = recon.apply(image_plane, color_profile=image_format)
         if bayer:
             recovered = bayer4d_to_rgb(res)
@@ -227,7 +245,6 @@ def simulate(config):
         save_image(recovered, "reconstruction.png")
 
     plt.show()
-
 
     # fc_regul = config.simulation.regul
 
