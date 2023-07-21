@@ -1,3 +1,8 @@
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+
 files:
   original: data/celeba_mini/000019.jpg
   #original: data/original/mnist_3.png
@@ -39,7 +44,7 @@ mask:
   phase_mask_iter: 10
 
   # Fresnel Zone Aperture
-  radius: 0.5  # todo set in m
+  radius: 0.32e-3
 
 
 recon:

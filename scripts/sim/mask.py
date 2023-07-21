@@ -27,11 +27,10 @@ Simulate FlatCam with PSF simulation and ADMM reconstruction:
 python scripts/sim/mask.py mask.type=MURA simulation.flatcam=False recon.algo=admm
 ```
 
-SimulateFresnel Zone Aperture camera with PSF simulation and ADMM reconstuction (https://www.nature.com/articles/s41377-020-0289-9):
- (TODO doesn't work)
+Simulate Fresnel Zone Aperture camera with PSF simulation and ADMM reconstuction (https://www.nature.com/articles/s41377-020-0289-9):
+(TODO removing DC offset which hurt reconstruction)
 ```
-python scripts/sim/mask.py mask.type=FZA recon.algo=admm
-
+python scripts/sim/mask.py mask.type=FZA recon.algo=admm recon.admm.n_iter=18
 ```
 
 Simulate PhaseContour camera with PSF simulation and ADMM reconstuction (https://ieeexplore.ieee.org/document/9076617):
@@ -187,6 +186,11 @@ def simulate(config):
         )
 
     # 3) reconstruct image
+    save = config["save"]
+    if save:
+        save = os.getcwd()
+
+
     if config.recon.algo.lower() == "tikhonov":
         P, Q = conv_matrices(object_plane.shape, mask)
         recon = CodedApertureReconstruction(
@@ -204,7 +208,7 @@ def simulate(config):
             recon.set_data(image_plane[None, :, :, None])
         else:
             recon.set_data(image_plane[None, :, :, :])
-        res = recon.apply(n_iter=config.recon.admm.n_iter, disp_iter=config.recon.admm.disp_iter)
+        res = recon.apply(n_iter=config.recon.admm.n_iter, disp_iter=config.recon.admm.disp_iter, save=save)
         recovered = res[0]
     else:
         raise ValueError(f"Reconstruction algorithm {config.recon.algo} not recognized.")
@@ -241,6 +245,8 @@ def simulate(config):
     ax[2].set_title("Raw data")
     plot_image(recovered, ax=ax[3])
     ax[3].set_title("Reconstruction")
+    plt.savefig("result.png")
+
     if config.save:
         save_image(recovered, "reconstruction.png")
 
