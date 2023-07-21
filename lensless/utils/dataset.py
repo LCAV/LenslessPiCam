@@ -189,6 +189,7 @@ class LenslessDataset(DualDataset):
     """
     Dataset consisting of lensless image taken form a screen and the corresponding image shown on screen.
     It can be used with a PyTorch DataLoader to load a batch of lensless and corresponding (recreated) lensed images.
+    Unless the setup is perfectly calibrated, one should expect to have to used transform_lensed to adjuste the alignement and rotation.
     """
 
     def __init__(
