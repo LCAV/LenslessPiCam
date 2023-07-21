@@ -137,7 +137,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             The reconstructed images.
         """
         self._data = batch
-        assert len(self._data.shape) == 5, "batch must be of shape (N, D, C, H, W)"
+        assert (
+            len(self._data.shape) == 5
+        ), f"batch must be of shape (N, D, C, H, W), current shape {self._data.shape}"
         batch_size = batch.shape[0]
 
         # pre process data
