@@ -36,6 +36,7 @@ class DualDataset(Dataset):
         """
         Dataset consisting of lensless and corresponding lensed image. Default parameters are for the DiffuserCam
         Lensless Mirflickr Dataset (DLMD).
+
         Parameters
         ----------
             indexes : range or int or None
@@ -69,7 +70,7 @@ class DualDataset(Dataset):
 
     @abstractmethod
     def _get_images_pair(self, idx):
-        """Abstract method to get the lansed and lensless images. Supposed to return a pair (lensless, lensled) of numpy array with value in [O,1].
+        """Abstract method to get the lensed and lensless images. Supposed to return a pair (lensless, lensled) of numpy array with value in [0,1].
 
         Parameters
         ----------
@@ -138,6 +139,7 @@ class SimulatedDataset(DualDataset):
         """
         Parameters
         ----------
+
         psf : torch.Tensor
             PSF to use for propagation. Should be a 4D tensor with shape 1 H W C.
             For no simated dataset don't support 3D reconstruction.
@@ -212,20 +214,21 @@ class LenslessDataset(DualDataset):
         """
         Dataset consisting of lensless and corresponding lensed image. Default parameters are for the DiffuserCam
         Lensless Mirflickr Dataset (DLMD).
+
         Parameters
         ----------
-            root_dir : str
-                Path to the test dataset. It is expected to contain two folders: ones of lensless images and one of original images.
-            lensless_fn : str, optional
-                Name of the folder containing the lensless images, by default "diffuser".
-            lensed_fn : str, optional
-                Name of the folder containing the lensed images, by default "lensed".
-            image_ext : str, optional
-                Extension of the images, by default "npy".
-            image_ext : str, optional
-                Extension of the original image if different from lenless, by default None.
-            downsample : int, optional
-                Downsample factor of the lensless images, by default 1.
+        root_dir : str
+            Path to the test dataset. It is expected to contain two folders: ones of lensless images and one of original images.
+        lensless_fn : str, optional
+            Name of the folder containing the lensless images, by default "diffuser".
+        lensed_fn : str, optional
+            Name of the folder containing the lensed images, by default "lensed".
+        image_ext : str, optional
+            Extension of the images, by default "npy".
+        image_ext : str, optional
+            Extension of the original image if different from lenless, by default None.
+        downsample : int, optional
+            Downsample factor of the lensless images, by default 1.
         """
         super(LenslessDataset, self).__init__(downsample=1, **kwargs)
         self.pre_downsample = downsample
@@ -307,28 +310,29 @@ class ParallelDataset(DualDataset):
         """
         Dataset consisting of lensless and corresponding lensed image. Default parameters are for the DiffuserCam
         Lensless Mirflickr Dataset (DLMD).
+
         Parameters
         ----------
-            root_dir : str
-                Path to the test dataset. It is expected to contain two folders: ones of lensless images and one of lensed images.
-            n_files : int or None, optional
-                Metrics will be computed only on the first ``n_files`` images. If None, all images are used, by default False
-            background : :py:class:`~torch.Tensor` or None, optional
-                If not ``None``, background is removed from lensless images, by default ``None``.
-            downsample : int, optional
-                Downsample factor of the lensless images, by default 4.
-            flip : bool, optional
-                If ``True``, lensless images are flipped, by default ``False``.
-            transform_lensless : PyTorch Transform or None, optional
-                Transform to apply to the lensless images, by default None
-            transform_lensed : PyTorch Transform or None, optional
-                Transform to apply to the lensed images, by default None
-            lensless_fn : str, optional
-                Name of the folder containing the lensless images, by default "diffuser".
-            lensed_fn : str, optional
-                Name of the folder containing the lensed images, by default "lensed".
-            image_ext : str, optional
-                Extension of the images, by default "npy".
+        root_dir : str
+            Path to the test dataset. It is expected to contain two folders: ones of lensless images and one of lensed images.
+        n_files : int or None, optional
+            Metrics will be computed only on the first ``n_files`` images. If None, all images are used, by default False
+        background : :py:class:`~torch.Tensor` or None, optional
+            If not ``None``, background is removed from lensless images, by default ``None``.
+        downsample : int, optional
+            Downsample factor of the lensless images, by default 4.
+        flip : bool, optional
+            If ``True``, lensless images are flipped, by default ``False``.
+        transform_lensless : PyTorch Transform or None, optional
+            Transform to apply to the lensless images, by default None
+        transform_lensed : PyTorch Transform or None, optional
+            Transform to apply to the lensed images, by default None
+        lensless_fn : str, optional
+            Name of the folder containing the lensless images, by default "diffuser".
+        lensed_fn : str, optional
+            Name of the folder containing the lensed images, by default "lensed".
+        image_ext : str, optional
+            Extension of the images, by default "npy".
         """
 
         super(ParallelDataset, self).__init__(**kwargs)
@@ -392,6 +396,7 @@ class DiffuserCamTestDataset(ParallelDataset):
         """
         Dataset consisting of lensless and corresponding lensed image. Default parameters are for the test set of DiffuserCam
         Lensless Mirflickr Dataset (DLMD).
+
         Parameters
         ----------
         data_dir : str, optional
