@@ -12,30 +12,30 @@ Example usage:
 
 Simulate FlatCam with separable simulation and Tikhonov reconstuction (https://arxiv.org/abs/1509.00116, Eq 7):
 ```
-python scripts/sim/mask.py mask.type=MURA simulation.flatcam=True recon.algo=tikhonov
+python scripts/sim/mask_single_file.py mask.type=MURA simulation.flatcam=True recon.algo=tikhonov
 ```
 
 Simulate FlatCam with PSF simulation and Tikhonov reconstuction:
  (TODO doesn't work)
 ```
-python scripts/sim/mask.py mask.type=MURA simulation.flatcam=False recon.algo=tikhonov
+python scripts/sim/mask_single_file.py mask.type=MURA simulation.flatcam=False recon.algo=tikhonov
 ```
 
 Simulate FlatCam with PSF simulation and ADMM reconstruction:
  (TODO doesn't work)
 ```
-python scripts/sim/mask.py mask.type=MURA simulation.flatcam=False recon.algo=admm
+python scripts/sim/mask_single_file.py mask.type=MURA simulation.flatcam=False recon.algo=admm
 ```
 
 Simulate Fresnel Zone Aperture camera with PSF simulation and ADMM reconstuction (https://www.nature.com/articles/s41377-020-0289-9):
 (TODO removing DC offset which hurt reconstruction)
 ```
-python scripts/sim/mask.py mask.type=FZA recon.algo=admm recon.admm.n_iter=18
+python scripts/sim/mask_single_file.py mask.type=FZA recon.algo=admm recon.admm.n_iter=18
 ```
 
 Simulate PhaseContour camera with PSF simulation and ADMM reconstuction (https://ieeexplore.ieee.org/document/9076617):
 ```
-python scripts/sim/mask.py mask.type=PhaseContour recon.algo=admm
+python scripts/sim/mask_single_file.py mask.type=PhaseContour recon.algo=admm
 ```
 
 """
@@ -190,7 +190,6 @@ def simulate(config):
     if save:
         save = os.getcwd()
 
-
     if config.recon.algo.lower() == "tikhonov":
         P, Q = conv_matrices(object_plane.shape, mask)
         recon = CodedApertureReconstruction(
@@ -208,7 +207,9 @@ def simulate(config):
             recon.set_data(image_plane[None, :, :, None])
         else:
             recon.set_data(image_plane[None, :, :, :])
-        res = recon.apply(n_iter=config.recon.admm.n_iter, disp_iter=config.recon.admm.disp_iter, save=save)
+        res = recon.apply(
+            n_iter=config.recon.admm.n_iter, disp_iter=config.recon.admm.disp_iter, save=save
+        )
         recovered = res[0]
     else:
         raise ValueError(f"Reconstruction algorithm {config.recon.algo} not recognized.")
