@@ -60,8 +60,8 @@ from lensless.recon.tikhonov import CodedApertureReconstruction
 
 
 def conv_matrices(img_shape, mask):
-    P = circulant(np.resize(mask.col, mask.mask.shape[0]))[:, : img_shape[0]]
-    Q = circulant(np.resize(mask.row, mask.mask.shape[1]))[:, : img_shape[1]]
+    P = circulant(np.resize(mask.col, mask.sensor_resolution[0]))[:, : img_shape[0]]
+    Q = circulant(np.resize(mask.row, mask.sensor_resolution[1]))[:, : img_shape[1]]
     return P, Q
 
 
@@ -78,13 +78,11 @@ def fc_simulation(img, mask, P=None, Q=None, format="RGB", SNR=40):
         "bayer_grbg",
         "bayer_gbrg",
     ], "color_profile must be in ['grayscale', 'rgb', 'bayer_rggb', 'bayer_bggr', 'bayer_grbg', 'bayer_gbrg']"
-    # print(f"######### SQUEEZE SHAPE:", img.squeeze().shape, "#########")
+
     if len(img.squeeze().shape) == 2:
-        # print('here 1')
         n_channels = 1
         img_ = img.copy()
     elif format == "grayscale":
-        # print('here 2')
         n_channels = 1
         img_ = rgb2gray(img)
     elif format == "rgb":
@@ -93,13 +91,15 @@ def fc_simulation(img, mask, P=None, Q=None, format="RGB", SNR=40):
     else:
         n_channels = 4
         img_ = rgb_to_bayer4d(img, pattern=format[-4:])
+
     if P is None:
-        P = circulant(np.resize(mask.col, mask.mask.shape[0]))[:, : img.shape[0]]
+        P = circulant(np.resize(mask.col, mask.sensor_resolution[0]))[:, : img.shape[0]]
     if Q is None:
-        Q = circulant(np.resize(mask.row, mask.mask.shape[1]))[:, : img.shape[1]]
+        Q = circulant(np.resize(mask.row, mask.sensor_resolution[1]))[:, : img.shape[1]]
+
     Y = np.dstack([multi_dot([P, img_[:, :, c], Q.T]) for c in range(n_channels)])
     # Y = (Y - Y.min()) / (Y.max() - Y.min())
-    # Y = add_shot_noise(Y, snr_db=SNR)
+    Y = add_shot_noise(Y, snr_db=SNR)
     Y = (Y - Y.min()) / (Y.max() - Y.min())
 
     return Y
@@ -155,12 +155,21 @@ def simulate(config):
             **config.mask,
         )
 
+    flatcam_sim = config.simulation.flatcam
+
+    plt.figure(figsize=(10, 10))
+    if flatcam_sim:
+        plt.imshow(mask.mask, cmap="gray")
+    else:
+        plt.imshow(mask.psf, cmap="gray")
+    plt.colorbar()
+    plt.show()
+
     # 2) simulate measurement
-    image = load_image(fp, verbose=True)
+    image = load_image(fp, verbose=True) / 255
     if grayscale and len(image.shape) == 3:
         image = rgb2gray(image)
 
-    flatcam_sim = config.simulation.flatcam
     if flatcam_sim and mask_type.upper() not in ["MURA", "MLS"]:
         warnings.warn(
             "Flatcam simulation only supported for MURA and MLS masks. Using far field simulation with PSF."
@@ -178,6 +187,7 @@ def simulate(config):
         max_val=max_val,
     )
     image_plane, object_plane = simulator.propagate(image, return_object_plane=True)
+    print(object_plane[150:250, 200:300])
 
     if flatcam_sim:
         # apply flatcam simulation to object plane
@@ -191,9 +201,9 @@ def simulate(config):
         save = os.getcwd()
 
     if config.recon.algo.lower() == "tikhonov":
-        P, Q = conv_matrices(object_plane.shape, mask)
+        P1, Q1 = conv_matrices(object_plane.shape, mask)
         recon = CodedApertureReconstruction(
-            mask, object_plane.shape, P=P, Q=Q, lmbd=config.recon.tikhonov.reg
+            mask, object_plane.shape, P=P1, Q=Q1, lmbd=config.recon.tikhonov.reg
         )
         res = recon.apply(image_plane, color_profile=image_format)
         if bayer:
@@ -252,135 +262,6 @@ def simulate(config):
         save_image(recovered, "reconstruction.png")
 
     plt.show()
-
-    # fc_regul = config.simulation.regul
-
-    # n_bits = config.simulation.n_bits
-    # if mask_type.upper() not in ["MURA", "MLS"]:
-    #     flatcam_simulation = False
-    # else:
-    #     flatcam_simulation = config.simulation.flatcam_simulation
-
-    # # load image as numpy array
-    # print("\nImage:")
-    # image = load_image(fp, verbose=True)
-    # # print(f"######### IMAGE SHAPE:", image.shape, "#########")
-    # if grayscale and len(image.shape) == 3:
-    #     image = rgb2gray(image)
-
-    # # load psf as numpy array
-    # print("\nPSF:")
-    # if config.simulation.mask_type.upper() in ["MURA", "MLS"]:
-    #     mask = CodedAperture.from_sensor(
-    #         sensor_name=sensor,
-    #         downsample=downsample,
-    #         method=mask_type,
-    #         n_bits=n_bits,
-    #         distance_sensor=mask2sensor,
-    #     )
-    #     psf = mask.psf[np.newaxis, :, :, :] / np.linalg.norm(mask.psf.ravel())
-    # elif mask_type.upper() == "FZA":
-    #     mask = FresnelZoneAperture.from_sensor(
-    #         sensor_name=sensor, downsample=downsample, distance_sensor=mask2sensor
-    #     )
-    #     psf = mask.psf[np.newaxis, :, :, :] / np.linalg.norm(mask.psf.ravel())
-    # elif mask_type.lower() == "phase":
-    #     mask = PhaseContour.from_sensor(
-    #         sensor_name=sensor, downsample=downsample, distance_sensor=mask2sensor
-    #     )
-    #     psf = mask.psf[np.newaxis, :, :, :] / np.linalg.norm(mask.psf.ravel())
-    # else:
-    #     psf_fp = to_absolute_path(config.files.psf)
-    #     assert os.path.exists(psf_fp), f"PSF {psf_fp} does not exist."
-    #     psf = load_psf(psf_fp, verbose=True, downsample=downsample, bg_pix=None)
-    # print(f"######### {mask_type.upper()} SHAPE:", psf.shape, "#########")
-
-    # plt.figure(figsize=(10, 10))
-    # if flatcam_simulation:
-    #     plt.imshow(mask.mask, cmap="gray")
-    # else:
-    #     plt.imshow(psf.squeeze() * 255, cmap="gray")
-    # plt.colorbar()
-
-    # if grayscale and psf.shape[-1] == 3:
-    #     psf = rgb2gray(psf)
-    # if downsample > 1:
-    #     print(f"Downsampled to {psf.shape}.")
-
-    # # check PSF is not Nan
-    # assert not np.isnan(psf).any()
-
-    # """ Simulation"""
-    # simulator = FarFieldSimulator(
-    #     psf=psf.squeeze(),  # only support one depth plane
-    #     object_height=object_height,
-    #     scene2mask=scene2mask,
-    #     mask2sensor=mask2sensor,
-    #     sensor=sensor,
-    #     snr_db=snr_db,
-    #     max_val=max_val,
-    # )
-
-    # if flatcam_simulation:
-    #     object_plane = image
-    #     image_plane, P, Q = fc_simulation(image, mask, format=image_format, SNR=snr_db)
-    # else:
-    #     image_plane, object_plane = simulator.propagate(image, return_object_plane=True)
-    # if config.save:
-    #     print("######### OBJECT PLANE SHAPE:", object_plane.shape, "#########")
-    #     save_image(object_plane, "object_plane.png")
-    #     save_image(image_plane, "image_plane.png", max_val=max_val)
-    # ax = plot_image(image_plane)
-    # ax.set_title("Simulated lensless image")
-
-    # """ Reconstruction """
-    # if flatcam_simulation:
-    #     recon = CodedApertureReconstruction(mask, image.shape, P=P, Q=Q, lmbd=fc_regul)
-    #     res = recon.apply(image_plane, color_profile=image_format)
-    #     if bayer:
-    #         recovered = bayer4d_to_rgb(res)
-    #     else:
-    #         recovered = res
-    # else:
-    #     recon = ADMM(psf, **config.admm)
-    #     if grayscale:
-    #         recon.set_data(image_plane[None, :, :, None])
-    #     else:
-    #         recon.set_data(image_plane[None, :, :, :])
-    #     res = recon.apply(n_iter=config.admm.n_iter, disp_iter=config.admm.disp_iter)
-    #     recovered = res[0]
-
-    # """ Evaluation """
-    # object_plane = object_plane.astype(np.float32)
-    # recovered = recovered.astype(np.float32).squeeze()
-
-    # _, ax = plt.subplots(ncols=2, nrows=1, figsize=(10, 5))
-    # plot_image(recovered, ax=ax[0])
-    # ax[0].set_title("Reconstruction")
-    # plot_image(object_plane, ax=ax[1])
-    # ax[1].set_title("Original")
-    # if config.save:
-    #     save_image(recovered, "reconstruction.png")
-
-    # print("\nEvaluation:")
-    # print("MSE", mse(object_plane, recovered))
-    # print("PSNR", psnr(object_plane, recovered))
-    # if grayscale:
-    #     try:
-    #         print("SSIM", ssim(object_plane, recovered, channel_axis=None))
-    #     except Exception:
-    #         print("SSIM error")
-    # else:
-    #     try:
-    #         print("SSIM", ssim(object_plane, recovered))
-    #     except Exception:
-    #         print("SSIM error")
-    #     try:
-    #         print("LPIPS", lpips(object_plane, recovered))
-    #     except Exception:
-    #         print("LPIPS error")
-
-    # plt.show()
 
 
 if __name__ == "__main__":
