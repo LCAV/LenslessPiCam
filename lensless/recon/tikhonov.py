@@ -9,9 +9,9 @@
 Tikhonov
 ========
 
-The py:class:`~lensless.recon.tikhonov.CodedApertureReconstruction` class is meant 
-to recover an image from a py:class:`~lensless.hardware.mask.CodedAperture` lensless 
-capture, using the analytical solution to the Tikhonov optimization problem 
+The py:class:`~lensless.recon.tikhonov.CodedApertureReconstruction` class is meant
+to recover an image from a py:class:`~lensless.hardware.mask.CodedAperture` lensless
+capture, using the analytical solution to the Tikhonov optimization problem
 (least squares problem with L2 regularization term), as in the `FlatCam paper
 <https://arxiv.org/abs/1509.00116>`_ (Eq. 7).
 """
@@ -141,5 +141,6 @@ class CodedApertureReconstruction:
 
         # Non-negativity constraint: setting all negative values to 0
         X = X.clip(min=0)
+        X = (X - X.min()) / (X.max() - X.min())
 
         return X
