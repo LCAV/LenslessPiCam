@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from lensless.utils.io import load_data
 from lensless import ADMM
+from lensless.utils.plot import plot_image
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="defaults_recon")
@@ -41,6 +42,7 @@ def admm(config):
         shape=config["preprocess"]["shape"],
         torch=config.torch,
         torch_device=config.torch_device,
+        normalize=not config["admm"]["unrolled"],  # unrolled ADMM assumes unnormalized data
     )
 
     disp = config["display"]["disp"]
@@ -51,6 +53,11 @@ def admm(config):
     if save:
         save = os.getcwd()
 
+    if save:
+        ax = plot_image(data.cpu().numpy(), gamma=config["display"]["gamma"])
+        plt.savefig(plib.Path(save) / "lensless.png")
+        ax.set_title("Original measurement")
+
     start_time = time.time()
     if not config.admm.unrolled:
         recon = ADMM(psf, **config.admm)
@@ -59,14 +66,14 @@ def admm(config):
         from lensless.recon.unrolled_admm import UnrolledADMM
         import train_unrolled
 
-        pre_process = train_unrolled.create_process_network(
+        pre_process, name = train_unrolled.create_process_network(
             network=config.admm.pre_process_model.network,
-            depth=config.admm.pre_process_depth.depth,
+            depth=config.admm.pre_process_model.depth,
             device=config.torch_device,
         )
-        post_process = train_unrolled.create_process_network(
+        post_process, name = train_unrolled.create_process_network(
             network=config.admm.post_process_model.network,
-            depth=config.admm.post_process_depth.depth,
+            depth=config.admm.post_process_model.depth,
             device=config.torch_device,
         )
 
@@ -81,12 +88,22 @@ def admm(config):
     start_time = time.time()
     if config.torch:
         with torch.no_grad():
-            res = recon.apply(
-                disp_iter=disp,
-                save=save,
-                gamma=config["display"]["gamma"],
-                plot=config["display"]["plot"],
-            )
+            if config.admm.unrolled:
+                res = recon.apply(
+                    disp_iter=disp,
+                    save=save,
+                    gamma=config["display"]["gamma"],
+                    plot=config["display"]["plot"],
+                    output_intermediate=True,
+                )
+            else:
+                res = recon.apply(
+                    disp_iter=disp,
+                    save=save,
+                    gamma=config["display"]["gamma"],
+                    plot=config["display"]["plot"],
+                )
+
     else:
         res = recon.apply(
             disp_iter=disp,
@@ -104,6 +121,19 @@ def admm(config):
     if config["display"]["plot"]:
         plt.show()
     if save:
+        if config.admm.unrolled:
+            # Save intermediate results
+            if res[1] is not None:
+                pre_processed_image = res[1].cpu().numpy()
+                ax = plot_image(pre_processed_image, gamma=config["display"]["gamma"])
+                plt.savefig(plib.Path(save) / "pre_processed.png")
+                ax.set_title("Image after preprocessing")
+            if res[2] is not None:
+                pre_post_process_image = res[2].cpu().numpy()
+                ax = plot_image(pre_post_process_image, gamma=config["display"]["gamma"])
+                plt.savefig(plib.Path(save) / "pre_post_process.png")
+                ax.set_title("Image after preprocessing")
+
         np.save(plib.Path(save) / "final_reconstruction.npy", img)
         print(f"Files saved to : {save}")
 
