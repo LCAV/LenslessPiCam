@@ -32,11 +32,11 @@ simulation:
 
 
 mask:
-  type: "MURA"    # "MURA", "MLS", "FZA", "PhaseContour"
+  type: "MLS"    # "MURA", "MLS", "FZA", "PhaseContour"
 
   # Coded Aperture (MURA or MLS)
   #flatcam_method: 'MLS'
-  n_bits: 99 # e.g. 8 for MLS, 99 for MURA
+  n_bits: 8 # e.g. 8 for MLS, 99 for MURA
   
   # Phase Contour
   noise_period: [16, 16]
