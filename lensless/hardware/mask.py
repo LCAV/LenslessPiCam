@@ -368,7 +368,7 @@ class FresnelZoneAperture(Mask):
     namely binarized cosine function.
     """
 
-    def __init__(self, radius=5e-4, **kwargs):
+    def __init__(self, radius=0.32e-3, **kwargs):
         """
         Fresnel Zone Aperture mask contructor.
 
