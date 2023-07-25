@@ -1,0 +1,58 @@
+# RGB simulation and reconstruction
+seed: 0
+
+files:
+  dataset: data/celeba_mini
+  image_ext: jpg
+  n_files: 10    # null to use all
+  psf: data/psf/tape_rgb.png
+
+simulation:
+  object_height: [0.4, 0.4]   # range for random height, or scalar
+  random_shift: False
+  # these distance parameters are typically fixed for a given PSF
+  scene2mask: 40e-2
+  mask2sensor: 4e-3
+  # see waveprop.devices
+  sensor: "rpi_hq"
+  snr_db: 40
+  # simulate different sensor resolution
+  output_dim: null    # [H, W] or null
+  # Downsampling for PSF
+  downsample: 8
+  grayscale: False
+  # max val in simulated measured (quantized 8 bits)
+  max_val: 230
+
+  #wavelength: 523e-9
+  mask_type: "tape"
+  #size_px: [4056, 3040] # irrelevant for coded aperture
+  #size_px: [380, 507] # irrelevant for coded aperture
+
+  # Coded Aperture (MURA or MLS)
+  #flatcam_method: 'MLS'
+  n_bits: 99 # e.g. 8 for MLS, 99 for MURA
+  flatcam: True
+
+  # Phase Contour
+  noise_period: [16, 16]
+  refractive_index: 1.2
+  phase_mask_iter: 10
+
+  # Fresnel Zone Aperture
+  radius: 0.32e-3  # todo set in m
+
+save: 
+  bool: True
+  dir: "data/celeba_mini_"
+
+admm:
+  bool: True
+  n_iter: 20
+  # Recommend to not display, ok for small number of files, otherwise many windows will pop up!
+  disp_iter: null
+  # Hyperparameters
+  mu1: 1e-6
+  mu2: 1e-5
+  mu3: 4e-5
+  tau: 0.0001
