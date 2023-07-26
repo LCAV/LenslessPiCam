@@ -12,19 +12,19 @@ Example usage:
 
 Simulate FlatCam with separable simulation and Tikhonov reconstuction (https://arxiv.org/abs/1509.00116, Eq 7):
 ```
-python scripts/sim/mask_single_file.py mask.type=MURA simulation.flatcam=True recon.algo=tikhonov
+python scripts/sim/mask_single_file.py mask.type=MLS simulation.flatcam=True recon.algo=tikhonov
 ```
 
 Simulate FlatCam with PSF simulation and Tikhonov reconstuction:
  (TODO doesn't work)
 ```
-python scripts/sim/mask_single_file.py mask.type=MURA simulation.flatcam=False recon.algo=tikhonov
+python scripts/sim/mask_single_file.py mask.type=MLS simulation.flatcam=False recon.algo=tikhonov
 ```
 
 Simulate FlatCam with PSF simulation and ADMM reconstruction:
  (TODO doesn't work)
 ```
-python scripts/sim/mask_single_file.py mask.type=MURA simulation.flatcam=False recon.algo=admm
+python scripts/sim/mask_single_file.py mask.type=MLS simulation.flatcam=False recon.algo=admm
 ```
 
 Simulate Fresnel Zone Aperture camera with PSF simulation and ADMM reconstuction (https://www.nature.com/articles/s41377-020-0289-9):
@@ -105,7 +105,7 @@ def fc_simulation(img, mask, P=None, Q=None, format="RGB", SNR=40):
     return Y
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="mask_sim")
+@hydra.main(version_base=None, config_path="../../configs", config_name="mask_sim_single")
 def simulate(config):
 
     fp = to_absolute_path(config.files.original)
@@ -187,7 +187,6 @@ def simulate(config):
         max_val=max_val,
     )
     image_plane, object_plane = simulator.propagate(image, return_object_plane=True)
-    print(object_plane[150:250, 200:300])
 
     if flatcam_sim:
         # apply flatcam simulation to object plane
