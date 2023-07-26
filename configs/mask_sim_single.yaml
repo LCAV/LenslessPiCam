@@ -28,7 +28,7 @@ simulation:
 
   image_format: RGB
 
-  flatcam: True   # only supported if mask.type is "MURA" or "MLS"
+  flatcam: False   # only supported if mask.type is "MURA" or "MLS"
 
 
 mask:
