@@ -5,32 +5,32 @@ histogram and width.
 
 Analyze PSF of lensless camera, namely looking at autocorrelations:
 ```python
-python scripts/analyze_image.py --fp data/psf/tape_rgb.png --gamma 2.2 --lensless
+python scripts/measure/analyze_image.py --fp data/psf/tape_rgb.png --gamma 2.2 --lensless
 ```
 
 Example usage (data can be downloaded here: https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww)
 ```bash
-python scripts/analyze_image.py --fp data/psf/lens_cardboard.png --plot_width 100 --lens
-python scripts/analyze_image.py --fp data/psf/lens_iris.png --plot_width 100 --lens
+python scripts/measure/analyze_image.py --fp data/psf/lens_cardboard.png --plot_width 100 --lens
+python scripts/measure/analyze_image.py --fp data/psf/lens_iris.png --plot_width 100 --lens
 ```
 
 For Bayer data
 ```bash
-python scripts/analyze_image.py --fp data/psf/tape_bayer.png --bayer \
+python scripts/measure/analyze_image.py --fp data/psf/tape_bayer.png --bayer \
 --gamma 2.2 --rg 2.1 --bg 1.3
 ```
 
 To plot autocorrelations of lensless camera PSF
 ```bash
-python scripts/analyze_image.py --fp data/psf/tape_bayer.png --bayer \
+python scripts/measure/analyze_image.py --fp data/psf/tape_bayer.png --bayer \
 --gamma 2.2 --rg 2.1 --bg 1.3 --lensless
 ```
 
 Save RGB data from bayer
 ```
-python scripts/analyze_image.py --fp data/psf/tape_bayer.png --bayer \
+python scripts/measure/analyze_image.py --fp data/psf/tape_bayer.png --bayer \
 --gamma 2.2 --rg 2.1 --bg 1.3 --save data/psf/tape_rgb.png
-python scripts/analyze_image.py --fp data/raw_data/thumbs_up_bayer.png --bayer \
+python scripts/measure/analyze_image.py --fp data/raw_data/thumbs_up_bayer.png --bayer \
 --gamma 2.2 --rg 2.1 --bg 1.3 --save data/raw_data/thumbs_up_rgb.png
 ```
 
