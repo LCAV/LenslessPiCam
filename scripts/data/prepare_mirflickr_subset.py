@@ -5,7 +5,7 @@ which also includes viewable/postprocessed images.
 Note that you need the dataset locally, which is about 100 GB.
 
 ```bash
-python scripts/prepare_mirflickr_subset.py \
+python scripts/data/prepare_mirflickr_subset.py \
 --data ~/Documents/DiffuserCam/DiffuserCam_Mirflickr_Dataset
 ```
 
