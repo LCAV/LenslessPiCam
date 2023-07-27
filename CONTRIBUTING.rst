@@ -153,7 +153,9 @@ Building documentation
 
    # build documentation
    (lensless_docs) python setup.py build_sphinx
-
+   # or
+   (lensless_docs) (cd docs && make html)
+   
 To rebuild the documentation from scratch:
 
 .. code:: bash
