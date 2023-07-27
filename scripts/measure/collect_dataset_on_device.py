@@ -4,7 +4,7 @@ To be run on the Raspberry Pi!
 python scripts/collect_dataset_on_device.py
 ```
 
-TODO: scripts expects Raspberry Pi HQ camera
+Note that the script is configured for the  Raspberry Pi HQ camera
 
 Parameters set in: configs/collect_dataset.yaml
 
@@ -33,7 +33,7 @@ from lensless.utils.image import bayer2rgb, resize
 import cv2
 
 
-@hydra.main(version_base=None, config_path="../configs", config_name="collect_dataset")
+@hydra.main(version_base=None, config_path="../../configs", config_name="collect_dataset")
 def collect_dataset(config):
 
     input_dir = config.input_dir
@@ -96,6 +96,7 @@ def collect_dataset(config):
         # set up camera for consistent photos
         # https://picamera.readthedocs.io/en/release-1.13/recipes1.html#capturing-consistent-images
         # https://picamerax.readthedocs.io/en/latest/fov.html?highlight=camera%20resolution#sensor-modes
+        # -- just get max resolution of camera
         camera = PiCamera(framerate=30)
         if res:
             assert len(res) == 2
@@ -103,9 +104,9 @@ def collect_dataset(config):
             res = np.array(camera.MAX_RESOLUTION)
             if down is not None:
                 res = (np.array(res) / down).astype(int)
-
-        # camera = PiCamera(framerate=30)
         camera.close()
+
+        # -- now set up camera with desired settings
         camera = PiCamera(
             framerate=1 / config.capture.exposure, sensor_mode=0, resolution=tuple(res)
         )
