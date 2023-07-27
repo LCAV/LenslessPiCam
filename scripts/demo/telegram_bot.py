@@ -250,7 +250,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_folder = get_user_folder(update)
         original_file_path = os.path.join(user_folder, INPUT_FP)
         os.system(
-            f"python scripts/remote_display.py -cn {CONFIG_FN} fp={original_file_path} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+            f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
         )
         await update.message.reply_text(
             "Image sent to display.", reply_to_message_id=update.message.message_id
@@ -285,7 +285,7 @@ async def take_picture(update: Update, context: ContextTypes.DEFAULT_TYPE, query
         )
 
     os.system(
-        f"python scripts/remote_capture.py -cn {CONFIG_FN} plot=False rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME} output={user_subfolder} capture.exp={EXPOSURE}"
+        f"python scripts/measure/remote_capture.py -cn {CONFIG_FN} plot=False rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME} output={user_subfolder} capture.exp={EXPOSURE}"
     )
 
 
@@ -444,7 +444,7 @@ async def take_picture_and_reconstruct(
     # -- send picture of setup (lensed)
     if RPI_LENSED_HOSTNAME is not None and RPI_LENSED_USERNAME is not None:
         os.system(
-            f"python scripts/remote_capture.py -cn {CONFIG_FN} rpi.username={RPI_LENSED_USERNAME} rpi.hostname={RPI_LENSED_HOSTNAME} plot=False capture.bayer=False capture.down=8 output={user_subfolder} capture.raw_data_fn=lensed capture.awb_gains=null"
+            f"python scripts/measure/remote_capture.py -cn {CONFIG_FN} rpi.username={RPI_LENSED_USERNAME} rpi.hostname={RPI_LENSED_HOSTNAME} plot=False capture.bayer=False capture.down=8 output={user_subfolder} capture.raw_data_fn=lensed capture.awb_gains=null"
         )
         OUTPUT_FP = os.path.join(user_subfolder, "lensed.png")
         await responder.reply_photo(
@@ -480,7 +480,7 @@ async def mnist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # -- send to display
     os.system(
-        f"python scripts/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+        f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
     )
     await update.message.reply_text(
         f"Image sent to display with brightness {brightness}.",
@@ -519,7 +519,7 @@ async def thumb_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # -- send to display
     os.system(
-        f"python scripts/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+        f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
     )
     await update.message.reply_text(
         f"Image sent to display with brightness {brightness}.",
@@ -558,7 +558,7 @@ async def face_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     # -- send to display
     os.system(
-        f"python scripts/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+        f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
     )
     await update.message.reply_text(
         f"Image sent to display with brightness {brightness}.",
@@ -587,7 +587,7 @@ async def psf_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     # -- send to display
     os.system(
-        f"python scripts/remote_display.py -cn {CONFIG_FN} display.psf={psf_size} display.vshift={vshift} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+        f"python scripts/measure/remote_display.py -cn {CONFIG_FN} display.psf={psf_size} display.vshift={vshift} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
     )
     await update.message.reply_text(
         f"PSF of {psf_size}x{psf_size} pixels set on display.",
@@ -596,7 +596,7 @@ async def psf_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     # -- measurement
     os.system(
-        f"python scripts/remote_capture.py -cn demo_measure_psf rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+        f"python scripts/measure/remote_capture.py -cn demo_measure_psf rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
     )
     OUTPUT_FP = os.path.join(OUTPUT_FOLDER, "raw_data.png")
     await update.message.reply_photo(
@@ -643,7 +643,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_folder = get_user_folder_from_query(query)
         original_file_path = os.path.join(user_folder, INPUT_FP)
         os.system(
-            f"python scripts/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.brightness={BRIGHTNESS} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+            f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.brightness={BRIGHTNESS} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
         )
         await query.edit_message_text(text=f"Image sent to display with brightness {BRIGHTNESS}.")
         # await update.message.reply_text("Image sent to display.", reply_to_message_id=update.message.message_id)
@@ -786,7 +786,7 @@ async def emoji(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     vshift = -10
     brightness = 80
     os.system(
-        f"python scripts/remote_display.py -cn {CONFIG_FN} fp={original_file_path} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME} display.vshift={vshift} display.brightness={brightness}"
+        f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME} display.vshift={vshift} display.brightness={brightness}"
     )
     await update.message.reply_text(
         f"Image sent to display with brightness {brightness}.",
