@@ -13,6 +13,7 @@ rpi_lensed_hostname: null
 # psf: null
 psf:
   fp: data/psf/tape_rgb_31032023.png
+  # fp: data/psf/tape_rgb.png  # wrong
   downsample: 4
 
 # which hydra config to use and available algos
