@@ -41,7 +41,15 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
     """
 
-    def __init__(self, psf, dtype=None, n_iter=1, **kwargs):
+    def __init__(
+        self,
+        psf,
+        dtype=None,
+        n_iter=1,
+        pre_process=None,
+        post_process=None,
+        **kwargs,
+    ):
         """
         Base constructor. Derived constructor may define new state variables
         here and also reset them in `reset`.
@@ -58,29 +66,93 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
                 Data type to use for optimization.
             n_iter : int
                 Number of iterations for unrolled algorithm.
+            pre_process : :py:class:`function` or :py:class:`~torch.nn.Module`, optional
+                If :py:class:`function` : Function to apply to the image estimate before algorithm. Its input most be (image to process, noise_level), where noise_level is a learnable parameter. If it include aditional learnable parameters, they will not be added to the parameter list of the algorithm. To allow for traning, the function must be autograd compatible.
+                If :py:class:`~torch.nn.Module` : A DruNet compatible network to apply to the image estimate before algorithm. See ``utils.image.apply_denoiser`` for more details. The network will be included as a submodule of the algorithm and its parameters will be added to the parameter list of the algorithm. If this isn't intended behavior, set requires_grad=False.
+            post_process : :py:class:`function` or :py:class:`~torch.nn.Module`, optional
+                If :py:class:`function` : Function to apply to the image estimate after the whole algorithm. Its input most be (image to process, noise_level), where noise_level is a learnable parameter. If it include aditional learnable parameters, they will not be added to the parameter list of the algorithm. To allow for traning, the function must be autograd compatible.
+                If :py:class:`~torch.nn.Module` : A DruNet compatible network to apply to the image estimate after the whole algorithm. See ``utils.image.apply_denoiser`` for more details. The network will be included as a submodule of the algorithm and its parameters will be added to the parameter list of the algorithm. If this isn't intended behavior, set requires_grad=False.
         """
         assert isinstance(psf, torch.Tensor), "PSF must be a torch.Tensor"
         super(TrainableReconstructionAlgorithm, self).__init__(
             psf, dtype=dtype, n_iter=n_iter, **kwargs
         )
 
-    @abc.abstractmethod
+        # pre processing
+        (
+            self.pre_process,
+            self.pre_process_model,
+            self.pre_process_param,
+        ) = self._prepare_process_block(pre_process)
+
+        # post processing
+        (
+            self.post_process,
+            self.post_process_model,
+            self.post_process_param,
+        ) = self._prepare_process_block(post_process)
+
+    def _prepare_process_block(self, process):
+        """
+        Method for preparing the pre or post process block.
+        Parameters
+        ----------
+            process : :py:class:`function` or :py:class:`~torch.nn.Module`, optional
+                Pre or post process block to prepare.
+        """
+        if isinstance(process, torch.nn.Module):
+            # If the post_process is a torch module, we assume it is a DruNet like network.
+            from lensless.utils.image import process_with_DruNet
+
+            process_model = process
+            process_function = process_with_DruNet(process_model, self._psf.device, mode="train")
+        elif process is not None:
+            # Otherwise, we assume it is a function.
+            assert callable(process), "pre_process must be a callable function"
+            process_function = process
+            process_model = None
+        else:
+            process_function = None
+            process_model = None
+        if process_function is not None:
+            process_param = torch.nn.Parameter(torch.tensor([1.0], device=self._psf.device))
+        else:
+            process_param = None
+
+        return process_function, process_model, process_param
+
     def batch_call(self, batch):
         """
         Method for performing iterative reconstruction on a batch of images.
-        This implementation simply calls `apply` on each image in the batch.
-        Training algorithms are expected to override this method with a properly vectorized implementation.
+        This implementation is a properly vectorized implementation of FISTA.
 
         Parameters
         ----------
-        batch : :py:class:`~torch.Tensor` of shape (batch, depth, height, width, channels)
+        batch : :py:class:`~torch.Tensor` of shape (batch, depth, channels, height, width)
             The lensless images to reconstruct.
 
         Returns
         -------
-        :py:class:`~torch.Tensor` of shape (batch, depth, height, width, channels)
+        :py:class:`~torch.Tensor` of shape (batch, depth, channels, height, width)
             The reconstructed images.
         """
+        self._data = batch
+        assert len(self._data.shape) == 5, "batch must be of shape (N, D, C, H, W)"
+        batch_size = batch.shape[0]
+
+        # pre process data
+        if self.pre_process is not None:
+            self._data = self.pre_process(self._data, self.pre_process_param)
+
+        self.reset(batch_size=batch_size)
+
+        for i in range(self._n_iter):
+            self._update(i)
+
+        image_est = self._form_image()
+        if self.post_process is not None:
+            image_est = self.post_process(image_est, self.post_process_param)
+        return image_est
 
     def apply(
         self, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None, reset=True
@@ -118,6 +190,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             returning if `plot` or `save` is True.
 
         """
+        if self.pre_process is not None:
+            self._data = self.pre_process(self._data, self.pre_process_param)
+
         im = super(TrainableReconstructionAlgorithm, self).apply(
             n_iter=self._n_iter,
             disp_iter=disp_iter,
@@ -128,4 +203,6 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             ax=ax,
             reset=reset,
         )
+        if self.post_process is not None:
+            im = self.post_process(im, self.post_process_param)
         return im
