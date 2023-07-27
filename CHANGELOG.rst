@@ -18,6 +18,7 @@ Added
 - Link and citation for JOSS.
 - Authors at top of source code files.
 - Add paramiko as dependency for remote capture and display.
+- Script for measuring arbitrary dataset (from Raspberry Pi).
 
 
 Changed
@@ -25,6 +26,7 @@ Changed
 
 - Simpler remote capture and display scripts with Hydra.
 - Group source code into four modules: ``hardware``, ``recon``, ``utils``, ``eval``.
+- Split scripts into subfolders.
 
 
 Bugfix
