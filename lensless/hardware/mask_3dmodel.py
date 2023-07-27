@@ -16,7 +16,7 @@ class Connection(ABC):
     """connections can in general use the mask array to determine where to connect to the mask, but it is not required."""
     pass
 
-class MaskModel():
+class Mask3DModel():
   def __init__(self,
     mask_array: np.ndarray,
     frame: Frame,
@@ -75,7 +75,7 @@ class MaskModel():
     connection_model = self.connections.generate(self.mask, self.mask_size, self.depth)
     
     px_size = self.mask_size / self.mask.shape
-    points = MaskModel.mask_to_points(self.mask, self.mask_size, px_size)
+    points = Mask3DModel.mask_to_points(self.mask, self.mask_size, px_size)
     mask_model = (cq.Workplane("XY")
       .pushPoints(points)
       .box(px_size[0], px_size[1], self.depth, centered=False, combine=False)
