@@ -20,9 +20,9 @@ class Mask3DModel():
   def __init__(self,
     mask_array: np.ndarray,
     frame: Frame,
-    connection: Connection, 
     mask_size: Union[tuple[float, float], np.ndarray],
     depth: float,
+    connection: Connection = None, 
     simplify: bool = False,
     show_axis: bool = False,
   ):
@@ -54,11 +54,9 @@ class Mask3DModel():
     self._generate_3d_model()
     
   @classmethod
-  def from_mask(cls, mask: Mask, frame: Frame, connection: Connection, **kwargs):
+  def from_mask(cls, mask: Mask, **kwargs):
     return cls(
       mask_array = mask.mask, 
-      frame = frame, 
-      connection = connection,
       mask_size = mask.sensor_size,
       **kwargs
     )
@@ -71,8 +69,13 @@ class Mask3DModel():
   
   def _generate_3d_model(self):
     """based on provided mask, frame and connection between frame and mask, generate a 3d model."""
+    self.model = cq.Workplane("XY")
+    
     frame_model = self.frame.generate(self.mask_size, self.depth)
-    connection_model = self.connections.generate(self.mask, self.mask_size, self.depth)
+    self.model = self.model.add(frame_model)
+    if self.connections is not None:
+      connection_model = self.connections.generate(self.mask, self.mask_size, self.depth)
+      self.model = self.model.add(connection_model)
     
     px_size = self.mask_size / self.mask.shape
     points = Mask3DModel.mask_to_points(self.mask, self.mask_size, px_size)
@@ -83,9 +86,12 @@ class Mask3DModel():
     
     if self.simplify:
       mask_model = mask_model.combine(glue=True)
+        
+    self.model = self.model.add(mask_model)
     
-    self.model = cq.Workplane("XY").add(frame_model).add(connection_model).add(mask_model)
-    
+    if self.simplify:
+      self.model = self.model.combine(glue=False)
+      
     if self.show_axis:
       axis_thickness = 0.1
       axis_length = 20
@@ -95,9 +101,6 @@ class Mask3DModel():
         .box(axis_length, axis_thickness, axis_thickness)
       )
       self.model = self.model.add(axis_test)
-    
-    if self.simplify:
-      self.model = self.model.combine(glue=False)
     
   def save(self, fname):
     assert self.model is not None
