@@ -16,17 +16,14 @@ simulation:
   mask2sensor: 4e-3
   # see waveprop.devices
   sensor: "rpi_hq"
-  snr_db: 40
+  snr_db: 20
   # Downsampling for PSF
   downsample: 8
-
-  #grayscale: True
-  grayscale: False
 
   # max val in simulated measured (quantized 8 bits)
   max_val: 230
 
-  image_format: RGB
+  image_format: rgb   # rgb, grayscale, bayer_rggb, bayer_bggr, bayer_grbg, bayer_gbrg
 
   flatcam: False   # only supported if mask.type is "MURA" or "MLS"
 

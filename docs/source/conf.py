@@ -8,6 +8,7 @@ from unittest import mock
 MOCK_MODULES = [
     "scipy",
     "scipy.signal",
+    "scipy.linalg",
     "pycsou",
     "matplotlib",
     "matplotlib.pyplot",

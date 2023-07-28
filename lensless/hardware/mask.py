@@ -25,10 +25,14 @@ from math import sqrt
 from perlin_numpy import generate_perlin_noise_2d
 from sympy.ntheory import quadratic_residues
 from scipy.signal import max_len_seq
+from scipy.linalg import circulant
+from numpy.linalg import multi_dot
 from waveprop.fresnel import fresnel_conv
 from waveprop.rs import angular_spectrum
+from waveprop.noise import add_shot_noise
 from lensless.hardware.sensor import VirtualSensor
 from lensless.utils.image import resize
+from lensless.utils.image import rgb2bayer, bayer2rgb
 
 
 class Mask(abc.ABC):
@@ -249,6 +253,59 @@ class CodedAperture(Mask):
                 if not ((i - 1 in q) != (j - 1 in q)):
                     A[i, j] = 1
         return A
+    
+
+    def get_conv_matrices(self, img_shape):
+        """
+        Get theoretical left and right convolution matrices for the separable mask.
+
+        Such that measurement model is given ``P @ img @ Q.T``.
+
+        Parameters
+        ----------
+        img_shape: tuple
+            Shape of the image to being convolved.
+
+        Returns
+        -------
+        P: :py:class:`~numpy.ndarray`
+            Left convolution matrix.
+        Q: :py:class:`~numpy.ndarray`
+            Right convolution matrix.
+
+        """
+
+        P = circulant(np.resize(self.col, self.resolution[0]))[:, : img_shape[0]]
+        Q = circulant(np.resize(self.row, self.resolution[1]))[:, : img_shape[1]]
+
+        return P, Q
+    
+    def simulate(self, obj, snr_db=20):
+        """
+        Simulate the mask measurement of an image. Apply left and right convolution matrices,
+        add noise and return the measurement.
+
+        Parameters
+        ----------
+        obj: :py:class:`~numpy.ndarray`
+            Image to simulate.
+        snr_db: float, optional
+            Signal-to-noise ratio (dB) of the simulated measurement. Default is 20 dB.
+        """
+        assert len(obj.shape) == 3, "Object should be a 3D array (HxWxC) even if grayscale."
+
+        # Get convolution matrices
+        P, Q = self.get_conv_matrices(obj.shape)
+
+        # Convolve image
+        n_channels = obj.shape[-1]
+        meas = np.dstack([multi_dot([P, obj[:, :, c], Q.T]) for c in range(n_channels)])
+
+        # Add noise
+        if snr_db is not None:
+            meas = add_shot_noise(meas, snr_db=snr_db)
+
+        return meas
 
 
 class PhaseContour(Mask):

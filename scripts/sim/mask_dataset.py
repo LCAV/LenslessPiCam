@@ -1,7 +1,7 @@
 import hydra
 from hydra.utils import to_absolute_path
 from lensless.utils.io import load_image, load_psf, save_image
-from lensless.utils.image import rgb2gray, resize, rgb_to_bayer4d, bayer4d_to_rgb
+from lensless.utils.image import rgb2gray, resize, rgb2bayer, bayer2rgb
 import numpy as np
 from lensless import ADMM
 from lensless.eval.metric import mse, psnr, ssim, lpips, LPIPS_MIN_DIM
@@ -50,7 +50,7 @@ def fc_simulation(img, mask, P=None, Q=None, format="RGB", SNR=40):
         img_ = img.copy()
     else:
         n_channels = 4
-        img_ = rgb_to_bayer4d(img, pattern=format[-4:])
+        img_ = rgb2bayer(img, pattern=format[-4:])
     if P is None:
         P = circulant(np.resize(mask.col, mask.mask.shape[0]))[:, : img.shape[0]]
     if Q is None:

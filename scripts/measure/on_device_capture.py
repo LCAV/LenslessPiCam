@@ -19,7 +19,7 @@ import numpy as np
 from time import sleep
 from PIL import Image
 from lensless.hardware.utils import get_distro
-from lensless.utils.image import bayer2rgb, rgb2gray, resize
+from lensless.utils.image import bayer2rgb_cc, rgb2gray, resize
 from lensless.hardware.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 from fractions import Fraction
 import time
@@ -181,7 +181,7 @@ def capture(config):
                     red_gain = config.awb_gains[0]
                     blue_gain = config.awb_gains[1]
 
-                output_rgb = bayer2rgb(
+                output_rgb = bayer2rgb_cc(
                     output,
                     nbits=n_bits,
                     blue_gain=blue_gain,

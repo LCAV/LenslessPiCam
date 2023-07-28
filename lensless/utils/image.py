@@ -168,7 +168,7 @@ def get_max_val(img, nbits=None):
     return max_val
 
 
-def bayer2rgb(
+def bayer2rgb_cc(
     img,
     nbits,
     blue_gain=None,
@@ -278,9 +278,9 @@ def autocorr2d(vals, pad_mode="reflect"):
     return autocorr[shape[0] // 2 : -shape[0] // 2, shape[1] // 2 : -shape[1] // 2]
 
 
-def rgb_to_bayer4d(img, pattern):
+def rgb2bayer(img, pattern):
     """
-    Converting RGB image to separated Bayer channels
+    Converting RGB image to separated Bayer channels.
 
     Parameters
     ----------
@@ -319,6 +319,7 @@ def rgb_to_bayer4d(img, pattern):
         gr = resized[1::2, ::2, 1]
         gb = resized[::2, 1::2, 1]
         b = resized[1::2, 1::2, 2]
+        img_bayer = np.dstack((r, gr, gb, b))
 
     elif pattern == "BGGR":
         # BGGR pattern *------*
@@ -329,8 +330,9 @@ def rgb_to_bayer4d(img, pattern):
         gr = resized[::2, 1::2, 1]
         gb = resized[1::2, ::2, 1]
         b = resized[::2, ::2, 2]
+        img_bayer = np.dstack((b, gb, gr, r))
 
-    elif pattern == "GBRG":
+    elif pattern == "GRBG":
         # GRGB pattern *------*
         #              | G  R |
         #              | B  G |
@@ -339,6 +341,7 @@ def rgb_to_bayer4d(img, pattern):
         gr = resized[::2, ::2, 1]
         gb = resized[1::2, 1::2, 1]
         b = resized[::2, 1::2, 2]
+        img_bayer = np.dstack((gr, r, b, gb))
 
     else:
         # GBRG pattern *------*
@@ -349,14 +352,12 @@ def rgb_to_bayer4d(img, pattern):
         gr = resized[1::2, 1::2, 1]
         gb = resized[::2, ::2, 1]
         b = resized[1::2, ::2, 2]
-
-    # Stacking the Bayer channels, always in the same order s.t. bayer2rgb() works regardless of the pattern
-    img_bayer = np.dstack((r, gr, gb, b))
+        img_bayer = np.dstack((gb, b, r, gr))
 
     return img_bayer
 
 
-def bayer4d_to_rgb(X_bayer, normalize=True):
+def bayer2rgb(X_bayer, pattern):
     """
     Converting 4-channel Bayer image to RGB by averaging the two green channels.
 
@@ -364,21 +365,33 @@ def bayer4d_to_rgb(X_bayer, normalize=True):
     ----------
     X_bayer : :py:class:`~numpy.ndarray`
         Image in RGB format.
-    normalize : bool
-        Whether or not to
+    pattern : str
+        Bayer pattern: `RGGB`, `BGGR`, `GRBG`, `GBRG`.
 
     Returns
     -------
     :py:class:`~numpy.ndarray`
         Image converted to the RGB format.
     """
+
+    # Verifying that the pattern is a proper Bayer pattern
+    pattern = pattern.upper()
+    assert pattern in [
+        "RGGB",
+        "BGGR",
+        "GRBG",
+        "GBRG",
+    ], "Bayer pattern must be in ['RGGB', 'BGGR', 'GRBG', 'GBRG']"
+
+    r_channel = [i for i, ltr in enumerate(pattern) if ltr == "R"][0]
+    b_channel = [i for i, ltr in enumerate(pattern) if ltr == "B"][0]
+    g_channels = [i for i, ltr in enumerate(pattern) if ltr == "G"]
+
     X_rgb = np.empty(X_bayer.shape[:-1] + (3,))
-    X_rgb[:, :, 2] = X_bayer[:, :, 0]
-    X_rgb[:, :, 1] = 0.5 * (X_bayer[:, :, 1] + X_bayer[:, :, 2])
-    X_rgb[:, :, 0] = X_bayer[:, :, 3]
-    # normalize to be from 0 to 1
-    if normalize:
-        X_rgb = (X_rgb - X_rgb.min()) / (X_rgb.max() - X_rgb.min())
+    X_rgb[:, :, 0] = X_bayer[:, :, r_channel]
+    X_rgb[:, :, 1] = np.mean(X_bayer[:, :, g_channels], axis=2)
+    X_rgb[:, :, 2] = X_bayer[:, :, b_channel]
+
     return X_rgb
 
 

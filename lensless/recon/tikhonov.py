@@ -3,6 +3,7 @@
 # =================
 # Authors :
 # Aaron FARGEON [aa.fargeon@gmail.com]
+# Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
 """
@@ -18,12 +19,13 @@ capture, using the analytical solution to the Tikhonov optimization problem
 
 import numpy as np
 from numpy.linalg import multi_dot
-from scipy.linalg import circulant
 
 
 class CodedApertureReconstruction:
     """
     Class for reconstruction method.
+
+    TODO: operations in float32
     """
 
     def __init__(self, mask, image_shape, P=None, Q=None, lmbd=3e-4):
@@ -47,82 +49,42 @@ class CodedApertureReconstruction:
         """
 
         self.lmbd = lmbd
-        if P is None:
-            self.P = circulant(np.resize(mask.col, mask.resolution[0]))[:, : image_shape[0]]
+        if P is None or Q is None:
+            self.P, self.Q = mask.get_conv_matrices(image_shape)
         else:
             self.P = P
+            self.Q = Q
         assert self.P.shape == (
             mask.resolution[0],
             image_shape[0],
         ), "Left matrix P shape mismatch"
-        if Q is None:
-            self.Q = circulant(np.resize(mask.row, mask.resolution[1]))[:, : image_shape[1]]
-        else:
-            self.Q = Q
         assert self.Q.shape == (
             mask.resolution[1],
             image_shape[1],
         ), "Right matrix Q shape mismatch"
 
-    def apply(self, img, color_profile="rgb"):
+    def apply(self, img):
         """
         Method for performing Tikhinov reconstruction.
 
         Parameters
         ----------
         img : :py:class:`~numpy.ndarray`
-            Lensless capture measurement.
-        color_profile : str
-            Color scheme of the measurement: `grayscale`, `rgb`, `bayer_rggb`, `bayer_bggr`, `bayer_grbg`, `bayer_gbrg`.
+            Lensless capture measurement. Must be 3D even if grayscale.
 
         Returns
         -------
         :py:class:`~numpy.ndarray`
             Reconstructed image, in the same format as the measurement.
         """
-
-        # Squeezing the image to get rid of extra dimensions
-        Y = img.squeeze()
-
-        """
-        # Verifying that the proper
-        assert (
-            Y.shape[0] == self.P.shape[1]
-        ), f"image height of {Y.shape[0]} does not match the expected size of {self.P.shape[1]}"
-        assert (
-            Y.shape[1] == self.Q.shape[1]
-        ), f"image height of {Y.shape[1]} does not match the expected size of {self.Q.shape[1]}"
-        """
-        color_profile = color_profile.lower()
-        assert color_profile in [
-            "grayscale",
-            "rgb",
-            "bayer_rggb",
-            "bayer_bggr",
-            "bayer_grbg",
-            "bayer_gbrg",
-        ], "color_profile must be in ['grayscale', 'rgb', 'bayer_rggb', 'bayer_bggr', 'bayer_grbg', 'bayer_gbrg']"
-        if color_profile == "grayscale":
-            assert (
-                len(Y.shape) == 2
-            ), "for a grayscale image, the squeezed image needs to be in 2 dimensions"
-            Y = Y[:, :, np.newaxis]
-        elif color_profile == "rgb":
-            assert (
-                len(Y.shape) == 3
-            ), "for an RGB image, the squeezed image needs to be 3 dimensions"
-            assert Y.shape[-1] == 3, "for an RGB image, the squeezed image should have 3 channels"
-        else:
-            assert (
-                len(Y.shape) == 3
-            ), "for a Bayer image, the squeezed image needs to be 3 dimensions"
-            assert Y.shape[-1] == 4, "for a Bayer image, the squeezed image should have 4 channels"
-
+        assert len(img.shape) == 3, "Object should be a 3D array (HxWxC) even if grayscale."
+        
         # Empty matrix for reconstruction
-        X = np.empty([self.P.shape[1], self.Q.shape[1], Y.shape[-1]])
+        n_channels = img.shape[-1]
+        x_est = np.empty([self.P.shape[1], self.Q.shape[1], n_channels])
 
         # Applying reconstruction for each channel
-        for c in range(Y.shape[-1]):
+        for c in range(n_channels):
 
             # SVD of left matrix
             UL, SL, VLh = np.linalg.svd(self.P, full_matrices=True)
@@ -137,16 +99,16 @@ class CodedApertureReconstruction:
             singRsq = np.square(SR)
 
             # Applying analytical reconstruction
-            Yc = Y[:, :, c]
+            Yc = img[:, :, c]
             inner = multi_dot([DL.T, UL.T, Yc, UR, DR]) / (
-                np.outer(singLsq, singRsq) + np.full(X.shape[0:2], self.lmbd)
+                np.outer(singLsq, singRsq) + np.full(x_est.shape[0:2], self.lmbd)
             )
-            X[:, :, c] = multi_dot([VL, inner, VR.T])
+            x_est[:, :, c] = multi_dot([VL, inner, VR.T])
 
         # Non-negativity constraint: setting all negative values to 0
-        X = X.clip(min=0)
+        x_est = x_est.clip(min=0)
 
         # Normalizing the image
-        X = (X - X.min()) / (X.max() - X.min())
+        x_est = (x_est - x_est.min()) / (x_est.max() - x_est.min())
 
-        return X
+        return x_est
