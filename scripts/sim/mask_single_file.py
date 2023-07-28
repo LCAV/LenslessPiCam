@@ -12,30 +12,33 @@ Example usage:
 
 Simulate FlatCam with separable simulation and Tikhonov reconstuction (https://arxiv.org/abs/1509.00116, Eq 7):
 ```
+# MLS mask
 python scripts/sim/mask_single_file.py mask.type=MLS simulation.flatcam=True recon.algo=tikhonov
+
+# MURA mask
+python scripts/sim/mask_single_file.py mask.type=MURA mask.n_bits=99 simulation.flatcam=True recon.algo=tikhonov
 ```
 
 Simulate FlatCam with PSF simulation and Tikhonov reconstuction:
- (TODO doesn't work)
+(TODO doesn't work)
 ```
 python scripts/sim/mask_single_file.py mask.type=MLS simulation.flatcam=False recon.algo=tikhonov
 ```
 
-Simulate FlatCam with PSF simulation and ADMM reconstruction:
- (TODO doesn't work)
+Simulate FlatCam with PSF simulation and ADMM reconstruction. Doesn't work well.
 ```
 python scripts/sim/mask_single_file.py mask.type=MLS simulation.flatcam=False recon.algo=admm
 ```
 
 Simulate Fresnel Zone Aperture camera with PSF simulation and ADMM reconstuction (https://www.nature.com/articles/s41377-020-0289-9):
-(TODO removing DC offset which hurt reconstruction)
+Doesn't work well, maybe need to remove DC offset which hurts reconstructions?
 ```
 python scripts/sim/mask_single_file.py mask.type=FZA recon.algo=admm recon.admm.n_iter=18
 ```
 
 Simulate PhaseContour camera with PSF simulation and ADMM reconstuction (https://ieeexplore.ieee.org/document/9076617):
 ```
-python scripts/sim/mask_single_file.py mask.type=PhaseContour recon.algo=admm
+python scripts/sim/mask_single_file.py mask.type=PhaseContour recon.algo=admm recon.admm.n_iter=10
 ```
 
 """
@@ -60,8 +63,8 @@ from lensless.recon.tikhonov import CodedApertureReconstruction
 
 
 def conv_matrices(img_shape, mask):
-    P = circulant(np.resize(mask.col, mask.sensor_resolution[0]))[:, : img_shape[0]]
-    Q = circulant(np.resize(mask.row, mask.sensor_resolution[1]))[:, : img_shape[1]]
+    P = circulant(np.resize(mask.col, mask.resolution[0]))[:, : img_shape[0]]
+    Q = circulant(np.resize(mask.row, mask.resolution[1]))[:, : img_shape[1]]
     return P, Q
 
 
@@ -93,9 +96,9 @@ def fc_simulation(img, mask, P=None, Q=None, format="RGB", SNR=40):
         img_ = rgb_to_bayer4d(img, pattern=format[-4:])
 
     if P is None:
-        P = circulant(np.resize(mask.col, mask.sensor_resolution[0]))[:, : img.shape[0]]
+        P = circulant(np.resize(mask.col, mask.resolution[0]))[:, : img.shape[0]]
     if Q is None:
-        Q = circulant(np.resize(mask.row, mask.sensor_resolution[1]))[:, : img.shape[1]]
+        Q = circulant(np.resize(mask.row, mask.resolution[1]))[:, : img.shape[1]]
 
     Y = np.dstack([multi_dot([P, img_[:, :, c], Q.T]) for c in range(n_channels)])
     # Y = (Y - Y.min()) / (Y.max() - Y.min())
@@ -155,21 +158,27 @@ def simulate(config):
             **config.mask,
         )
 
-    flatcam_sim = config.simulation.flatcam
-
-    plt.figure(figsize=(10, 10))
-    if flatcam_sim:
-        plt.imshow(mask.mask, cmap="gray")
+    if np.iscomplexobj(mask.mask):
+        # plot phase
+        ax = plot_image(np.angle(mask.mask))
+        ax.set_title("Phase mask")
     else:
-        plt.imshow(mask.psf, cmap="gray")
-    plt.colorbar()
-    plt.show()
+        ax = plot_image(mask.mask)
+        ax.set_title("Amplitude mask")
+    # plt.figure(figsize=(10, 10))
+    # if flatcam_sim:
+    #     plt.imshow(mask.mask, cmap="gray")
+    # else:
+    #     import pudb; pudb.set_trace()
+    #     plt.imshow(mask.psf)
+    # plt.colorbar()
 
     # 2) simulate measurement
     image = load_image(fp, verbose=True) / 255
     if grayscale and len(image.shape) == 3:
         image = rgb2gray(image)
 
+    flatcam_sim = config.simulation.flatcam
     if flatcam_sim and mask_type.upper() not in ["MURA", "MLS"]:
         warnings.warn(
             "Flatcam simulation only supported for MURA and MLS masks. Using far field simulation with PSF."

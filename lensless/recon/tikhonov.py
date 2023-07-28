@@ -28,7 +28,7 @@ class CodedApertureReconstruction:
 
     def __init__(self, mask, image_shape, P=None, Q=None, lmbd=3e-4):
         """
-        Base constructor.
+        Base constructor for the Tikhonov reconstruction algorithm as presented in the `FlatCam paper <https://arxiv.org/abs/1509.00116>`_.
 
         Parameters
         ----------
@@ -36,27 +36,31 @@ class CodedApertureReconstruction:
             Coded aperture mask object.
         image_shape : (`array-like` or `tuple`)
             The shape of the image to reconstruct.
-        P : :py:class:`~numpy.ndarray`
-            Left convolution matrix in Flatcam measurement simulation. Size must be
+        P : :py:class:`~numpy.ndarray`, optional
+            Left convolution matrix in measurement operator. Must be of shape (measurement_resolution[0], image_shape[0]).
+            By default, it is generated from the mask. In practice, it may be useful to measure as in the FlatCam paper.
+        Q : :py:class:`~numpy.ndarray`, optional
+            Right convolution matrix in measurement operator. Must be of shape (measurement_resolution[1], image_shape[1]).
+            By default, it is generated from the mask. In practice, it may be useful to measure as in the FlatCam paper.
         lmbd: float:
-            Regularization parameter. Default value is `3e-4` as in the `FlatCam paper <https://arxiv.org/abs/1509.00116>`_ authors' `code <https://github.com/tanjasper/flatcam/blob/master/python/demo.py>`_.
+            Regularization parameter. Default value is `3e-4` as in the FlatCam paper `code <https://github.com/tanjasper/flatcam/blob/master/python/demo.py>`_.
         """
 
         self.lmbd = lmbd
         if P is None:
-            self.P = circulant(np.resize(mask.col, mask.sensor_resolution[0]))[:, : image_shape[0]]
+            self.P = circulant(np.resize(mask.col, mask.resolution[0]))[:, : image_shape[0]]
         else:
             self.P = P
         assert self.P.shape == (
-            mask.sensor_resolution[0],
+            mask.resolution[0],
             image_shape[0],
         ), "Left matrix P shape mismatch"
         if Q is None:
-            self.Q = circulant(np.resize(mask.row, mask.sensor_resolution[1]))[:, : image_shape[1]]
+            self.Q = circulant(np.resize(mask.row, mask.resolution[1]))[:, : image_shape[1]]
         else:
             self.Q = Q
         assert self.Q.shape == (
-            mask.sensor_resolution[1],
+            mask.resolution[1],
             image_shape[1],
         ), "Right matrix Q shape mismatch"
 
@@ -141,6 +145,8 @@ class CodedApertureReconstruction:
 
         # Non-negativity constraint: setting all negative values to 0
         X = X.clip(min=0)
+
+        # Normalizing the image
         X = (X - X.min()) / (X.max() - X.min())
 
         return X

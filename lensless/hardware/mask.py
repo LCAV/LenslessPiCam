@@ -38,9 +38,9 @@ class Mask(abc.ABC):
 
     def __init__(
         self,
-        sensor_resolution,
+        resolution,
         distance_sensor,
-        sensor_size=None,
+        size=None,
         feature_size=None,
         psf_wavelength=[460e-9, 550e-9, 640e-9],
         **kwargs
@@ -50,31 +50,31 @@ class Mask(abc.ABC):
 
         Parameters
         ----------
-        sensor_resolution: array_like
-            Resolution of the sensor and therefore the mask (px).
+        resolution: array_like
+            Resolution of the  mask (px).
         distance_sensor: float
             Distance between the mask and the sensor (m).
-        sensor_size: array_like
-            Size of the sensor (m). Only one of ``sensor_size`` or ``feature_size`` needs to be specified.
+        size: array_like
+            Size of the sensor (m). Only one of ``size`` or ``feature_size`` needs to be specified.
         feature_size: float or array_like
-            Size of the feature (m). Only one of ``sensor_size`` or ``feature_size`` needs to be specified.
+            Size of the feature (m). Only one of ``size`` or ``feature_size`` needs to be specified.
         psf_wavelength: list, optional
             List of wavelengths to simulate PSF (m). Default is [460e-9, 550e-9, 640e-9] nm (blue, green, red).
         """
 
-        sensor_resolution = np.array(sensor_resolution)
-        assert len(sensor_resolution) == 2, "Sensor resolution should be of length 2"
+        resolution = np.array(resolution)
+        assert len(resolution) == 2, "Sensor resolution should be of length 2"
 
         assert (
-            sensor_size is not None or feature_size is not None
+            size is not None or feature_size is not None
         ), "Either sensor_size or feature_size should be specified"
-        if sensor_size is None:
-            sensor_size = np.array(sensor_resolution * feature_size)
+        if size is None:
+            size = np.array(resolution * feature_size)
         else:
-            sensor_size = np.array(sensor_size)
-            assert len(sensor_size) == 2, "Sensor size should be of length 2"
+            size = np.array(size)
+            assert len(size) == 2, "Sensor size should be of length 2"
         if feature_size is None:
-            feature_size = np.array(sensor_size) / np.array(sensor_resolution)
+            feature_size = np.array(size) / np.array(resolution)
         else:
             if isinstance(feature_size, float):
                 feature_size = np.array([feature_size, feature_size])
@@ -82,13 +82,13 @@ class Mask(abc.ABC):
                 assert len(feature_size) == 2, "Feature size should be of length 2"
                 feature_size = np.array(feature_size)
             assert np.all(feature_size > 0), "Feature size should be positive"
-        assert np.all(sensor_resolution * feature_size <= sensor_size)
+        assert np.all(resolution * feature_size <= size)
 
         self.phase_mask = None
-        self.sensor_resolution = sensor_resolution
-        self.sensor_size = sensor_size
+        self.resolution = resolution
+        self.size = size
         if feature_size is None:
-            self.feature_size = self.sensor_size / self.sensor_resolution
+            self.feature_size = self.size / self.resolution
         else:
             self.feature_size = feature_size
         self.distance_sensor = distance_sensor
@@ -128,8 +128,8 @@ class Mask(abc.ABC):
         """
         sensor = VirtualSensor.from_name(sensor_name, downsample)
         return cls(
-            sensor_resolution=tuple(sensor.resolution.copy()),
-            sensor_size=tuple(sensor.size.copy()),
+            resolution=tuple(sensor.resolution.copy()),
+            size=tuple(sensor.size.copy()),
             feature_size=sensor.pixel_size.copy(),
             **kwargs
         )
@@ -147,7 +147,7 @@ class Mask(abc.ABC):
         Common to all types of masks.
         """
         psf = np.zeros(
-            tuple(self.sensor_resolution) + (len(self.psf_wavelength),), dtype=np.complex64
+            tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64
         )
         for i, wv in enumerate(self.psf_wavelength):
             psf[:, :, i] = angular_spectrum(
@@ -210,9 +210,9 @@ class CodedAperture(Mask):
             self.mask = (np.outer(h_r, h_r) + 1) / 2
 
         # Upscaling
-        if np.any(self.sensor_resolution != self.mask.shape):
+        if np.any(self.resolution != self.mask.shape):
             upscaled_mask = resize(
-                self.mask[:, :, np.newaxis], shape=tuple(self.sensor_resolution) + (1,)
+                self.mask[:, :, np.newaxis], shape=tuple(self.resolution) + (1,)
             ).squeeze()
             upscaled_mask = np.clip(upscaled_mask, 0, 1)
             self.mask = np.round(upscaled_mask).astype(int)
@@ -292,14 +292,14 @@ class PhaseContour(Mask):
         """
 
         # Creating Perlin noise
-        proper_dim_1 = (self.sensor_resolution[0] // self.noise_period[0]) * self.noise_period[0]
-        proper_dim_2 = (self.sensor_resolution[1] // self.noise_period[1]) * self.noise_period[1]
+        proper_dim_1 = (self.resolution[0] // self.noise_period[0]) * self.noise_period[0]
+        proper_dim_2 = (self.resolution[1] // self.noise_period[1]) * self.noise_period[1]
         noise = generate_perlin_noise_2d((proper_dim_1, proper_dim_2), self.noise_period)
 
         # Upscaling to correspond to sensor size
-        if np.any(self.sensor_resolution != noise.shape):
+        if np.any(self.resolution != noise.shape):
             noise = resize(
-                noise[:, :, np.newaxis], shape=tuple(self.sensor_resolution) + (1,)
+                noise[:, :, np.newaxis], shape=tuple(self.resolution) + (1,)
             ).squeeze()
 
         # Edge detection
@@ -321,7 +321,7 @@ class PhaseContour(Mask):
         self.mask = np.exp(1j * phase_mask)
 
 
-def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False, pbar=False):
+def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):
     """
     Iterative phase retrieval algorithm similar to `PhlatCam <https://ieeexplore.ieee.org/document/9076617>`_,
     using Fresnel propagation.
@@ -393,7 +393,7 @@ class FresnelZoneAperture(Mask):
         """
         Creating binary Fresnel Zone Aperture mask.
         """
-        dim = self.sensor_resolution
+        dim = self.resolution
         x, y = np.meshgrid(
             np.linspace(-dim[1] / 2, dim[1] / 2 - 1, dim[1]),
             np.linspace(-dim[0] / 2, dim[0] / 2 - 1, dim[0]),
