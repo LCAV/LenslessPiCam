@@ -23,15 +23,13 @@ from numpy.linalg import multi_dot
 
 class CodedApertureReconstruction:
     """
-    Class for reconstruction method.
+    Reconstruction method for the (non-iterative) Tikhonov algorithm presented in the `FlatCam paper <https://arxiv.org/abs/1509.00116>`_.
 
     TODO: operations in float32
     """
 
     def __init__(self, mask, image_shape, P=None, Q=None, lmbd=3e-4):
         """
-        Base constructor for the Tikhonov reconstruction algorithm as presented in the `FlatCam paper <https://arxiv.org/abs/1509.00116>`_.
-
         Parameters
         ----------
         mask : py:class:`~lensless.hardware.mask.CodedAperture`
