@@ -78,7 +78,7 @@ class CodedApertureReconstruction:
             Reconstructed image, in the same format as the measurement.
         """
         assert len(img.shape) == 3, "Object should be a 3D array (HxWxC) even if grayscale."
-        
+
         # Empty matrix for reconstruction
         n_channels = img.shape[-1]
         x_est = np.empty([self.P.shape[1], self.Q.shape[1], n_channels])
