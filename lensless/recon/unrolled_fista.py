@@ -99,29 +99,3 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
         xk = self._proj(self._image_est)
         self._image_est = xk + (self._tk[iter] - 1) / self._tk[iter + 1] * (xk - self._xk)
         self._xk = xk
-
-    def batch_call(self, batch):
-        """
-        Method for performing iterative reconstruction on a batch of images.
-        This implementation is a properly vectorized implementation of FISTA.
-
-        Parameters
-        ----------
-        batch : :py:class:`~torch.Tensor` of shape (N, D, C, H, W)
-            The lensless images to reconstruct.
-
-        Returns
-        -------
-        :py:class:`~torch.Tensor` of shape (N, D, C, H, W)
-            The reconstructed images.
-        """
-        self._data = batch
-        assert len(self._data.shape) == 5, "Input must be of shape (N, D, H, W, C)"
-        batch_size = batch.shape[0]
-
-        self.reset(batch_size)
-
-        for i in range(self._n_iter):
-            self._update(i)
-
-        return self._proj(self._image_est)

@@ -168,7 +168,16 @@ def test_trainable_recon(algorithm):
         for dtype, torch_type in [("float32", torch.float32), ("float64", torch.float64)]:
             psf = torch.rand(1, 32, 64, 3, dtype=torch_type)
             data = torch.rand(2, 1, 32, 64, 3, dtype=torch_type)
-            recon = UnrolledFISTA(psf, n_iter=_n_iter, dtype=dtype)
+
+            def pre_process(x, noise):
+                return x
+
+            def post_process(x, noise):
+                return x
+
+            recon = algorithm(
+                psf, n_iter=_n_iter, dtype=dtype, pre_process=pre_process, post_process=post_process
+            )
 
             assert (
                 next(recon.parameters(), None) is not None
@@ -197,7 +206,15 @@ def test_trainable_batch(algorithm):
         data2 = torch.rand(1, 1, 34, 64, 3, dtype=torch_type)
         data2[0, 0, ...] = data1[0, 0, ...]
 
-        recon = algorithm(psf, dtype=dtype, n_iter=_n_iter)
+        def pre_process(x, noise):
+            return x
+
+        def post_process(x, noise):
+            return x
+
+        recon = algorithm(
+            psf, dtype=dtype, n_iter=_n_iter, pre_process=pre_process, post_process=post_process
+        )
         res1 = recon.batch_call(data1)
         res2 = recon.batch_call(data2)
         recon.set_data(data2[0])

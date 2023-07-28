@@ -14,6 +14,7 @@ python scripts/recon/train_unrolled.py
 
 """
 
+import math
 import hydra
 from hydra.utils import get_original_cwd
 import os
@@ -85,6 +86,35 @@ def simulate_dataset(config, psf):
     return ds_loader
 
 
+def create_process_network(network, depth, device="cpu"):
+    if network == "DruNet":
+        from lensless.utils.image import load_drunet
+
+        process = load_drunet(
+            os.path.join(get_original_cwd(), "data/drunet_color.pth"), requires_grad=True
+        ).to(device)
+        process_name = "DruNet"
+    elif network == "UnetRes":
+        from lensless.recon.drunet.network_unet import UNetRes
+
+        n_channels = 3
+        process = UNetRes(
+            in_nc=n_channels + 1,
+            out_nc=n_channels,
+            nc=[64, 128, 256, 512],
+            nb=depth,
+            act_mode="R",
+            downsample_mode="strideconv",
+            upsample_mode="convtranspose",
+        ).to(device)
+        process_name = "UnetRes_d" + str(depth)
+    else:
+        process = None
+        process_name = None
+
+    return (process, process_name)
+
+
 def measure_gradient(model):
     # return the L2 norm of the gradient
     total_norm = 0.0
@@ -113,7 +143,9 @@ def train_unrolled(
 
     # benchmarking dataset:
     path = os.path.join(get_original_cwd(), "data")
-    benchmark_dataset = DiffuserCamTestDataset(data_dir=path)
+    benchmark_dataset = DiffuserCamTestDataset(
+        data_dir=path, downsample=config.simulation.downsample
+    )
 
     psf = benchmark_dataset.psf.to(device)
     background = benchmark_dataset.background
@@ -135,6 +167,20 @@ def train_unrolled(
         save = os.getcwd()
 
     start_time = time.time()
+
+    # Load pre process model
+    pre_process, pre_process_name = create_process_network(
+        config.reconstruction.pre_process.network,
+        config.reconstruction.pre_process.depth,
+        device=device,
+    )
+    # Load post process model
+    post_process, post_process_name = create_process_network(
+        config.reconstruction.post_process.network,
+        config.reconstruction.post_process.depth,
+        device=device,
+    )
+    # create reconstruction algorithm
     if config.reconstruction.method == "unrolled_fista":
         recon = UnrolledFISTA(
             psf,
@@ -142,6 +188,8 @@ def train_unrolled(
             tk=config.reconstruction.unrolled_fista.tk,
             pad=True,
             learn_tk=config.reconstruction.unrolled_fista.learn_tk,
+            pre_process=pre_process,
+            post_process=post_process,
         ).to(device)
         n_iter = config.reconstruction.unrolled_fista.n_iter
     elif config.reconstruction.method == "unrolled_admm":
@@ -152,11 +200,22 @@ def train_unrolled(
             mu2=config.reconstruction.unrolled_admm.mu2,
             mu3=config.reconstruction.unrolled_admm.mu3,
             tau=config.reconstruction.unrolled_admm.tau,
+            pre_process=pre_process,
+            post_process=post_process,
         ).to(device)
         n_iter = config.reconstruction.unrolled_admm.n_iter
     else:
         raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
 
+    # constructing algorithm name by appending pre and post process
+    algorithm_name = config.reconstruction.method
+    if config.reconstruction.pre_process.network is not None:
+        algorithm_name = pre_process_name + "_" + algorithm_name
+    if config.reconstruction.post_process.network is not None:
+        algorithm_name += "_" + post_process_name
+
+    # print number of parameters
+    print(f"Training model with {sum(p.numel() for p in recon.parameters())} parameters")
     # transform from BGR to RGB
     transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
 
@@ -212,36 +271,63 @@ def train_unrolled(
 
     # optimizer
     if config.optimizer.type == "Adam":
-        optimizer = torch.optim.Adam(recon.parameters(), lr=config.optimizer.lr)
+        # the parameters of the base model and non torch.Module process must be added separatly
+        parameters = [{"params": recon.parameters()}]
+        optimizer = torch.optim.Adam(parameters, lr=config.optimizer.lr)
     else:
         raise ValueError(f"Unsuported optimizer : {config.optimizer.type}")
+    # Scheduler
+    if config.training.slow_start:
+
+        def learning_rate_function(epoch):
+            if epoch == 0:
+                return config.training.slow_start
+            elif epoch == 1:
+                return math.sqrt(config.training.slow_start)
+            else:
+                return 1
+
+    else:
+
+        def learning_rate_function(epoch):
+            return 1
+
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=learning_rate_function)
+
     metrics = {
         "LOSS": [],
         "MSE": [],
         "MAE": [],
-        "LPIPS": [],
+        "LPIPS_Vgg": [],
+        "LPIPS_Alex": [],
         "PSNR": [],
         "SSIM": [],
         "ReconstructionError": [],
         "n_iter": n_iter,
-        "algorithm": config.reconstruction.method,
+        "algorithm": algorithm_name,
     }
 
     # Backward hook that detect NAN in the gradient and print the layer weights
-    def detect_nan(grad):
-        if torch.isnan(grad).any():
-            print(grad)
-            for name, param in recon.named_parameters():
-                print(name, param)
-            raise ValueError("Gradient is NaN")
-        return grad
+    if not config.training.skip_NAN:
 
-    for param in recon.parameters():
-        param.register_hook(detect_nan)
+        def detect_nan(grad):
+            if torch.isnan(grad).any():
+                print(grad, flush=True)
+                for name, param in recon.named_parameters():
+                    if param.requires_grad:
+                        print(name, param)
+                raise ValueError("Gradient is NaN")
+            return grad
+
+        for param in recon.parameters():
+            if param.requires_grad:
+                param.register_hook(detect_nan)
+                if param.requires_grad:
+                    param.register_hook(detect_nan)
 
     # Training loop
     for epoch in range(config.training.epoch):
-        print(f"Epoch {epoch}")
+        print(f"Epoch {epoch} with learning rate {scheduler.get_last_lr()}")
         mean_loss = 0.0
         i = 1.0
         pbar = tqdm(data_loader)
@@ -255,12 +341,13 @@ def train_unrolled(
 
             y_pred = recon.batch_call(X.to(device))
             # normalizing each output
-            y_pred_max = torch.amax(y_pred, dim=(-1, -2, -3), keepdim=True)
+            eps = 1e-12
+            y_pred_max = torch.amax(y_pred, dim=(-1, -2, -3), keepdim=True) + eps
             y_pred = y_pred / y_pred_max
 
             # normalizing y
             y = y.to(device)
-            y_max = torch.amax(y, dim=(-1, -2, -3), keepdim=True)
+            y_max = torch.amax(y, dim=(-1, -2, -3), keepdim=True) + eps
             y = y / y_max
 
             if i % disp == 1 and config.display.plot:
@@ -279,13 +366,24 @@ def train_unrolled(
 
             loss_v = Loss(y_pred, y)
             if config.lpips:
-                loss_v = loss_v + config.lpips * torch.mean(loss_lpips(y_pred, y))
+                # value for LPIPS needs to be in range [-1, 1]
+                loss_v = loss_v + config.lpips * torch.mean(loss_lpips(2 * y_pred - 1, 2 * y - 1))
             loss_v.backward()
             torch.nn.utils.clip_grad_norm_(recon.parameters(), 1.0)
+
+            # if any gradient is NaN, skip training step
+            is_NAN = False
+            for param in recon.parameters():
+                if torch.isnan(param.grad).any():
+                    is_NAN = True
+                    break
+            if is_NAN:
+                print("NAN detected in gradiant, skipping training step")
+                i += 1
+                continue
             optimizer.step()
 
             mean_loss += (loss_v.item() - mean_loss) * (1 / i)
-
             pbar.set_description(f"loss : {mean_loss}")
             i += 1
 
@@ -295,6 +393,9 @@ def train_unrolled(
         metrics["LOSS"].append(mean_loss)
         for key in current_metrics:
             metrics[key].append(current_metrics[key])
+
+        # Update learning rate
+        scheduler.step()
 
     print(f"Train time : {time.time() - start_time} s")
 
