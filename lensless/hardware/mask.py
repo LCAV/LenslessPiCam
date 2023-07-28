@@ -12,7 +12,7 @@ Mask
 
 This module provides utilities to create different types of masks (:py:class:`~lensless.hardware.mask.CodedAperture`,
 :py:class:`~lensless.hardware.mask.PhaseContour`,
-:py:class:`~lensless.hardware.mask.FresnelZoneAperture`) and simulate the resulting PSF.
+:py:class:`~lensless.hardware.mask.FresnelZoneAperture`) and simulate the corresponding PSF.
 
 """
 
@@ -56,7 +56,7 @@ class Mask(abc.ABC):
             Distance between the mask and the sensor (m).
         sensor_size: array_like
             Size of the sensor (m). Only one of ``sensor_size`` or ``feature_size`` needs to be specified.
-        feature_size: array_like
+        feature_size: float or array_like
             Size of the feature (m). Only one of ``sensor_size`` or ``feature_size`` needs to be specified.
         psf_wavelength: list, optional
             List of wavelengths to simulate PSF (m). Default is [460e-9, 550e-9, 640e-9] nm (blue, green, red).
@@ -76,7 +76,11 @@ class Mask(abc.ABC):
         if feature_size is None:
             feature_size = np.array(sensor_size) / np.array(sensor_resolution)
         else:
-            feature_size = np.array(feature_size)
+            if isinstance(feature_size, float):
+                feature_size = np.array([feature_size, feature_size])
+            else:
+                assert len(feature_size) == 2, "Feature size should be of length 2"
+                feature_size = np.array(feature_size)
             assert np.all(feature_size > 0), "Feature size should be positive"
         assert np.all(sensor_resolution * feature_size <= sensor_size)
 
@@ -94,7 +98,7 @@ class Mask(abc.ABC):
         self.create_mask()
         self.shape = self.mask.shape
 
-        # s PSF
+        # PSF
         self.psf_wavelength = psf_wavelength
         self.psf = None
         self.compute_psf()
@@ -341,7 +345,7 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False, 
 
     if hasattr(d1, "__len__"):
         if d1[0] != d1[1]:
-            warnings.warn("Non square pixel, first dimension taken as feature size.")
+            warnings.warn("Non-square pixel, first dimension taken as feature size.")
         d1 = d1[0]
 
     for _ in range(n_iter):
