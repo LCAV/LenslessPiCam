@@ -10,7 +10,7 @@ Reconstruction
 ==============
 
 The core algorithmic component of ``LenslessPiCam`` is the abstract
-class :py:class:`~lensless.ReconstructionAlgorithm`. The four reconstruction
+class :py:class:`~lensless.ReconstructionAlgorithm`. The five reconstruction
 strategies available in ``LenslessPiCam`` derive from this class:
 
 -  :py:class:`~lensless.GradientDescent`: projected gradient descent with a
@@ -26,8 +26,7 @@ strategies available in ``LenslessPiCam`` derive from this class:
    `DiffFunc <https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/abc/operator.py#L980>`_
    or `ProxFunc <https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/abc/operator.py#L741>`_.
 -  :py:class:`~lensless.UnrolledFISTA`: unrolled FISTA with a non-negativity constraint.
--  :py:class:`~lensless.UnrolledADMM`: unrolled ADMM with a non-negativity
-    constraint and a total variation (TV) regularizer [1]_.
+-  :py:class:`~lensless.UnrolledADMM`: unrolled ADMM with a non-negativity constraint and a total variation (TV) regularizer [1]_.
 
 Note that the unrolled algorithms derive from the abstract class
 :py:class:`~lensless.TrainableReconstructionAlgorithm`, which itself derives from
