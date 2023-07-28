@@ -150,9 +150,7 @@ class Mask(abc.ABC):
         Compute the intensity PSF with bandlimited angular spectrum (BLAS) for each wavelength.
         Common to all types of masks.
         """
-        psf = np.zeros(
-            tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64
-        )
+        psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
         for i, wv in enumerate(self.psf_wavelength):
             psf[:, :, i] = angular_spectrum(
                 u_in=self.mask,
@@ -253,7 +251,6 @@ class CodedAperture(Mask):
                 if not ((i - 1 in q) != (j - 1 in q)):
                     A[i, j] = 1
         return A
-    
 
     def get_conv_matrices(self, img_shape):
         """
@@ -279,7 +276,7 @@ class CodedAperture(Mask):
         Q = circulant(np.resize(self.row, self.resolution[1]))[:, : img_shape[1]]
 
         return P, Q
-    
+
     def simulate(self, obj, snr_db=20):
         """
         Simulate the mask measurement of an image. Apply left and right convolution matrices,
@@ -355,9 +352,7 @@ class PhaseContour(Mask):
 
         # Upscaling to correspond to sensor size
         if np.any(self.resolution != noise.shape):
-            noise = resize(
-                noise[:, :, np.newaxis], shape=tuple(self.resolution) + (1,)
-            ).squeeze()
+            noise = resize(noise[:, :, np.newaxis], shape=tuple(self.resolution) + (1,)).squeeze()
 
         # Edge detection
         binary = np.clip(np.round(np.interp(noise, (-1, 1), (0, 1))), a_min=0, a_max=1)
