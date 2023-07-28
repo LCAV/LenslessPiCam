@@ -381,6 +381,7 @@ def bayer4d_to_rgb(X_bayer, normalize=True):
         X_rgb = (X_rgb - X_rgb.min()) / (X_rgb.max() - X_rgb.min())
     return X_rgb
 
+
 def load_drunet(model_path, n_channels=3, requires_grad=False):
     """
     Load a pre-trained Drunet model.
