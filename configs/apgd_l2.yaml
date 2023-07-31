@@ -3,6 +3,10 @@ defaults:
   - defaults_recon
   - _self_
 
+preprocess:
+  # Downsampling factor along X and Y
+  downsample: 8
+
 apgd:
   diff_penalty: l2
   diff_lambda: 0.0001
