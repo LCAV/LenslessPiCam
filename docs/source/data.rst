@@ -1,7 +1,7 @@
-Already available data
-======================
+Measured data
+=============
 
-You can download example PSFs and raw data that we've measured
+You can download PSFs and raw data that we've measured
 `here <https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww>`__. We
 recommend placing this content in the ``data`` folder.
 
@@ -37,15 +37,10 @@ use the correct PSF file for the data you're using!
     python scripts/recon/gradient_descent.py -cn in_the_wild \
     input.data=data/raw_data/thumbs_up_rgb.png \
     input.psf=data/psf/tape_rgb.png
-	
-    # 3D LCAV logo
-    python scripts/recon/gradient_descent.py \
-    input.data=data/raw_data/3d_sim.png \
-    input.psf=data/psf/3d_sim.npz
 
 
-Dataset collected by other people
----------------------------------
+DiffuserCam Lensless Mirflickr Dataset (DLMD)
+---------------------------------------------
 
 You can download a subset for the `DiffuserCam Lensless Mirflickr
 Dataset <https://waller-lab.github.io/LenslessLearning/dataset.html>`__
@@ -61,14 +56,41 @@ dataset (200 files, 725 MB). It was prepared with the following script:
     --data ~/Documents/DiffuserCam/DiffuserCam_Mirflickr_Dataset
 
 
+3D data
+-------
+
 You can download example 3D PSF and raw data from Prof. Laura Waller's lab
-`here  <https://github.com/Waller-Lab/DiffuserCam/tree/master/example_data>`__.
-The PSF has to be converted from ``.mat`` to ``.npy`` in order to be usable:
+`here  <https://github.com/Waller-Lab/DiffuserCam/tree/master/example_data>`__,
+or by running the commands at the beginning of this page to download all
+the example data.
+
+Their PSF has to be converted from ``.mat`` to ``.npy`` in order to be usable:
 
 .. code:: bash
 
-    python scripts/data/3d/mat_to_npy.py ~/path/to/example_psfs.mat
-	
+    # replace path to .mat file if different
+    python scripts/data/3d/mat_to_npy.py data/psf/waller_3d_psfs.mat
+
+
+The following command can be used to run a reconstruction on the 3D data:
+
+.. code:: bash
+
+    python scripts/recon/gradient_descent.py \
+    input.data=data/raw_data/waller_3d_raw.png \
+    input.psf=psf.npy preprocess.downsample=1 \
+    -cn pytorch   # if pytorch is available with GPU
+
+
+You can also perform a 3D reconstruction on data we have simulated:
+
+.. code:: bash
+
+    # 3D LCAV logo
+    python scripts/recon/gradient_descent.py \
+    input.data=data/raw_data/3d_sim.png \
+    input.psf=data/psf/3d_sim.npz \
+    -cn pytorch   # if pytorch is available with GPU
 
 Once you have run a reconstruction, you may want to convert the
 resulting ``.npy`` files in separate ``.tiff`` images for each depth.

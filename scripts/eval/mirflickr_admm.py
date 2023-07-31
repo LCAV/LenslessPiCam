@@ -4,7 +4,7 @@ Download subset from here: https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE
 Or full dataset here: https://github.com/Waller-Lab/LenslessLearning
 
 ```
-python scripts/evaluate_mirflickr_admm.py
+python scripts/eval/mirflickr_admm.py
 ```
 
 """
@@ -23,7 +23,7 @@ from lensless.recon.mirflickr import ADMM_MIRFLICKR, postprocess
 from lensless.eval.metric import mse, psnr, ssim, lpips
 
 
-@hydra.main(version_base=None, config_path="../configs", config_name="evaluate_mirflickr_admm")
+@hydra.main(version_base=None, config_path="../../configs", config_name="evaluate_mirflickr_admm")
 def mirflickr_dataset(config):
     data = to_absolute_path(config.dataset)
     n_files = config.n_files
