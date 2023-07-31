@@ -11,7 +11,9 @@ from lensless.recon.recon import ReconstructionAlgorithm
 import inspect
 import numpy as np
 from typing import Optional
+from lensless.utils.image import resize
 from lensless.recon.rfft_convolve import RealFFTConvolve2D as Convolver
+import cv2
 
 import pycsou.abc as pyca
 import pycsou.operator.func as func
@@ -20,6 +22,7 @@ import pycsou.opt.stop as stop
 import pycsou.runtime as pycrt
 import pycsou.util as pycu
 import pycsou.util.ptype as pyct
+import pycsou.operator.linop as pycl
 
 
 class APGDPriors:
@@ -95,6 +98,7 @@ class APGD(ReconstructionAlgorithm):
         rel_error=None,
         lipschitz_tight=True,
         lipschitz_tol=1.0,
+        img_shape=None,
         **kwargs
     ):
         """
@@ -132,6 +136,8 @@ class APGD(ReconstructionAlgorithm):
             Whether to use tight Lipschitz constant or not. Default is True.
         lipschitz_tol : float, optional
             Tolerance to compute Lipschitz constant. Default is 1.
+        img_shape : tuple, optional
+            Shape of measurement (H, W, C). If None, assume shape of PSF.
         """
 
         assert isinstance(psf, np.ndarray), "PSF must be a numpy array"
@@ -143,16 +149,43 @@ class APGD(ReconstructionAlgorithm):
         self._apgd = None
         self._gen = None
 
-        super(APGD, self).__init__(psf, dtype, n_iter=max_iter, **kwargs)
-
         self._stop_crit = stop.MaxIter(max_iter)
         if rel_error is not None:
             self._stop_crit = self._stop_crit | stop.RelError(eps=rel_error)
         self._disp = disp
 
-        # Convolution operator
+        # Convolution (and optional downsampling) operator
+        if img_shape is not None:
 
-        self._H = RealFFTConvolve2D(self._psf, dtype=dtype)
+            meas_shape = np.array(img_shape[:2])
+            rec_shape = np.array(self._original_shape[1:3])
+            assert np.all(meas_shape <= rec_shape), "Image shape must be smaller than PSF shape"
+            self.downsampling_factor = np.round(rec_shape / meas_shape).astype(int)
+
+            # new PSF shape, must be integer multiple of image shape
+            new_shape = tuple(np.array(meas_shape) * self.downsampling_factor) + (psf.shape[-1],)
+            psf_re = resize(psf.copy(), shape=new_shape, interpolation=cv2.INTER_CUBIC)
+
+            # combine operations
+            conv = RealFFTConvolve2D(psf_re, dtype=dtype)
+            ds = pycl.SubSample(
+                psf_re.shape,
+                slice(None),
+                slice(0, -1, self.downsampling_factor[0]),
+                slice(0, -1, self.downsampling_factor[1]),
+                slice(None),
+            )
+
+            self._H = ds * conv
+
+            super(APGD, self).__init__(psf_re, dtype, n_iter=max_iter, **kwargs)
+
+        else:
+            self.downsampling_factor = 1
+            self._H = RealFFTConvolve2D(psf, dtype=dtype)
+
+            super(APGD, self).__init__(psf, dtype, n_iter=max_iter, **kwargs)
+
         self._H.lipschitz(tol=lipschitz_tol, tight=lipschitz_tight)
 
         # initialize solvers which will be created when data is set
@@ -192,9 +225,25 @@ class APGD(ReconstructionAlgorithm):
              3D (RGB).
 
         """
-        super(APGD, self).set_data(
-            np.repeat(data, self._original_shape[-4], axis=0)
-        )  # we repeat the data for each depth to match the size of the PSF
+
+        # super(APGD, self).set_data(
+        #     np.repeat(data, self._original_shape[-4], axis=0)
+        # )  # we repeat the data for each depth to match the size of the PSF
+
+        data = np.repeat(data, self._original_shape[-4], axis=0)  # repeat for each depth
+        assert isinstance(data, np.ndarray)
+        assert len(data.shape) >= 3, "Data must be at least 3D: [..., width, height, channel]."
+
+        assert np.all(
+            self._psf_shape[-3:-1] == (np.array(data.shape)[-3:-1] * self.downsampling_factor)
+        ), "PSF and data shape mismatch"
+
+        if len(data.shape) == 3:
+            self._data = data[None, None, ...]
+        elif len(data.shape) == 4:
+            self._data = data[None, ...]
+        else:
+            self._data = data
 
         """ Set up problem """
         # Cost function
@@ -220,13 +269,13 @@ class APGD(ReconstructionAlgorithm):
         if self._initial_est is not None:
             self._image_est = self._initial_est
         else:
-            self._image_est = np.zeros(self._original_size, dtype=self._dtype)
+            self._image_est = np.zeros(np.prod(self._psf_shape), dtype=self._dtype)
 
     def _update(self, iter):
         res = next(self._apgd.steps())
         self._image_est[:] = res["x"]
 
     def _form_image(self):
-        image = self._image_est.reshape(self._original_shape)
+        image = self._image_est.reshape(self._psf_shape)
         image[image < 0] = 0
         return image
