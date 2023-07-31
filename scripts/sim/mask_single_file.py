@@ -105,14 +105,6 @@ def simulate(config):
             **config.mask,
         )
 
-    # if np.iscomplexobj(mask.mask):
-    #    # plot phase
-    #    ax = plot_image(np.angle(mask.mask))
-    #    ax.set_title("Phase mask")
-    # else:
-    #    ax = plot_image(mask.mask)
-    #    ax.set_title("Amplitude mask")
-
     # 2) simulate measurement
     image = load_image(fp, verbose=True) / 255
 
