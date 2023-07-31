@@ -39,7 +39,7 @@ def display(
 
     # assumes that `LenslessPiCam` is in home directory and environment inside `LenslessPiCam`
     rpi_python = "~/LenslessPiCam/lensless_env/bin/python"
-    script = "~/LenslessPiCam/scripts/prep_display_image.py"
+    script = "~/LenslessPiCam/scripts/measure/prep_display_image.py"
     remote_tmp_file = "~/tmp_display.png"
     display_path = "~/LenslessPiCam_display/test.png"
 

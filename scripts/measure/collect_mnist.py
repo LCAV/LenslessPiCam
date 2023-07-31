@@ -55,7 +55,7 @@ def collect_mnist(hostname, camera_hostname, output_dir, n_files, verbose, test,
     # display param
     display_python = "~/LenslessPiCam/lensless_env/bin/python"
     display_tmp_file = "~/tmp_display.png"
-    display_image_prep_script = "~/LenslessPiCam/scripts/prep_display_image.py"
+    display_image_prep_script = "~/LenslessPiCam/scripts/measure/prep_display_image.py"
     display_image_path = "~/LenslessPiCam_display/test.png"
     display_res = np.array((1920, 1200))
     hshift = 0
@@ -71,7 +71,7 @@ def collect_mnist(hostname, camera_hostname, output_dir, n_files, verbose, test,
     sensor_mode = "0"
     exp = 0.2
     config_pause = 0
-    capture_script = "~/LenslessPiCam/scripts/on_device_capture.py"
+    capture_script = "~/LenslessPiCam/scripts/measure/on_device_capture.py"
 
     # load datasets
     root = "./data"

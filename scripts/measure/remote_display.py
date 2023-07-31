@@ -9,7 +9,7 @@ Refresh shouldn't be too fast, otherwise copying may have an issue.
 Consequently, after running this script, the displayed image will be reloaded
 on the display of the Raspberry Pi.
 ```
-python scripts/remote_display.py
+python scripts/measure/remote_display.py
 ```
 
 Check out the `configs/demo.yaml` file for parameters, specifically:
@@ -32,7 +32,7 @@ from lensless.hardware.utils import display
 from lensless.hardware.utils import check_username_hostname
 
 
-@hydra.main(version_base=None, config_path="../configs", config_name="demo")
+@hydra.main(version_base=None, config_path="../../configs", config_name="demo")
 def remote_display(config):
 
     check_username_hostname(config.rpi.username, config.rpi.hostname)

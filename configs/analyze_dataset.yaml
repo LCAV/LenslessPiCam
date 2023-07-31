@@ -1,0 +1,8 @@
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+dataset_path: null
+desired_range: [190, 254]
+delete_saturated: True
+n_files: null

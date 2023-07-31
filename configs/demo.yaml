@@ -3,7 +3,7 @@
 #     chdir: True    # change to output folder
 
 
-fp: data/original/thumbs_up.png
+fp: data/original/tree.png
 output: demo_lensless   # output folder for results
 save: True
 plot: False
@@ -33,7 +33,7 @@ capture:
   gamma: null # for visualization
   exp: 0.02
   delay: 2
-  script: ~/LenslessPiCam/scripts/on_device_capture.py
+  script: ~/LenslessPiCam/scripts/measure/on_device_capture.py
   iso: 100
   config_pause: 2
   sensor_mode: "0"

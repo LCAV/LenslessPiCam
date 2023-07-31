@@ -2,7 +2,7 @@
 Prep image for displaying in full screen for DiffuserCam capture.
 
 ```
-python scripts/prep_display_image.py --fp data/original_images/rect.jpg \
+python scripts/measure/prep_display_image.py --fp data/original_images/rect.jpg \
 --pad 50 --output_path test.jpg
 ```
 
