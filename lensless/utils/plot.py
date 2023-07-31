@@ -26,7 +26,7 @@ def plot_image(img, ax=None, gamma=None, normalize=True):
         `Axes` object to fill for plotting/saving, default is to create one.
     gamma : float, optional
         Gamma correction factor to apply for plots. Default is None.
-    normalize : bool
+    normalize : bool, optional
         Whether to normalize data to maximum range. Default is True.
 
     Returns
@@ -41,7 +41,7 @@ def plot_image(img, ax=None, gamma=None, normalize=True):
 
     # if we have only 1 color channel, remove the axis
     if img.shape[-1] == 1:
-        img = np.sum(img, axis=-1)
+        img = img[..., 0]
 
     disp_img = None
     cmap = None
