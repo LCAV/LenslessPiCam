@@ -3,12 +3,14 @@ rpi:
   hostname: null
 
 device: adafruit
+virtual: False
+save: True
 
 # pattern: random_pattern_20230713_144812.npy
 pattern: random
 # pattern: rect
 # pattern: circ
-min_val: 0.5          # if pattern: random, min for range(0,1)
+min_val: 0         # if pattern: random, min for range(0,1)
 rect_shape: [20, 10]  # if pattern: rect
 radius: 20            # if pattern: circ
 center: [0, 0]
