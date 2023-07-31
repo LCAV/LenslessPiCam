@@ -27,7 +27,7 @@ simulation:
 
 mask:
   #wavelength: 523e-9
-  mask_type: "MLS"
+  type: "MLS"
 
   # Coded Aperture (MURA or MLS)
   #flatcam_method: 'MLS'

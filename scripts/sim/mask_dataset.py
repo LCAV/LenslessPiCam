@@ -82,10 +82,7 @@ def simulate(config):
                 url, os.path.dirname(dataset), filename=filename, remove_finished=True
             )
 
-    mask_type = config.mask.mask_type
-
-    # psf_fp = to_absolute_path(config.files.psf)
-    # assert os.path.exists(psf_fp), f"PSF {psf_fp} does not exist."
+    mask_type = config.mask.type
 
     # check for flatcam simulation
     flatcam_sim = config.simulation.flatcam
@@ -107,7 +104,7 @@ def simulate(config):
             os.makedirs(os.path.join(save_dir, "reconstruction"))
 
     # simulate mask
-    if config.mask.mask_type.upper() in ["MURA", "MLS"]:
+    if mask_type.upper() in ["MURA", "MLS"]:
         mask = CodedAperture.from_sensor(
             sensor_name=sensor,
             downsample=downsample,
@@ -124,7 +121,7 @@ def simulate(config):
             **config.mask,
         )
         psf_sim = mask.psf / np.linalg.norm(mask.psf.ravel())
-    elif config.mask.mask_type.lower() == "phase":
+    elif mask_type.lower() == "phase":
         mask = PhaseContour.from_sensor(
             sensor_name=sensor,
             downsample=downsample,
