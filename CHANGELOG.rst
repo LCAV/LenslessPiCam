@@ -18,6 +18,10 @@ Added
 - Link and citation for JOSS.
 - Authors at top of source code files.
 - Add paramiko as dependency for remote capture and display.
+- Script for measuring arbitrary dataset (from Raspberry Pi).
+- Support for preprocessing and postprocessing, such as denoising, in ``TrainableReconstructionAlgorithm``. Both trainable and fix postprocessing can be used.
+- Utilities to load a trained DruNet model for use as postprocessing in ``TrainableReconstructionAlgorithm``.
+- Support for unrolled loading and inference in the script ``admm.py``.
 
 
 Changed
@@ -25,6 +29,7 @@ Changed
 
 - Simpler remote capture and display scripts with Hydra.
 - Group source code into four modules: ``hardware``, ``recon``, ``utils``, ``eval``.
+- Split scripts into subfolders.
 
 
 Bugfix

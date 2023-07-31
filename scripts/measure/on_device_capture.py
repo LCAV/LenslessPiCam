@@ -39,7 +39,7 @@ SENSOR_MODES = [
 ]
 
 
-@hydra.main(version_base=None, config_path="../configs", config_name="capture")
+@hydra.main(version_base=None, config_path="../../configs", config_name="capture")
 def capture(config):
 
     bayer = config.bayer
