@@ -43,6 +43,7 @@ def remote_display(config):
     shape = np.array(config.display.screen_res)
     psf = config.display.psf
     black = config.display.black
+    white = config.display.white
 
     if psf:
         point_source = np.zeros(tuple(shape) + (3,))
@@ -60,12 +61,18 @@ def remote_display(config):
         im = Image.fromarray(point_source.astype("uint8"), "RGB")
         im.save(fp)
 
+    elif white:
+        point_source = np.ones(tuple(shape) + (3,)) * 255
+        fp = "tmp_display.png"
+        im = Image.fromarray(point_source.astype("uint8"), "RGB")
+        im.save(fp)
+
     """ processing on remote machine, less issues with copying """
     # copy picture to Raspberry Pi
     print("\nCopying over picture...")
     display(fp=fp, rpi_username=username, rpi_hostname=hostname, **config.display)
 
-    if psf or black:
+    if psf or black or white:
         os.remove(fp)
 
 
