@@ -491,7 +491,9 @@ class ReconstructionAlgorithm(abc.ABC):
 
         if (plot or save) and disp_iter is not None:
             if ax is None:
-                ax = plot_image(self._get_numpy_data(self._image_est[0]), gamma=gamma)
+                img = self._form_image()
+                ax = plot_image(self._get_numpy_data(img[0]), gamma=gamma)
+
         else:
             ax = None
             disp_iter = n_iter + 1
