@@ -142,12 +142,8 @@ class APGD(ReconstructionAlgorithm):
 
         assert isinstance(psf, np.ndarray), "PSF must be a numpy array"
 
-        # PSF and data are the same size / shape
         self._original_shape = psf.shape
-        self._original_size = psf.size
-
         self._apgd = None
-        self._gen = None
 
         self._stop_crit = stop.MaxIter(max_iter)
         if rel_error is not None:
@@ -278,4 +274,6 @@ class APGD(ReconstructionAlgorithm):
     def _form_image(self):
         image = self._image_est.reshape(self._psf_shape)
         image[image < 0] = 0
+        if np.any(self._psf_shape != self._original_shape):
+            image = resize(image, shape=self._original_shape)
         return image
