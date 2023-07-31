@@ -30,12 +30,13 @@ Changed
 - Simpler remote capture and display scripts with Hydra.
 - Group source code into four modules: ``hardware``, ``recon``, ``utils``, ``eval``.
 - Split scripts into subfolders.
+- Displaying 3D reconstructions now shows projections on all three axis.
 
 
 Bugfix
 ~~~~~~
 
-- 
+-  Displaying 3D reconstructions by summing values along axis would produce un-normalized values.
 
 1.0.4 - (2023-06-14)
 --------------------
@@ -84,6 +85,7 @@ Bugfix
 ~~~~~~
 
 -  Loading grayscale PSFs would cause an dimension error when removing the background pixels.
+
 
 1.0.2 - (2022-05-31)
 --------------------
