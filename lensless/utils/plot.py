@@ -47,9 +47,11 @@ def plot_image(img, ax=None, gamma=None, normalize=True):
     cmap = None
 
     # full 3D RGB format : [depth, width, height, color]
+    is_3d = False
     if len(img.shape) == 4:
         disp_img = [np.sum(img, axis=axis) for axis in range(3)]
         cmap = None
+        is_3d = True
 
     # data of length 3 means we have to infer whichever depth or color is missing, based on shape.
     elif len(img.shape) == 3:
@@ -60,6 +62,7 @@ def plot_image(img, ax=None, gamma=None, normalize=True):
         else:  # 3D grayscale
             disp_img = [np.sum(img, axis=axis) for axis in range(3)]
             cmap = "gray"
+            is_3d = True
 
     # data of length 2 means we have only width and height
     elif len(img.shape) == 2:  # 2D grayscale
@@ -88,28 +91,27 @@ def plot_image(img, ax=None, gamma=None, normalize=True):
             img_norm[i] = gamma_correction(img_norm[i], gamma=gamma)
 
     if ax is None:
-        _, ax = plt.subplots()
+        if not is_3d:
+            _, ax = plt.subplots()
+        else:
+            _, ax = plt.subplots(2, 2)
+    else:
+        if is_3d:
+            assert len(ax) == 2
+            assert len(ax[0]) == 2
 
     if len(img_norm) == 1:
         ax.imshow(img_norm[0], cmap=cmap)
 
     else:
-        padding = 5
-        width = img_norm[0].shape[0]
-        height = img_norm[0].shape[1]
-        depth = img_norm[1].shape[0]
 
-        if len(img_norm[0].shape) > 2:
-            concat = np.ones(
-                (width + depth + padding, height + depth + padding, img_norm[0].shape[2])
-            )
-        else:
-            concat = np.ones((width + depth + padding, height + depth + padding))
-
-        concat[:width, :height] = img_norm[0]
-        concat[width + padding :, :height] = img_norm[1]
-        concat[:width, height + padding :] = np.swapaxes(img_norm[2], 0, 1)
-        ax.imshow(concat, cmap=cmap)
+        # plot each projection separately
+        ax[0, 0].imshow(img_norm[0], cmap=cmap)
+        ax[0, 1].imshow(np.swapaxes(img_norm[2], 0, 1), cmap=cmap)
+        ax[1, 0].imshow(img_norm[1], cmap=cmap)
+        ax[1, 1].axis("off")
+        ax[0, 1].set_xlabel("Depth")
+        ax[1, 0].set_ylabel("Depth")
 
     return ax
 

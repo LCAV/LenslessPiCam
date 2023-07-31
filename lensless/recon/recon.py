@@ -118,9 +118,9 @@ passed to the script:
 ----------
 
 It is also possible to reconstruct 3D scenes using :py:class:`~lensless.GradientDescent` or :py:class:`~lensless.APGD`. :py:class:`~lensless.ADMM` does not support 3D reconstruction yet.
-This requires to use a 3D PSF as an input in the form of an .npy or .npz file, which actually is a set of 2D PSFs corresponding to the same diffuser sampled with light sources from different depths.
+This requires to use a 3D PSF as an input in the form of an ``.npy`` or ``.npz`` file, which is a set of 2D PSFs corresponding to the same diffuser sampled with light sources at different depths.
 The input data for 3D reconstructions is still a 2D image, as collected by the camera. The reconstruction will be able to separate which part of the lensless data corresponds to which 2D PSF,
-and therefore to which depth, effectively generating a 3D reconstruction, which will be outputed in the form of an .npy file. A 2D projection on the depth axis is also displayed to the user.
+and therefore to which depth, effectively generating a 3D reconstruction, which will be outputed in the form of an ``.npy`` file. A 2D projection on the depth axis is also displayed to the user.
 
 The same scripts for 2D reconstruction can be used for 3D reconstruction, namely ``scripts/recon/gradient_descent.py`` and ``scripts/recon/apgd_pycsou.py``.
 
@@ -491,7 +491,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
         if (plot or save) and disp_iter is not None:
             if ax is None:
-                ax = plot_image(self._get_numpy_data(self._data[0]), gamma=gamma)
+                ax = plot_image(self._get_numpy_data(self._image_est[0]), gamma=gamma)
         else:
             ax = None
             disp_iter = n_iter + 1
@@ -503,7 +503,10 @@ class ReconstructionAlgorithm(abc.ABC):
                 self._progress()
                 img = self._form_image()
                 ax = plot_image(self._get_numpy_data(img[0]), ax=ax, gamma=gamma)
-                ax.set_title("Reconstruction after iteration {}".format(i + 1))
+                if hasattr(ax, "__len__"):
+                    ax[0, 0].set_title("Reconstruction after iteration {}".format(i + 1))
+                else:
+                    ax.set_title("Reconstruction after iteration {}".format(i + 1))
                 if save:
                     plt.savefig(plib.Path(save) / f"{i + 1}.png")
                 if plot:
@@ -513,7 +516,10 @@ class ReconstructionAlgorithm(abc.ABC):
         final_im = self._form_image()[0]
         if plot:
             ax = plot_image(self._get_numpy_data(final_im), ax=ax, gamma=gamma)
-            ax.set_title("Final reconstruction after {} iterations".format(n_iter))
+            if hasattr(ax, "__len__"):
+                ax[0, 0].set_title("Final reconstruction after {} iterations".format(n_iter))
+            else:
+                ax.set_title("Final reconstruction after {} iterations".format(n_iter))
             if save:
                 plt.savefig(plib.Path(save) / f"{n_iter}.png")
             return final_im, ax
