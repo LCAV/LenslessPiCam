@@ -11,7 +11,7 @@ import os
 import torch
 from abc import abstractmethod
 from torch.utils.data import Dataset
-from torchvision import transforms, datasets
+from torchvision import transforms
 from waveprop.simulation import FarFieldSimulator
 
 from lensless.utils.io import load_image, load_psf
@@ -20,7 +20,7 @@ from lensless.utils.image import resize
 
 class DualDataset(Dataset):
     """
-    Virtual dataset for paired lensed and lensless images.
+    Abstract class for defining a dataset of paired lensed and lensless images.
     """
 
     def __init__(
@@ -34,8 +34,7 @@ class DualDataset(Dataset):
         **kwargs,
     ):
         """
-        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the DiffuserCam
-        Lensless Mirflickr Dataset (DLMD).
+        Dataset consisting of lensless and corresponding lensed image.
 
         Parameters
         ----------
@@ -48,9 +47,9 @@ class DualDataset(Dataset):
             flip : bool, optional
                 If ``True``, lensless images are flipped, by default ``False``.
             transform_lensless : PyTorch Transform or None, optional
-                Transform to apply to the lensless images, by default None
+                Transform to apply to the lensless images, by default ``None``.
             transform_lensed : PyTorch Transform or None, optional
-                Transform to apply to the lensed images, by default None
+                Transform to apply to the lensed images, by default ``None``.
         """
         if isinstance(indices, int):
             indices = range(indices)
@@ -70,7 +69,8 @@ class DualDataset(Dataset):
 
     @abstractmethod
     def _get_images_pair(self, idx):
-        """Abstract method to get the lensed and lensless images. Supposed to return a pair (lensless, lensled) of numpy array with value in [0,1].
+        """
+        Abstract method to get the lensed and lensless images. Should return a pair (lensless, lensed) of numpy arrays with values in [0,1].
 
         Parameters
         ----------
@@ -124,7 +124,10 @@ class DualDataset(Dataset):
 
 class SimulatedDataset(DualDataset):
     """
-    Dataset of propagated images from a sigle image torch Dataset.
+    Dataset of propagated images (through simulation) from a Torch Dataset.
+    The `waveprop <https://github.com/ebezzam/waveprop/blob/master/waveprop/simulation.py>`_ package is used for the simulation,
+    assuming a far-field propagation and a shift-invariant system with a single point spread function (PSF).
+
     """
 
     def __init__(
@@ -141,16 +144,15 @@ class SimulatedDataset(DualDataset):
         ----------
 
         psf : torch.Tensor
-            PSF to use for propagation. Should be a 4D tensor with shape 1 H W C.
-            For no simated dataset don't support 3D reconstruction.
+            PSF to use for simulate. Should be a 4D tensor with shape [1, H, W, C]. Simulation of multi-depth data is not supported yet.
         dataset : torch.utils.data.Dataset
-            Dataset to propagate. Should output images with shape H W C unless dataset_is_CHW is True.
+            Dataset to propagate. Should output images with shape [H, W, C] unless ``dataset_is_CHW`` is ``True`` (and therefore images have the dimension ordering of [C, H, W]).
         pre_transform : PyTorch Transform or None, optional
-            Transform to apply to the images before simulation, by default None
+            Transform to apply to the images before simulation, by default ``None``.
         dataset_is_CHW : bool, optional
-            If True, the input dataset is expected to output images with shape C H W, by default False
+            If True, the input dataset is expected to output images with shape [C, H, W], by default ``False``.
         flip : bool, optional
-                If True,images are flipped beffore the simulation, by default False.
+                If True,images are flipped beffore the simulation, by default ``False``..
         """
 
         # we do the flipping before the simualtion
@@ -174,7 +176,7 @@ class SimulatedDataset(DualDataset):
 
     def _get_images_pair(self, index):
         # load image
-        img, label = self.get_image(index)
+        img, _ = self.get_image(index)
         if not self.dataset_is_CHW:
             img = img.movedim(-1, 0)
         if self.flip:
@@ -196,9 +198,9 @@ class SimulatedDataset(DualDataset):
 
 class LenslessDataset(DualDataset):
     """
-    Dataset consisting of lensless image taken form a screen and the corresponding image shown on screen.
-    It can be used with a PyTorch DataLoader to load a batch of lensless and corresponding (recreated) lensed images.
-    Unless the setup is perfectly calibrated, one should expect to have to used transform_lensed to adjuste the alignement and rotation.
+    Dataset consisting of lensless image captured from a screen and the corresponding image shown on screen (not necessarily captured with a lens).
+    It can be used with a PyTorch DataLoader to load a batch of lensless and corresponding lensed images.
+    Unless the setup is perfectly calibrated, one should expect to have to use ``transform_lensed`` to adjust the alignement and rotation.
     """
 
     def __init__(
@@ -212,20 +214,20 @@ class LenslessDataset(DualDataset):
         **kwargs,
     ):
         """
-        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the DiffuserCam
-        Lensless Mirflickr Dataset (DLMD).
+        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the
+        `DiffuserCam Lensless Mirflickr Dataset (DLMD) <https://waller-lab.github.io/LenslessLearning/dataset.html>`_.
 
         Parameters
         ----------
         root_dir : str
-            Path to the test dataset. It is expected to contain two folders: ones of lensless images and one of original images.
+            Path to the test dataset. It is expected to contain two folders: one of lensless images and one of original images.
         lensless_fn : str, optional
             Name of the folder containing the lensless images, by default "diffuser".
         lensed_fn : str, optional
             Name of the folder containing the lensed images, by default "lensed".
         image_ext : str, optional
             Extension of the images, by default "npy".
-        image_ext : str, optional
+        original_ext : str, optional
             Extension of the original image if different from lenless, by default None.
         downsample : int, optional
             Downsample factor of the lensless images, by default 1.
@@ -297,6 +299,7 @@ class ParallelDataset(DualDataset):
     """
     Dataset consisting of lensless and corresponding lensed image.
     It can be used with a PyTorch DataLoader to load a batch of lensless and corresponding lensed images.
+    Unless the setup is perfectly calibrated, one should expect to have to use ``transform_lensed`` to adjust the alignement and rotation.
     """
 
     def __init__(
@@ -308,25 +311,13 @@ class ParallelDataset(DualDataset):
         **kwargs,
     ):
         """
-        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the DiffuserCam
-        Lensless Mirflickr Dataset (DLMD).
+        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the
+        `DiffuserCam Lensless Mirflickr Dataset (DLMD) <https://waller-lab.github.io/LenslessLearning/dataset.html>`_.
 
         Parameters
         ----------
         root_dir : str
             Path to the test dataset. It is expected to contain two folders: ones of lensless images and one of lensed images.
-        n_files : int or None, optional
-            Metrics will be computed only on the first ``n_files`` images. If None, all images are used, by default False
-        background : :py:class:`~torch.Tensor` or None, optional
-            If not ``None``, background is removed from lensless images, by default ``None``.
-        downsample : int, optional
-            Downsample factor of the lensless images, by default 4.
-        flip : bool, optional
-            If ``True``, lensless images are flipped, by default ``False``.
-        transform_lensless : PyTorch Transform or None, optional
-            Transform to apply to the lensless images, by default None
-        transform_lensed : PyTorch Transform or None, optional
-            Transform to apply to the lensed images, by default None
         lensless_fn : str, optional
             Name of the folder containing the lensless images, by default "diffuser".
         lensed_fn : str, optional
@@ -394,17 +385,17 @@ class DiffuserCamTestDataset(ParallelDataset):
         downsample=2,
     ):
         """
-        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the test set of DiffuserCam
-        Lensless Mirflickr Dataset (DLMD).
+        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the test set
+        `DiffuserCam Lensless Mirflickr Dataset (DLMD) <https://waller-lab.github.io/LenslessLearning/dataset.html>`_.
 
         Parameters
         ----------
         data_dir : str, optional
-            The path to the folder containing the DiffuserCam_Test dataset, by default "data"
+            The path to the folder containing the DiffuserCam_Test dataset, by default "data".
         n_files : int, optional
-            Number of image pair to load in the dataset , by default 200
+            Number of image pair to load in the dataset , by default 200.
         downsample : int, optional
-            Downsample factor of the lensless images, by default 8
+            Downsample factor of the lensless images, by default 8.
         """
         # download dataset if necessary
         main_dir = data_dir
