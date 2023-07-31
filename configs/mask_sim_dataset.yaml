@@ -1,0 +1,31 @@
+defaults:
+  - mask_sim_single
+  - _self_
+
+seed: 0
+save: True
+
+files:
+  dataset: data/celeba_mini
+  image_ext: jpg
+  n_files: 10    # null to use all
+
+simulation:
+  object_height: [0.25, 0.3]   # range for random height, or scalar
+  random_shift: False
+  grayscale: False
+
+# torch for reconstruction
+torch: False
+torch_device: 'cuda:0'
+
+recon:
+  
+  algo: "tikhonov"   # "tikhonov" or "admm" or None to skip
+
+  tikhonov:
+    reg: 3e-4
+
+  admm:
+    # Recommend to not display, ok for small number of files, otherwise many windows will pop up!
+    disp_iter: null
