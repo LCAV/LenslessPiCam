@@ -7,6 +7,6 @@ click>=8.0.1
 waveprop>=0.0.3     # for simulation
 
 # Library for learning algorithm
-torch >= 1.8.0
+torch >= 2.0.0
 torchvision
 lpips
