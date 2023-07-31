@@ -35,16 +35,21 @@ Simulate PhaseContour camera with PSF simulation and ADMM reconstuction (https:/
 python scripts/sim/mask_dataset.py mask.type=PhaseContour recon.algo=admm
 ```
 
+If Pytorch is installed, you can use the `torch` flag to use Pytorch for the reconstruction (ADMM only):
+```
+python scripts/sim/mask_dataset.py mask.type=PhaseContour recon.algo=admm
+```
+
 """
 
 import hydra
 import warnings
 from hydra.utils import to_absolute_path
-from lensless.utils.io import load_image, load_psf, save_image
-from lensless.utils.image import rgb2gray, resize
+from lensless.utils.io import load_image, save_image
+from lensless.utils.image import rgb2gray
 import numpy as np
 from lensless import ADMM
-from lensless.eval.metric import mse, psnr, ssim, lpips, LPIPS_MIN_DIM
+from lensless.eval.metric import mse, psnr, ssim, lpips
 from waveprop.simulation import FarFieldSimulator
 import glob
 import os
@@ -55,6 +60,12 @@ from lensless.recon.tikhonov import CodedApertureReconstruction
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="mask_sim_dataset")
 def simulate(config):
+
+    if config.torch:
+        try:
+            import torch
+        except ImportError:
+            raise ImportError("Pytorch not found. Please install pytorch to use torch mode.")
 
     # set seed
     np.random.seed(config.seed)
@@ -92,11 +103,11 @@ def simulate(config):
         )
         flatcam_sim = False
 
-    if config.save.bool:
+    if config.save:
         if flatcam_sim:
-            save_dir = to_absolute_path(config.save.dir + mask_type + "_flatcam")
+            save_dir = to_absolute_path(config.files.dataset + "_" + mask_type + "_flatcam_sim")
         else:
-            save_dir = to_absolute_path(config.save.dir + mask_type)
+            save_dir = to_absolute_path(config.files.dataset + "_" + mask_type)
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
             os.makedirs(os.path.join(save_dir, "sensor_plane"))
@@ -104,6 +115,7 @@ def simulate(config):
             os.makedirs(os.path.join(save_dir, "reconstruction"))
 
     # simulate mask
+    mask = None
     if mask_type.upper() in ["MURA", "MLS"]:
         mask = CodedAperture.from_sensor(
             sensor_name=sensor,
@@ -121,7 +133,7 @@ def simulate(config):
             **config.mask,
         )
         psf_sim = mask.psf / np.linalg.norm(mask.psf.ravel())
-    elif mask_type.lower() == "phase":
+    elif mask_type == "PhaseContour":
         mask = PhaseContour.from_sensor(
             sensor_name=sensor,
             downsample=downsample,
@@ -130,11 +142,7 @@ def simulate(config):
             **config.mask,
         )
         psf_sim = mask.psf / np.linalg.norm(mask.psf.ravel())
-    else:
-        psf_fp = to_absolute_path(config.files.psf)
-        assert os.path.exists(psf_fp), f"PSF {psf_fp} does not exist."
-        psf = load_psf(psf_fp, verbose=True, downsample=config.simulation.downsample)
-        psf_sim = psf[0]
+    assert mask is not None, f"Mask type {mask_type} not implemented."
 
     if config.simulation.grayscale and len(psf_sim.shape) == 3:
         psf_sim = rgb2gray(psf_sim)
@@ -163,7 +171,7 @@ def simulate(config):
         if flatcam_sim:
             image_plane = mask.simulate(object_plane, snr_db=snr_db)
 
-        if config.save.bool:
+        if config.save:
 
             bn = os.path.basename(fp).split(".")[0] + ".png"
 
@@ -178,31 +186,27 @@ def simulate(config):
     # reconstruction
     recon_algo = config.recon.algo.lower()
 
-    if config.recon.bool:
+    if config.recon.algo is not None:
 
         print("\nReconstructing lensless measurements...")
-
-        output_dim = image_plane.shape
-        if config.simulation.output_dim is not None:
-            # best would be to incorporate downsampling in the reconstruction
-            # for now downsample the PSF
-            print("-- Resizing PSF to", config.simulation.output_dim, "for reconstruction.")
-            psf = resize(psf, shape=config.simulation.output_dim)
-
         # -- initialize reconstruction object
-        # recon = ADMM(psf, **config.recon)
         if recon_algo == "tikhonov":
+            if config.torch:
+                raise NotImplementedError("Tikhonov reconstruction not implemented for torch.")
             recon = CodedApertureReconstruction(
                 mask, object_plane.shape, lmbd=config.recon.tikhonov.reg
             )
         elif recon_algo == "admm":
-            recon = ADMM(psf_sim[np.newaxis, :, :, :], **config.recon)
+            psf = psf_sim[np.newaxis, :, :, :]
+            if config.torch:
+                psf = torch.from_numpy(psf).to(config.torch_device)
+            recon = ADMM(psf, **config.recon.admm)
 
         # -- metrics
         mse_vals = []
         psnr_vals = []
         ssim_vals = []
-        if not config.simulation.grayscale and np.min(output_dim[:2]) >= LPIPS_MIN_DIM:
+        if not config.simulation.grayscale:
             lpips_vals = []
         else:
             lpips_vals = None
@@ -219,11 +223,18 @@ def simulate(config):
             if recon_algo == "tikhonov":
                 recovered = recon.apply(lensless[0])
             elif recon_algo == "admm":
+                if config.torch:
+                    lensless = torch.from_numpy(lensless).to(config.torch_device)
                 recon.set_data(lensless)
-                res, _ = recon.apply(n_iter=config.recon.n_iter, disp_iter=config.recon.disp_iter)
-                recovered = res[0]  # first depth
+                res, _ = recon.apply(n_iter=config.recon.admm.n_iter)
 
-            if config.save.bool:
+                # get first depth
+                if config.torch:
+                    recovered = res[0].cpu().numpy()
+                else:
+                    recovered = res[0]
+
+            if config.save:
                 bn = os.path.basename(fp).split(".")[0] + ".png"
                 lensless_fp = os.path.join(save_dir, "reconstruction", bn)
 
@@ -232,12 +243,6 @@ def simulate(config):
             # compute metrics
             object_plane_fp = os.path.join(save_dir, "object_plane", os.path.basename(fp))
             object_plane = load_image(object_plane_fp)
-
-            if config.simulation.output_dim is not None:
-                # best would be to incorporate downsampling in the reconstruction
-                # for now downsample the PSF
-                print("-- Resizing object plane to", config.simulation.output_dim, "for metric.")
-                object_plane = resize(object_plane, shape=config.simulation.output_dim)
 
             mse_vals.append(mse(object_plane, recovered))
             psnr_vals.append(psnr(object_plane, recovered))
@@ -253,6 +258,8 @@ def simulate(config):
     print("SSIM (avg)", np.mean(ssim_vals))
     if lpips_vals is not None:
         print("LPIPS (avg)", np.mean(lpips_vals))
+
+    print("Results saved to", save_dir)
 
 
 if __name__ == "__main__":
