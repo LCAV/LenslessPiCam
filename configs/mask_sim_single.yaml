@@ -10,7 +10,7 @@ files:
 save: True
   
 simulation:
-  object_height: 0.25
+  object_height: 0.3
   # these distance parameters are typically fixed for a given PSF
   scene2mask: 40e-2
   mask2sensor: 4e-3
@@ -46,7 +46,7 @@ mask:
 
 recon:
 
-  algo: "tikhonov"   # tikhonov or admm
+  algo: "admm"   # tikhonov or admm
 
   tikhonov:
     reg: 3e-4

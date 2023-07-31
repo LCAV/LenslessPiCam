@@ -97,25 +97,26 @@ def simulate(config):
             distance_sensor=mask2sensor,
             **config.mask,
         )
-    elif mask_type == "PhaseContour":
+    elif mask_type.lower() == "PhaseContour".lower():
         mask = PhaseContour.from_sensor(
             sensor_name=sensor,
             downsample=downsample,
             distance_sensor=mask2sensor,
+            n_iter=config.mask.phase_mask_iter,
             **config.mask,
         )
 
-    if np.iscomplexobj(mask.mask):
-        # plot phase
-        ax = plot_image(np.angle(mask.mask))
-        ax.set_title("Phase mask")
-    else:
-        ax = plot_image(mask.mask)
-        ax.set_title("Amplitude mask")
+    # if np.iscomplexobj(mask.mask):
+    #    # plot phase
+    #    ax = plot_image(np.angle(mask.mask))
+    #    ax.set_title("Phase mask")
+    # else:
+    #    ax = plot_image(mask.mask)
+    #    ax.set_title("Amplitude mask")
 
     # 2) simulate measurement
     image = load_image(fp, verbose=True) / 255
-    
+
     flatcam_sim = config.simulation.flatcam
     if flatcam_sim and mask_type.upper() not in ["MURA", "MLS"]:
         warnings.warn(
@@ -159,7 +160,7 @@ def simulate(config):
             mask, object_plane.shape, lmbd=config.recon.tikhonov.reg
         )
         recovered = recon.apply(image_plane)
-        
+
     elif config.recon.algo.lower() == "admm":
 
         if bayer:
@@ -211,11 +212,15 @@ def simulate(config):
     _, ax = plt.subplots(ncols=4, nrows=1, figsize=(15, 5))
     plot_image(object_plane, ax=ax[0])
     ax[0].set_title("Object plane")
-    plot_image(mask.psf, ax=ax[1], gamma=2.2)
-    ax[1].set_title("PSF")
+    if flatcam_sim:
+        plot_image(mask.mask, ax=ax[1])
+        ax[1].set_title("Amplitude mask")
+    else:
+        plot_image(mask.psf, ax=ax[1], gamma=2.2)
+        ax[1].set_title("PSF")
     plot_image(image_plane, ax=ax[2])
     ax[2].set_title("Raw data")
-    plot_image(recovered, ax=ax[3])
+    plot_image(recovered, ax=ax[3], gamma=2.2)
     ax[3].set_title("Reconstruction")
     plt.savefig("result.png")
 
