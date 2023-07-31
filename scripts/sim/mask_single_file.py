@@ -20,7 +20,6 @@ python scripts/sim/mask_single_file.py mask.type=MURA mask.n_bits=99 simulation.
 ```
 
 Simulate FlatCam with PSF simulation and Tikhonov reconstuction:
-(TODO doesn't work)
 ```
 python scripts/sim/mask_single_file.py mask.type=MLS simulation.flatcam=False recon.algo=tikhonov
 ```
@@ -209,19 +208,27 @@ def simulate(config):
         object_plane = bayer2rgb(object_plane, pattern=image_format[-4:])
         recovered = bayer2rgb(recovered, pattern=image_format[-4:])
 
-    _, ax = plt.subplots(ncols=4, nrows=1, figsize=(15, 5))
+    _, ax = plt.subplots(ncols=5, nrows=1, figsize=(24, 5))
     plot_image(object_plane, ax=ax[0])
     ax[0].set_title("Object plane")
-    if flatcam_sim:
+    if np.iscomplexobj(mask.mask):
+        # plot phase
+        plot_image(np.angle(mask.mask), ax=ax[1])
+        ax[1].set_title("Phase mask")
+    else:
         plot_image(mask.mask, ax=ax[1])
         ax[1].set_title("Amplitude mask")
-    else:
-        plot_image(mask.psf, ax=ax[1], gamma=2.2)
-        ax[1].set_title("PSF")
-    plot_image(image_plane, ax=ax[2])
-    ax[2].set_title("Raw data")
-    plot_image(recovered, ax=ax[3], gamma=2.2)
-    ax[3].set_title("Reconstruction")
+    plot_image(mask.psf, ax=ax[2], gamma=2.2)
+    ax[2].set_title("PSF")
+    plot_image(image_plane, ax=ax[3])
+    ax[3].set_title("Raw data")
+    plot_image(recovered, ax=ax[4])
+    ax[4].set_title("Reconstruction")
+
+    for a in ax:
+        a.set_xticks([]), a.set_yticks([])
+
+    plt.tight_layout()
     plt.savefig("result.png")
 
     if config.save:
