@@ -1,6 +1,6 @@
 """
 
-python scripts/remote_capture.py
+python scripts/measure/remote_capture.py
 
 Check out the `configs/demo.yaml` file for parameters, specifically:
 
@@ -25,7 +25,7 @@ from lensless.utils.io import save_image
 from lensless.utils.io import load_image
 
 
-@hydra.main(version_base=None, config_path="../configs", config_name="demo")
+@hydra.main(version_base=None, config_path="../../configs", config_name="demo")
 def liveview(config):
 
     bayer = config.capture.bayer

@@ -102,10 +102,10 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         """
         if isinstance(process, torch.nn.Module):
             # If the post_process is a torch module, we assume it is a DruNet like network.
-            from lensless.utils.image import process_with_DruNet
+            from lensless.recon.utils import get_drunet_function
 
             process_model = process
-            process_function = process_with_DruNet(process_model, self._psf.device, mode="train")
+            process_function = get_drunet_function(process_model, self._psf.device, mode="train")
         elif process is not None:
             # Otherwise, we assume it is a function.
             assert callable(process), "pre_process must be a callable function"

@@ -190,10 +190,11 @@ def benchmark_recon(config):
                         marker="o",
                         color=color,
                     )
-        plt.title(metric)
-        plt.xlabel("Number of iterations")
-        plt.ylabel(metric)
-        plt.legend(fontsize="8")
+        plt.xlabel("Number of iterations", fontsize="12")
+        plt.ylabel(metric, fontsize="12")
+        if metric == "ReconstructionError":
+            plt.legend(fontsize="12")
+        plt.grid()
         plt.savefig(f"{metric}.png")
 
 

@@ -84,7 +84,7 @@ def simulate_dataset(config, psf):
 
 def create_process_network(network, depth, device="cpu"):
     if network == "DruNet":
-        from lensless.utils.image import load_drunet
+        from lensless.recon.utils import load_drunet
 
         process = load_drunet(
             os.path.join(get_original_cwd(), "data/drunet_color.pth"), requires_grad=True
