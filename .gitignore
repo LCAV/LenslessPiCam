@@ -1,6 +1,4 @@
-scripts/recon/outputs/
 .idea/
-
 *_sol.py
 scripts/admm_*
 scripts/gd_*
@@ -98,6 +96,17 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb
+
+# Images and NPY files
+*.png
+*.npy
+
+# Datasets
+data/celeba_mini
+
+# FlatCam reconstruction
+masks/FlatCam/flatcam-authors
 
 # IPython
 profile_default/
@@ -153,3 +162,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+

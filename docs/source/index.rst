@@ -25,6 +25,7 @@ Contents
    measurement
    reconstruction
    evaluation
+   mask
    sensor
    utilities
    demo

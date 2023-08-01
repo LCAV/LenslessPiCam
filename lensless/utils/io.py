@@ -14,7 +14,7 @@ import os.path
 
 from lensless.utils.plot import plot_image
 from lensless.hardware.constants import RPI_HQ_CAMERA_BLACK_LEVEL, RPI_HQ_CAMERA_CCM_MATRIX
-from lensless.utils.image import bayer2rgb, print_image_info, resize, rgb2gray
+from lensless.utils.image import bayer2rgb_cc, print_image_info, resize, rgb2gray
 
 
 def load_image(
@@ -97,7 +97,7 @@ def load_image(
             img = img.astype(dtype)
         if nbits_out is None:
             nbits_out = n_bits
-        img = bayer2rgb(
+        img = bayer2rgb_cc(
             img,
             nbits=n_bits,
             blue_gain=blue_gain,
