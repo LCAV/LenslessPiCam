@@ -18,10 +18,12 @@ Added
 - Link and citation for JOSS.
 - Authors at top of source code files.
 - Add paramiko as dependency for remote capture and display.
+- Mask module, for CodedAperture (FlatCam), PhaseContour (PhlatCam), and FresnelZoneAperture.
 - Script for measuring arbitrary dataset (from Raspberry Pi).
 - Support for preprocessing and postprocessing, such as denoising, in ``TrainableReconstructionAlgorithm``. Both trainable and fix postprocessing can be used.
 - Utilities to load a trained DruNet model for use as postprocessing in ``TrainableReconstructionAlgorithm``.
 - Support for unrolled loading and inference in the script ``admm.py``.
+- Tikhonov reconstruction for coded aperture measurements (MLS / MURA).
 
 
 Changed
@@ -36,7 +38,8 @@ Changed
 Bugfix
 ~~~~~~
 
--  Displaying 3D reconstructions by summing values along axis would produce un-normalized values.
+- Fix overwriting of sensor parameters when downsampling.
+- Displaying 3D reconstructions by summing values along axis would produce un-normalized values.
 
 1.0.4 - (2023-06-14)
 --------------------

@@ -58,5 +58,6 @@ jobs:
       run: |
         pip install -U pytest
         pip install -r recon_requirements.txt
+        pip install -r mask_requirements.txt
         pip install git+https://github.com/matthieumeo/pycsou.git@v2-dev
         pytest

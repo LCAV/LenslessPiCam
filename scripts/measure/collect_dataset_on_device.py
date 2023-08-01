@@ -29,7 +29,7 @@ from lensless.hardware.constants import (
     RPI_HQ_CAMERA_BLACK_LEVEL,
 )
 import picamerax.array
-from lensless.utils.image import bayer2rgb, resize
+from lensless.utils.image import bayer2rgb_cc, resize
 import cv2
 
 
@@ -203,7 +203,7 @@ def collect_dataset(config):
                     output_bayer = np.sum(stream.array, axis=2).astype(np.uint16)
 
                     # convert to RGB
-                    output = bayer2rgb(
+                    output = bayer2rgb_cc(
                         output_bayer,
                         nbits=12,
                         blue_gain=float(g[1]),
