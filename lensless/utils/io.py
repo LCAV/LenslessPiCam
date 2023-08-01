@@ -14,7 +14,7 @@ import os.path
 
 from lensless.utils.plot import plot_image
 from lensless.hardware.constants import RPI_HQ_CAMERA_BLACK_LEVEL, RPI_HQ_CAMERA_CCM_MATRIX
-from lensless.utils.image import bayer2rgb_cc, print_image_info, resize, rgb2gray
+from lensless.utils.image import bayer2rgb_cc, print_image_info, resize, rgb2gray, get_max_val
 
 
 def load_image(
@@ -30,6 +30,10 @@ def load_image(
     nbits_out=None,
     as_4d=False,
     downsample=None,
+    bg=None,
+    return_float=False,
+    shape=None,
+    dtype=None,
 ):
     """
     Load image as numpy array.
@@ -61,6 +65,15 @@ def load_image(
         height, width, color).
     downsample : int, optional
         Downsampling factor. Recommended for image reconstruction.
+    bg : array_like
+        Background level to subtract.
+    return_float : bool
+        Whether to return image as float array, or unsigned int.
+    shape : tuple, optional
+        Shape (H, W, C) to resize to.
+    dtype : str, optional
+        Data type of returned data. Default is to use that of input.
+
     Returns
     -------
     img : :py:class:`~numpy.ndarray`
@@ -111,6 +124,8 @@ def load_image(
         if len(img.shape) == 3:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
+    original_dtype = img.dtype
+
     if flip:
         img = np.flipud(img)
         img = np.fliplr(img)
@@ -118,14 +133,39 @@ def load_image(
     if verbose:
         print_image_info(img)
 
+    if bg is not None:
+
+        # if bg is float vector, turn into int-valued vector
+        if bg.max() <= 1:
+            bg = bg * get_max_val(img)
+
+        img = img - bg
+        img = np.clip(img, a_min=0, a_max=img.max())
+
     if as_4d:
         if len(img.shape) == 3:
             img = img[np.newaxis, :, :, :]
         elif len(img.shape) == 2:
             img = img[np.newaxis, :, :, np.newaxis]
 
-    if downsample is not None:
-        img = resize(img, factor=1 / downsample)
+    if downsample is not None or shape is not None:
+        if downsample is not None:
+            factor = 1 / downsample
+        else:
+            factor = None
+        img = resize(img, factor=factor, shape=shape)
+
+    if return_float:
+        if dtype is None:
+            dtype = np.float32
+        assert dtype == np.float32 or dtype == np.float64
+        img = img.astype(dtype)
+        img /= img.max()
+
+    else:
+        if dtype is None:
+            dtype = original_dtype
+        img = img.astype(dtype)
 
     return img
 
@@ -220,6 +260,7 @@ def load_psf(
         )
 
     original_dtype = psf.dtype
+    max_val = get_max_val(psf)
     psf = np.array(psf, dtype=dtype)
 
     if use_3d:
@@ -282,6 +323,7 @@ def load_psf(
     if return_float:
         # psf /= psf.max()
         psf /= np.linalg.norm(psf.ravel())
+        bg /= max_val
     else:
         psf = psf.astype(original_dtype)
 
@@ -387,23 +429,21 @@ def load_data(
     )
 
     # load and process raw measurement
-    data = load_image(data_fp, flip=flip, bayer=bayer, blue_gain=blue_gain, red_gain=red_gain)
-    data = np.array(data, dtype=dtype)
-
-    if bg_pix is not None:
-        bg = bg / 4095 * 255
-        data -= bg
-    data = np.clip(data, a_min=0, a_max=data.max())
-
-    if len(data.shape) == 3:
-        data = data[np.newaxis, :, :, :]
-    elif len(data.shape) == 2:
-        data = data[np.newaxis, :, :, np.newaxis]
+    data = load_image(
+        data_fp,
+        flip=flip,
+        bayer=bayer,
+        blue_gain=blue_gain,
+        red_gain=red_gain,
+        bg=bg,
+        as_4d=True,
+        return_float=True,
+        shape=shape,
+    )
 
     if data.shape != psf.shape:
         # in DiffuserCam dataset, images are already reshaped
         data = resize(data, shape=psf.shape)
-    data /= np.linalg.norm(data.ravel())
 
     if data.shape[3] > 1 and psf.shape[3] == 1:
         warnings.warn(
