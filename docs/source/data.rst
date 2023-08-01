@@ -39,6 +39,16 @@ use the correct PSF file for the data you're using!
     input.psf=data/psf/tape_rgb.png
 
 
+Measured CelebA Dataset
+-----------------------
+
+You can download 1K measurements of the CelebA dataset done with
+our lensless camera and a random pattern on the Adafruit LCD
+`here <https://drive.switch.ch/index.php/s/m89D1tFEfktQueS>`__.
+It corresponds to the PSF which can be found `here <https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Fpsf>`__
+(``adafruit_random_2mm_20231907.png``).
+
+
 DiffuserCam Lensless Mirflickr Dataset (DLMD)
 ---------------------------------------------
 
