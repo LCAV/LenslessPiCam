@@ -104,6 +104,8 @@ def simulate(config):
             n_iter=config.mask.phase_mask_iter,
             **config.mask,
         )
+    assert mask is not None, "Unsuited mask type"
+    psf = mask.psf / np.linalg.norm(mask.psf.ravel())
 
     # 2) simulate measurement
     image = load_image(fp, verbose=True) / 255
@@ -117,7 +119,7 @@ def simulate(config):
 
     # use far field simulator to get correct object plane sizing
     simulator = FarFieldSimulator(
-        psf=mask.psf,
+        psf=psf,
         object_height=object_height,
         scene2mask=scene2mask,
         mask2sensor=mask2sensor,
