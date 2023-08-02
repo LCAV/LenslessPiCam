@@ -170,6 +170,8 @@ class VirtualSensor(object):
         else:
             self.size = self.pixel_size * self.resolution
 
+        self.pitch = self.size / self.resolution
+
         self.image_shape = self.resolution
         if self.color:
             self.image_shape = np.append(self.image_shape, 3)
@@ -298,6 +300,7 @@ class VirtualSensor(object):
         assert factor > 1, "Downsample factor must be greater than 1."
 
         self.pixel_size = self.pixel_size * factor
+        self.pitch = self.pitch * factor
         self.resolution = (self.resolution / factor).astype(int)
         self.size = self.pixel_size * self.resolution
         self.image_shape = self.resolution

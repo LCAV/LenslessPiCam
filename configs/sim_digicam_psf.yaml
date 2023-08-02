@@ -1,0 +1,32 @@
+# python scripts/sim/digicam_psf.py
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+use_torch: False
+dtype: float32
+torch_device: cuda
+requires_grad: True
+
+digicam:
+
+  slm: adafruit
+  sensor: rpi_hq
+
+  pattern: data/psf/adafruit_random_pattern_20230719.npy
+  ap_center: [59, 76]
+  ap_shape: [19, 26]
+  rotate: -0.8   # rotation in degrees
+
+sim:
+
+  # whether SLM is fliped
+  flipud: True
+
+  # in practice found waveprop=True or False doesn't make difference
+  waveprop: False
+
+  # below are ignored if waveprop=False
+  scene2mask: 0.03   # [m]
+  mask2sensor: 0.002   # [m]
+  
