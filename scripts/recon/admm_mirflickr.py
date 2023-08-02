@@ -4,7 +4,7 @@ Apply ADMM on a single image from DiffuserCam dataset: https://github.com/Waller
 Or download a subset here: https://drive.switch.ch/index.php/s/vmAZzryGI8U8rcE
 
 ```
-python scripts/apply_admm_single_mirflickr.py
+python scripts/recon/admm_mirflickr.py
 ```
 
 """
@@ -33,7 +33,9 @@ font = {"family": "DejaVu Sans", "size": 18}
 matplotlib.rc("font", **font)
 
 
-@hydra.main(version_base=None, config_path="../configs", config_name="apply_admm_single_mirflickr")
+@hydra.main(
+    version_base=None, config_path="../../configs", config_name="apply_admm_single_mirflickr"
+)
 def apply_admm(config):
     data = to_absolute_path(config.dataset)
     fid = config.fid

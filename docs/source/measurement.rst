@@ -41,7 +41,7 @@ You can remotely capture data with the following script:
 
 .. code:: bash
 
-   python scripts/remote_capture.py \
+   python scripts/measure/remote_capture.py \
       rpi.username=USERNAME \
       rpi.hostname=HOSTNAME \
       plot=True
@@ -66,12 +66,12 @@ you can run the above script with a different configation:
 
 .. code:: bash
 
-   python scripts/remote_capture.py -cn capture_bayer \
+   python scripts/measure/remote_capture.py -cn capture_bayer \
       rpi.username=USERNAME \
       rpi.hostname=HOSTNAME
 
 
-You can then use ``scripts/analyze_image.py`` to play around with the red and
+You can then use ``scripts/measure/analyze_image.py`` to play around with the red and
 blue gains to find the best white balance for your camera.
 
 
@@ -108,7 +108,7 @@ image on the Raspberry Pi:
 
 .. code-block:: bash
 
-    python scripts/remote_display.py \
+    python scripts/measure/remote_display.py \
         rpi.username=USERNAME \
         rpi.hostname=HOSTNAME \
         fp=FP
@@ -134,7 +134,7 @@ Script that can be launched from the Raspberry Pi:
 
 .. code:: bash
 
-   python scripts/collect_mnist_on_device.py --input_dir MNIST_original \
+   python scripts/measure/collect_mnist_on_device.py --input_dir MNIST_original \
    --output_dir MNIST_meas
 
 If the MNIST dataset is not available at ``MNIST_original`` it will be
@@ -151,7 +151,7 @@ copying files back and forth):
 
 .. code:: bash
 
-   python scripts/collect_mnist.py --hostname <IP_ADDRESS> --output_dir MNIST_meas
+   python scripts/measure/collect_mnist.py --hostname <IP_ADDRESS> --output_dir MNIST_meas
 
 
 Collecting arbitrary dataset
@@ -162,7 +162,7 @@ camera. The script can be launched **from the Raspberry Pi**:
 
 .. code:: 
 
-   python scripts/collect_dataset_on_device.py
+   python scripts/measure/collect_dataset_on_device.py
 
 By default this script will collect a subset (100 files) of the `CelebA <https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html>`__
 dataset.

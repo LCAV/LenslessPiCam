@@ -4,7 +4,7 @@ from lensless.eval.metric import mse, psnr, ssim
 from waveprop.fresnel import fresnel_conv
 
 
-sensor_resolution = np.array([380, 507])
+resolution = np.array([380, 507])
 d1 = 3e-6
 dz = 4e-3
 
@@ -14,24 +14,24 @@ def test_flatcam():
     mask1 = CodedAperture(
         method="MURA",
         n_bits=25,
-        sensor_resolution=sensor_resolution,
+        resolution=resolution,
         feature_size=d1,
         distance_sensor=dz,
     )
-    assert np.all(mask1.mask.shape == sensor_resolution)
+    assert np.all(mask1.mask.shape == resolution)
 
-    desired_psf_shape = np.array(tuple(sensor_resolution) + (len(mask1.psf_wavelength),))
+    desired_psf_shape = np.array(tuple(resolution) + (len(mask1.psf_wavelength),))
     assert np.all(mask1.psf.shape == desired_psf_shape)
 
     mask2 = CodedAperture(
         method="MLS",
         n_bits=5,
-        sensor_resolution=sensor_resolution,
+        resolution=resolution,
         feature_size=d1,
         distance_sensor=dz,
     )
-    assert np.all(mask2.mask.shape == sensor_resolution)
-    desired_psf_shape = np.array(tuple(sensor_resolution) + (len(mask2.psf_wavelength),))
+    assert np.all(mask2.mask.shape == resolution)
+    desired_psf_shape = np.array(tuple(resolution) + (len(mask2.psf_wavelength),))
     assert np.all(mask2.psf.shape == desired_psf_shape)
 
 
@@ -39,12 +39,12 @@ def test_phlatcam():
 
     mask = PhaseContour(
         noise_period=(8, 8),
-        sensor_resolution=sensor_resolution,
+        resolution=resolution,
         feature_size=d1,
         distance_sensor=dz,
     )
-    assert np.all(mask.mask.shape == sensor_resolution)
-    desired_psf_shape = np.array(tuple(sensor_resolution) + (len(mask.psf_wavelength),))
+    assert np.all(mask.mask.shape == resolution)
+    desired_psf_shape = np.array(tuple(resolution) + (len(mask.psf_wavelength),))
     assert np.all(mask.psf.shape == desired_psf_shape)
 
     Mp = np.sqrt(mask.target_psf) * np.exp(
@@ -58,10 +58,10 @@ def test_phlatcam():
 def test_fza():
 
     mask = FresnelZoneAperture(
-        radius=30.0, sensor_resolution=sensor_resolution, feature_size=d1, distance_sensor=dz
+        radius=30.0, resolution=resolution, feature_size=d1, distance_sensor=dz
     )
-    assert np.all(mask.mask.shape == sensor_resolution)
-    desired_psf_shape = np.array(tuple(sensor_resolution) + (len(mask.psf_wavelength),))
+    assert np.all(mask.mask.shape == resolution)
+    desired_psf_shape = np.array(tuple(resolution) + (len(mask.psf_wavelength),))
     assert np.all(mask.psf.shape == desired_psf_shape)
 
 
@@ -72,22 +72,22 @@ def test_classmethod():
     mask1 = CodedAperture.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz
     )
-    assert np.all(mask1.mask.shape == sensor_resolution)
-    desired_psf_shape = np.array(tuple(sensor_resolution) + (len(mask1.psf_wavelength),))
+    assert np.all(mask1.mask.shape == resolution)
+    desired_psf_shape = np.array(tuple(resolution) + (len(mask1.psf_wavelength),))
     assert np.all(mask1.psf.shape == desired_psf_shape)
 
     mask2 = PhaseContour.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz
     )
-    assert np.all(mask2.mask.shape == sensor_resolution)
-    desired_psf_shape = np.array(tuple(sensor_resolution) + (len(mask2.psf_wavelength),))
+    assert np.all(mask2.mask.shape == resolution)
+    desired_psf_shape = np.array(tuple(resolution) + (len(mask2.psf_wavelength),))
     assert np.all(mask2.psf.shape == desired_psf_shape)
 
     mask3 = FresnelZoneAperture.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz
     )
-    assert np.all(mask3.mask.shape == sensor_resolution)
-    desired_psf_shape = np.array(tuple(sensor_resolution) + (len(mask3.psf_wavelength),))
+    assert np.all(mask3.mask.shape == resolution)
+    desired_psf_shape = np.array(tuple(resolution) + (len(mask3.psf_wavelength),))
     assert np.all(mask3.psf.shape == desired_psf_shape)
 
 

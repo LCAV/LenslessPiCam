@@ -168,7 +168,7 @@ def get_max_val(img, nbits=None):
     return max_val
 
 
-def bayer2rgb(
+def bayer2rgb_cc(
     img,
     nbits,
     blue_gain=None,
@@ -278,9 +278,9 @@ def autocorr2d(vals, pad_mode="reflect"):
     return autocorr[shape[0] // 2 : -shape[0] // 2, shape[1] // 2 : -shape[1] // 2]
 
 
-def rgb_to_bayer4d(img, pattern):
+def rgb2bayer(img, pattern):
     """
-    Converting RGB image to separated Bayer channels
+    Converting RGB image to separated Bayer channels.
 
     Parameters
     ----------
@@ -319,6 +319,7 @@ def rgb_to_bayer4d(img, pattern):
         gr = resized[1::2, ::2, 1]
         gb = resized[::2, 1::2, 1]
         b = resized[1::2, 1::2, 2]
+        img_bayer = np.dstack((r, gr, gb, b))
 
     elif pattern == "BGGR":
         # BGGR pattern *------*
@@ -329,8 +330,9 @@ def rgb_to_bayer4d(img, pattern):
         gr = resized[::2, 1::2, 1]
         gb = resized[1::2, ::2, 1]
         b = resized[::2, ::2, 2]
+        img_bayer = np.dstack((b, gb, gr, r))
 
-    elif pattern == "GBRG":
+    elif pattern == "GRBG":
         # GRGB pattern *------*
         #              | G  R |
         #              | B  G |
@@ -339,6 +341,7 @@ def rgb_to_bayer4d(img, pattern):
         gr = resized[::2, ::2, 1]
         gb = resized[1::2, 1::2, 1]
         b = resized[::2, 1::2, 2]
+        img_bayer = np.dstack((gr, r, b, gb))
 
     else:
         # GBRG pattern *------*
@@ -349,14 +352,12 @@ def rgb_to_bayer4d(img, pattern):
         gr = resized[1::2, 1::2, 1]
         gb = resized[::2, ::2, 1]
         b = resized[1::2, ::2, 2]
-
-    # Stacking the Bayer channels, always in the same order s.t. bayer2rgb() works regardless of the pattern
-    img_bayer = np.dstack((r, gr, gb, b))
+        img_bayer = np.dstack((gb, b, r, gr))
 
     return img_bayer
 
 
-def bayer4d_to_rgb(X_bayer, normalize=True):
+def bayer2rgb(X_bayer, pattern):
     """
     Converting 4-channel Bayer image to RGB by averaging the two green channels.
 
@@ -364,19 +365,161 @@ def bayer4d_to_rgb(X_bayer, normalize=True):
     ----------
     X_bayer : :py:class:`~numpy.ndarray`
         Image in RGB format.
-    normalize : bool
-        Whether or not to
+    pattern : str
+        Bayer pattern: `RGGB`, `BGGR`, `GRBG`, `GBRG`.
 
     Returns
     -------
     :py:class:`~numpy.ndarray`
         Image converted to the RGB format.
     """
+
+    # Verifying that the pattern is a proper Bayer pattern
+    pattern = pattern.upper()
+    assert pattern in [
+        "RGGB",
+        "BGGR",
+        "GRBG",
+        "GBRG",
+    ], "Bayer pattern must be in ['RGGB', 'BGGR', 'GRBG', 'GBRG']"
+
+    r_channel = [i for i, ltr in enumerate(pattern) if ltr == "R"][0]
+    b_channel = [i for i, ltr in enumerate(pattern) if ltr == "B"][0]
+    g_channels = [i for i, ltr in enumerate(pattern) if ltr == "G"]
+
     X_rgb = np.empty(X_bayer.shape[:-1] + (3,))
-    X_rgb[:, :, 2] = X_bayer[:, :, 0]
-    X_rgb[:, :, 1] = 0.5 * (X_bayer[:, :, 1] + X_bayer[:, :, 2])
-    X_rgb[:, :, 0] = X_bayer[:, :, 3]
-    # normalize to be from 0 to 1
-    if normalize:
-        X_rgb = (X_rgb - X_rgb.min()) / (X_rgb.max() - X_rgb.min())
+    X_rgb[:, :, 0] = X_bayer[:, :, r_channel]
+    X_rgb[:, :, 1] = np.mean(X_bayer[:, :, g_channels], axis=2)
+    X_rgb[:, :, 2] = X_bayer[:, :, b_channel]
+
     return X_rgb
+
+
+def load_drunet(model_path, n_channels=3, requires_grad=False):
+    """
+    Load a pre-trained Drunet model.
+
+    Parameters
+    ----------
+    model_path : str
+        Path to pre-trained model.
+    n_channels : int
+        Number of channels in input image.
+    requires_grad : bool
+        Whether to require gradients for model parameters.
+
+    Returns
+    -------
+    model : :py:class:`~torch.nn.Module`
+        Loaded model.
+    """
+    from lensless.recon.drunet.network_unet import UNetRes
+
+    model = UNetRes(
+        in_nc=n_channels + 1,
+        out_nc=n_channels,
+        nc=[64, 128, 256, 512],
+        nb=4,
+        act_mode="R",
+        downsample_mode="strideconv",
+        upsample_mode="convtranspose",
+    )
+    model.load_state_dict(torch.load(model_path), strict=True)
+    model.eval()
+    for k, v in model.named_parameters():
+        v.requires_grad = requires_grad
+
+    return model
+
+
+def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference"):
+    """
+    Apply a pre-trained denoising model with input in the format Channel, Height, Width.
+    An additionnal channel is added for the noise level as done in Drunet.
+
+    Parameters
+    ----------
+    model : :py:class:`~torch.nn.Module`
+        Drunet compatible model. Its input must concist of 4 channels ( RGB + noise level) and outbut an RGB image both in CHW format.
+    image : :py:class:`~torch.Tensor`
+        Input image.
+    noise_level : float or :py:class:`~torch.Tensor`
+        Noise level in the image.
+    device : str
+        Device to use for computation. Can be "cpu" or "cuda".
+    mode : str
+        Mode to use for model. Can be "inference" or "train".
+
+    Returns
+    -------
+    image : :py:class:`~torch.Tensor`
+        Reconstructed image.
+    """
+    # convert from NDHWC to NCHW
+    depth = image.shape[-4]
+    image = image.movedim(-1, -3)
+    image = image.reshape(-1, *image.shape[-3:])
+    # pad image H and W to next multiple of 8
+    top = (8 - image.shape[-2] % 8) // 2
+    bottom = (8 - image.shape[-2] % 8) - top
+    left = (8 - image.shape[-1] % 8) // 2
+    right = (8 - image.shape[-1] % 8) - left
+    image = torch.nn.functional.pad(image, (left, right, top, bottom), mode="constant", value=0)
+    # add noise level as extra channel
+    image = image.to(device)
+    if isinstance(noise_level, torch.Tensor):
+        noise_level = noise_level / 255.0
+    else:
+        noise_level = torch.tensor([noise_level / 255.0]).to(device)
+    image = torch.cat(
+        (
+            image,
+            noise_level.repeat(image.shape[0], 1, image.shape[2], image.shape[3]),
+        ),
+        dim=1,
+    )
+
+    # apply model
+    if mode == "inference":
+        with torch.no_grad():
+            image = model(image)
+    elif mode == "train":
+        image = model(image)
+    else:
+        raise ValueError("mode must be 'inference' or 'train'")
+
+    # remove padding
+    image = image[:, :, top:-bottom, left:-right]
+    # convert back to NDHWC
+    image = image.movedim(-3, -1)
+    image = image.reshape(-1, depth, *image.shape[-3:])
+    return image
+
+
+def process_with_DruNet(model, device="cpu", mode="inference"):
+    """
+    Return a porcessing function that applies the DruNet model to an image.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        DruNet like denoiser model
+    device : str
+        Device to use for computation. Can be "cpu" or "cuda".
+    mode : str
+        Mode to use for model. Can be "inference" or "train".
+    """
+
+    def process(image, noise_level):
+        x_max = torch.amax(image, dim=(-2, -3), keepdim=True) + 1e-6
+        image = apply_denoiser(
+            model,
+            image,
+            noise_level=noise_level,
+            device=device,
+            mode="train",
+        )
+        image = torch.clip(image, min=0.0) * x_max
+        return image
+
+    return process

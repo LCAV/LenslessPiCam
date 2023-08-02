@@ -1,3 +1,5 @@
+# python scripts/collect_dataset_on_device.py -cn collect_dataset
+
 input_dir: data/celeba_mini
 input_file_ext: jpg
 
@@ -16,6 +18,11 @@ start_delay: null   # how much time (in minutes) to wait before starting
 # measurement parameters
 dummy: False    # simply copy file to output folder for testing
 
+# ideal image levels
+max_level: 254
+min_level: 200
+max_tries: 6
+
 # -- display parameters
 display:
   output_fp: "~/LenslessPiCam_display/test.png"
@@ -24,7 +31,7 @@ display:
   pad: 0
   hshift: 0
   vshift: -10
-  brightness: 50
+  brightness: 80   # max brightness
   rot90: 3
 
 capture:
@@ -32,7 +39,7 @@ capture:
   config_pause: 2
   iso: 100
   res: null
-  down: 8
-  exposure: 0.02
+  down: 4
+  exposure: 0.02    # min exposure
   awb_gains: [1.9, 1.2]  # red, blue
   # awb_gains: null

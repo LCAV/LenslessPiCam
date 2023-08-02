@@ -9,7 +9,7 @@ And placing in (respectively):
 
 The script can be run with:
 ```
-python scripts/compute_metrics_from_original.py
+python scripts/eval/compute_metrics_from_original.py
 ```
 
 """
@@ -28,7 +28,7 @@ matplotlib.rc("font", **font)
 
 
 @hydra.main(
-    version_base=None, config_path="../configs", config_name="compute_metrics_from_original"
+    version_base=None, config_path="../../configs", config_name="compute_metrics_from_original"
 )
 def compute_metrics(config):
     recon = to_absolute_path(config.files.recon)

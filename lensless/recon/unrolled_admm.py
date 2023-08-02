@@ -8,6 +8,7 @@
 from lensless.recon.trainable_recon import TrainableReconstructionAlgorithm
 from lensless.recon.admm import soft_thresh, finite_diff, finite_diff_adj, finite_diff_gram
 
+
 try:
     import torch
 
@@ -215,30 +216,3 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         image = self._convolver._crop(self._image_est)
         image[image < 0] = 0
         return image
-
-    def batch_call(self, batch):
-        """
-        Method for performing iterative reconstruction on a batch of images.
-        This implementation is a properly vectorized implementation of ADMM.
-
-        Parameters
-        ----------
-        batch : :py:class:`~torch.Tensor` of shape (N, D, C, H, W)
-            The lensless images to reconstruct.
-
-        Returns
-        -------
-        :py:class:`~torch.Tensor` of shape (N, D, C, H, W)
-            The reconstructed images.
-        """
-        self._data = batch
-        assert len(self._data.shape) == 5, "batch must be of shape (N, D, C, H, W)"
-        batch_size = batch.shape[0]
-
-        self.reset(batch_size=batch_size)
-
-        for i in range(self._n_iter):
-            self._update(i)
-
-        image_est = self._form_image()
-        return image_est

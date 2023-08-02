@@ -256,7 +256,12 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
         metrics = {
             "MSE": MSELoss().to(device),
             "MAE": L1Loss().to(device),
-            "LPIPS": lpip.LearnedPerceptualImagePatchSimilarity(net_type="vgg").to(device),
+            "LPIPS_Vgg": lpip.LearnedPerceptualImagePatchSimilarity(
+                net_type="vgg", normalize=True
+            ).to(device),
+            "LPIPS_Alex": lpip.LearnedPerceptualImagePatchSimilarity(
+                net_type="alex", normalize=True
+            ).to(device),
             "PSNR": psnr.PeakSignalNoiseRatio().to(device),
             "SSIM": StructuralSimilarityIndexMeasure().to(device),
             "ReconstructionError": None,
@@ -283,7 +288,7 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
         prediction = prediction.reshape(-1, *prediction.shape[-3:]).movedim(-1, -3)
         lensed = lensed.reshape(-1, *lensed.shape[-3:]).movedim(-1, -3)
         # normalization
-        prediction_max = torch.amax(prediction, dim=(1, 2, 3), keepdim=True)
+        prediction_max = torch.amax(prediction, dim=(-1, -2, -3), keepdim=True)
         if torch.all(prediction_max != 0):
             prediction = prediction / prediction_max
         else:
