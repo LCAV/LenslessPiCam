@@ -34,6 +34,8 @@ from joblib import Parallel, delayed
 @hydra.main(version_base=None, config_path="../../configs", config_name="recon_dataset")
 def admm_dataset(config):
 
+    algo = config.algo
+
     # get raw data file paths
     dataset = to_absolute_path(config.input.raw_data)
     if not os.path.isdir(dataset):
@@ -42,7 +44,7 @@ def admm_dataset(config):
             from torchvision.datasets.utils import download_and_extract_archive
         except ImportError:
             exit()
-        msg = "Do you want to download the sample CelebA dataset measured with a random Adafruit LCD pattern (914MB)?"
+        msg = "Do you want to download the sample CelebA dataset measured with a random Adafruit LCD pattern (1.2 GB)?"
 
         # default to yes if no input is given
         valid = input("%s (Y/n) " % msg).lower() != "n"
@@ -80,9 +82,16 @@ def admm_dataset(config):
 
     # -- create output folder
     output_folder = to_absolute_path(config.output_folder)
+    if algo == "apgd":
+        output_folder = output_folder + f"_apgd{config.apgd.max_iter}"
+    elif algo == "admm":
+        output_folder = output_folder + f"_admm{config.admm.n_iter}"
+    else:
+        output_folder = output_folder + "_raw"
+    output_folder = output_folder + f"_{data_dim[-3]}x{data_dim[-2]}"
     os.makedirs(output_folder, exist_ok=True)
 
-    algo = config.algo
+    # -- apply reconstruction
     if algo == "apgd":
 
         start_time = time.time()

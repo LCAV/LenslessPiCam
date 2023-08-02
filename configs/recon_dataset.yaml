@@ -12,6 +12,16 @@ input:
   # https://drive.switch.ch/index.php/s/m89D1tFEfktQueS
   raw_data: data/celeba_adafruit_random_2mm_20230720_1K
 
+n_files: 25    # null for all files
+output_folder: data/celeba_adafruit_recon
+
+# extraction region of interest
+roi: null   # top, left, bottom, right
+# -- values for `data/celeba_adafruit_random_2mm_20230720_1K`
+# roi: [10, 300, 560, 705]  # down 4
+# roi: [6, 200, 373, 470]   # down 6
+# roi: [5, 150, 280, 352]   # down 8
+
 preprocess:
   flip: True
   downsample: 6
@@ -20,19 +30,6 @@ preprocess:
   data_dim: null
   # data_dim: [48, 64]       # down 64
   # data_dim: [506, 676]   # down 6
-
-# -- all files, down 4
-# roi: [10, 300, 560, 705] # extract region [top, left, bottom, right]
-# n_files: null
-# output_folder: /home/bezzam/admm_10iter_lcd_measured_20230720-085713
-
-# -- small test
-n_files: 25
-output_folder: data/celeba_adafruit_recon
-roi: null   # top, left, bottom, right
-# roi: [10, 300, 560, 705]  # down 4
-# roi: [6, 200, 373, 470]   # down 6
-# roi: [5, 150, 280, 352]   # down 8
 
 display:
   disp: -1
