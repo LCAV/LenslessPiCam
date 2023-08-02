@@ -30,7 +30,7 @@ simulation:
 
 
 mask:
-  type: "MLS"    # "MURA", "MLS", "FZA", "PhaseContour"
+  type: "tape"    # "MURA", "MLS", "FZA", "PhaseContour"
 
   # Coded Aperture (MURA or MLS)
   #flatcam_method: 'MLS'

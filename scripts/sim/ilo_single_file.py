@@ -1,41 +1,33 @@
 """
 
-Simulate a mask, simulate a measurement with it, and reconstruct the image.
+Simulate a mask, use face alignment on a face image and simulate a measurement with the mask on the image.
 
 Procedure is as follows:
 
 1) Simulate the mask.
-2) Simulate a measurement with the mask and specified physical parameters.
-3) Reconstruct the image from the measurement.
+2) Align the face.
+3) Simulate a measurement with the mask and specified physical parameters.
 
 Example usage:
 
-Simulate FlatCam with separable simulation and Tikhonov reconstuction (https://arxiv.org/abs/1509.00116, Eq 7):
+Simulate FlatCam with separable simulation (https://arxiv.org/abs/1509.00116, Eq 7):
 ```
-python scripts/sim/mask_single_file.py mask.type=MLS simulation.flatcam=True recon.algo=tikhonov
-```
-
-Simulate FlatCam with PSF simulation and Tikhonov reconstuction:
- (TODO doesn't work)
-```
-python scripts/sim/mask_single_file.py mask.type=MLS simulation.flatcam=False recon.algo=tikhonov
+python scripts/sim/ilo_single_file.py mask.type=MLS simulation.flatcam=True recon.algo=tikhonov
 ```
 
-Simulate FlatCam with PSF simulation and ADMM reconstruction:
- (TODO doesn't work)
+Simulate FlatCam with PSF simulation:
 ```
-python scripts/sim/mask_single_file.py mask.type=MLS simulation.flatcam=False recon.algo=admm
-```
-
-Simulate Fresnel Zone Aperture camera with PSF simulation and ADMM reconstuction (https://www.nature.com/articles/s41377-020-0289-9):
-(TODO removing DC offset which hurt reconstruction)
-```
-python scripts/sim/mask_single_file.py mask.type=FZA recon.algo=admm recon.admm.n_iter=18
+python scripts/sim/ilo_single_file.py mask.type=MLS simulation.flatcam=False
 ```
 
-Simulate PhaseContour camera with PSF simulation and ADMM reconstuction (https://ieeexplore.ieee.org/document/9076617):
+Simulate Fresnel Zone Aperture camera with PSF simulation (https://www.nature.com/articles/s41377-020-0289-9):
 ```
-python scripts/sim/mask_single_file.py mask.type=PhaseContour recon.algo=admm
+python scripts/sim/ilo_single_file.py mask.type=FZA
+```
+
+Simulate PhaseContour camera with PSF simulation (https://ieeexplore.ieee.org/document/9076617):
+```
+python scripts/sim/ilo_single_file.py mask.type=PhaseContour
 ```
 
 """
@@ -44,7 +36,8 @@ import hydra
 import warnings
 from hydra.utils import to_absolute_path
 from lensless.utils.io import load_psf  # , save_image
-from lensless.utils.image import rgb2gray, rgb2bayer, align_face
+from lensless.utils.image import rgb2gray, rgb2bayer  # , align_face
+from lensless.utils.align_face import align_face
 import numpy as np
 import matplotlib.pyplot as plt
 from lensless.utils.plot import plot_image
@@ -71,6 +64,7 @@ def simulate(config):
     max_val = config.simulation.max_val
 
     image_format = config.simulation.image_format.lower()
+    grayscale = False
     if image_format == "grayscale":
         grayscale = True
 
@@ -156,7 +150,7 @@ def simulate(config):
     fig, ax = plt.subplots(ncols=3, nrows=1, figsize=(15, 5))
     plot_image(object_plane, ax=ax[0])
     ax[0].set_title("Object plane")
-    plot_image(mask.psf, ax=ax[1], gamma=2.2)
+    plot_image(psf, ax=ax[1], gamma=3.5)
     ax[1].set_title("PSF")
     plot_image(image_plane, ax=ax[2])
     ax[2].set_title("Raw data")
