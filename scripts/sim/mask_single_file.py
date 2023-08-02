@@ -220,7 +220,7 @@ def simulate(config):
     ax[4].set_title("Reconstruction")
 
     for a in ax:
-        a.set_xticks([]), a.set_yticks([])
+        a.set_axis_off()
 
     plt.tight_layout()
     plt.savefig("result.png")
