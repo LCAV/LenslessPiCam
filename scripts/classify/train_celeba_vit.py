@@ -124,7 +124,7 @@ def train_celeba_classifier(config):
         # default to yes if no input is given
         valid = input("%s (Y/n) " % msg).lower() != "n"
         if valid:
-            url = "/download"
+            url = "https://drive.switch.ch/index.php/s/9NNGCJs3DoBDGlY/download"
             filename = "celeba_adafruit_random_2mm_20230720_10K.zip"
             download_and_extract_archive(
                 url, os.path.dirname(measured_dataset), filename=filename, remove_finished=True

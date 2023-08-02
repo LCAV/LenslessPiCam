@@ -46,9 +46,11 @@ You can download 1K measurements of the CelebA dataset done with
 our lensless camera and a random pattern on the Adafruit LCD
 `here (1.2 GB) <https://drive.switch.ch/index.php/s/m89D1tFEfktQueS>`__,
 and a dataset with 10K measurements 
-`here (13.1 GB) <>`__.
+`here (13.1 GB) <https://drive.switch.ch/index.php/s/9NNGCJs3DoBDGlY>`__.
 They both correspond to the PSF which can be found `here <https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Fpsf>`__
-(``adafruit_random_2mm_20231907.png``).
+(``adafruit_random_2mm_20231907.png`` which is the PSF of
+``adafruit_random_pattern_20230719.npy`` measured with a mask to sensor
+distance of 2 mm).
 
 
 DiffuserCam Lensless Mirflickr Dataset (DLMD)
