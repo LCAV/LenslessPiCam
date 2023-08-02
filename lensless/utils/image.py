@@ -10,15 +10,10 @@
 import cv2
 import numpy as np
 from lensless.hardware.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
-import os
-import PIL.Image
-import scipy.ndimage
-import dlib
 
 try:
     import torch
     import torchvision.transforms as tf
-    from torchvision.datasets.utils import download_and_extract_archive
 
     torch_available = True
 except ImportError:
@@ -173,7 +168,7 @@ def get_max_val(img, nbits=None):
     return max_val
 
 
-def bayer2rgb(
+def bayer2rgb_cc(
     img,
     nbits,
     blue_gain=None,
@@ -283,9 +278,9 @@ def autocorr2d(vals, pad_mode="reflect"):
     return autocorr[shape[0] // 2 : -shape[0] // 2, shape[1] // 2 : -shape[1] // 2]
 
 
-def rgb_to_bayer4d(img, pattern):
+def rgb2bayer(img, pattern):
     """
-    Converting RGB image to separated Bayer channels
+    Converting RGB image to separated Bayer channels.
 
     Parameters
     ----------
@@ -324,6 +319,7 @@ def rgb_to_bayer4d(img, pattern):
         gr = resized[1::2, ::2, 1]
         gb = resized[::2, 1::2, 1]
         b = resized[1::2, 1::2, 2]
+        img_bayer = np.dstack((r, gr, gb, b))
 
     elif pattern == "BGGR":
         # BGGR pattern *------*
@@ -334,8 +330,9 @@ def rgb_to_bayer4d(img, pattern):
         gr = resized[::2, 1::2, 1]
         gb = resized[1::2, ::2, 1]
         b = resized[::2, ::2, 2]
+        img_bayer = np.dstack((b, gb, gr, r))
 
-    elif pattern == "GBRG":
+    elif pattern == "GRBG":
         # GRGB pattern *------*
         #              | G  R |
         #              | B  G |
@@ -344,6 +341,7 @@ def rgb_to_bayer4d(img, pattern):
         gr = resized[::2, ::2, 1]
         gb = resized[1::2, 1::2, 1]
         b = resized[::2, 1::2, 2]
+        img_bayer = np.dstack((gr, r, b, gb))
 
     else:
         # GBRG pattern *------*
@@ -354,14 +352,12 @@ def rgb_to_bayer4d(img, pattern):
         gr = resized[1::2, 1::2, 1]
         gb = resized[::2, ::2, 1]
         b = resized[1::2, ::2, 2]
-
-    # Stacking the Bayer channels, always in the same order s.t. bayer2rgb() works regardless of the pattern
-    img_bayer = np.dstack((r, gr, gb, b))
+        img_bayer = np.dstack((gb, b, r, gr))
 
     return img_bayer
 
 
-def bayer4d_to_rgb(X_bayer, normalize=True):
+def bayer2rgb(X_bayer, pattern):
     """
     Converting 4-channel Bayer image to RGB by averaging the two green channels.
 
@@ -369,184 +365,161 @@ def bayer4d_to_rgb(X_bayer, normalize=True):
     ----------
     X_bayer : :py:class:`~numpy.ndarray`
         Image in RGB format.
-    normalize : bool
-        Whether or not to
+    pattern : str
+        Bayer pattern: `RGGB`, `BGGR`, `GRBG`, `GBRG`.
 
     Returns
     -------
     :py:class:`~numpy.ndarray`
         Image converted to the RGB format.
     """
+
+    # Verifying that the pattern is a proper Bayer pattern
+    pattern = pattern.upper()
+    assert pattern in [
+        "RGGB",
+        "BGGR",
+        "GRBG",
+        "GBRG",
+    ], "Bayer pattern must be in ['RGGB', 'BGGR', 'GRBG', 'GBRG']"
+
+    r_channel = [i for i, ltr in enumerate(pattern) if ltr == "R"][0]
+    b_channel = [i for i, ltr in enumerate(pattern) if ltr == "B"][0]
+    g_channels = [i for i, ltr in enumerate(pattern) if ltr == "G"]
+
     X_rgb = np.empty(X_bayer.shape[:-1] + (3,))
-    X_rgb[:, :, 2] = X_bayer[:, :, 0]
-    X_rgb[:, :, 1] = 0.5 * (X_bayer[:, :, 1] + X_bayer[:, :, 2])
-    X_rgb[:, :, 0] = X_bayer[:, :, 3]
-    # normalize to be from 0 to 1
-    if normalize:
-        X_rgb = (X_rgb - X_rgb.min()) / (X_rgb.max() - X_rgb.min())
+    X_rgb[:, :, 0] = X_bayer[:, :, r_channel]
+    X_rgb[:, :, 1] = np.mean(X_bayer[:, :, g_channels], axis=2)
+    X_rgb[:, :, 2] = X_bayer[:, :, b_channel]
+
     return X_rgb
 
 
-project_root = os.getcwd()
-marker = ".gitignore"
-while not os.path.exists(os.path.join(project_root, marker)):
-    project_root = os.path.dirname(project_root)
-    if project_root == os.path.dirname(project_root):
-        raise FileNotFoundError(
-            ".gitignore file not found. Are you sure you are in the 'Lensless' project?"
-        )
-model_dir = os.path.relpath(project_root, os.getcwd()) + os.sep + "data/models"
-if not os.path.isdir(model_dir):
-    os.makedirs(model_dir)
-if not os.path.exists(os.path.join(model_dir, "shape_predictor_68_face_landmarks.dat")):
-    msg = "Do you want to download the face landmark model (61.1 Mo)?"
-    valid = input("%s (Y/n) " % msg).lower() != "n"
-    if valid:
-        url = "http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2"
-        filename = "shape_predictor_68_face_landmarks.dat.bz2"
-        download_and_extract_archive(url, model_dir, filename=filename, remove_finished=True)
-
-predictor = dlib.shape_predictor(os.path.join(model_dir, "shape_predictor_68_face_landmarks.dat"))
-
-
-def get_landmark(filepath):
-    """get landmark with dlib
-    :return: np.array shape=(68, 2)
+def load_drunet(model_path, n_channels=3, requires_grad=False):
     """
-    detector = dlib.get_frontal_face_detector()
+    Load a pre-trained Drunet model.
 
-    img = dlib.load_rgb_image(filepath)
-    dets = detector(img, 1)
+    Parameters
+    ----------
+    model_path : str
+        Path to pre-trained model.
+    n_channels : int
+        Number of channels in input image.
+    requires_grad : bool
+        Whether to require gradients for model parameters.
 
-    print("Number of faces detected: {}".format(len(dets)))
-    for k, d in enumerate(dets):
-        print(
-            "Detection {}: Left: {} Top: {} Right: {} Bottom: {}".format(
-                k, d.left(), d.top(), d.right(), d.bottom()
-            )
-        )
-        # Get the landmarks/parts for the face in box d.
-        shape = predictor(img, d)
-        print("Part 0: {}, Part 1: {} ...".format(shape.part(0), shape.part(1)))
-
-    t = list(shape.parts())
-    a = []
-    for tt in t:
-        a.append([tt.x, tt.y])
-    lm = np.array(a)
-    # lm is a shape=(68,2) np.array
-    return lm
-
-
-def align_face(filepath):
+    Returns
+    -------
+    model : :py:class:`~torch.nn.Module`
+        Loaded model.
     """
-    :param filepath: str
-    :return: PIL Image
+    from lensless.recon.drunet.network_unet import UNetRes
+
+    model = UNetRes(
+        in_nc=n_channels + 1,
+        out_nc=n_channels,
+        nc=[64, 128, 256, 512],
+        nb=4,
+        act_mode="R",
+        downsample_mode="strideconv",
+        upsample_mode="convtranspose",
+    )
+    model.load_state_dict(torch.load(model_path), strict=True)
+    model.eval()
+    for k, v in model.named_parameters():
+        v.requires_grad = requires_grad
+
+    return model
+
+
+def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference"):
+    """
+    Apply a pre-trained denoising model with input in the format Channel, Height, Width.
+    An additionnal channel is added for the noise level as done in Drunet.
+
+    Parameters
+    ----------
+    model : :py:class:`~torch.nn.Module`
+        Drunet compatible model. Its input must concist of 4 channels ( RGB + noise level) and outbut an RGB image both in CHW format.
+    image : :py:class:`~torch.Tensor`
+        Input image.
+    noise_level : float or :py:class:`~torch.Tensor`
+        Noise level in the image.
+    device : str
+        Device to use for computation. Can be "cpu" or "cuda".
+    mode : str
+        Mode to use for model. Can be "inference" or "train".
+
+    Returns
+    -------
+    image : :py:class:`~torch.Tensor`
+        Reconstructed image.
+    """
+    # convert from NDHWC to NCHW
+    depth = image.shape[-4]
+    image = image.movedim(-1, -3)
+    image = image.reshape(-1, *image.shape[-3:])
+    # pad image H and W to next multiple of 8
+    top = (8 - image.shape[-2] % 8) // 2
+    bottom = (8 - image.shape[-2] % 8) - top
+    left = (8 - image.shape[-1] % 8) // 2
+    right = (8 - image.shape[-1] % 8) - left
+    image = torch.nn.functional.pad(image, (left, right, top, bottom), mode="constant", value=0)
+    # add noise level as extra channel
+    image = image.to(device)
+    if isinstance(noise_level, torch.Tensor):
+        noise_level = noise_level / 255.0
+    else:
+        noise_level = torch.tensor([noise_level / 255.0]).to(device)
+    image = torch.cat(
+        (
+            image,
+            noise_level.repeat(image.shape[0], 1, image.shape[2], image.shape[3]),
+        ),
+        dim=1,
+    )
+
+    # apply model
+    if mode == "inference":
+        with torch.no_grad():
+            image = model(image)
+    elif mode == "train":
+        image = model(image)
+    else:
+        raise ValueError("mode must be 'inference' or 'train'")
+
+    # remove padding
+    image = image[:, :, top:-bottom, left:-right]
+    # convert back to NDHWC
+    image = image.movedim(-3, -1)
+    image = image.reshape(-1, depth, *image.shape[-3:])
+    return image
+
+
+def process_with_DruNet(model, device="cpu", mode="inference"):
+    """
+    Return a porcessing function that applies the DruNet model to an image.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        DruNet like denoiser model
+    device : str
+        Device to use for computation. Can be "cpu" or "cuda".
+    mode : str
+        Mode to use for model. Can be "inference" or "train".
     """
 
-    lm = get_landmark(filepath)
-
-    # lm_chin = lm[0:17]  # left-right
-    # lm_eyebrow_left = lm[17:22]  # left-right
-    # lm_eyebrow_right = lm[22:27]  # left-right
-    # lm_nose = lm[27:31]  # top-down
-    # lm_nostrils = lm[31:36]  # top-down
-    lm_eye_left = lm[36:42]  # left-clockwise
-    lm_eye_right = lm[42:48]  # left-clockwise
-    lm_mouth_outer = lm[48:60]  # left-clockwise
-    # lm_mouth_inner = lm[60:68]  # left-clockwise
-
-    # Calculate auxiliary vectors.
-    eye_left = np.mean(lm_eye_left, axis=0)
-    eye_right = np.mean(lm_eye_right, axis=0)
-    eye_avg = (eye_left + eye_right) * 0.5
-    eye_to_eye = eye_right - eye_left
-    mouth_left = lm_mouth_outer[0]
-    mouth_right = lm_mouth_outer[6]
-    mouth_avg = (mouth_left + mouth_right) * 0.5
-    eye_to_mouth = mouth_avg - eye_avg
-
-    # Choose oriented crop rectangle.
-    x = eye_to_eye - np.flipud(eye_to_mouth) * [-1, 1]
-    x /= np.hypot(*x)
-    x *= max(np.hypot(*eye_to_eye) * 2.0, np.hypot(*eye_to_mouth) * 1.8)
-    y = np.flipud(x) * [-1, 1]
-    c = eye_avg + eye_to_mouth * 0.1
-    quad = np.stack([c - x - y, c - x + y, c + x + y, c + x - y])
-    qsize = np.hypot(*x) * 2
-
-    # read image
-    img = PIL.Image.open(filepath)
-
-    output_size = 1024
-    transform_size = 4096
-    enable_padding = True
-
-    # Shrink.
-    shrink = int(np.floor(qsize / output_size * 0.5))
-    if shrink > 1:
-        rsize = (
-            int(np.rint(float(img.size[0]) / shrink)),
-            int(np.rint(float(img.size[1]) / shrink)),
+    def process(image, noise_level):
+        x_max = torch.amax(image, dim=(-2, -3), keepdim=True) + 1e-6
+        image = apply_denoiser(
+            model,
+            image,
+            noise_level=noise_level,
+            device=device,
+            mode="train",
         )
-        img = img.resize(rsize, PIL.Image.ANTIALIAS)
-        quad /= shrink
-        qsize /= shrink
+        image = torch.clip(image, min=0.0) * x_max
+        return image
 
-    # Crop.
-    border = max(int(np.rint(qsize * 0.1)), 3)
-    crop = (
-        int(np.floor(min(quad[:, 0]))),
-        int(np.floor(min(quad[:, 1]))),
-        int(np.ceil(max(quad[:, 0]))),
-        int(np.ceil(max(quad[:, 1]))),
-    )
-    crop = (
-        max(crop[0] - border, 0),
-        max(crop[1] - border, 0),
-        min(crop[2] + border, img.size[0]),
-        min(crop[3] + border, img.size[1]),
-    )
-    if crop[2] - crop[0] < img.size[0] or crop[3] - crop[1] < img.size[1]:
-        img = img.crop(crop)
-        quad -= crop[0:2]
-
-    # Pad.
-    pad = (
-        int(np.floor(min(quad[:, 0]))),
-        int(np.floor(min(quad[:, 1]))),
-        int(np.ceil(max(quad[:, 0]))),
-        int(np.ceil(max(quad[:, 1]))),
-    )
-    pad = (
-        max(-pad[0] + border, 0),
-        max(-pad[1] + border, 0),
-        max(pad[2] - img.size[0] + border, 0),
-        max(pad[3] - img.size[1] + border, 0),
-    )
-    if enable_padding and max(pad) > border - 4:
-        pad = np.maximum(pad, int(np.rint(qsize * 0.3)))
-        img = np.pad(np.float32(img), ((pad[1], pad[3]), (pad[0], pad[2]), (0, 0)), "reflect")
-        h, w, _ = img.shape
-        y, x, _ = np.ogrid[:h, :w, :1]
-        mask = np.maximum(
-            1.0 - np.minimum(np.float32(x) / pad[0], np.float32(w - 1 - x) / pad[2]),
-            1.0 - np.minimum(np.float32(y) / pad[1], np.float32(h - 1 - y) / pad[3]),
-        )
-        blur = qsize * 0.02
-        img += (scipy.ndimage.gaussian_filter(img, [blur, blur, 0]) - img) * np.clip(
-            mask * 3.0 + 1.0, 0.0, 1.0
-        )
-        img += (np.median(img, axis=(0, 1)) - img) * np.clip(mask, 0.0, 1.0)
-        img = PIL.Image.fromarray(np.uint8(np.clip(np.rint(img), 0, 255)), "RGB")
-        quad += pad[:2]
-
-    # Transform.
-    img = img.transform(
-        (transform_size, transform_size), PIL.Image.QUAD, (quad + 0.5).flatten(), PIL.Image.BILINEAR
-    )
-    if output_size < transform_size:
-        img = img.resize((output_size, output_size), PIL.Image.ANTIALIAS)
-
-    # Save aligned image.
-    return img
+    return process

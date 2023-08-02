@@ -21,6 +21,7 @@ from .recon.gd import (
     FISTA,
     GradientDescentUpdate,
 )
+from .recon.tikhonov import CodedApertureReconstruction
 from .hardware.sensor import VirtualSensor, SensorOptions
 
 try:

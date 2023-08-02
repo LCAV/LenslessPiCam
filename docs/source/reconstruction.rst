@@ -44,6 +44,14 @@
 
    .. autofunction:: lensless.recon.admm.finite_diff_gram
 
+
+   Tikhonov (Ridge Regression)
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   .. autoclass:: lensless.CodedApertureReconstruction
+      :special-members: __init__, apply
+
+
    Accelerated Proximal Gradient Descent (APGD)
    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -19,6 +19,11 @@ Added
 - Authors at top of source code files.
 - Add paramiko as dependency for remote capture and display.
 - Mask module, for CodedAperture (FlatCam), PhaseContour (PhlatCam), and FresnelZoneAperture.
+- Script for measuring arbitrary dataset (from Raspberry Pi).
+- Support for preprocessing and postprocessing, such as denoising, in ``TrainableReconstructionAlgorithm``. Both trainable and fix postprocessing can be used.
+- Utilities to load a trained DruNet model for use as postprocessing in ``TrainableReconstructionAlgorithm``.
+- Support for unrolled loading and inference in the script ``admm.py``.
+- Tikhonov reconstruction for coded aperture measurements (MLS / MURA).
 
 
 Changed
@@ -26,12 +31,15 @@ Changed
 
 - Simpler remote capture and display scripts with Hydra.
 - Group source code into four modules: ``hardware``, ``recon``, ``utils``, ``eval``.
+- Split scripts into subfolders.
+- Displaying 3D reconstructions now shows projections on all three axis.
 
 
 Bugfix
 ~~~~~~
 
 - Fix overwriting of sensor parameters when downsampling.
+- Displaying 3D reconstructions by summing values along axis would produce un-normalized values.
 
 1.0.4 - (2023-06-14)
 --------------------
@@ -80,6 +88,7 @@ Bugfix
 ~~~~~~
 
 -  Loading grayscale PSFs would cause an dimension error when removing the background pixels.
+
 
 1.0.2 - (2022-05-31)
 --------------------

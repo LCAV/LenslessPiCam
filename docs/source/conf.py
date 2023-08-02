@@ -8,6 +8,7 @@ from unittest import mock
 MOCK_MODULES = [
     "scipy",
     "scipy.signal",
+    "scipy.linalg",
     "pycsou",
     "matplotlib",
     "matplotlib.pyplot",
@@ -33,7 +34,8 @@ MOCK_MODULES = [
     "perlin_numpy",
     "waveprop",
     "waveprop.fresnel",
-    "waveprop.rs"
+    "waveprop.rs",
+    "waveprop.noise",
 ]
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
