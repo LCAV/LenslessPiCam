@@ -57,7 +57,7 @@ class Mask3DModel():
   def from_mask(cls, mask: Mask, **kwargs):
     return cls(
       mask_array = mask.mask, 
-      mask_size = mask.sensor_size,
+      mask_size = mask.size,
       **kwargs
     )
     
