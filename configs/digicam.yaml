@@ -6,7 +6,7 @@ device: adafruit
 virtual: False
 save: True
 
-# pattern: random_pattern_20230713_144812.npy
+# pattern: data/psf/adafruit_random_pattern_20230719.npy
 pattern: random
 # pattern: rect
 # pattern: circ
@@ -17,7 +17,7 @@ center: [0, 0]
 
 
 aperture:
-  center: [60,60]
+  center: [59,76]
   shape: [19,26]
 
 z: 4   # mask to sensor distance

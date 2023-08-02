@@ -63,7 +63,7 @@ def config_digicam(config):
     # save pattern
     if not config.pattern.endswith(".npy") and config.save:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        pattern_fn = f"{config.pattern}_pattern_{timestamp}.npy"
+        pattern_fn = f"{device}_{config.pattern}_pattern_{timestamp}.npy"
         np.save(pattern_fn, pattern)
         print(f"Saved pattern to {pattern_fn}")
 
