@@ -44,8 +44,10 @@ Measured CelebA Dataset
 
 You can download 1K measurements of the CelebA dataset done with
 our lensless camera and a random pattern on the Adafruit LCD
-`here <https://drive.switch.ch/index.php/s/m89D1tFEfktQueS>`__.
-It corresponds to the PSF which can be found `here <https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Fpsf>`__
+`here (1.2 GB) <https://drive.switch.ch/index.php/s/m89D1tFEfktQueS>`__,
+and a dataset with 10K measurements 
+`here (13.1 GB) <>`__.
+They both correspond to the PSF which can be found `here <https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Fpsf>`__
 (``adafruit_random_2mm_20231907.png``).
 
 
