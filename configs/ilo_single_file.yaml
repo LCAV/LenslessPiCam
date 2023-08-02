@@ -6,22 +6,20 @@ hydra:
 files:
   original: data/celeba_mini/000019.jpg
   #original: data/original/mnist_3.png
+  psf: data/psf/tape_rgb.png
 
 save: True
   
 simulation:
-  object_height: 0.25
+  object_height: 0.3
   # these distance parameters are typically fixed for a given PSF
   scene2mask: 40e-2
   mask2sensor: 4e-3
   # see waveprop.devices
   sensor: "rpi_hq"
-  snr_db: 40
+  snr_db: 20
   # Downsampling for PSF
   downsample: 8
-
-  #grayscale: True
-  grayscale: False
 
   # max val in simulated measured (quantized 8 bits)
   max_val: 230
@@ -46,19 +44,3 @@ mask:
   # Fresnel Zone Aperture
   radius: 0.32e-3
 
-
-recon:
-
-  algo: "tikhonov"   # tikhonov or admm
-
-  tikhonov:
-    reg: 3e-4
-
-  admm:
-    n_iter: 20
-    disp_iter: 2
-    # Hyperparameters
-    mu1: 1e-6
-    mu2: 1e-5
-    mu3: 4e-5
-    tau: 0.0001
