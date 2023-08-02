@@ -154,6 +154,7 @@ import numpy as np
 import pathlib as plib
 import matplotlib.pyplot as plt
 from lensless.utils.plot import plot_image
+from lensless.utils.io import get_dtype
 from lensless.recon.rfft_convolve import RealFFTConvolve2D
 
 try:
@@ -232,16 +233,7 @@ class ReconstructionAlgorithm(abc.ABC):
         self._psf_shape = np.array(self._psf.shape)
 
         # set dtype
-        if dtype is None:
-            if self.is_torch:
-                dtype = torch.float32
-            else:
-                dtype = np.float32
-        else:
-            if self.is_torch:
-                dtype = torch.float32 if dtype == "float32" else torch.float64
-            else:
-                dtype = np.float32 if dtype == "float32" else np.float64
+        dtype = get_dtype(dtype, self.is_torch)
 
         if self.is_torch:
             if dtype:

@@ -504,3 +504,57 @@ def save_image(img, fp, max_val=255):
 
     img = Image.fromarray(img)
     img.save(fp)
+
+
+def get_dtype(dtype, is_torch):
+    """
+    Get dtype for numpy or torch.
+
+    Parameters
+    ----------
+    dtype : str
+        "float32" or "float64"
+    is_torch : bool
+        Whether to return torch dtype.
+    """
+
+    assert dtype == "float32" or dtype == "float64"
+
+    if is_torch:
+        import torch
+
+    if dtype is None:
+        if is_torch:
+            dtype = torch.float32
+        else:
+            dtype = np.float32
+    else:
+        if is_torch:
+            dtype = torch.float32 if dtype == "float32" else torch.float64
+        else:
+            dtype = np.float32 if dtype == "float32" else np.float64
+
+    return dtype
+
+
+def get_ctypes(dtype, is_torch):
+    if not is_torch:
+        if dtype == np.float32 or dtype == np.complex64:
+            return np.complex64, np.complex64
+        elif dtype == np.float64 or dtype == np.complex128:
+            return np.complex128, np.complex128
+        else:
+            raise ValueError("Unexpected dtype: ", dtype)
+    else:
+        import torch
+
+        if dtype == np.float32 or dtype == np.complex64:
+            return torch.complex64, np.complex64
+        elif dtype == np.float64 or dtype == np.complex128:
+            return torch.complex128, np.complex128
+        elif dtype == torch.float32 or dtype == torch.complex64:
+            return torch.complex64, np.complex64
+        elif dtype == torch.float64 or dtype == torch.complex128:
+            return torch.complex128, np.complex128
+        else:
+            raise ValueError("Unexpected dtype: ", dtype)
