@@ -156,6 +156,10 @@ def simulate(config):
     ax[2].set_title("Raw data")
     plt.savefig("result.png")
     fig.tight_layout()
+
+    for a in ax:
+        a.set_axis_off()
+
     plt.show()
 
 
