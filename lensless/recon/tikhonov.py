@@ -80,7 +80,7 @@ class CodedApertureReconstruction:
             len(img.shape) == 3
         ), "Object should be a 3D array or tensor (HxWxC) even if grayscale."
 
-        if type(img) == np.ndarray:
+        if isinstance(img, np.ndarray):
 
             # Empty matrix for reconstruction
             n_channels = img.shape[-1]
@@ -114,7 +114,7 @@ class CodedApertureReconstruction:
             # Normalizing the image
             x_est = (x_est - x_est.min()) / (x_est.max() - x_est.min())
 
-        elif torch.isavailable and type(img) == torch.Tensor:
+        elif torch.isavailable and isinstance(img, torch.Tensor):
 
             # Empty matrix for reconstruction
             n_channels = img.shape[-1]
