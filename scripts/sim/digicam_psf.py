@@ -6,10 +6,12 @@ import torch
 from hydra.utils import to_absolute_path
 import matplotlib.pyplot as plt
 from slm_controller import slm
-from lensless.utils.io import save_image, get_dtype
+from lensless.utils.io import save_image, get_dtype, load_psf
+from lensless.utils.plot import plot_image
 from lensless.hardware.sensor import VirtualSensor
 from lensless.hardware.slm import get_programmable_mask, get_intensity_psf
 from waveprop.devices import slm_dict
+from PIL import Image
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="sim_digicam_psf")
@@ -117,9 +119,26 @@ def digicam_psf(config):
     psf_in_np = np.transpose(psf_in_np, (1, 2, 0))
 
     # plot
-    plt.imshow(psf_in_np)
+    psf_meas = None
+    if config.digicam.psf is not None:
+        fp_psf = to_absolute_path(config.digicam.psf)
+        if os.path.exists(fp_psf):
+            psf_meas = load_psf(fp_psf)
+        else:
+            print("Could not load PSF image from: ", fp_psf)
+
     fp = os.path.join(output_folder, "psf_plot.png")
-    plt.savefig(fp)
+    if psf_meas is not None:
+        _, ax = plt.subplots(1, 2)
+        ax[0].imshow(psf_in_np)
+        ax[0].set_title("Simulated")
+        plot_image(psf_meas, gamma=config.digicam.gamma, normalize=True, ax=ax[1])
+        # ax[1].imshow(psf_meas)
+        ax[1].set_title("Measured")
+        plt.savefig(fp)
+    else:
+        plt.imshow(psf_in_np)
+        plt.savefig(fp)
 
     # save PSF as png
     fp = os.path.join(output_folder, f"{bn}_SIM_psf.png")

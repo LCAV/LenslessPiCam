@@ -13,10 +13,16 @@ digicam:
   slm: adafruit
   sensor: rpi_hq
 
+  # https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Fpsf
   pattern: data/psf/adafruit_random_pattern_20230719.npy
   ap_center: [59, 76]
   ap_shape: [19, 26]
   rotate: -0.8   # rotation in degrees
+
+  # optionally provide measured PSF for side-by-side comparison
+  # https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Fpsf
+  psf: data/psf/adafruit_random_2mm_20231907.png
+  gamma: 2    # for plotting measured
 
 sim:
 
