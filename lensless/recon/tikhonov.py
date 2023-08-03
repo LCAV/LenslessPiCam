@@ -19,6 +19,7 @@ capture, using the analytical solution to the Tikhonov optimization problem
 
 import numpy as np
 from numpy.linalg import multi_dot
+import torch
 
 
 class CodedApertureReconstruction:
@@ -67,46 +68,97 @@ class CodedApertureReconstruction:
 
         Parameters
         ----------
-        img : :py:class:`~numpy.ndarray`
+        img : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
             Lensless capture measurement. Must be 3D even if grayscale.
 
         Returns
         -------
-        :py:class:`~numpy.ndarray`
+        :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
             Reconstructed image, in the same format as the measurement.
         """
-        assert len(img.shape) == 3, "Object should be a 3D array (HxWxC) even if grayscale."
+        assert (
+            len(img.shape) == 3
+        ), "Object should be a 3D array or tensor (HxWxC) even if grayscale."
 
-        # Empty matrix for reconstruction
-        n_channels = img.shape[-1]
-        x_est = np.empty([self.P.shape[1], self.Q.shape[1], n_channels])
+        if type(img) == np.ndarray:
 
-        # Applying reconstruction for each channel
-        for c in range(n_channels):
+            # Empty matrix for reconstruction
+            n_channels = img.shape[-1]
+            x_est = np.empty([self.P.shape[1], self.Q.shape[1], n_channels])
 
-            # SVD of left matrix
-            UL, SL, VLh = np.linalg.svd(self.P, full_matrices=True)
-            VL = VLh.T
-            DL = np.concatenate((np.diag(SL), np.zeros([self.P.shape[0] - SL.size, SL.size])))
-            singLsq = np.square(SL)
+            # Applying reconstruction for each channel
+            for c in range(n_channels):
 
-            # SVD of right matrix
-            UR, SR, VRh = np.linalg.svd(self.Q, full_matrices=True)
-            VR = VRh.T
-            DR = np.concatenate((np.diag(SR), np.zeros([self.Q.shape[0] - SR.size, SR.size])))
-            singRsq = np.square(SR)
+                # SVD of left matrix
+                UL, SL, VLh = np.linalg.svd(self.P, full_matrices=True)
+                VL = VLh.T
+                DL = np.concatenate((np.diag(SL), np.zeros([self.P.shape[0] - SL.size, SL.size])))
+                singLsq = np.square(SL)
 
-            # Applying analytical reconstruction
-            Yc = img[:, :, c]
-            inner = multi_dot([DL.T, UL.T, Yc, UR, DR]) / (
-                np.outer(singLsq, singRsq) + np.full(x_est.shape[0:2], self.lmbd)
-            )
-            x_est[:, :, c] = multi_dot([VL, inner, VR.T])
+                # SVD of right matrix
+                UR, SR, VRh = np.linalg.svd(self.Q, full_matrices=True)
+                VR = VRh.T
+                DR = np.concatenate((np.diag(SR), np.zeros([self.Q.shape[0] - SR.size, SR.size])))
+                singRsq = np.square(SR)
 
-        # Non-negativity constraint: setting all negative values to 0
-        x_est = x_est.clip(min=0)
+                # Applying analytical reconstruction
+                Yc = img[:, :, c]
+                inner = multi_dot([DL.T, UL.T, Yc, UR, DR]) / (
+                    np.outer(singLsq, singRsq) + np.full(x_est.shape[0:2], self.lmbd)
+                )
+                x_est[:, :, c] = multi_dot([VL, inner, VR.T])
 
-        # Normalizing the image
-        x_est = (x_est - x_est.min()) / (x_est.max() - x_est.min())
+            # Non-negativity constraint: setting all negative values to 0
+            x_est = x_est.clip(min=0)
+
+            # Normalizing the image
+            x_est = (x_est - x_est.min()) / (x_est.max() - x_est.min())
+
+        elif torch.isavailable and type(img) == torch.Tensor:
+
+            # Empty matrix for reconstruction
+            n_channels = img.shape[-1]
+            x_est = torch.empty([self.P.shape[1], self.Q.shape[1], n_channels])
+
+            # Applying reconstruction for each channel
+            for c in range(n_channels):
+                Yc = img[:, :, c]
+
+                # SVD of left matrix
+                UL, SL, VLh = torch.linalg.svd(self.P)
+                VL = VLh.T
+                DL = torch.cat(
+                    (
+                        torch.diag(SL),
+                        torch.zeros([self.P.shape[0] - SL.size(0), SL.size(0)], device=SL.device),
+                    )
+                )
+                singLsq = SL**2
+
+                # SVD of right matrix
+                UR, SR, VRh = torch.linalg.svd(self.Q)
+                VR = VRh.T
+                DR = torch.cat(
+                    (
+                        torch.diag(SR),
+                        torch.zeros([self.Q.shape[0] - SR.size(0), SR.size(0)], device=SR.device),
+                    )
+                )
+                singRsq = SR**2
+
+                # Applying analytical reconstruction
+                inner = torch.matmul(
+                    torch.matmul(torch.matmul(DL.T, UL.T), Yc), torch.matmul(UR, DR)
+                ) / (
+                    torch.outer(singLsq, singRsq)
+                    + torch.full(x_est.shape[0:2], self.lmbd, device=x_est.device)
+                )
+                x_est[:, :, c] = torch.matmul(torch.matmul(VL, inner), VR.T)
+
+            # Non-negativity constraint: setting all negative values to 0
+            x_est = torch.clamp(x_est, min=0)
+
+            # Normalizing the image
+            x_est = (x_est - x_est.min()) / (x_est.max() - x_est.min())
 
         return x_est
