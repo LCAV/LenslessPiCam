@@ -44,3 +44,137 @@ mask:
   # Fresnel Zone Aperture
   radius: 0.32e-3
 
+
+
+# COPIED FROM HERE: https://github.com/ebezzam/ilo_lensless/blob/ilo_lensless/configs/config_default.yaml
+# TODO PRUNE
+# Inputs/Outputs directories and files
+files:
+  input_dir: files/demo/input/
+  preprocess_dir: files/demo/preprocessed/
+  psf_dir: files/demo/psf/
+  output_dir: ./output/
+  files_ext: '.png'
+  pandas_file: ./metrics.pkl
+
+lensless_imaging:
+  bool: false
+  psf_path: data/psf/tape_rgb.png # if simulated false
+
+  # PSF parameters  (TODO consistent with simulation)
+  scene2mask: 0.4 #m
+  mask2sensor: 0.004 #m
+  object_height: 0.2 #m
+  sensor: 'rpi_hq'
+  psf_size: [3040, 4056]
+
+  # Simulation parameters
+  simulated:
+    bool: False
+    slm: 'adafruit'
+    optimize_mask: False # if simulated True
+    lr: 0.001
+    crop_factor: 0.8 # Portion left of the SLM (centered)
+    gaussian_noise: True
+    snr: 40.0
+
+# Preprocessing actions
+preprocessing:
+  align:
+    bool: False 
+  resize:
+    bool: True
+    image_size: [1024, 1024]
+  grayscale:    # TODO : works but PSF grayscale? how to do ?
+    bool: False
+  mask:
+    bool: False 
+    bounding_box:
+      horizontal:
+        - 200
+        - 400
+      vertical:
+        - 200
+        - 400
+  noise:
+    bool: False
+    mode: gaussian #pepper #s&p #poisson #salt
+    mean: 0
+    var: 0.01
+    amount: 0.05
+    salt_vs_pepper: 0.5
+    
+# Tasks to perform
+task:
+  grayscale:
+    bool: False # TODO
+
+# Model configuration
+# only StyleGAN is supported for now.
+model:
+  type: 'stylegan2'
+  checkpoint: /scratch/ilo_lensless/checkpoint/stylegan2-ffhq-config-f.pt
+
+# Optimization parameters
+opti_params:
+  seed: 42
+  device: cuda
+
+  # batchsizes
+  batchsize_process : 1
+  batchsize_preprocess : 50
+
+  # Range of layers to optimize (no need to touch it)
+  start_layer: 0
+  end_layer: 8
+
+  # steps per layer -> define which layer is optimized
+  # if you want to skip optimization in some layers, just use 0 to the corresponding indices of steps.
+  steps: [50, 50, 50, 50, 50] 
+
+  # learning rate per layer
+  lr: [0.1, 0.08, 0.06, 0.04, 0.02, 0.01, 0.01, 0.01, 0.01]
+
+  # whether to schedule per layer or in total
+  lr_same_pace: False
+
+  # project latents to unit ball
+  project: True
+
+  # projections (decent results with false, toilsome to fine-tune)
+  do_project_latent: False
+  do_project_noises: False
+  do_project_gen_out: False
+
+  max_radius_latent: [300, 500, 1000, 2000, 4000]
+  max_radius_noises: [300, 2000, 2000, 4000, 6000]
+  max_radius_gen_out: [0, 500, 1000, 2000, 4000]
+  # note:  first value of max_radius_gen_out is not used
+
+
+# Loss parameters
+loss_params:
+  ## weights of different losses
+  geocross: 0.01
+  mse: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+  pe: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+  dead_zone_linear: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+  # tolerance of dead zone linear function
+  dead_zone_linear_alpha: 0.05
+  # LPIPS method 
+  lpips_method: 'default'
+  
+
+logs:
+  # Save of logs
+  # if true, intermediate frames from optimization are saved.
+  save_gif: False
+  # determines how often we save intermediate frames in each steps. Activated only if save_gif=True.
+  save_every: 50
+
+  # Forward of generated images
+  # if true, save it
+  save_forward: True
+  # dir of forward save
+  forward_dir: ./output_forward/
+

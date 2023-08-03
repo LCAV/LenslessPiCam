@@ -160,6 +160,91 @@ def simulate(config):
     for a in ax:
         a.set_axis_off()
 
+    # 3) reconstruction (TODO)
+
+    from lensless.recon.ilo_stylegan2.ilo import LatentOptimizer
+    import glob
+    from tqdm import tqdm
+    import math as ma
+    import torchvision
+
+    latent_optimizer = LatentOptimizer(config)
+
+    # Load input files name
+    input_files = [
+        x
+        for x in glob.iglob(
+            os.path.join(
+                to_absolute_path(config["files"]["preprocess_dir"]),
+                "*" + config["files"]["files_ext"],
+            )
+        )
+    ]
+
+    # Configure output files name
+    if not (os.path.isdir(config["files"]["output_dir"])):
+        os.mkdir(config["files"]["output_dir"])
+
+    base_names = [x.split("/")[-1].split("_")[-2] for x in input_files]
+    new_names_output = [
+        base_name + "_processed" + config["files"]["files_ext"] for base_name in base_names
+    ]
+    output_files = [
+        os.path.join(config["files"]["output_dir"], new_name) for new_name in new_names_output
+    ]
+
+    if config["logs"]["save_forward"]:
+        if not (os.path.isdir(config["logs"]["forward_dir"])):
+            os.mkdir(config["logs"]["forward_dir"])
+        new_names_output_forward = [
+            base_name + "_forward" + config["files"]["files_ext"] for base_name in base_names
+        ]
+        output_forward_files = [
+            os.path.join(config["logs"]["forward_dir"], new_name)
+            for new_name in new_names_output_forward
+        ]
+
+    # Optimize in batches
+    batchsize = config["opti_params"]["batchsize_process"]
+    n_batchs = ma.ceil(len(input_files) / batchsize)
+
+    for i in tqdm(range(n_batchs), desc="Batch"):
+
+        input_files_batch = input_files[i * batchsize : (i + 1) * batchsize]
+        output_files_batch = output_files[i * batchsize : (i + 1) * batchsize]
+        output_forward_files_batch = output_forward_files[i * batchsize : (i + 1) * batchsize]
+
+        # Initialize state of optimizer
+        latent_optimizer.init_state(input_files_batch)
+
+        # Invert
+        _, z, best = latent_optimizer.invert()
+
+        best_img = best[0].detach().cpu()
+        if config["logs"]["save_forward"]:
+            best_img_forward = best[1].detach().cpu()
+
+        print()
+
+        for j in range(len(input_files_batch)):
+            # Save output image
+            print(f"Saving file: {output_files_batch[j]}")
+            torchvision.utils.save_image(
+                best_img[j],
+                output_files_batch[j],
+                nrow=int(best_img[j].shape[0] ** 0.5),
+                normalize=True,
+            )
+
+            if config["logs"]["save_forward"]:
+                # Save debug image
+                torchvision.utils.save_image(
+                    best_img_forward[j],
+                    output_forward_files_batch[j],
+                    nrow=int(best_img_forward[j].shape[0] ** 0.5),
+                    normalize=False,
+                )
+
     plt.show()
 
 
