@@ -215,10 +215,10 @@ def simulate(config):
         output_forward_files_batch = output_forward_files[i * batchsize : (i + 1) * batchsize]
 
         # Initialize state of optimizer
-        latent_optimizer.init_state(input_files_batch)
+        latent_optimizer.set_data(input_files_batch)
 
         # Invert
-        _, z, best = latent_optimizer.invert()
+        _, z, best = latent_optimizer.apply()
 
         best_img = best[0].detach().cpu()
         if config["logs"]["save_forward"]:

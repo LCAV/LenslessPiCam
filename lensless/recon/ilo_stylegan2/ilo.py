@@ -176,7 +176,7 @@ class LatentOptimizer(torch.nn.Module):
         self.save_every = config["logs"]["save_every"]
         self.save_forward = config["logs"]["save_forward"]
 
-    def init_state(self, input_files):
+    def set_data(self, input_files):
 
         # Initialize the state of the optimizer, has to be performed before every run
 
@@ -395,7 +395,7 @@ class LatentOptimizer(torch.nn.Module):
             self.gen.end_layer = self.end_layer
         print()
 
-    def invert(self):
+    def apply(self):
         print("Start of the invertion")
         for i, steps in enumerate(self.steps):
             begin_from = i + self.start_layer
