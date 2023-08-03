@@ -11,7 +11,6 @@ import numpy as np
 from lensless.hardware.utils import check_username_hostname
 from lensless.utils.io import get_dtype, get_ctypes
 from slm_controller.hardware import SLMParam, slm_devices
-
 from waveprop.spherical import spherical_prop
 from waveprop.color import ColorSystem
 from waveprop.rs import angular_spectrum
@@ -104,35 +103,35 @@ def get_programmable_mask(
     slm_param,
     rotate=None,
     flipud=False,
-    as_torch=False,
-    torch_device="cpu",
-    dtype=None,
-    requires_grad=False,
+    nbits=8,
 ):
     """
-    Get mask as a numpy or torch array.
+    Get mask as a numpy or torch array. Return same type.
+
+    Parameters
+    ----------
+    vals : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
+        Values to set on programmable mask.
+    sensor : :py:class:`~lensless.hardware.sensor.VirtualSensor`
+        Sensor object.
+    slm_param : dict
+        SLM parameters.
+    rotate : float, optional
+        Rotation angle in degrees.
+    flipud : bool, optional
+        Flip mask vertically.
+    nbits : int, optional
+        Number of bits/levels to quantize mask to.
 
     """
 
-    # determine data type
     use_torch = False
-    if torch_available and as_torch:
-        use_torch = True
-    elif as_torch:
-        print("Torch not available. Using numpy instead.")
-        use_torch = False
-    dtype = get_dtype(dtype, use_torch)
-
-    # -- prepare SLM values
-    slm_vals = vals.reshape((-1, vals.shape[-1]), order="F")
-
-    if use_torch:
-        slm_vals = torch.tensor(
-            slm_vals, device=torch_device, dtype=dtype, requires_grad=requires_grad
-        )
-    n_active_slm_pixels = slm_vals.shape
+    if torch_available:
+        use_torch = isinstance(vals, torch.Tensor)
+    dtype = vals.dtype
 
     # -- prepare SLM mask
+    n_active_slm_pixels = vals.shape
     n_color_filter = np.prod(slm_param["color_filter"].shape[:2])
     pixel_pitch = slm_param[SLMParam_wp.PITCH]
     centers = get_centers(n_active_slm_pixels, pixel_pitch=pixel_pitch)
@@ -158,13 +157,11 @@ def get_programmable_mask(
     _height_pixel, _width_pixel = (slm_param[SLMParam_wp.CELL_SIZE] / d1).astype(int)
 
     if use_torch:
-        mask = torch.zeros(
-            (n_color_filter,) + tuple(sensor.resolution), dtype=dtype, device=torch_device
-        )
-        slm_vals_flat = slm_vals.flatten()
+        mask = torch.zeros((n_color_filter,) + tuple(sensor.resolution)).to(vals)
+        slm_vals_flat = vals.flatten()
     else:
         mask = np.zeros((n_color_filter,) + tuple(sensor.resolution), dtype=dtype)
-        slm_vals_flat = slm_vals.reshape(-1)
+        slm_vals_flat = vals.reshape(-1)
 
     for i, _center in enumerate(centers):
 
@@ -190,13 +187,13 @@ def get_programmable_mask(
             slm_vals_flat[i] * _rect
         )
 
-    # quantize mask to 255 levels
+    # quantize mask
     if use_torch:
         mask = mask / torch.max(mask)
-        mask = torch.round(mask * 255) / 255.0
+        mask = torch.round(mask * (2**nbits - 1)) / (2**nbits - 1)
     else:
         mask = mask / np.max(mask)
-        mask = np.round(mask * 255) / 255.0
+        mask = np.round(mask * (2**nbits - 1)) / (2**nbits - 1)
 
     # rotate
     if rotate is not None:
@@ -210,33 +207,55 @@ def get_programmable_mask(
 
 def get_intensity_psf(
     mask,
-    sensor,
-    scene2mask,
-    mask2sensor,
-    color_system=None,
     waveprop=False,
-    torch_device="cpu",
-    dtype=None,
+    sensor=None,
+    scene2mask=None,
+    mask2sensor=None,
+    color_system=None,
 ):
+    """
+    Get intensity PSF from mask pattern. Return same type of data.
+
+    Parameters
+    ----------
+    mask : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
+        Mask pattern.
+    waveprop : bool, optional
+        Whether to use wave propagation to compute PSF. Default is False,
+        namely to return squared intensity of mask pattern as the PSF (i.e.,
+        no wave propagation and just shadow of pattern).
+    sensor : :py:class:`~lensless.hardware.sensor.VirtualSensor`
+        Sensor object. Not used if ``waveprop=False``.
+    scene2mask : float
+        Distance from scene to mask. Not used if ``waveprop=False``.
+    mask2sensor : float
+        Distance from mask to sensor. Not used if ``waveprop=False``.
+    color_system : :py:class:`~waveprop.color.ColorSystem`, optional
+        Color system. Not used if ``waveprop=False``.
+
+    """
     if color_system is None:
         color_system = ColorSystem.rgb()
 
-    if dtype is None:
-        dtype = mask.dtype
-
     is_torch = False
+    device = None
     if torch_available:
         is_torch = isinstance(mask, torch.Tensor)
+        device = mask.device
 
-    dtype = get_dtype(dtype, is_torch)
+    dtype = mask.dtype
     ctype, _ = get_ctypes(dtype, is_torch)
 
     if is_torch:
-        psfs = torch.zeros(mask.shape, dtype=ctype, device=torch_device)
+        psfs = torch.zeros(mask.shape, dtype=ctype, device=device)
     else:
         psfs = np.zeros(mask.shape, dtype=ctype)
 
     if waveprop:
+
+        assert sensor is not None, "sensor must be specified"
+        assert scene2mask is not None, "scene2mask must be specified"
+        assert mask2sensor is not None, "mask2sensor must be specified"
 
         assert (
             len(color_system.wv) == mask.shape[0]
@@ -250,7 +269,7 @@ def get_intensity_psf(
             dz=scene2mask,
             return_psf=True,
             is_torch=True,
-            device=torch_device,
+            device=device,
             dtype=dtype,
         )
         u_in = spherical_wavefront * mask
@@ -263,7 +282,7 @@ def get_intensity_psf(
                 d1=sensor.pitch,
                 dz=mask2sensor,
                 dtype=dtype,
-                device=torch_device,
+                device=device,
             )
 
     else:

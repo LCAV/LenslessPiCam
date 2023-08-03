@@ -2,10 +2,11 @@ import numpy as np
 import os
 import time
 import hydra
+import torch
 from hydra.utils import to_absolute_path
 import matplotlib.pyplot as plt
 from slm_controller import slm
-from lensless.utils.io import save_image
+from lensless.utils.io import save_image, get_dtype
 from lensless.hardware.sensor import VirtualSensor
 from lensless.hardware.slm import get_programmable_mask, get_intensity_psf
 from waveprop.devices import slm_dict
@@ -31,7 +32,7 @@ def digicam_psf(config):
     mask2sensor = config.sim.mask2sensor
 
     torch_device = config.torch_device
-    dtype = config.dtype
+    dtype = get_dtype(config.dtype, config.use_torch)
 
     """
     Load pattern
@@ -72,16 +73,22 @@ def digicam_psf(config):
     """
     start_time = time.time()
     slm_vals = pattern_sub / 255.0
+
+    if config.digicam.slm == "adafruit":
+        # flatten color channel along rows
+        slm_vals = slm_vals.reshape((-1, slm_vals.shape[-1]), order="F")
+
+    if config.use_torch:
+        slm_vals = torch.from_numpy(slm_vals).to(device=torch_device, dtype=dtype)
+    else:
+        slm_vals = slm_vals.astype(dtype)
+
     mask = get_programmable_mask(
         vals=slm_vals,
         sensor=sensor,
         slm_param=slm_param,
         rotate=rotate_angle,
         flipud=config.sim.flipud,
-        as_torch=config.use_torch,
-        torch_device=torch_device,
-        dtype=dtype,
-        requires_grad=config.requires_grad,
     )
 
     # -- plot mask
@@ -97,11 +104,9 @@ def digicam_psf(config):
     psf_in = get_intensity_psf(
         mask=mask,
         sensor=sensor,
+        waveprop=config.sim.waveprop,
         scene2mask=scene2mask,
         mask2sensor=mask2sensor,
-        waveprop=config.sim.waveprop,
-        torch_device=torch_device,
-        dtype=dtype,
     )
 
     # -- plot PSF
