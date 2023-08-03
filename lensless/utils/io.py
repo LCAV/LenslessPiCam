@@ -506,18 +506,19 @@ def save_image(img, fp, max_val=255):
     img.save(fp)
 
 
-def get_dtype(dtype, is_torch):
+def get_dtype(dtype=None, is_torch=False):
     """
     Get dtype for numpy or torch.
 
     Parameters
     ----------
-    dtype : str
-        "float32" or "float64"
-    is_torch : bool
+    dtype : str, optional
+        "float32" or "float64", Default is "float32".
+    is_torch : bool, optional
         Whether to return torch dtype.
     """
-
+    if dtype is None:
+        dtype = "float32"
     assert dtype == "float32" or dtype == "float64"
 
     if is_torch:
