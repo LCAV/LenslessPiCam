@@ -1,0 +1,38 @@
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+seed: 0
+
+data:
+  # -- path to original CelebA (parent directory)
+  original: /scratch/bezzam
+
+  output_dir: "./vit-celeba"   # basename for model output
+  
+  # -- raw
+  # https://drive.switch.ch/index.php/s/m89D1tFEfktQueS
+  measured: data/celeba_adafruit_random_2mm_20230720_10K
+  raw: True
+
+  # # -- reconstructed
+  # # run `python scripts/recon/dataset.py` to get a reconstructed dataset
+  # measured: null
+  # raw: False
+
+  n_files: null   # null to use all in measured_folder
+  test_size: 0.15
+  attr: Male   # "Male", "Smiling", etc
+
+augmentation:
+
+  random_resize_crop: False
+  horizontal_flip: True   # cannot be used with raw measurement!
+
+train:
+
+  prev: null    # path to previously trained model
+  n_epochs: 4
+  dropout: 0.1
+  batch_size: 16
+  learning_rate: 2e-4

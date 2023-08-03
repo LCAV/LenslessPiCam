@@ -32,7 +32,6 @@ from waveprop.rs import angular_spectrum
 from waveprop.noise import add_shot_noise
 from lensless.hardware.sensor import VirtualSensor
 from lensless.utils.image import resize
-from lensless.utils.image import rgb2bayer, bayer2rgb
 
 
 class Mask(abc.ABC):

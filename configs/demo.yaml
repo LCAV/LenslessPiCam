@@ -26,6 +26,8 @@ display:
   psf: null
   # all black screen
   black: False
+  # all white screen
+  white: False
 
 capture:
   gamma: null # for visualization
