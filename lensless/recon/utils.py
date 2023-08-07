@@ -1,3 +1,5 @@
+from hydra.utils import get_original_cwd
+import os
 import torch
 from lensless.recon.drunet.network_unet import UNetRes
 
@@ -129,3 +131,68 @@ def get_drunet_function(model, device="cpu", mode="inference"):
         return image
 
     return process
+
+
+def measure_gradient(model):
+    """Helper function to measure L2 norm of the gradient of a model.
+
+    Parameters
+    ----------
+    model : ''torch.nn.Module''
+        Model to measure gradient of.
+
+    Returns
+    -------
+    Float
+        L2 norm of the gradient of the model.
+    """
+    total_norm = 0.0
+    for p in model.parameters():
+        param_norm = p.grad.detach().data.norm(2)
+        total_norm += param_norm.item() ** 2
+    total_norm = total_norm**0.5
+    return total_norm
+
+
+def create_process_network(network, depth, device="cpu"):
+    """Helper function to create a process network.
+
+    Parameters
+    ----------
+    network : str
+        Name of network to use. Can be "DruNet" or "UnetRes".
+    depth : int
+        Depth of network.
+    device : str
+        Device to use for computation. Can be "cpu" or "cuda". Defaults to "cpu".
+
+    Returns
+    -------
+    torch.nn.Module
+        New process network. Already trained for Drunet."""
+    if network == "DruNet":
+        from lensless.recon.utils import load_drunet
+
+        process = load_drunet(
+            os.path.join(get_original_cwd(), "data/drunet_color.pth"), requires_grad=True
+        ).to(device)
+        process_name = "DruNet"
+    elif network == "UnetRes":
+        from lensless.recon.drunet.network_unet import UNetRes
+
+        n_channels = 3
+        process = UNetRes(
+            in_nc=n_channels + 1,
+            out_nc=n_channels,
+            nc=[64, 128, 256, 512],
+            nb=depth,
+            act_mode="R",
+            downsample_mode="strideconv",
+            upsample_mode="convtranspose",
+        ).to(device)
+        process_name = "UnetRes_d" + str(depth)
+    else:
+        process = None
+        process_name = None
+
+    return (process, process_name)

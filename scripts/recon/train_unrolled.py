@@ -23,6 +23,7 @@ import time
 import matplotlib.pyplot as plt
 from lensless import UnrolledFISTA, UnrolledADMM
 from waveprop.dataset_util import SimulatedPytorchDataset
+from lensless.recon.utils import create_process_network
 from lensless.utils.image import rgb2gray
 from lensless.eval.benchmark import benchmark, DiffuserCamTestDataset
 import torch
@@ -84,45 +85,6 @@ def simulate_dataset(config, psf):
         dataset=ds_prop, batch_size=batch_size, shuffle=True, pin_memory=(psf.device != "cpu")
     )
     return ds_loader
-
-
-def create_process_network(network, depth, device="cpu"):
-    if network == "DruNet":
-        from lensless.recon.utils import load_drunet
-
-        process = load_drunet(
-            os.path.join(get_original_cwd(), "data/drunet_color.pth"), requires_grad=True
-        ).to(device)
-        process_name = "DruNet"
-    elif network == "UnetRes":
-        from lensless.recon.drunet.network_unet import UNetRes
-
-        n_channels = 3
-        process = UNetRes(
-            in_nc=n_channels + 1,
-            out_nc=n_channels,
-            nc=[64, 128, 256, 512],
-            nb=depth,
-            act_mode="R",
-            downsample_mode="strideconv",
-            upsample_mode="convtranspose",
-        ).to(device)
-        process_name = "UnetRes_d" + str(depth)
-    else:
-        process = None
-        process_name = None
-
-    return (process, process_name)
-
-
-def measure_gradient(model):
-    # return the L2 norm of the gradient
-    total_norm = 0.0
-    for p in model.parameters():
-        param_norm = p.grad.detach().data.norm(2)
-        total_norm += param_norm.item() ** 2
-    total_norm = total_norm**0.5
-    return total_norm
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="unrolled_recon")

@@ -58,14 +58,14 @@ def admm(config):
     else:
         assert config.torch, "Unrolled ADMM only works with torch"
         from lensless.recon.unrolled_admm import UnrolledADMM
-        import train_unrolled
+        import lensless.recon.utils
 
-        pre_process = train_unrolled.create_process_network(
+        pre_process = lensless.recon.utils.create_process_network(
             network=config.admm.pre_process_model.network,
             depth=config.admm.pre_process_depth.depth,
             device=config.torch_device,
         )
-        post_process = train_unrolled.create_process_network(
+        post_process = lensless.recon.utils.create_process_network(
             network=config.admm.post_process_model.network,
             depth=config.admm.post_process_depth.depth,
             device=config.torch_device,
