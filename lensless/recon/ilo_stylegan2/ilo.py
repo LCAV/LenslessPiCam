@@ -84,7 +84,7 @@ class SphericalOptimizer:
 
 
 class LatentOptimizer(torch.nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, psf_array=None):
         super().__init__()
 
         self.device = config["opti_params"]["device"]
@@ -99,9 +99,7 @@ class LatentOptimizer(torch.nn.Module):
         self.gen.start_layer = config["opti_params"]["start_layer"]
         self.gen.end_layer = config["opti_params"]["end_layer"]
         self.mpl = MappingProxy(
-            torch.load(
-                to_absolute_path("/scratch/ilo_lensless/checkpoint/gaussian_fit.pt"), self.device
-            )
+            torch.load(to_absolute_path("./models/gaussian_fit.pt"), self.device)
         )
 
         cuda_ids = [0]
@@ -120,15 +118,21 @@ class LatentOptimizer(torch.nn.Module):
         image_size = np.array(config["preprocessing"]["resize"]["image_size"])
 
         # Load PSF
-        psf_path = config["lensless_imaging"]["psf_path"]
-        psf_image = np.array(Image.open(to_absolute_path(psf_path)).convert("RGB"))
+        if psf_array is None:
+            psf_path = config["lensless_imaging"]["psf_path"]
+            psf_image = np.array(Image.open(to_absolute_path(psf_path)).convert("RGB"))
+        else:
+            psf_image = psf_array
 
         self.lensless_imaging = True
         scene2mask = config["lensless_imaging"]["scene2mask"]
         mask2sensor = config["lensless_imaging"]["mask2sensor"]
         object_height = config["lensless_imaging"]["object_height"]
         sensor_config = sensor_dict[config["lensless_imaging"]["sensor"]]
-        self.psf_size = np.array(config["lensless_imaging"]["psf_size"])
+        try:
+            self.psf_size = np.array(psf_image.shape)
+        except Exception:
+            self.psf_size = np.array(config["lensless_imaging"]["psf_size"])
 
         # Input image at the right size
         magnification = mask2sensor / scene2mask
@@ -138,7 +142,7 @@ class LatentOptimizer(torch.nn.Module):
         self.object_dim = (np.round(image_size * scaling)).astype(int).tolist()
 
         # Normalize and forward model
-        psf_image = psf_image / np.sum(psf_image, axis=(0, 1))
+        psf_image = psf_image / np.linalg.norm(psf_image.ravel())
         self.psf_image = (
             torch.from_numpy(psf_image).float().permute(2, 0, 1).unsqueeze(0).to(self.device)
         )
@@ -176,7 +180,7 @@ class LatentOptimizer(torch.nn.Module):
         self.save_every = config["logs"]["save_every"]
         self.save_forward = config["logs"]["save_forward"]
 
-    def set_data(self, input_files):
+    def init_state(self, input_files):
 
         # Initialize the state of the optimizer, has to be performed before every run
 
@@ -395,7 +399,7 @@ class LatentOptimizer(torch.nn.Module):
             self.gen.end_layer = self.end_layer
         print()
 
-    def apply(self):
+    def invert(self):
         print("Start of the invertion")
         for i, steps in enumerate(self.steps):
             begin_from = i + self.start_layer
