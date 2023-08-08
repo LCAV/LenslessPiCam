@@ -212,13 +212,41 @@ class Trainer:
         test_dataset,
         batch_size=4,
         loss="l2",
-        lpips=False,
+        lpips=None,
         optimizer="Adam",
         optimizer_lr=1e-6,
         slow_start=None,
         skip_NAN=False,
-        algorithm_name="Unknow",
+        algorithm_name="Unknown",
     ):
+        """Class to train a reconstruction algorithm.
+
+        Parameters
+        ----------
+        recon : lensless.recon.TrainableReconstructionAlgorithm
+            Reconstruction algorithm to train.
+        train_dataset : torch.utils.data.Dataset
+            Dataset to use for training.
+        test_dataset : torch.utils.data.Dataset
+            Dataset to use for testing.
+        batch_size : int, optional
+            Batch size to use for training, by default 4
+        loss : str, optional
+            Loss function to use for training "l1" or "l2", by default "l2"
+        lpips : float, optional
+            the weight of the lpips(VGG) in the total loss. If None ignore. By default None
+        optimizer : str, optional
+            Optimizer to use durring training. Available : "Adam". By default "Adam"
+        optimizer_lr : float, optional
+            Learning rate for the optimizer, by default 1e-6
+        slow_start : float, optional
+            Multiplicative factor to reduce the learning rate during the first two epochs. If None, ignored. Default is None.
+        skip_NAN : bool, optional
+            Whether to skip update if any gradiant are NAN (True) or to throw an error(False), by default False
+        algorithm_name : str, optional
+            Algorithm name for logging, by default "Unknown"
+
+        """
         self.device = recon._psf.device
 
         self.recon = recon
@@ -310,6 +338,20 @@ class Trainer:
                         param.register_hook(detect_nan)
 
     def train_epoch(self, data_loader, disp=-1):
+        """Train for on epoch.
+
+        Parameters
+        ----------
+        data_loader : torch.utils.data.DataLoader
+            Data loader to use for training.
+        disp : int, optional
+            Display interval, if -1, no display, by default -1
+
+        Returns
+        -------
+        float
+            Mean loss of the epoch.
+        """
         mean_loss = 0.0
         i = 1.0
         pbar = tqdm(data_loader)
@@ -375,6 +417,15 @@ class Trainer:
         return mean_loss
 
     def evaluate(self, mean_loss, save_pt):
+        """Evaluate the reconstruction algorithm on the test dataset.
+
+        Parameters
+        ----------
+        mean_loss : float
+            Mean loss of the last epoch.
+        save_pt : str
+            Path to save metrics dictionary to. If None, no logging of metrics.
+        """
         # benchmarking
         current_metrics = benchmark(self.recon, self.test_dataset, batchsize=10)
 
@@ -388,7 +439,17 @@ class Trainer:
             with open(os.path.join(save_pt, "metrics.json"), "w") as f:
                 json.dump(self.metrics, f)
 
-    def train(self, n_epoch=1, save_pt=False):
+    def train(self, n_epoch=1, save_pt=None):
+        """Train the reconstruction algorithm.
+
+        Parameters
+        ----------
+        n_epoch : int, optional
+            Number of epochs to train for, by default 1
+        save_pt : str, optional
+            Path to save metrics dictionary to. If None, no logging of metrics, by default None
+        """
+
         start_time = time.time()
 
         for epoch in range(n_epoch):
