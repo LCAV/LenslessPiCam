@@ -24,6 +24,7 @@ Added
 - Utilities to load a trained DruNet model for use as postprocessing in ``TrainableReconstructionAlgorithm``.
 - Support for unrolled loading and inference in the script ``admm.py``.
 - Tikhonov reconstruction for coded aperture measurements (MLS / MURA).
+- New ``Trainer`` class to train ``TrainableReconstructionAlgorithm`` with PyTorch.
 
 
 Changed
