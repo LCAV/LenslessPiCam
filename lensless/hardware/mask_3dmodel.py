@@ -1,6 +1,8 @@
+import os
+
 import cadquery as cq
 import numpy as np
-from typing import Union
+from typing import Union, Optional
 from abc import ABC, abstractmethod
 
 from lensless.hardware.mask import Mask
@@ -16,15 +18,16 @@ class Connection(ABC):
     """connections can in general use the mask array to determine where to connect to the mask, but it is not required."""
     pass
 
-class Mask3DModel():
+class Mask3DModel:
   def __init__(self,
     mask_array: np.ndarray,
-    frame: Frame,
+    frame: Optional[Frame],
     mask_size: Union[tuple[float, float], np.ndarray],
     depth: float,
-    connection: Connection = None, 
+    connection: Optional[Connection] = None, 
     simplify: bool = False,
     show_axis: bool = False,
+    generate: bool = True
   ):
     """_summary_
 
@@ -36,6 +39,7 @@ class Mask3DModel():
         depth (float): How thick to make the mask in millimeters.
         simplify (bool, optional): Combines all objects in the model to a single object. Results in a much smaller 3d model file and faster post processing. But takes a considerable amount of more time to generate model. Defaults to False.
         show_axis (bool, optional): Show axis for debug purposes. Defaults to False.
+        generate (bool, optional): Generate model on initialization. Defaults to True.
     """
     
     self.mask = mask_array
@@ -50,8 +54,11 @@ class Mask3DModel():
     self.depth = depth
     self.simplify = simplify
     self.show_axis = show_axis
+
+    self.model = None
       
-    self._generate_3d_model()
+    if generate:
+      self.generate_3d_model()
     
   @classmethod
   def from_mask(cls, mask: Mask, **kwargs):
@@ -61,36 +68,41 @@ class Mask3DModel():
       **kwargs
     )
     
-  def mask_to_points(mask:np.ndarray, mask_size: Union[tuple[float, float], np.ndarray], px_size: Union[tuple[float, float], np.ndarray]):
+  def mask_to_points(mask:np.ndarray, px_size: Union[tuple[float, float], np.ndarray]):
     """turns mask into 2D point coordinates"""
     indices = np.argwhere(mask == 0) - np.array(mask.shape)/2
     coordinates = indices*px_size
     return coordinates
   
-  def _generate_3d_model(self):
+  def generate_3d_model(self):
     """based on provided mask, frame and connection between frame and mask, generate a 3d model."""
-    self.model = cq.Workplane("XY")
+
+    assert self.model is None, "Model already generated."
+
+    model = cq.Workplane("XY")
     
-    frame_model = self.frame.generate(self.mask_size, self.depth)
-    self.model = self.model.add(frame_model)
+    if self.frame is not None:
+      frame_model = self.frame.generate(self.mask_size, self.depth)
+      model = model.add(frame_model)
     if self.connections is not None:
       connection_model = self.connections.generate(self.mask, self.mask_size, self.depth)
-      self.model = self.model.add(connection_model)
+      model = model.add(connection_model)
     
     px_size = self.mask_size / self.mask.shape
-    points = Mask3DModel.mask_to_points(self.mask, self.mask_size, px_size)
-    mask_model = (cq.Workplane("XY")
-      .pushPoints(points)
-      .box(px_size[0], px_size[1], self.depth, centered=False, combine=False)
-    )
+    points = Mask3DModel.mask_to_points(self.mask, px_size)
+    if len(points) != 0:
+      mask_model = (cq.Workplane("XY")
+        .pushPoints(points)
+        .box(px_size[0], px_size[1], self.depth, centered=False, combine=False)
+      )
+    
+      if self.simplify:
+        mask_model = mask_model.combine(glue=True)
+          
+      model = model.add(mask_model)
     
     if self.simplify:
-      mask_model = mask_model.combine(glue=True)
-        
-    self.model = self.model.add(mask_model)
-    
-    if self.simplify:
-      self.model = self.model.combine(glue=False)
+      model = model.combine(glue=False)
       
     if self.show_axis:
       axis_thickness = 0.1
@@ -100,12 +112,19 @@ class Mask3DModel():
         .box(axis_thickness, axis_length, axis_thickness)
         .box(axis_length, axis_thickness, axis_thickness)
       )
-      self.model = self.model.add(axis_test)
+      model = model.add(axis_test)
+
+    self.model = model
     
   def save(self, fname):
-    assert self.model is not None
+    assert self.model is not None, "Model not generated yet."
+
+    directory = os.path.dirname(fname)
+    if directory and not os.path.exists(directory):
+        print(f"Error: The directory {directory} does not exist! Failed to save CadQuery model.")
+        return
+
     cq.exporters.export(self.model, fname)
-    
     
 # from here, implementations of frames and connections
 
