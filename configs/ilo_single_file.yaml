@@ -111,7 +111,7 @@ task:
 # only StyleGAN is supported for now.
 model:
   type: 'stylegan2'
-  checkpoint: ./models/stylegan2-ffhq-config-f.pt
+  checkpoint: /scratch/LenslessPiCam/models/stylegan2-ffhq-config-f.pt
 
 # Optimization parameters
 opti_params:

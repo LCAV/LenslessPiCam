@@ -48,7 +48,9 @@ import os
 from lensless.hardware.mask import CodedAperture, PhaseContour, FresnelZoneAperture
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="ilo_single_file")
+@hydra.main(
+    version_base=None, config_path="/scratch/LenslessPiCam/configs", config_name="ilo_single_file"
+)
 def simulate(config):
 
     fp = to_absolute_path(config.files.original)
