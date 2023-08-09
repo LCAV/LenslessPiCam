@@ -10,3 +10,6 @@ waveprop>=0.0.3     # for simulation
 torch >= 1.8.0
 torchvision
 lpips
+
+# Library for ILO
+dlib==19.24.2
