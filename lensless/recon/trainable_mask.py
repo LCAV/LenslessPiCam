@@ -36,9 +36,10 @@ class TrainableMask(metaclass=abc.ABCMeta):
 
     def update_mask(self):
         """Update the mask parameters. Acoording to externaly updated gradiants."""
-        if self._counter % self._update_frequency == 0:
+        if (self._counter + 1) % self._update_frequency == 0:
             self._optimizer.step()
             self._optimizer.zero_grad(set_to_none=True)
+            self.project()
         self._counter += 1
 
     @abc.abstractmethod
