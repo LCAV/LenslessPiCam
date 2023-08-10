@@ -189,12 +189,18 @@ def train_unrolled(
         # Use a simulated dataset
         dataset = simulate_dataset(config, psf)
 
+    # test mask
+    from lensless.recon.trainable_mask import AmplitudeMask
+
+    mask = AmplitudeMask(torch.rand_like(psf), optimizer="Adam", lr=1e-3, update_frequency=10)
+
     print(f"Setup time : {time.time() - start_time} s")
 
     trainer = Trainer(
         recon,
         dataset,
         benchmark_dataset,
+        mask=mask,
         batch_size=config.training.batch_size,
         loss=config.loss,
         lpips=config.lpips,
@@ -205,8 +211,18 @@ def train_unrolled(
         algorithm_name=algorithm_name,
     )
 
-    trainer.train(n_epoch=config.training.epoch, save_pt=save)
+    trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=disp)
     trainer.save(path=os.path.join(save, "recon.pt"))
+    if mask is not None:
+        print("Saving mask")
+        print(f"mask shape: {mask._mask.shape}")
+        torch.save(mask._mask, os.path.join(save, "mask.pt"))
+        # save as image using plt
+        import matplotlib.pyplot as plt
+
+        print(f"mask max: {mask._mask.max()}")
+        print(f"mask min: {mask._mask.min()}")
+        plt.imsave(os.path.join(save, "mask.png"), mask._mask.detach().cpu().numpy()[0, ...])
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ import os
 import matplotlib.pyplot as plt
 import torch
 from lensless.eval.benchmark import benchmark
+from lensless.recon.trainable_mask import TrainableMask
 from tqdm import tqdm
 from lensless.recon.drunet.network_unet import UNetRes
 
@@ -222,6 +223,7 @@ class Trainer:
         recon,
         train_dataset,
         test_dataset,
+        mask=None,
         batch_size=4,
         loss="l2",
         lpips=None,
@@ -242,6 +244,8 @@ class Trainer:
             Dataset to use for training.
         test_dataset : :py:class:`torch.utils.data.Dataset`
             Dataset to use for testing.
+        mask : TrainableMask, optional
+            Trainable mask to use for training. If none, training with fix psf, by default None.
         batch_size : int, optional
             Batch size to use for training, by default 4
         loss : str, optional
@@ -272,6 +276,13 @@ class Trainer:
         self.test_dataset = test_dataset
         self.lpips = lpips
         self.skip_NAN = skip_NAN
+
+        if mask is not None:
+            assert isinstance(mask, TrainableMask)
+            self.mask = mask
+            self.use_mask = True
+        else:
+            self.use_mask = False
 
         # loss
         if loss == "l2":
@@ -358,8 +369,8 @@ class Trainer:
         ----------
         data_loader : :py:class:`torch.utils.data.DataLoader`
             Data loader to use for training.
-        disp : int, optional
-            Display interval, if -1, no display, by default -1
+        disp : int
+            Display interval, if -1, no display
 
         Returns
         -------
@@ -374,6 +385,11 @@ class Trainer:
             X = X.to(self.device)
             y = y.to(self.device)
 
+            # update psf according to mask
+            if self.use_mask:
+                self.recon._set_psf(self.mask.get_psf())
+
+            # forward pass
             y_pred = self.recon.batch_call(X.to(self.device))
             # normalizing each output
             eps = 1e-12
@@ -420,6 +436,10 @@ class Trainer:
                     i += 1
                     continue
             self.optimizer.step()
+
+            # update mask
+            if self.use_mask:
+                self.mask.update_mask()
 
             mean_loss += (loss_v.item() - mean_loss) * (1 / i)
             pbar.set_description(f"loss : {mean_loss}")
