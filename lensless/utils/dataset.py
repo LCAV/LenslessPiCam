@@ -214,8 +214,7 @@ class LenslessDataset(DualDataset):
         **kwargs,
     ):
         """
-        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the
-        `DiffuserCam Lensless Mirflickr Dataset (DLMD) <https://waller-lab.github.io/LenslessLearning/dataset.html>`_.
+        Dataset consisting of lensless image captured from a screen and the corresponding image shown on screen.
 
         Parameters
         ----------
