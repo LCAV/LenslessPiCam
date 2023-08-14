@@ -21,9 +21,9 @@ class Connection(ABC):
 class Mask3DModel:
   def __init__(self,
     mask_array: np.ndarray,
-    frame: Optional[Frame],
     mask_size: Union[tuple[float, float], np.ndarray],
     depth: float,
+    frame: Optional[Frame] = None,
     connection: Optional[Connection] = None, 
     simplify: bool = False,
     show_axis: bool = False,
@@ -105,7 +105,7 @@ class Mask3DModel:
       model = model.combine(glue=False)
       
     if self.show_axis:
-      axis_thickness = 0.1
+      axis_thickness = 0.01
       axis_length = 20
       axis_test = (cq.Workplane("XY")
         .box(axis_thickness, axis_thickness, axis_length)
@@ -126,7 +126,7 @@ class Mask3DModel:
 
     cq.exporters.export(self.model, fname)
     
-# from here, implementations of frames and connections
+# --- from here, implementations of frames and connections ---
 
 class SimpleFrame(Frame):
   def __init__(self, padding: float = 2):
@@ -142,15 +142,15 @@ class SimpleFrame(Frame):
 
 class CrossConnection(Connection):
   """Transverse cross connection"""
-  def __init__(self, thickness: float = 0.1, mask_radius: float = None):
-    self.thickness = thickness
+  def __init__(self, line_width: float = 0.1, mask_radius: float = None):
+    self.line_width = line_width
     self.mask_radius = mask_radius
     
   def generate(self, mask:np.ndarray, mask_size, depth: float) -> cq.Workplane:
     width, height = mask_size[0], mask_size[1]
     model = (cq.Workplane("XY")
-      .box(self.thickness, height, depth, centered=(True, True, False))
-      .box(width, self.thickness, depth, centered=(True, True, True))
+      .box(self.line_width, height, depth, centered=(True, True, False))
+      .box(width, self.line_width, depth, centered=(True, True, True))
     )
     
     if self.mask_radius is not None:
@@ -161,14 +161,14 @@ class CrossConnection(Connection):
 
 class SaltireConnection(Connection):
   """Diagonal cross connection"""
-  def __init__(self, thickness: float = 0.1, mask_radius: float = None):
-    self.thickness = thickness
+  def __init__(self, line_width: float = 0.1, mask_radius: float = None):
+    self.line_width = line_width
     self.mask_radius = mask_radius
     
   def generate(self, mask: np.ndarray, mask_size, depth: float) -> cq.Workplane:
     width, height = mask_size[0], mask_size[1]
     width2, height2 = width/2, height/2
-    l = self.thickness/np.sqrt(2)
+    l = self.line_width/np.sqrt(2)
     model = (cq.Workplane("XY")
       .moveTo(- (width2 - l), -height2)
       .lineTo(-width2, -height2)
@@ -197,4 +197,66 @@ class SaltireConnection(Connection):
       circle = cq.Workplane("XY").cylinder(depth, self.mask_radius, centered=(True, True, False))
       model = model.cut(circle)
       
+    return model
+  
+class ThreePointConnection(Connection):
+  """Made to help with printing without the need for supports"""
+  def __init__(self, line_width: float = 0.1, mask_radius: float = None):
+    self.line_width = line_width
+    self.mask_radius = mask_radius
+
+  def generate(self, mask: np.ndarray, mask_size, depth: float) -> cq.Workplane:
+    width, height = mask_size[0], mask_size[1]
+    width2, height2 = width/2, height/2
+    l = self.line_width/np.sqrt(2)
+
+    model = (cq.Workplane("XY")
+      .box(width2, self.line_width, depth, centered=(False, True, False))
+
+      .moveTo(- (width2 - l), -height2)
+      .lineTo(-width2, -height2)
+      .lineTo(-width2, - (height2 - l))
+
+      .lineTo(-l, 0)
+      .lineTo(l, 0)
+
+      .close()
+      .extrude(depth)
+
+      .moveTo(- (width2 - l), height2)
+      .lineTo(-width2, height2)
+      .lineTo(-width2, (height2 - l))
+
+      .lineTo(-l, 0)
+      .lineTo(l ,0)
+
+      .close()
+      .extrude(depth)
+    )
+
+    if self.mask_radius is not None:
+      circle = cq.Workplane("XY").cylinder(depth, self.mask_radius, centered=(True, True, False))
+      model = model.cut(circle)
+
+    return model
+  
+class CodedAppertureConnection(Connection):
+
+  def __init__(self, joint_radius: float = 0.1):
+    self.joint_radius = joint_radius
+
+  def generate(self, mask:np.ndarray, mask_size, depth: float) -> cq.Workplane:
+    x_lines = np.where(np.diff(mask[:,0]) != 0)[0] + 1
+    y_lines = np.where(np.diff(mask[0]) != 0)[0] + 1
+    X, Y = np.meshgrid(x_lines, y_lines)
+    point_idxs = np.vstack([X.ravel(), Y.ravel()]).T - np.array(mask.shape)/2
+
+    px_size = mask_size / mask.shape
+    points = point_idxs * px_size
+
+    model = (cq.Workplane("XY")
+      .pushPoints(points)
+      .cylinder(depth, self.joint_radius, centered=(True, True, False), combine=False)
+    )
+
     return model
