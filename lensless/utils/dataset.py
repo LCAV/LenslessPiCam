@@ -446,3 +446,52 @@ class DiffuserCamTestDataset(MeasuredDataset):
             lensed_fn="lensed",
             image_ext="npy",
         )
+
+
+class SimulatedDatasetTrainableMask(SimulatedDataset):
+    """
+    Dataset of propagated images (through simulation) from a Torch Dataset with learnable mask.
+    The `waveprop <https://github.com/ebezzam/waveprop/blob/master/waveprop/simulation.py>`_ package is used for the simulation,
+    assuming a far-field propagation and a shift-invariant system with a single point spread function (PSF).
+    To ensure autograd compatibility, the dataloader should have ``num_workers=0``.
+    """
+
+    def __init__(
+        self,
+        mask,
+        dataset,
+        pre_transform=None,
+        dataset_is_CHW=False,
+        flip=False,
+        **kwargs,
+    ):
+        """
+        Parameters
+        ----------
+
+        psf : torch.Tensor
+            PSF to use for simulate. Should be a 4D tensor with shape [1, H, W, C]. Simulation of multi-depth data is not supported yet.
+        dataset : torch.utils.data.Dataset
+            Dataset to propagate. Should output images with shape [H, W, C] unless ``dataset_is_CHW`` is ``True`` (and therefore images have the dimension ordering of [C, H, W]).
+        pre_transform : PyTorch Transform or None, optional
+            Transform to apply to the images before simulation, by default ``None``.
+        dataset_is_CHW : bool, optional
+            If True, the input dataset is expected to output images with shape [C, H, W], by default ``False``.
+        flip : bool, optional
+                If True,images are flipped beffore the simulation, by default ``False``..
+        """
+
+        self._mask = mask
+        self._sim_arg = kwargs
+
+        psf = self._mask.get_psf()
+        super(SimulatedDataset, self).__init__(
+            psf, dataset, pre_transform, dataset_is_CHW, flip, **kwargs
+        )
+
+    def _get_images_pair(self, index):
+        # update psf
+        psf = self._mask.get_psf()
+        self.sim = FarFieldSimulator(psf=psf, is_torch=True, **self._sim_arg)
+        # return simulated images
+        return super()._get_images_pair(index)
