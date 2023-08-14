@@ -18,7 +18,9 @@ from lensless.utils.io import load_image, load_psf
 @hydra.main(version_base=None, config_path="../configs", config_name="demo")
 def demo(config):
 
-    RPI_USERNAME, RPI_HOSTNAME = check_username_hostname(config.rpi.username, config.rpi.hostname)
+    check_username_hostname(config.rpi.username, config.rpi.hostname)
+    RPI_USERNAME = config.rpi.username
+    RPI_HOSTNAME = config.rpi.hostname
 
     display_fp = to_absolute_path(config.fp)
     if config.save:

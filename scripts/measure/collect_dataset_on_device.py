@@ -1,7 +1,7 @@
 """
 To be run on the Raspberry Pi!
 ```
-python scripts/collect_dataset_on_device.py
+python scripts/measure/collect_dataset_on_device.py
 ```
 
 Note that the script is configured for the  Raspberry Pi HQ camera
@@ -29,7 +29,7 @@ from lensless.hardware.constants import (
     RPI_HQ_CAMERA_BLACK_LEVEL,
 )
 import picamerax.array
-from lensless.utils.image import bayer2rgb, resize
+from lensless.utils.image import bayer2rgb_cc, resize
 import cv2
 
 
@@ -173,7 +173,7 @@ def collect_dataset(config):
                 display_image_path = config.display.output_fp
                 rot90 = config.display.rot90
                 os.system(
-                    f"python scripts/prep_display_image.py --fp {_file} --output_path {display_image_path} --screen_res {screen_res[0]} {screen_res[1]} --hshift {hshift} --vshift {vshift} --pad {pad} --brightness {brightness} --rot90 {rot90}"
+                    f"python scripts/measure/prep_display_image.py --fp {_file} --output_path {display_image_path} --screen_res {screen_res[0]} {screen_res[1]} --hshift {hshift} --vshift {vshift} --pad {pad} --brightness {brightness} --rot90 {rot90}"
                 )
 
                 time.sleep(config.capture.delay)
@@ -203,7 +203,7 @@ def collect_dataset(config):
                     output_bayer = np.sum(stream.array, axis=2).astype(np.uint16)
 
                     # convert to RGB
-                    output = bayer2rgb(
+                    output = bayer2rgb_cc(
                         output_bayer,
                         nbits=12,
                         blue_gain=float(g[1]),
@@ -241,7 +241,7 @@ def collect_dataset(config):
                         display_image_path = config.display.output_fp
                         rot90 = config.display.rot90
                         os.system(
-                            f"python scripts/prep_display_image.py --fp {_file} --output_path {display_image_path} --screen_res {screen_res[0]} {screen_res[1]} --hshift {hshift} --vshift {vshift} --pad {pad} --brightness {brightness} --rot90 {rot90}"
+                            f"python scripts/measure/prep_display_image.py --fp {_file} --output_path {display_image_path} --screen_res {screen_res[0]} {screen_res[1]} --hshift {hshift} --vshift {vshift} --pad {pad} --brightness {brightness} --rot90 {rot90}"
                         )
                         print(f"decreasing screen brightness to {current_screen_brightness}")
 

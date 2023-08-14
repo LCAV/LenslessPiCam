@@ -1,0 +1,9 @@
+defaults:
+  - demo
+  - _self_
+
+plot: True
+
+capture:
+  exp: 5.0
+  awb_gains: [1, 1]
