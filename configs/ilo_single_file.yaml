@@ -40,6 +40,8 @@ files:
   files_ext: '.png'
   pandas_file: ./metrics.pkl
 
+  face_aligner: '../../../models/shape_predictor_68_face_landmarks.dat'
+
 mask:
   type: "tape"    # "MURA", "MLS", "FZA", "PhaseContour"
 
@@ -65,6 +67,8 @@ lensless_imaging:
   object_height: 0.3 #m
   sensor: 'rpi_hq'
   psf_size: [3040, 4056]
+  downsample: 8
+  image_format: RGB
 
   # Simulation parameters
   simulated:
@@ -75,6 +79,8 @@ lensless_imaging:
     crop_factor: 0.8 # Portion left of the SLM (centered)
     gaussian_noise: True
     snr: 40.0
+    max_val: 230
+    flatcam: False
 
 # Preprocessing actions
 preprocessing:
@@ -111,7 +117,7 @@ task:
 # only StyleGAN is supported for now.
 model:
   type: 'stylegan2'
-  checkpoint: /scratch/LenslessPiCam/models/stylegan2-ffhq-config-f.pt
+  checkpoint: models/stylegan2-ffhq-config-f.pt
 
 # Optimization parameters
 opti_params:
