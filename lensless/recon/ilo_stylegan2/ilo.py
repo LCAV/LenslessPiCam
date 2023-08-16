@@ -21,6 +21,7 @@ from .stylegan2 import Generator
 from .utils import project_onto_l1_ball, zero_padding_tensor
 from waveprop.devices import sensor_dict, SensorParam
 from lensless.recon.rfft_convolve import RealFFTConvolve2D
+from waveprop.simulation import FarFieldSimulator
 
 
 torch.set_printoptions(precision=5)
@@ -84,7 +85,7 @@ class SphericalOptimizer:
 
 
 class LatentOptimizer(torch.nn.Module):
-    def __init__(self, config, psf_array=None):
+    def __init__(self, config, mask=None):
         super().__init__()
 
         self.device = config["opti_params"]["device"]
@@ -118,17 +119,22 @@ class LatentOptimizer(torch.nn.Module):
         image_size = np.array(config["preprocessing"]["resize"]["image_size"])
 
         # Load PSF
-        if psf_array is None:
+        if mask is None:
             psf_path = config["lensless_imaging"]["psf_path"]
             psf_image = np.array(Image.open(to_absolute_path(psf_path)).convert("RGB"))
         else:
-            psf_image = psf_array
+            psf_image = mask.psf.copy()
 
         self.lensless_imaging = True
         scene2mask = config["lensless_imaging"]["scene2mask"]
         mask2sensor = config["lensless_imaging"]["mask2sensor"]
         object_height = config["lensless_imaging"]["object_height"]
-        sensor_config = sensor_dict[config["lensless_imaging"]["sensor"]]
+        sensor = config["lensless_imaging"]["sensor"]
+        sensor_config = sensor_dict[sensor]
+        mask_type = config["mask"]["type"]
+        flatcam = config["lensless_imaging"]["simulated"]["flatcam"]
+        snr = config["lensless_imaging"]["simulated"]["snr"]
+        max_val = config["lensless_imaging"]["simulated"]["max_val"]
         try:
             self.psf_size = np.array(psf_image.shape)
         except Exception:
@@ -148,7 +154,26 @@ class LatentOptimizer(torch.nn.Module):
         )
 
         # Create forward model
-        self.forward_model = RealFFTConvolve2D(self.psf_image)
+        #self.forward_model = RealFFTConvolve2D(self.psf_image)
+        if flatcam and mask_type.upper() not in ['MURA', 'MLS']:
+            print('Separable assumption only available for coded apertures.')
+            flatcam = False
+        if flatcam:
+            self.forward_model = lambda img : mask.simulate(img, snr_db=snr)
+        #elif mask is not None:
+        else:
+            simulator = FarFieldSimulator(
+                psf=psf_image,  # only support one depth plane
+                object_height=object_height,
+                scene2mask=scene2mask,
+                mask2sensor=mask2sensor,
+                sensor=sensor,
+                snr_db=snr,
+                max_val=max_val,
+            )
+            self.forward_model = lambda img : simulator.propagate(img, return_object_plane=False)
+        #else:
+        #    self.forward_model = RealFFTConvolve2D(self.psf_image)
 
         # Opti parameters
         self.start_layer = config["opti_params"]["start_layer"]
