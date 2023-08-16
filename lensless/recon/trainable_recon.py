@@ -5,7 +5,6 @@
 # Yohann PERRON [yohann.perron@gmail.com]
 # #############################################################################
 
-import abc
 from lensless.recon.recon import ReconstructionAlgorithm
 
 try:
@@ -24,7 +23,6 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
     * ``_update``: updating state variables at each iterations.
     * ``reset``: reset state variables.
     * ``_form_image``: any pre-processing that needs to be done in order to view the image estimate, e.g. reshaping or clipping.
-    * ``batch_call``: method for performing iterative reconstruction on a batch of images.
 
     One advantage of deriving from this abstract class is that functionality for
     iterating, saving, and visualization is already implemented, namely in the
