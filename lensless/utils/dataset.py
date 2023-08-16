@@ -176,7 +176,7 @@ class SimulatedFarFieldDataset(DualDataset):
     def _get_images_pair(self, index):
         # load image
         img, _ = self.get_image(index)
-        # convert to CHW for simulator and transform
+        # convert to HWC for simulator and transform
         if self.dataset_is_CHW:
             img = img.moveaxis(-3, -1)
         if self.flip_pre_sim:
@@ -448,7 +448,7 @@ class DiffuserCamTestDataset(MeasuredDataset):
         )
 
 
-class SimulatedDatasetTrainableMask(SimulatedDataset):
+class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
     """
     Dataset of propagated images (through simulation) from a Torch Dataset with learnable mask.
     The `waveprop <https://github.com/ebezzam/waveprop/blob/master/waveprop/simulation.py>`_ package is used for the simulation,
@@ -485,7 +485,7 @@ class SimulatedDatasetTrainableMask(SimulatedDataset):
         self._sim_arg = kwargs
 
         psf = self._mask.get_psf()
-        super(SimulatedDataset, self).__init__(
+        super(SimulatedFarFieldDataset, self).__init__(
             psf, dataset, pre_transform, dataset_is_CHW, flip, **kwargs
         )
 
