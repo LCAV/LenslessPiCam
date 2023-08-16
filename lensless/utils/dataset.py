@@ -164,7 +164,7 @@ class SimulatedDataset(DualDataset):
 
         self.dataset_is_CHW = dataset_is_CHW
         self._pre_transform = pre_transform
-        self.flip = flip
+        self.flip_pre_sim = flip
 
         psf = psf.squeeze().movedim(-1, 0)
 
@@ -177,16 +177,20 @@ class SimulatedDataset(DualDataset):
     def _get_images_pair(self, index):
         # load image
         img, _ = self.get_image(index)
+        # convert to CHW for simulator
         if not self.dataset_is_CHW:
             img = img.movedim(-1, 0)
-        if self.flip:
-            img = torch.rot90(img, dims=(-3, -2))
+        if self.flip_pre_sim:
+            img = torch.rot90(img, dims=(-1, -2))
         if self._pre_transform is not None:
             img = self._pre_transform(img)
 
         lensless, lensed = self.sim.propagate(img, return_object_plane=True)
+
+        # convert back to HWC
         lensless = lensless.moveaxis(-3, -1)
         lensed = lensed.moveaxis(-3, -1)
+
         return lensless, lensed
 
     def __len__(self):
