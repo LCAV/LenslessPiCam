@@ -35,9 +35,10 @@ python scripts/sim/ilo_single_file.py mask.type=PhaseContour
 import hydra
 import warnings
 from hydra.utils import to_absolute_path
-from lensless.utils.io import load_psf  # , save_image
-from lensless.utils.image import rgb2gray, rgb2bayer  # , align_face
+from lensless.utils.io import load_psf, load_image # , save_image
+from lensless.utils.image import rgb2gray, rgb2bayer
 from lensless.utils.align_face import align_face
+
 import numpy as np
 import matplotlib.pyplot as plt
 from lensless.utils.plot import plot_image
@@ -49,7 +50,7 @@ from lensless.hardware.mask import CodedAperture, PhaseContour, FresnelZoneApert
 
 
 @hydra.main(
-    version_base=None, config_path="/scratch/LenslessPiCam/configs", config_name="ilo_single_file"
+    version_base=None, config_path="../../configs", config_name="ilo_single_file"
 )
 def simulate(config):
 
@@ -57,15 +58,16 @@ def simulate(config):
     assert os.path.exists(fp), f"File {fp} does not exist."
 
     # simulation parameters
-    object_height = config.simulation.object_height
-    scene2mask = config.simulation.scene2mask
-    mask2sensor = config.simulation.mask2sensor
-    sensor = config.simulation.sensor
-    snr_db = config.simulation.snr_db
-    downsample = config.simulation.downsample
-    max_val = config.simulation.max_val
+    object_height = config.lensless_imaging.object_height
+    scene2mask = config.lensless_imaging.scene2mask
+    mask2sensor = config.lensless_imaging.mask2sensor
+    sensor = config.lensless_imaging.sensor
+    snr_db = config.lensless_imaging.simulated.snr
+    downsample = config.lensless_imaging.downsample
+    max_val = config.lensless_imaging.simulated.max_val
+    face_aligner = config.files.face_aligner
 
-    image_format = config.simulation.image_format.lower()
+    image_format = config.lensless_imaging.image_format.lower()
     grayscale = False
     if image_format == "grayscale":
         grayscale = True
@@ -98,6 +100,7 @@ def simulate(config):
         )
         psf = mask.psf / np.linalg.norm(mask.psf.ravel())
     else:
+        mask=None
         psf_fp = to_absolute_path(config.files.psf)
         assert os.path.exists(psf_fp), f"PSF {psf_fp} does not exist."
         psf = load_psf(psf_fp, verbose=True, downsample=downsample)
@@ -109,8 +112,12 @@ def simulate(config):
         print(f"Downsampled to {psf.shape}.")
 
     # 2) simulate measurement
-    # image = load_image(fp, verbose=True)
-    image = np.array(align_face(fp)) / 255
+    try:
+        #print(os.getcwd())
+        image = np.array(align_face(fp, face_aligner)) / 255
+    except:
+        print("Model not found. No face alignment.")
+        image = load_image(fp, verbose=True)
     if grayscale and len(image.shape) == 3:
         image = rgb2gray(image)
 
@@ -158,6 +165,7 @@ def simulate(config):
     ax[2].set_title("Raw data")
     plt.savefig("result.png")
     fig.tight_layout()
+    plt.show()
 
     for a in ax:
         a.set_axis_off()
@@ -170,7 +178,7 @@ def simulate(config):
     import math as ma
     import torchvision
 
-    latent_optimizer = LatentOptimizer(config)
+    latent_optimizer = LatentOptimizer(config, mask=mask)
 
     # Load input files name
     input_files = [
@@ -247,7 +255,7 @@ def simulate(config):
                     normalize=False,
                 )
 
-    plt.show()
+    #plt.show()
 
 
 if __name__ == "__main__":
