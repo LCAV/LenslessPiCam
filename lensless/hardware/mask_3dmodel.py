@@ -22,7 +22,7 @@ class Mask3DModel:
   def __init__(self,
     mask_array: np.ndarray,
     mask_size: Union[tuple[float, float], np.ndarray],
-    depth: float,
+    height: float,
     frame: Optional[Frame] = None,
     connection: Optional[Connection] = None, 
     simplify: bool = False,
@@ -36,7 +36,7 @@ class Mask3DModel:
         frame (Frame): Frame object defining the frame around the mask.
         connection (Connection): Connection object defining how to connect the frame to the mask.
         mask_size (Union[tuple[float, float], np.ndarray]): dimensions of the mask in meters.
-        depth (float): How thick to make the mask in millimeters.
+        height (float): How thick to make the mask in millimeters.
         simplify (bool, optional): Combines all objects in the model to a single object. Results in a much smaller 3d model file and faster post processing. But takes a considerable amount of more time to generate model. Defaults to False.
         show_axis (bool, optional): Show axis for debug purposes. Defaults to False.
         generate (bool, optional): Generate model on initialization. Defaults to True.
@@ -51,7 +51,7 @@ class Mask3DModel:
     else:
       self.mask_size = mask_size*1e3
       
-    self.depth = depth
+    self.height = height
     self.simplify = simplify
     self.show_axis = show_axis
 
@@ -82,10 +82,10 @@ class Mask3DModel:
     model = cq.Workplane("XY")
     
     if self.frame is not None:
-      frame_model = self.frame.generate(self.mask_size, self.depth)
+      frame_model = self.frame.generate(self.mask_size, self.height)
       model = model.add(frame_model)
     if self.connections is not None:
-      connection_model = self.connections.generate(self.mask, self.mask_size, self.depth)
+      connection_model = self.connections.generate(self.mask, self.mask_size, self.height)
       model = model.add(connection_model)
     
     px_size = self.mask_size / self.mask.shape
@@ -93,7 +93,7 @@ class Mask3DModel:
     if len(points) != 0:
       mask_model = (cq.Workplane("XY")
         .pushPoints(points)
-        .box(px_size[0], px_size[1], self.depth, centered=False, combine=False)
+        .box(px_size[0], px_size[1], self.height, centered=False, combine=False)
       )
     
       if self.simplify:
