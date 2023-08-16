@@ -39,3 +39,9 @@ if not os.path.exists(fp):
 
 
 aligned = np.array(align_face(fp, predictor_path)) / 255
+
+print(aligned.shape, aligned.min(), aligned.max())
+
+plt.figure(figsize=(10,10))
+plt.imshow(aligned)
+plt.show()
