@@ -4,41 +4,26 @@ import PIL.Image
 import scipy.ndimage
 import dlib
 
-try:
-    import torch
-    import torchvision.transforms as tf
-    from torchvision.datasets.utils import download_and_extract_archive
-
-    torch_available = True
-except ImportError:
-    torch_available = False
-
-project_root = os.getcwd()
-marker = ".gitignore"
-while not os.path.exists(os.path.join(project_root, marker)):
-    project_root = os.path.dirname(project_root)
-    if project_root == os.path.dirname(project_root):
-        raise FileNotFoundError(
-            ".gitignore file not found. Are you sure you are in the 'Lensless' project?"
-        )
-model_dir = os.path.relpath(project_root, os.getcwd()) + os.sep + "data/models"
-if not os.path.isdir(model_dir):
-    os.makedirs(model_dir)
-if not os.path.exists(os.path.join(model_dir, "shape_predictor_68_face_landmarks.dat")):
-    msg = "Do you want to download the face landmark model (61.1 Mo)?"
-    valid = input("%s (Y/n) " % msg).lower() != "n"
-    if valid:
-        url = "http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2"
-        filename = "shape_predictor_68_face_landmarks.dat.bz2"
-        download_and_extract_archive(url, model_dir, filename=filename, remove_finished=True)
-
-predictor = dlib.shape_predictor(os.path.join(model_dir, "shape_predictor_68_face_landmarks.dat"))
+#try:
+#    import torch
+#    import torchvision.transforms as tf
+#    from torchvision.datasets.utils import download_and_extract_archive
+#
+#    torch_available = True
+#except ImportError:
+#    torch_available = False
 
 
-def get_landmark(filepath):
+def get_predictor(predictor_path):
+    predictor = dlib.shape_predictor(predictor_path)
+    return predictor
+
+
+def get_landmark(filepath, predictor_path):
     """get landmark with dlib
     :return: np.array shape=(68, 2)
     """
+    predictor = get_predictor(predictor_path)
     detector = dlib.get_frontal_face_detector()
 
     img = dlib.load_rgb_image(filepath)
@@ -64,23 +49,17 @@ def get_landmark(filepath):
     return lm
 
 
-def align_face(filepath):
+def align_face(filepath, predictor_path):
     """
     :param filepath: str
     :return: PIL Image
     """
 
-    lm = get_landmark(filepath)
+    lm = get_landmark(filepath, predictor_path)
 
-    # lm_chin = lm[0:17]  # left-right
-    # lm_eyebrow_left = lm[17:22]  # left-right
-    # lm_eyebrow_right = lm[22:27]  # left-right
-    # lm_nose = lm[27:31]  # top-down
-    # lm_nostrils = lm[31:36]  # top-down
     lm_eye_left = lm[36:42]  # left-clockwise
     lm_eye_right = lm[42:48]  # left-clockwise
     lm_mouth_outer = lm[48:60]  # left-clockwise
-    # lm_mouth_inner = lm[60:68]  # left-clockwise
 
     # Calculate auxiliary vectors.
     eye_left = np.mean(lm_eye_left, axis=0)
