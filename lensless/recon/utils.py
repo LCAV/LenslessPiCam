@@ -517,31 +517,18 @@ class Trainer:
         print(f"Train time : {time.time() - start_time} s")
 
     def save(self, path="recon", include_optimizer=False):
-        """
-        Save state of reconstruction algorithm.
-
-        Parameters
-        ----------
-        path : str, optional
-            Path to save model to, by default "recon"
-        include_optimizer : bool, optional
-            Whether to include optimizer state, by default False
-
-        """
         # create directory if it does not exist
         if not os.path.exists(path):
             os.makedirs(path)
+        # save mask
+        if self.use_mask:
+            torch.save(self.mask._mask, os.path.join(path, "mask.pt"))
+            torch.save(self.mask._optimizer.state_dict(), os.path.join(path, "mask_optim.pt"))
+            import matplotlib.pyplot as plt
 
-        # TODO : ADD mask support
-        # # save mask
-        # if self.use_mask:
-        #     torch.save(self.mask._mask, os.path.join(path, "mask.pt"))
-        #     torch.save(self.mask._optimizer.state_dict(), os.path.join(path, "mask_optim.pt"))
-        #     import matplotlib.pyplot as plt
-
-        #     plt.imsave(
-        #         os.path.join(path, "psf.png"), self.mask.get_psf().detach().cpu().numpy()[0, ...]
-        #     )
+            plt.imsave(
+                os.path.join(path, "psf.png"), self.mask.get_psf().detach().cpu().numpy()[0, ...]
+            )
         # save optimizer
         if include_optimizer:
             torch.save(self.optimizer.state_dict(), os.path.join(path, "optim.pt"))
