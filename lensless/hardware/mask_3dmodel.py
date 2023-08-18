@@ -18,16 +18,106 @@ class Connection(ABC):
     """connections can in general use the mask array to determine where to connect to the mask, but it is not required."""
     pass
 
+class VaryingLenses:
+
+  def __init__(self, 
+    N: int = 5, 
+    dmin: float = 0.5e-3, 
+    dmax: float = 1.5e-3,
+    mask_size: np.ndarray = np.array([4.712e-3 , 6.2744e-3]),
+    height: Optional[float] = 1e-3,
+    padding=10e-3,
+    simplify: bool = False,
+    show_axis: bool = False,
+  ):
+    self.N = N
+    self.dmax = dmax
+    self.dmin = dmin
+    self.mask_size = mask_size
+    self.padding = padding
+
+    self.height = height
+    self.simplify = simplify
+    self.show_axis = show_axis
+
+    self.model = None
+    self.generate_3d_model()
+
+  @staticmethod
+  def does_circle_overlap(circles, x, y, d):
+    """Check if a circle overlaps with any in the list."""
+    for (cx, cy, cd) in circles:
+        if np.sqrt((x - cx)**2 + (y - cy)**2) < d/2 + cd/2:
+            return True
+    return False
+
+  def place_spheres_on_plane(width, height, dias, max_attempts=1000):
+    """Try to place circles on a 2D plane."""
+    placed_circles = []
+    dias_sorted = sorted(dias, reverse=True)  # Place larger circles first
+
+    for d in dias_sorted:
+        placed = False
+        for _ in range(max_attempts):
+            x = np.random.uniform(d/2, width - d/2)
+            y = np.random.uniform(d/2, height - d/2)
+            
+            if not VaryingLenses.does_circle_overlap(placed_circles, x, y, d):
+                placed_circles.append((x, y, d))
+                placed = True
+                break
+        
+        if not placed:
+            print(f"Failed to place circle with dia {d}")
+            continue
+
+    placed_circles = np.array(placed_circles)
+    placed_circles[:,] -= np.array([width/2, height/2, 0])
+    return placed_circles
+
+  def generate_3d_model(self):
+
+    model = cq.Workplane("XY")
+    
+    frame = (cq.Workplane("XY")
+      .box(2*self.padding*1e3 + self.mask_size[0]*1e3, 2*self.padding*1e3 + self.mask_size[1]*1e3, self.height*1e3, centered=(True, True, False))
+    )
+
+    model = model.add(frame)
+
+    # generate dias and sort them from largest to smallest
+    dias = np.random.uniform(self.dmin, self.dmax, self.N)
+    dias = np.sort(dias)[::-1]
+
+    sphere_locations = VaryingLenses.place_spheres_on_plane(self.mask_size[0], self.mask_size[1], dias)
+
+    sphere_model = cq.Workplane("XY")
+    for (x, y, dia) in sphere_locations:
+      sphere = (cq.Workplane("XY")
+        .moveTo(x*1e3, y*1e3)
+        .sphere(dia/2*1e3, angle1=0)
+      )
+      sphere_model = sphere_model.add(sphere)
+
+    sphere_model = sphere_model.translate((0, 0, self.height*1e3))
+
+    model = model.add(sphere_model)
+
+    if self.simplify:
+      model = model.combine(glue=True)
+
+    self.model = model
+
 class Mask3DModel:
   def __init__(self,
     mask_array: np.ndarray,
     mask_size: Union[tuple[float, float], np.ndarray],
-    height: float,
+    height: Optional[float] = None,
     frame: Optional[Frame] = None,
     connection: Optional[Connection] = None, 
     simplify: bool = False,
     show_axis: bool = False,
-    generate: bool = True
+    generate: bool = True,
   ):
     """_summary_
 
@@ -67,12 +157,22 @@ class Mask3DModel:
       mask_size = mask.size,
       **kwargs
     )
-    
+  
+  @staticmethod
   def mask_to_points(mask:np.ndarray, px_size: Union[tuple[float, float], np.ndarray]):
     """turns mask into 2D point coordinates"""
-    indices = np.argwhere(mask == 0) - np.array(mask.shape)/2
-    coordinates = indices*px_size
-    return coordinates
+    is_3D = len(np.unique(mask)) > 2
+
+    if is_3D:
+      indices = np.argwhere(mask != 0)
+      coordinates = (indices - np.array(mask.shape)/2)*px_size
+      heights = mask[indices[:, 0], indices[:, 1]]
+
+    else:
+      indices = np.argwhere(mask == 0)
+      coordinates = (indices - np.array(mask.shape)/2)*px_size
+      heights = None
+    return coordinates, heights
   
   def generate_3d_model(self):
     """based on provided mask, frame and connection between frame and mask, generate a 3d model."""
@@ -87,15 +187,23 @@ class Mask3DModel:
     if self.connections is not None:
       connection_model = self.connections.generate(self.mask, self.mask_size, self.height)
       model = model.add(connection_model)
-    
+  
     px_size = self.mask_size / self.mask.shape
-    points = Mask3DModel.mask_to_points(self.mask, px_size)
+    points, heights = Mask3DModel.mask_to_points(self.mask, px_size)
     if len(points) != 0:
-      mask_model = (cq.Workplane("XY")
-        .pushPoints(points)
-        .box(px_size[0], px_size[1], self.height, centered=False, combine=False)
-      )
-    
+      if heights is None:
+        assert self.height is not None, "height must be provided if mask is 2D."
+        mask_model = (cq.Workplane("XY")
+          .pushPoints(points)
+          .box(px_size[0], px_size[1], self.height, centered=False, combine=False)
+        )
+      else:
+        mask_model = cq.Workplane("XY")
+        for point, height in zip(points, heights):
+
+          box = (cq.Workplane("XY").moveTo(point[0], point[1]).box(px_size[0], px_size[1], height*self.height, centered=False, combine=False))
+          mask_model = mask_model.add(box)
+
       if self.simplify:
         mask_model = mask_model.combine(glue=True)
           
