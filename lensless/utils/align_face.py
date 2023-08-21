@@ -4,17 +4,51 @@ import PIL.Image
 import scipy.ndimage
 import dlib
 
-#try:
+# try:
 #    import torch
 #    import torchvision.transforms as tf
 #    from torchvision.datasets.utils import download_and_extract_archive
 #
 #    torch_available = True
-#except ImportError:
+# except ImportError:
 #    torch_available = False
 
 
 def get_predictor(predictor_path):
+
+    if not os.path.exists(predictor_path):
+        print(f"Predictor for alignment not found at {predictor_path}.")
+
+        remote_aligner = "shape_predictor_68_face_landmarks.dat"
+        try:
+            from torchvision.datasets.utils import download_and_extract_archive
+        except ImportError:
+            exit()
+        msg = f"Do you want to download and use {remote_aligner} from SwitchDrive? This file and others needed for ILO will be downloaded (560MB)."
+
+        # default to yes if no input is given
+        valid = input("%s (Y/n) " % msg).lower() != "n"
+        if valid:
+
+            current_path = os.path.dirname(__file__)
+
+            model_dir = os.path.join(current_path, "..", "..", "models")
+
+            if not os.path.exists(model_dir):
+                os.makedirs(model_dir)
+
+            ilo_path = os.path.join(model_dir, "ilo")
+            if os.path.exists(ilo_path):
+                print("ILO already exists (no need to download).")
+            else:
+                url = "https://drive.switch.ch/index.php/s/hD0JqMJemFJ7FKo/download"
+                filename = "ilo.zip"
+                download_and_extract_archive(
+                    url, model_dir, filename=filename, remove_finished=True
+                )
+
+            predictor_path = os.path.join(model_dir, "ilo", remote_aligner)
+
     predictor = dlib.shape_predictor(predictor_path)
     return predictor
 
@@ -23,6 +57,7 @@ def get_landmark(filepath, predictor_path):
     """get landmark with dlib
     :return: np.array shape=(68, 2)
     """
+
     predictor = get_predictor(predictor_path)
     detector = dlib.get_frontal_face_detector()
 

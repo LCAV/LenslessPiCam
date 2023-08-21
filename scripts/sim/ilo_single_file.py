@@ -35,7 +35,7 @@ python scripts/sim/ilo_single_file.py mask.type=PhaseContour
 import hydra
 import warnings
 from hydra.utils import to_absolute_path
-from lensless.utils.io import load_psf, load_image # , save_image
+from lensless.utils.io import load_psf, load_image  # , save_image
 from lensless.utils.image import rgb2gray, rgb2bayer
 from lensless.utils.align_face import align_face
 
@@ -49,9 +49,7 @@ import os
 from lensless.hardware.mask import CodedAperture, PhaseContour, FresnelZoneAperture
 
 
-@hydra.main(
-    version_base=None, config_path="../../configs", config_name="ilo_single_file"
-)
+@hydra.main(version_base=None, config_path="../../configs", config_name="ilo_single_file")
 def simulate(config):
 
     fp = to_absolute_path(config.files.original)
@@ -65,7 +63,6 @@ def simulate(config):
     snr_db = config.lensless_imaging.simulated.snr
     downsample = config.lensless_imaging.downsample
     max_val = config.lensless_imaging.simulated.max_val
-    face_aligner = config.files.face_aligner
 
     image_format = config.lensless_imaging.image_format.lower()
     grayscale = False
@@ -100,7 +97,7 @@ def simulate(config):
         )
         psf = mask.psf / np.linalg.norm(mask.psf.ravel())
     else:
-        mask=None
+        mask = None
         psf_fp = to_absolute_path(config.files.psf)
         assert os.path.exists(psf_fp), f"PSF {psf_fp} does not exist."
         psf = load_psf(psf_fp, verbose=True, downsample=downsample)
@@ -112,12 +109,9 @@ def simulate(config):
         print(f"Downsampled to {psf.shape}.")
 
     # 2) simulate measurement
-    try:
-        #print(os.getcwd())
-        image = np.array(align_face(fp, face_aligner)) / 255
-    except:
-        print("Model not found. No face alignment.")
-        image = load_image(fp, verbose=True)
+    face_aligner = to_absolute_path(config.files.face_aligner)
+    image = np.array(align_face(fp, face_aligner)) / 255
+
     if grayscale and len(image.shape) == 3:
         image = rgb2gray(image)
 
@@ -255,7 +249,7 @@ def simulate(config):
                     normalize=False,
                 )
 
-    #plt.show()
+    # plt.show()
 
 
 if __name__ == "__main__":

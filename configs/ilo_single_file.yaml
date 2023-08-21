@@ -40,7 +40,7 @@ files:
   files_ext: '.png'
   pandas_file: ./metrics.pkl
 
-  face_aligner: '../../../models/shape_predictor_68_face_landmarks.dat'
+  face_aligner: 'models/ilo/shape_predictor_68_face_landmarks.dat'
 
 mask:
   type: "tape"    # "MURA", "MLS", "FZA", "PhaseContour"
