@@ -13,7 +13,7 @@ import time
 import pathlib as plib
 import matplotlib.pyplot as plt
 import numpy as np
-from lensless.utils.io import load_data
+from lensless.utils.io import load_data, load_image
 from lensless import ADMM
 from lensless.utils.plot import plot_image
 
@@ -130,12 +130,45 @@ def admm(config):
                 ax.set_title("Image after preprocessing")
             if res[2] is not None:
                 pre_post_process_image = res[2].cpu().numpy()
-                ax = plot_image(pre_post_process_image, gamma=config["display"]["gamma"])
+                ax = plot_image(pre_post_process_image, gamma=config["display"]["gamma"] * 2)
                 plt.savefig(plib.Path(save) / "pre_post_process.png")
                 ax.set_title("Image after preprocessing")
 
         np.save(plib.Path(save) / "final_reconstruction.npy", img)
         print(f"Files saved to : {save}")
+
+        if config.input.original is not None:
+            original = load_image(
+                to_absolute_path(config.input.original),
+                flip=config["preprocess"]["flip"],
+                red_gain=config["preprocess"]["red_gain"],
+                blue_gain=config["preprocess"]["blue_gain"],
+            )
+            ax = plot_image(original, gamma=config["display"]["gamma"])
+            plt.savefig(plib.Path(save) / "original.png")
+            ax.set_title("Ground truth image")
+
+        # If the recon algorithm is unrolled and has a preprocessing step, plot result without preprocessing
+        if config.admm.unrolled and recon.pre_process is not None:
+            recon.set_data(data)
+            recon.pre_process = None
+            with torch.no_grad():
+                res = recon.apply(
+                    disp_iter=disp,
+                    save=save,
+                    gamma=config["display"]["gamma"],
+                    plot=config["display"]["plot"],
+                    output_intermediate=True,
+                )
+
+            img = res[0].cpu().numpy()
+            np.save(plib.Path(save) / "final_reconstruction_no_preprocessing.npy", img)
+            print(f"Files saved to : {save}")
+            ax = plot_image(img, gamma=config["display"]["gamma"])
+            plt.savefig(plib.Path(save) / "final_reconstruction_no_preprocessing.png")
+            pre_post_process_image = res[2].cpu().numpy()
+            ax = plot_image(pre_post_process_image, gamma=config["display"]["gamma"] * 2)
+            plt.savefig(plib.Path(save) / "pre_post_process_no_preprocessing.png")
 
 
 if __name__ == "__main__":
