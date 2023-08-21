@@ -227,6 +227,7 @@ class Trainer:
         batch_size=4,
         loss="l2",
         lpips=None,
+        l1_mask=None,
         optimizer="Adam",
         optimizer_lr=1e-6,
         slow_start=None,
@@ -252,6 +253,8 @@ class Trainer:
             Loss function to use for training "l1" or "l2", by default "l2"
         lpips : float, optional
             the weight of the lpips(VGG) in the total loss. If None ignore. By default None
+        l1_mask : float, optional
+            the weight of the l1 norm of the mask in the total loss. If None ignore. By default None
         optimizer : str, optional
             Optimizer to use durring training. Available : "Adam". By default "Adam"
         optimizer_lr : float, optional
@@ -292,6 +295,8 @@ class Trainer:
             self.use_mask = True
         else:
             self.use_mask = False
+
+        self.l1_mask = l1_mask
 
         # loss
         if loss == "l2":
@@ -429,6 +434,8 @@ class Trainer:
                 loss_v = loss_v + self.lpips * torch.mean(
                     self.Loss_lpips(2 * y_pred - 1, 2 * y - 1)
                 )
+            if self.use_mask and self.l1_mask:
+                loss_v = loss_v + self.l1_mask * torch.mean(torch.abs(self.mask._mask))
             loss_v.backward()
 
             torch.nn.utils.clip_grad_norm_(self.recon.parameters(), 1.0)
@@ -517,6 +524,7 @@ class Trainer:
 
         start_time = time.time()
 
+        self.evaluate(-1, save_pt)
         for epoch in range(n_epoch):
             print(f"Epoch {epoch} with learning rate {self.scheduler.get_last_lr()}")
             mean_loss = self.train_epoch(self.train_dataloader, disp=disp)
