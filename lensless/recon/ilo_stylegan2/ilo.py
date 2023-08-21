@@ -3,6 +3,7 @@ TODO : authorship from original ILO
 https://github.com/giannisdaras/ilo/blob/master/ilo_stylegan.py
 """
 
+import os
 import numpy as np
 import math
 from tqdm import tqdm
@@ -88,20 +89,52 @@ class LatentOptimizer(torch.nn.Module):
     def __init__(self, config, mask=None):
         super().__init__()
 
+        model_checkpoint = to_absolute_path(config["model"]["checkpoint"])
+        mapping_checkpoint = to_absolute_path(config["model"]["mapping"])
+        if not os.path.exists(model_checkpoint):
+            print("Model checkpoint does not exist")
+
+            try:
+                from torchvision.datasets.utils import download_and_extract_archive
+            except ImportError:
+                exit()
+
+            msg = "Do you want to download and use ILO files from SwitchDrive (560MB)?"
+
+            # default to yes if no input is given
+            valid = input("%s (Y/n) " % msg).lower() != "n"
+            if valid:
+
+                current_path = os.path.dirname(__file__)
+
+                model_dir = os.path.join(current_path, "..", "..", "models")
+
+                if not os.path.exists(model_dir):
+                    os.makedirs(model_dir)
+
+                ilo_path = os.path.join(model_dir, "ilo")
+                if os.path.exists(ilo_path):
+                    print("ILO already exists (no need to download).")
+                else:
+                    url = "https://drive.switch.ch/index.php/s/hD0JqMJemFJ7FKo/download"
+                    filename = "ilo.zip"
+                    download_and_extract_archive(
+                        url, model_dir, filename=filename, remove_finished=True
+                    )
+
+            model_checkpoint = os.path.join(model_dir, "ilo", "stylegan2-ffhq-config-f.pt")
+            mapping_checkpoint = os.path.join(model_dir, "ilo", "gaussian_fit.pt")
+
         self.device = config["opti_params"]["device"]
 
         # Load models and pre-trained weights
         gen = Generator(1024, 512, 8)
-        gen.load_state_dict(
-            torch.load(to_absolute_path(config["model"]["checkpoint"]))["g_ema"], strict=False
-        )
+        gen.load_state_dict(torch.load(model_checkpoint)["g_ema"], strict=False)
         gen.eval()
         self.gen = gen.to(self.device)
         self.gen.start_layer = config["opti_params"]["start_layer"]
         self.gen.end_layer = config["opti_params"]["end_layer"]
-        self.mpl = MappingProxy(
-            torch.load(to_absolute_path("./models/gaussian_fit.pt"), self.device)
-        )
+        self.mpl = MappingProxy(torch.load(mapping_checkpoint, self.device))
 
         cuda_ids = [0]
         if self.device.startswith("cuda:"):
@@ -154,13 +187,13 @@ class LatentOptimizer(torch.nn.Module):
         )
 
         # Create forward model
-        #self.forward_model = RealFFTConvolve2D(self.psf_image)
-        if flatcam and mask_type.upper() not in ['MURA', 'MLS']:
-            print('Separable assumption only available for coded apertures.')
+        # self.forward_model = RealFFTConvolve2D(self.psf_image)
+        if flatcam and mask_type.upper() not in ["MURA", "MLS"]:
+            print("Separable assumption only available for coded apertures.")
             flatcam = False
         if flatcam:
-            self.forward_model = lambda img : mask.simulate(img, snr_db=snr)
-        #elif mask is not None:
+            self.forward_model = lambda img: mask.simulate(img, snr_db=snr)
+        # elif mask is not None:
         else:
             simulator = FarFieldSimulator(
                 psf=psf_image,  # only support one depth plane
@@ -171,8 +204,8 @@ class LatentOptimizer(torch.nn.Module):
                 snr_db=snr,
                 max_val=max_val,
             )
-            self.forward_model = lambda img : simulator.propagate(img, return_object_plane=False)
-        #else:
+            self.forward_model = lambda img: simulator.propagate(img, return_object_plane=False)
+        # else:
         #    self.forward_model = RealFFTConvolve2D(self.psf_image)
 
         # Opti parameters

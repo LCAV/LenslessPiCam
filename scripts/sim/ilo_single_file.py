@@ -38,6 +38,11 @@ from hydra.utils import to_absolute_path
 from lensless.utils.io import load_psf, load_image  # , save_image
 from lensless.utils.image import rgb2gray, rgb2bayer
 from lensless.utils.align_face import align_face
+from lensless.recon.ilo_stylegan2.ilo import LatentOptimizer
+import glob
+from tqdm import tqdm
+import math as ma
+import torchvision
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -165,13 +170,6 @@ def simulate(config):
         a.set_axis_off()
 
     # 3) reconstruction (TODO)
-
-    from lensless.recon.ilo_stylegan2.ilo import LatentOptimizer
-    import glob
-    from tqdm import tqdm
-    import math as ma
-    import torchvision
-
     latent_optimizer = LatentOptimizer(config, mask=mask)
 
     # Load input files name

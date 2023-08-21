@@ -117,7 +117,8 @@ task:
 # only StyleGAN is supported for now.
 model:
   type: 'stylegan2'
-  checkpoint: models/stylegan2-ffhq-config-f.pt
+  checkpoint: models/ilo/stylegan2-ffhq-config-f.pt
+  mapping: models/ilo/gaussian_fit.pt
 
 # Optimization parameters
 opti_params:
