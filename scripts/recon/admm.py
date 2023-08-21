@@ -54,7 +54,11 @@ def admm(config):
         save = os.getcwd()
 
     if save:
-        ax = plot_image(data.cpu().numpy(), gamma=config["display"]["gamma"])
+        if config.torch:
+            org_data = data.cpu().numpy()
+        else:
+            org_data = data
+        ax = plot_image(org_data, gamma=config["display"]["gamma"])
         plt.savefig(plib.Path(save) / "lensless.png")
         ax.set_title("Original measurement")
 
