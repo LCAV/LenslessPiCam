@@ -53,12 +53,18 @@ class AmplitudeMask(TrainableMask):
     Class for defining trainable amplitude masks.
     """
 
-    def __init__(self, initial_mask, optimizer="Adam", lr=1e-3, update_frequency=1, **kwargs):
+    def __init__(
+        self, is_rgb, initial_mask, optimizer="Adam", lr=1e-3, update_frequency=1, **kwargs
+    ):
         print("Warning: AmplitudeMask is not fully implemented yet.")
         super().__init__(initial_mask, optimizer, lr, update_frequency, **kwargs)
+        self._is_rgb = is_rgb
 
     def get_psf(self):
-        return self._mask
+        if self._is_rgb:
+            return self._mask.expand(-1, -1, -1, 3)
+        else:
+            return self._mask
 
     def project(self):
         self._mask.data = torch.clamp(self._mask, 0, 1)
