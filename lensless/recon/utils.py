@@ -267,6 +267,15 @@ class Trainer:
         self.device = recon._psf.device
 
         self.recon = recon
+
+        if test_dataset is None:
+            # split train dataset
+            train_size = int(0.9 * len(train_dataset))
+            test_size = len(train_dataset) - train_size
+            train_dataset, test_dataset = torch.utils.data.random_split(
+                train_dataset, [train_size, test_size]
+            )
+
         self.train_dataloader = torch.utils.data.DataLoader(
             dataset=train_dataset,
             batch_size=batch_size,
