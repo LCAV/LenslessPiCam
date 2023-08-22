@@ -17,10 +17,9 @@ class TrainableMask(metaclass=abc.ABCMeta):
     project: projecting the mask parameters to a valid space (should be a subspace of [0,1]).
     """
 
-    def __init__(self, initial_mask, optimizer="Adam", lr=1e-3, update_frequency=1, **kwargs):
+    def __init__(self, initial_mask, optimizer="Adam", lr=1e-3, **kwargs):
         self._mask = torch.nn.Parameter(initial_mask)
         self._optimizer = getattr(torch.optim, optimizer)([self._mask], lr=lr, **kwargs)
-        self._update_frequency = update_frequency
         self._counter = 0
 
     @abc.abstractmethod
@@ -36,10 +35,9 @@ class TrainableMask(metaclass=abc.ABCMeta):
 
     def update_mask(self):
         """Update the mask parameters. Acoording to externaly updated gradiants."""
-        if (self._counter + 1) % self._update_frequency == 0:
-            self._optimizer.step()
-            self._optimizer.zero_grad(set_to_none=True)
-            self.project()
+        self._optimizer.step()
+        self._optimizer.zero_grad(set_to_none=True)
+        self.project()
         self._counter += 1
 
     @abc.abstractmethod
