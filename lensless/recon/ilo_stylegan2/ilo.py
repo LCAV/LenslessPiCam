@@ -204,7 +204,8 @@ class LatentOptimizer(torch.nn.Module):
                 snr_db=snr,
                 max_val=max_val,
             )
-            self.forward_model = lambda img: simulator.propagate(img, return_object_plane=False)
+            # self.forward_model = lambda img: simulator.propagate(img, return_object_plane=False)
+            self.forward_model = simulator.propagate
         # else:
         #    self.forward_model = RealFFTConvolve2D(self.psf_image)
 
