@@ -171,10 +171,14 @@ class LatentOptimizer(torch.nn.Module):
         flatcam = config["lensless_imaging"]["simulated"]["flatcam"]
         snr = config["lensless_imaging"]["simulated"]["snr"]
         max_val = config["lensless_imaging"]["simulated"]["max_val"]
-        try:
-            self.psf_size = np.array(psf_image.shape)
-        except Exception:
-            self.psf_size = np.array(config["lensless_imaging"]["psf_size"])
+
+        self.psf_size = np.array(psf_image.shape)
+        # bring channel dimension to the front
+        self.psf_size = np.roll(self.psf_size, 1)
+        # try:
+        #     self.psf_size = np.array(psf_image.shape)
+        # except Exception:
+        #     self.psf_size = np.array(config["lensless_imaging"]["psf_size"])
 
         # Input image at the right size
         magnification = mask2sensor / scene2mask
@@ -185,6 +189,7 @@ class LatentOptimizer(torch.nn.Module):
 
         # Normalize and forward model
         psf_image = psf_image / np.linalg.norm(psf_image.ravel())
+        # self.psf_image = torch.from_numpy(psf_image).unsqueeze(0).to(self.device)
         self.psf_image = (
             torch.from_numpy(psf_image).float().permute(2, 0, 1).unsqueeze(0).to(self.device)
         )
@@ -198,19 +203,19 @@ class LatentOptimizer(torch.nn.Module):
             self.forward_model = lambda img: mask.simulate(img, snr_db=snr)
         # elif mask is not None:
         else:
-            simulator = FarFieldSimulator(
-                psf=psf_image,  # only support one depth plane
+
+            self.simulator = FarFieldSimulator(
+                psf=self.psf_image,
                 object_height=object_height,
                 scene2mask=scene2mask,
                 mask2sensor=mask2sensor,
                 sensor=sensor,
-                snr_db=snr,
+                snr_db=None,
                 max_val=max_val,
+                is_torch=True,
+                device_conv=self.device,
             )
-            # self.forward_model = lambda img: simulator.propagate(img, return_object_plane=False)
-            self.forward_model = simulator.propagate
-        # else:
-        #    self.forward_model = RealFFTConvolve2D(self.psf_image)
+            self.forward_model = self.simulator.propagate
 
         # Opti parameters
         self.start_layer = config["opti_params"]["start_layer"]
@@ -351,13 +356,13 @@ class LatentOptimizer(torch.nn.Module):
 
             A_img_gen = F.interpolate(A_img_gen, size=self.object_dim, mode="bicubic")
             A_img_gen = zero_padding_tensor(A_img_gen, self.psf_size)
-            A_img_gen = self.forward_model(A_img_gen)
+            A_img_gen = self.forward_model(A_img_gen).to(torch.float32)
 
-            # Using the all range [0,1]
+            # Using the all range [0,1], as LPIPS expects [0, 1]
             with torch.no_grad():
                 max_vals = torch.max(torch.flatten(A_img_gen, start_dim=1), dim=1)[0]
                 max_vals = max_vals.unsqueeze(1).unsqueeze(1).unsqueeze(1)
-            A_img_gen /= max_vals
+            A_img_gen = A_img_gen / max_vals
 
             # Calculate perceptual loss (LPIPS)
             if self.pe[index] != 0:
