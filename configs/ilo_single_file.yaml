@@ -63,7 +63,7 @@ lensless_imaging:
   # PSF parameters  (TODO consistent with simulation)
   scene2mask: 40e-2 #m
   mask2sensor: 4e-3 #m
-  object_height: 0.3 #m
+  object_height: 0.45 #m, TODO: made big to fit entire region
   sensor: 'rpi_hq'
   psf_size: [3040, 4056]
   downsample: 8
@@ -72,13 +72,9 @@ lensless_imaging:
   # Simulation parameters
   simulated:
     bool: False
-    slm: 'adafruit'
-    optimize_mask: False # if simulated True
-    lr: 0.001
-    crop_factor: 0.8 # Portion left of the SLM (centered)
     gaussian_noise: True
     snr: 40.0
-    max_val: 230
+    max_val: 255
     flatcam: False
 
 # Preprocessing actions
@@ -134,7 +130,8 @@ opti_params:
 
   # steps per layer -> define which layer is optimized
   # if you want to skip optimization in some layers, just use 0 to the corresponding indices of steps.
-  steps: [50, 50, 50, 50, 50] 
+  # steps: [50, 50, 50, 50, 50, 50, 50, 50, 50]   # up to 9, but need to extend max_radius_*
+  steps: [50, 50, 50, 50, 50, 50]
 
   # learning rate per layer
   lr: [0.1, 0.08, 0.06, 0.04, 0.02, 0.01, 0.01, 0.01, 0.01]
@@ -143,16 +140,17 @@ opti_params:
   lr_same_pace: False
 
   # project latents to unit ball
-  project: True
+  project: False
+  # project: True
 
   # projections (decent results with false, toilsome to fine-tune)
   do_project_latent: False
   do_project_noises: False
   do_project_gen_out: False
 
-  max_radius_latent: [300, 500, 1000, 2000, 4000]
-  max_radius_noises: [300, 2000, 2000, 4000, 6000]
-  max_radius_gen_out: [0, 500, 1000, 2000, 4000]
+  max_radius_latent: [300, 500, 1000, 2000, 4000, 8000, 8000, 8000, 8000]
+  max_radius_noises: [300, 2000, 2000, 4000, 6000, 8000, 8000, 8000, 8000]
+  max_radius_gen_out: [0, 500, 1000, 2000, 4000, 8000, 8000, 8000, 8000]
   # note:  first value of max_radius_gen_out is not used
 
 
@@ -160,9 +158,9 @@ opti_params:
 loss_params:
   ## weights of different losses
   geocross: 0.01
-  mse: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-  pe: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
-  dead_zone_linear: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+  mse: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+  pe: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+  dead_zone_linear: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
   # tolerance of dead zone linear function
   dead_zone_linear_alpha: 0.05
   # LPIPS method 

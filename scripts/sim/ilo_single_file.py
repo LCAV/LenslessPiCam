@@ -213,10 +213,9 @@ def simulate(config):
     _, _, best = latent_optimizer.invert()
 
     best_img = best[0].detach().cpu().squeeze().permute(1, 2, 0)
-    print(best_img, best_img.shape)
     plt.figure()
     plt.imshow(best_img)
-    plt.savefig("ILO")
+    plt.savefig("ILO_result.png")
 
     # import pudb ; pudb.set_trace()
 

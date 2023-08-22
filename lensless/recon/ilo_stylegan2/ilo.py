@@ -211,6 +211,7 @@ class LatentOptimizer(torch.nn.Module):
                 mask2sensor=mask2sensor,
                 sensor=sensor,
                 snr_db=None,
+                quantize=True,
                 max_val=max_val,
                 is_torch=True,
                 device_conv=self.device,
