@@ -142,9 +142,9 @@ class SimulatedDataset(DualDataset):
         Parameters
         ----------
 
-        dataset : torch.utils.data.Dataset
+        dataset : :py:class:`torch.utils.data.Dataset`
             Dataset to propagate. Should output images with shape [H, W, C] unless ``dataset_is_CHW`` is ``True`` (and therefore images have the dimension ordering of [C, H, W]).
-        simulator : lensless.utils.FarFieldSimulator
+        simulator : :py:class:`lensless.utils.FarFieldSimulator`
             Waveprop simulator to use for the simulation. See `FarFieldSimulator <https://github.com/ebezzam/waveprop/blob/c07863aac87a8cd9f90ad43aa8428eb185c1595b/waveprop/simulation.py#L11>`. It is expect to have is_torch = True.
         pre_transform : PyTorch Transform or None, optional
             Transform to apply to the images before simulation, by default ``None``. Note that this transform is applied on HCW images (diffferent from torchvision).
@@ -220,7 +220,7 @@ class LenslessDataset(DualDataset):
         ----------
         root_dir : str
             Path to the test dataset. It is expected to contain two folders: one of lensless images and one of original images.
-        simulator : lensless.utils.FarFieldSimulator
+        simulator : :py:class:`lensless.utils.simulatorFarFieldSimulator`
             Waveprop simulator to use for the projection of the original image to object space. The psf musn't be specify. See `FarFieldSimulator <https://github.com/ebezzam/waveprop/blob/c07863aac87a8cd9f90ad43aa8428eb185c1595b/waveprop/simulation.py#L11>`. It is expect to have is_torch = True.
         lensless_fn : str, optional
             Name of the folder containing the lensless images, by default "diffuser".

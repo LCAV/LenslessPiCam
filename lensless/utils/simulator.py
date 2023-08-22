@@ -5,14 +5,13 @@
 # Yohann PERRON [yohann.perron@gmail.com]
 # #############################################################################
 
-import waveprop.simulation
 import numpy as np
+import waveprop.simulation
 
 
 class FarFieldSimulator(waveprop.simulation.FarFieldSimulator):
     """
     Wrapper around :py:class:`~waveprop.FarFieldSimulator` for lensless imaging (`github <https://github.com/ebezzam/waveprop/blob/82dfb08b4db11c0c07ef00bdb59b5a769a49f0b3/waveprop/simulation.py#L11C11-L11C11>`).
-
     """
 
     def __init__(
@@ -76,7 +75,6 @@ class FarFieldSimulator(waveprop.simulation.FarFieldSimulator):
 
     def propagate(self, obj, return_object_plane=False):
         """
-
         Parameters
         ----------
         obj : np.ndarray or torch.Tensor
