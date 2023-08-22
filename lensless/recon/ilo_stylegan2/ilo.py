@@ -86,7 +86,7 @@ class SphericalOptimizer:
 
 
 class LatentOptimizer(torch.nn.Module):
-    def __init__(self, config, mask=None):
+    def __init__(self, config, psf, mask=None):
         super().__init__()
 
         model_checkpoint = to_absolute_path(config["model"]["checkpoint"])
@@ -152,11 +152,14 @@ class LatentOptimizer(torch.nn.Module):
         image_size = np.array(config["preprocessing"]["resize"]["image_size"])
 
         # Load PSF
-        if mask is None:
-            psf_path = config["lensless_imaging"]["psf_path"]
-            psf_image = np.array(Image.open(to_absolute_path(psf_path)).convert("RGB"))
-        else:
-            psf_image = mask.psf.copy()
+        try:
+            psf_image = psf.copy()
+        except Exception:
+            if mask is None:
+                psf_path = config["lensless_imaging"]["psf_path"]
+                psf_image = np.array(Image.open(to_absolute_path(psf_path)).convert("RGB"))
+            else:
+                psf_image = mask.psf.copy()
 
         self.lensless_imaging = True
         scene2mask = config["lensless_imaging"]["scene2mask"]

@@ -177,7 +177,7 @@ def simulate(config):
         a.set_axis_off()
 
     # 3) reconstruction (TODO)
-    latent_optimizer = LatentOptimizer(config, mask=mask)
+    latent_optimizer = LatentOptimizer(config, psf=psf, mask=mask)
 
     # input_file = to_absolute_path(config.files.preprocess_dir + config.files.image_name)
 
