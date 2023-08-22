@@ -5,11 +5,11 @@
 # Yohann PERRON [yohann.perron@gmail.com]
 # #############################################################################
 
-import waveprop
+import waveprop.simulation
 import numpy as np
 
 
-class FarFieldSimulator(waveprop.FarFieldSimulator):
+class FarFieldSimulator(waveprop.simulation.FarFieldSimulator):
     """
     Wrapper around :py:class:`~waveprop.FarFieldSimulator` for lensless imaging (`github <https://github.com/ebezzam/waveprop/blob/82dfb08b4db11c0c07ef00bdb59b5a769a49f0b3/waveprop/simulation.py#L11C11-L11C11>`).
 
