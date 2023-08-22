@@ -210,7 +210,15 @@ def simulate(config):
     latent_optimizer.init_state([simulated_fn])
 
     # Invert
-    _, z, best = latent_optimizer.invert()
+    _, _, best = latent_optimizer.invert()
+
+    best_img = best[0].detach().cpu().squeeze().permute(1, 2, 0)
+    print(best_img, best_img.shape)
+    plt.figure()
+    plt.imshow(best_img)
+    plt.savefig("ILO")
+
+    # import pudb ; pudb.set_trace()
 
     # best_img = best[0].detach().cpu()
     # if config["logs"]["save_forward"]:
