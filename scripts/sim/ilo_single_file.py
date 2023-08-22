@@ -57,7 +57,8 @@ from lensless.hardware.mask import CodedAperture, PhaseContour, FresnelZoneApert
 @hydra.main(version_base=None, config_path="../../configs", config_name="ilo_single_file")
 def simulate(config):
 
-    fp = to_absolute_path(config.files.input_dir + config.files.image_name)
+    fp = to_absolute_path(config.files.original_fp)
+    bn = os.path.basename(fp).split(".")[0]
     assert os.path.exists(fp), f"File {fp} does not exist."
 
     # simulation parameters
@@ -114,15 +115,15 @@ def simulate(config):
         print(f"Downsampled to {psf.shape}.")
 
     # 2) simulate measurement
+    # -- first align face
     face_aligner = to_absolute_path(config.files.face_aligner)
-    image = np.array(align_face(fp, face_aligner)) / 255
-    if config.save:
-        if not os.path.exists(config.files.preprocess_dir):
-            os.makedirs("../../../" + config.files.preprocess_dir)
-        save_image(image, "../../../" + config.files.preprocess_dir + config.files.image_name)
+    image_aligned = np.array(align_face(fp, face_aligner)) / 255
+    aligned_fn = bn + "_aligned.png"
+    save_image(image_aligned, aligned_fn)
+    print(f"Saved aligned image to {aligned_fn}.")
 
-    if grayscale and len(image.shape) == 3:
-        image = rgb2gray(image)
+    if grayscale and len(image_aligned.shape) == 3:
+        image_aligned = rgb2gray(image_aligned)
 
     flatcam_sim = config.simulation.flatcam
     if flatcam_sim and mask_type.upper() not in ["MURA", "MLS"]:
@@ -141,7 +142,10 @@ def simulate(config):
         snr_db=snr_db,
         max_val=max_val,
     )
-    image_plane, object_plane = simulator.propagate(image, return_object_plane=True)
+    image_plane, object_plane = simulator.propagate(image_aligned, return_object_plane=True)
+    simulated_fn = bn + "_sim_meas.png"
+    save_image(image_plane, simulated_fn)
+    print(f"Saved simulated image to {simulated_fn}.")
 
     if image_format == "grayscale":
         image_plane = rgb2gray(image_plane)
@@ -168,7 +172,6 @@ def simulate(config):
     ax[2].set_title("Raw data")
     plt.savefig("result.png")
     fig.tight_layout()
-    plt.show()
 
     for a in ax:
         a.set_axis_off()
@@ -176,7 +179,7 @@ def simulate(config):
     # 3) reconstruction (TODO)
     latent_optimizer = LatentOptimizer(config, mask=mask)
 
-    input_file = "../../../" + config.files.preprocess_dir + config.files.image_name
+    # input_file = to_absolute_path(config.files.preprocess_dir + config.files.image_name)
 
     """
     # Configure output files name
@@ -204,7 +207,7 @@ def simulate(config):
     """
 
     # Initialize state of optimizer
-    latent_optimizer.init_state([input_file])
+    latent_optimizer.init_state([simulated_fn])
 
     # Invert
     _, z, best = latent_optimizer.invert()
