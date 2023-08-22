@@ -12,8 +12,7 @@ import torch
 from abc import abstractmethod
 from torch.utils.data import Dataset
 from torchvision import transforms
-from waveprop.simulation import FarFieldSimulator
-
+from lensless.utils.simulator import FarFieldSimulator
 from lensless.utils.io import load_image, load_psf
 from lensless.utils.image import resize
 
@@ -47,9 +46,9 @@ class DualDataset(Dataset):
             flip : bool, optional
                 If ``True``, lensless images are flipped, by default ``False``.
             transform_lensless : PyTorch Transform or None, optional
-                Transform to apply to the lensless images, by default ``None``.
+                Transform to apply to the lensless images, by default ``None``. Note that this transform is applied on HWC images (diffferent from torchvision).
             transform_lensed : PyTorch Transform or None, optional
-                Transform to apply to the lensed images, by default ``None``.
+                Transform to apply to the lensed images, by default ``None``. Note that this transform is applied on HWC images (diffferent from torchvision).
         """
         if isinstance(indices, int):
             indices = range(indices)
@@ -132,8 +131,8 @@ class SimulatedDataset(DualDataset):
 
     def __init__(
         self,
-        psf,
         dataset,
+        simulator,
         pre_transform=None,
         dataset_is_CHW=False,
         flip=False,
@@ -143,12 +142,12 @@ class SimulatedDataset(DualDataset):
         Parameters
         ----------
 
-        psf : torch.Tensor
-            PSF to use for simulate. Should be a 4D tensor with shape [1, H, W, C]. Simulation of multi-depth data is not supported yet.
         dataset : torch.utils.data.Dataset
             Dataset to propagate. Should output images with shape [H, W, C] unless ``dataset_is_CHW`` is ``True`` (and therefore images have the dimension ordering of [C, H, W]).
+        simulator : lensless.utils.FarFieldSimulator
+            Waveprop simulator to use for the simulation. See `FarFieldSimulator <https://github.com/ebezzam/waveprop/blob/c07863aac87a8cd9f90ad43aa8428eb185c1595b/waveprop/simulation.py#L11>`. It is expect to have is_torch = True.
         pre_transform : PyTorch Transform or None, optional
-            Transform to apply to the images before simulation, by default ``None``.
+            Transform to apply to the images before simulation, by default ``None``. Note that this transform is applied on HCW images (diffferent from torchvision).
         dataset_is_CHW : bool, optional
             If True, the input dataset is expected to output images with shape [C, H, W], by default ``False``.
         flip : bool, optional
@@ -166,10 +165,10 @@ class SimulatedDataset(DualDataset):
         self._pre_transform = pre_transform
         self.flip_pre_sim = flip
 
-        psf = psf.squeeze().movedim(-1, 0)
-
-        # initialize simulator
-        self.sim = FarFieldSimulator(psf=psf, is_torch=True, **kwargs)
+        # check simulator
+        assert isinstance(simulator, FarFieldSimulator), "Simulator should be a FarFieldSimulator"
+        assert simulator.psf is not None, "Simulator should have a psf"
+        self.sim = simulator
 
     def get_image(self, index):
         return self.dataset[index]
@@ -177,19 +176,15 @@ class SimulatedDataset(DualDataset):
     def _get_images_pair(self, index):
         # load image
         img, _ = self.get_image(index)
-        # convert to CHW for simulator
-        if not self.dataset_is_CHW:
-            img = img.movedim(-1, 0)
+        # convert to CHW for simulator and transform
+        if self.dataset_is_CHW:
+            img = img.moveaxis(-3, -1)
         if self.flip_pre_sim:
-            img = torch.rot90(img, dims=(-1, -2))
+            img = torch.rot90(img, dims=(-3, -2))
         if self._pre_transform is not None:
             img = self._pre_transform(img)
 
         lensless, lensed = self.sim.propagate(img, return_object_plane=True)
-
-        # convert back to HWC
-        lensless = lensless.moveaxis(-3, -1)
-        lensed = lensed.moveaxis(-3, -1)
 
         return lensless, lensed
 
@@ -210,6 +205,7 @@ class LenslessDataset(DualDataset):
     def __init__(
         self,
         root_dir,
+        simulator,
         lensless_fn="diffuser",
         original_fn="lensed",
         image_ext="npy",
@@ -224,6 +220,8 @@ class LenslessDataset(DualDataset):
         ----------
         root_dir : str
             Path to the test dataset. It is expected to contain two folders: one of lensless images and one of original images.
+        simulator : lensless.utils.FarFieldSimulator
+            Waveprop simulator to use for the projection of the original image to object space. The psf musn't be specify. See `FarFieldSimulator <https://github.com/ebezzam/waveprop/blob/c07863aac87a8cd9f90ad43aa8428eb185c1595b/waveprop/simulation.py#L11>`. It is expect to have is_torch = True.
         lensless_fn : str, optional
             Name of the folder containing the lensless images, by default "diffuser".
         lensed_fn : str, optional
@@ -253,8 +251,10 @@ class LenslessDataset(DualDataset):
                 f"No files found in {self.lensless_dir} with extension {image_ext}"
             )
 
-        # initialize simulator
-        self.sim = FarFieldSimulator(is_torch=True, **kwargs)
+        # check simulator
+        assert isinstance(simulator, FarFieldSimulator), "Simulator should be a FarFieldSimulator"
+        assert simulator.psf is None, "Simulator should not have a psf"
+        self.sim = simulator
 
     def __len__(self):
         if self.indices is None:
@@ -263,7 +263,7 @@ class LenslessDataset(DualDataset):
             return len([i for i in self.indices if i < len(self.files)])
 
     def _get_images_pair(self, idx):
-        if self.image_ext == "npy":
+        if self.image_ext == "npy" or self.image_ext == "npz":
             lensless_fp = os.path.join(self.lensless_dir, self.files[idx])
             original_fp = os.path.join(self.original_dir, self.files[idx])
             lensless = np.load(lensless_fp)
@@ -293,7 +293,7 @@ class LenslessDataset(DualDataset):
 
         # project original image to lensed space
         with torch.no_grad():
-            lensed = self.sim.propagate(original.moveaxis(-1, -3)).moveaxis(-3, -1)
+            lensed = self.sim.propagate()
 
         return lensless, lensed
 
@@ -352,7 +352,7 @@ class ParallelDataset(DualDataset):
             return len([i for i in self.indices if i < len(self.files)])
 
     def _get_images_pair(self, idx):
-        if self.image_ext == "npy":
+        if self.image_ext == "npy" or self.image_ext == "npz":
             lensless_fp = os.path.join(self.lensless_dir, self.files[idx])
             lensed_fp = os.path.join(self.lensed_dir, self.files[idx])
             lensless = np.load(lensless_fp)
