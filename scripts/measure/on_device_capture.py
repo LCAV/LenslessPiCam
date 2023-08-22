@@ -2,7 +2,20 @@
 Capture raw Bayer data or post-processed RGB data.
 
 ```
-python scripts/on_device_capture.py --legacy --exp 0.02 --sensor_mode 0
+python scripts/measure/on_device_capture.py legacy=True \
+exp=0.02 bayer=True
+```
+
+With the Global Shutter sensor, legacy RPi software is not supported.
+```
+python scripts/measure/on_device_capture.py sensor=rpi_gs \
+legacy=False exp=0.02 bayer=True
+```
+
+To capture PNG data (bayer=False) and downsample (by factor 2):
+```
+python scripts/measure/on_device_capture.py sensor=rpi_gs \
+legacy=False exp=0.02 bayer=False down=2
 ```
 
 See these code snippets for setting camera settings and post-processing
@@ -21,6 +34,7 @@ from PIL import Image
 from lensless.hardware.utils import get_distro
 from lensless.utils.image import bayer2rgb_cc, rgb2gray, resize
 from lensless.hardware.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
+from lensless.hardware.sensor import SensorOptions, sensor_dict, SensorParam
 from fractions import Fraction
 import time
 
@@ -42,6 +56,9 @@ SENSOR_MODES = [
 @hydra.main(version_base=None, config_path="../../configs", config_name="capture")
 def capture(config):
 
+    sensor = config.sensor
+    assert sensor in SensorOptions.values(), f"Sensor must be one of {SensorOptions.values()}"
+
     bayer = config.bayer
     fn = config.fn
     exp = config.exp
@@ -56,83 +73,105 @@ def capture(config):
     res = config.res
     nbits_out = config.nbits_out
 
-    # https://www.raspberrypi.com/documentation/accessories/camera.html#maximum-exposure-times
-    # TODO : check which camera
-    assert exp <= 230
-    assert exp >= 0.02
+    # https://www.raspberrypi.com/documentation/accessories/camera.html#hardware-specification
+    sensor_param = sensor_dict[sensor]
+    assert exp <= sensor_param[SensorParam.MAX_EXPOSURE]
+    assert exp >= sensor_param[SensorParam.MIN_EXPOSURE]
     sensor_mode = int(sensor_mode)
 
     distro = get_distro()
     print("RPi distribution : {}".format(distro))
+
+    if sensor == SensorOptions.RPI_GS.value:
+        assert not legacy
+
     if "bullseye" in distro and not legacy:
         # TODO : grayscale and downsample
         assert not rgb
         assert not gray
-        assert down is None
 
         import subprocess
 
-        jpg_fn = fn + ".jpg"
-        dng_fn = fn + ".dng"
-        pic_command = [
-            "libcamera-still",
-            "-r",
-            "--gain",
-            f"{iso / 100}",
-            "--shutter",
-            f"{int(exp * 1e6)}",
-            "-o",
-            f"{jpg_fn}",
-        ]
+        if bayer:
 
-        cmd = subprocess.Popen(
-            pic_command,
-            shell=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        cmd.stdout.readlines()
-        cmd.stderr.readlines()
-        os.remove(jpg_fn)
-        os.system(f"exiftool {dng_fn}")
-        print("\nJPG saved to : {}".format(jpg_fn))
-        print("\nDNG saved to : {}".format(dng_fn))
+            assert down is None
+
+            jpg_fn = fn + ".jpg"
+            fn += ".dng"
+            pic_command = [
+                "libcamera-still",
+                "-r",
+                "--gain",
+                f"{iso / 100}",
+                "--shutter",
+                f"{int(exp * 1e6)}",
+                "-o",
+                f"{jpg_fn}",
+            ]
+
+            cmd = subprocess.Popen(
+                pic_command,
+                shell=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            cmd.stdout.readlines()
+            cmd.stderr.readlines()
+            # os.remove(jpg_fn)
+            os.system(f"exiftool {fn}")
+            print("\nJPG saved to : {}".format(jpg_fn))
+            # print("\nDNG saved to : {}".format(fn))
+
+        else:
+
+            from picamera2 import Picamera2, Preview
+
+            picam2 = Picamera2()
+            picam2.start_preview(Preview.NULL)
+
+            fn += ".png"
+
+            max_res = picam2.camera_properties["PixelArraySize"]
+            if res:
+                assert len(res) == 2
+            else:
+                res = np.array(max_res)
+                if down is not None:
+                    res = (np.array(res) / down).astype(int)
+
+            res = tuple(res)
+            print("Capturing at resolution: ", res)
+
+            # capture low-dim PNG
+            picam2.preview_configuration.main.size = res
+            picam2.still_configuration.size = res
+            picam2.still_configuration.enable_raw()
+            picam2.still_configuration.raw.size = res
+
+            # setting camera parameters
+            picam2.configure(picam2.create_preview_configuration())
+            new_controls = {
+                "ExposureTime": int(exp * 1e6),
+                "AnalogueGain": 1.0,
+            }
+            if config.awb_gains is not None:
+                assert len(config.awb_gains) == 2
+                new_controls["ColourGains"] = tuple(config.awb_gains)
+            picam2.set_controls(new_controls)
+
+            # take picture
+            picam2.start("preview", show_preview=False)
+            time.sleep(config.config_pause)
+
+            picam2.switch_mode_and_capture_file("still", fn)
+
+    # legacy camera software
     else:
         import picamerax.array
 
         fn += ".png"
 
         if bayer:
-
-            # if rgb:
-
-            #     camera = picamerax.PiCamera(framerate=1 / exp, sensor_mode=sensor_mode, resolution=res)
-            #     camera.iso = iso
-            #     # Wait for the automatic gain control to settle
-            #     sleep(config_pause)
-            #     # Now fix the values
-            #     camera.shutter_speed = camera.exposure_speed
-            #     camera.exposure_mode = "off"
-            #     g = camera.awb_gains
-            #     camera.awb_mode = "off"
-            #     camera.awb_gains = g
-
-            #     print("Resolution : {}".format(camera.resolution))
-            #     print("Shutter speed : {}".format(camera.shutter_speed))
-            #     print("ISO : {}".format(camera.iso))
-            #     print("Frame rate : {}".format(camera.framerate))
-            #     print("Sensor mode : {}".format(SENSOR_MODES[sensor_mode]))
-            #     # keep this as it needs to be parsed from remote script!
-            #     red_gain = float(g[0])
-            #     blue_gain = float(g[1])
-            #     print("Red gain : {}".format(red_gain))
-            #     print("Blue gain : {}".format(blue_gain))
-
-            #     # take picture
-            #     fn += ".png"
-            #     camera.capture(str(fn), bayer=False, resize=None)
-
-            # else:
 
             camera = picamerax.PiCamera(framerate=1 / exp, sensor_mode=sensor_mode, resolution=res)
 
@@ -210,7 +249,6 @@ def capture(config):
         else:
 
             # returning non-bayer data
-
             from picamerax import PiCamera
 
             camera = PiCamera()
@@ -220,6 +258,9 @@ def capture(config):
                 res = np.array(camera.MAX_RESOLUTION)
                 if down is not None:
                     res = (np.array(res) / down).astype(int)
+
+            # -- now set up camera with desired settings
+            camera = PiCamera(framerate=1 / exp, sensor_mode=sensor_mode, resolution=tuple(res))
 
             # Wait for the automatic gain control to settle
             time.sleep(config.config_pause)
@@ -243,7 +284,7 @@ def capture(config):
                     "Out of resources! Use bayer for higher resolution, or increase `gpu_mem` in `/boot/config.txt`."
                 )
 
-        print("\nImage saved to : {}".format(fn))
+    print("Image saved to : {}".format(fn))
 
 
 if __name__ == "__main__":
