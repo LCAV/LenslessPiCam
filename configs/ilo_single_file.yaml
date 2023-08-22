@@ -29,16 +29,18 @@ simulation:
 # TODO PRUNE
 # Inputs/Outputs directories and files
 files:
-  original: data/celeba_mini/000019.jpg
+  image_name: 000019.jpg
   #original: data/original/mnist_3.png
   psf: data/psf/tape_rgb.png
   
-  input_dir: files/demo/input/
-  preprocess_dir: files/demo/preprocessed/
-  psf_dir: files/demo/psf/
+  #input_dir: files/demo/input/
+  input_dir: data/celeba_mini/
+  #preprocess_dir: files/demo/preprocessed/
+  preprocess_dir: data/celeba_mini_aligned/
+  #psf_dir: files/demo/psf/
   output_dir: ./output/
   files_ext: '.png'
-  pandas_file: ./metrics.pkl
+  #pandas_file: ./metrics.pkl
 
   face_aligner: 'models/ilo/shape_predictor_68_face_landmarks.dat'
 
