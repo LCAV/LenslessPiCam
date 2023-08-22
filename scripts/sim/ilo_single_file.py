@@ -35,7 +35,7 @@ python scripts/sim/ilo_single_file.py mask.type=PhaseContour
 import hydra
 import warnings
 from hydra.utils import to_absolute_path
-from lensless.utils.io import load_psf, load_image  # , save_image
+from lensless.utils.io import load_psf, load_image, save_image
 from lensless.utils.image import rgb2gray, rgb2bayer
 from lensless.utils.align_face import align_face
 from lensless.recon.ilo_stylegan2.ilo import LatentOptimizer
@@ -57,7 +57,7 @@ from lensless.hardware.mask import CodedAperture, PhaseContour, FresnelZoneApert
 @hydra.main(version_base=None, config_path="../../configs", config_name="ilo_single_file")
 def simulate(config):
 
-    fp = to_absolute_path(config.files.original)
+    fp = to_absolute_path(config.files.input_dir + config.files.image_name)
     assert os.path.exists(fp), f"File {fp} does not exist."
 
     # simulation parameters
@@ -116,6 +116,10 @@ def simulate(config):
     # 2) simulate measurement
     face_aligner = to_absolute_path(config.files.face_aligner)
     image = np.array(align_face(fp, face_aligner)) / 255
+    if config.save:
+        if not os.path.exists(config.files.preprocess_dir):
+            os.makedirs("../../../" + config.files.preprocess_dir)
+        save_image(image, "../../../" + config.files.preprocess_dir + config.files.image_name)
 
     if grayscale and len(image.shape) == 3:
         image = rgb2gray(image)
@@ -172,22 +176,14 @@ def simulate(config):
     # 3) reconstruction (TODO)
     latent_optimizer = LatentOptimizer(config, mask=mask)
 
-    # Load input files name
-    input_files = [
-        x
-        for x in glob.iglob(
-            os.path.join(
-                to_absolute_path(config["files"]["preprocess_dir"]),
-                "*" + config["files"]["files_ext"],
-            )
-        )
-    ]
+    input_file = "../../../" + config.files.preprocess_dir + config.files.image_name
 
+    """
     # Configure output files name
     if not (os.path.isdir(config["files"]["output_dir"])):
         os.mkdir(config["files"]["output_dir"])
 
-    base_names = [x.split("/")[-1].split("_")[-2] for x in input_files]
+    base_name = input_file.split("/")[-1].split("_")[-2]
     new_names_output = [
         base_name + "_processed" + config["files"]["files_ext"] for base_name in base_names
     ]
@@ -205,47 +201,37 @@ def simulate(config):
             os.path.join(config["logs"]["forward_dir"], new_name)
             for new_name in new_names_output_forward
         ]
+    """
 
-    # Optimize in batches
-    batchsize = config["opti_params"]["batchsize_process"]
-    n_batchs = ma.ceil(len(input_files) / batchsize)
+    # Initialize state of optimizer
+    latent_optimizer.init_state([input_file])
 
-    for i in tqdm(range(n_batchs), desc="Batch"):
+    # Invert
+    _, z, best = latent_optimizer.invert()
 
-        input_files_batch = input_files[i * batchsize : (i + 1) * batchsize]
-        output_files_batch = output_files[i * batchsize : (i + 1) * batchsize]
-        output_forward_files_batch = output_forward_files[i * batchsize : (i + 1) * batchsize]
+    # best_img = best[0].detach().cpu()
+    # if config["logs"]["save_forward"]:
+    #    best_img_forward = best[1].detach().cpu()
 
-        # Initialize state of optimizer
-        latent_optimizer.set_data(input_files_batch)
+    # print()
 
-        # Invert
-        _, z, best = latent_optimizer.apply()
+    # Save output image
+    # print(f"Saving file: {output_files_batch[j]}")
+    # torchvision.utils.save_image(
+    #    best_img[j],
+    #    output_files_batch[j],
+    #    nrow=int(best_img[j].shape[0] ** 0.5),
+    #    normalize=True,
+    # )
 
-        best_img = best[0].detach().cpu()
-        if config["logs"]["save_forward"]:
-            best_img_forward = best[1].detach().cpu()
-
-        print()
-
-        for j in range(len(input_files_batch)):
-            # Save output image
-            print(f"Saving file: {output_files_batch[j]}")
-            torchvision.utils.save_image(
-                best_img[j],
-                output_files_batch[j],
-                nrow=int(best_img[j].shape[0] ** 0.5),
-                normalize=True,
-            )
-
-            if config["logs"]["save_forward"]:
-                # Save debug image
-                torchvision.utils.save_image(
-                    best_img_forward[j],
-                    output_forward_files_batch[j],
-                    nrow=int(best_img_forward[j].shape[0] ** 0.5),
-                    normalize=False,
-                )
+    # if config["logs"]["save_forward"]:
+    #    # Save debug image
+    #    torchvision.utils.save_image(
+    #        best_img_forward[j],
+    #        output_forward_files_batch[j],
+    #        nrow=int(best_img_forward[j].shape[0] ** 0.5),
+    #        normalize=False,
+    #    )
 
     # plt.show()
 
