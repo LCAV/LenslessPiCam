@@ -159,7 +159,7 @@ def admm(config):
             with torch.no_grad():
                 res = recon.apply(
                     disp_iter=disp,
-                    save=save,
+                    save=False,
                     gamma=config["display"]["gamma"],
                     plot=config["display"]["plot"],
                     output_intermediate=True,
