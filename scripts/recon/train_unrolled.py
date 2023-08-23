@@ -192,7 +192,7 @@ def train_unrolled(
     # test mask
     from lensless.recon.trainable_mask import AmplitudeMask
 
-    mask = AmplitudeMask(torch.rand_like(psf), optimizer="Adam", lr=1e-3, update_frequency=10)
+    mask = AmplitudeMask(torch.rand_like(psf), optimizer="Adam", lr=1e-3)
 
     print(f"Setup time : {time.time() - start_time} s")
 
