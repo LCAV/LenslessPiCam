@@ -37,8 +37,8 @@ class DualDataset(Dataset):
 
         Parameters
         ----------
-            indexes : range or int or None
-                Indexes of the images to use in the dataset (if integer, it should be interpreted as range(indexes)), by default None.
+            indices : range or int or None
+                Indices of the images to use in the dataset (if integer, it should be interpreted as range(indices)), by default None.
             background : :py:class:`~torch.Tensor` or None, optional
                 If not ``None``, background is removed from lensless images, by default ``None``.
             downsample : int, optional
@@ -46,9 +46,9 @@ class DualDataset(Dataset):
             flip : bool, optional
                 If ``True``, lensless images are flipped, by default ``False``.
             transform_lensless : PyTorch Transform or None, optional
-                Transform to apply to the lensless images, by default ``None``. Note that this transform is applied on HWC images (diffferent from torchvision).
+                Transform to apply to the lensless images, by default ``None``. Note that this transform is applied on HWC images (different from torchvision).
             transform_lensed : PyTorch Transform or None, optional
-                Transform to apply to the lensed images, by default ``None``. Note that this transform is applied on HWC images (diffferent from torchvision).
+                Transform to apply to the lensed images, by default ``None``. Note that this transform is applied on HWC images (different from torchvision).
         """
         if isinstance(indices, int):
             indices = range(indices)
@@ -145,13 +145,13 @@ class SimulatedDataset(DualDataset):
         dataset : :py:class:`torch.utils.data.Dataset`
             Dataset to propagate. Should output images with shape [H, W, C] unless ``dataset_is_CHW`` is ``True`` (and therefore images have the dimension ordering of [C, H, W]).
         simulator : :py:class:`lensless.utils.FarFieldSimulator`
-            Waveprop simulator to use for the simulation. See `FarFieldSimulator <https://github.com/ebezzam/waveprop/blob/c07863aac87a8cd9f90ad43aa8428eb185c1595b/waveprop/simulation.py#L11>`. It is expect to have is_torch = True.
+            Waveprop simulator to use for the simulation. See `FarFieldSimulator <https://github.com/ebezzam/waveprop/blob/c07863aac87a8cd9f90ad43aa8428eb185c1595b/waveprop/simulation.py#L11>`. It is expected to have ``is_torch = True``.
         pre_transform : PyTorch Transform or None, optional
             Transform to apply to the images before simulation, by default ``None``. Note that this transform is applied on HCW images (diffferent from torchvision).
         dataset_is_CHW : bool, optional
             If True, the input dataset is expected to output images with shape [C, H, W], by default ``False``.
         flip : bool, optional
-                If True,images are flipped beffore the simulation, by default ``False``..
+            If True, images are flipped beffore the simulation, by default ``False``..
         """
 
         # we do the flipping before the simualtion
@@ -388,7 +388,7 @@ class DiffuserCamTestDataset(ParallelDataset):
         downsample=2,
     ):
         """
-        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the test set
+        Dataset consisting of lensless and corresponding lensed image. Default parameters are for the test set of
         `DiffuserCam Lensless Mirflickr Dataset (DLMD) <https://waller-lab.github.io/LenslessLearning/dataset.html>`_.
 
         Parameters
@@ -396,10 +396,11 @@ class DiffuserCamTestDataset(ParallelDataset):
         data_dir : str, optional
             The path to the folder containing the DiffuserCam_Test dataset, by default "data".
         n_files : int, optional
-            Number of image pair to load in the dataset , by default 200.
+            Number of image pairs to load in the dataset , by default 200.
         downsample : int, optional
             Downsample factor of the lensless images, by default 8.
         """
+
         # download dataset if necessary
         main_dir = data_dir
         data_dir = os.path.join(data_dir, "DiffuserCam_Test")

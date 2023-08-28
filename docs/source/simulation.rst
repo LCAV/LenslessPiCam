@@ -19,8 +19,8 @@ PyTorch support is available to speed up simulation on GPU, and to create Datase
 FarFieldSimulator
 ------------------
 
-A wrapper arround :py:class:`waveprop.simulator.FarFieldSimulator` is implemented as :py:class:`lensless.utils.simulator.FarFieldSimulator`.
-It automaticaly handles the conversion between HWC and CHW format so that the current formating of LenslessPiCam can be maintained everywhere.
+A wrapper around :py:class:`waveprop.simulator.FarFieldSimulator` is implemented as :py:class:`lensless.utils.simulator.FarFieldSimulator`.
+It automatically handles the conversion between HWC and CHW format so that the convention of LenslessPiCam can be maintained (namely HWC).
 
 
 .. autoclass:: lensless.utils.simulator.FarFieldSimulator
