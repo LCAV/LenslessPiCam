@@ -33,11 +33,9 @@ MOCK_MODULES = [
     "paramiko",
     "paramiko.ssh_exception",
     "perlin_numpy",
-    "waveprop",
-    "waveprop.fresnel",
-    "waveprop.rs",
-    "waveprop.noise",
-    "waveprop.simulation",
+    "scipy.special",
+    "matplotlib.cm",
+    "pyffs",
 ]
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()

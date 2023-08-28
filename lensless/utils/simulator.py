@@ -6,12 +6,12 @@
 # #############################################################################
 
 import numpy as np
-import waveprop.simulation
+from waveprop.simulation import FarFieldSimulator as FarFieldSimulator_wp
 
 
-class FarFieldSimulator(waveprop.simulation.FarFieldSimulator):
+class FarFieldSimulator(FarFieldSimulator_wp):
     """
-    Wrapper around :py:class:`~waveprop.FarFieldSimulator` for lensless imaging (`github <https://github.com/ebezzam/waveprop/blob/82dfb08b4db11c0c07ef00bdb59b5a769a49f0b3/waveprop/simulation.py#L11C11-L11C11>`).
+    LenslessPiCam-compatible wrapper for :py:class:`~waveprop.simulation.FarFieldSimulator` (source code on `GitHub <https://github.com/ebezzam/waveprop/blob/82dfb08b4db11c0c07ef00bdb59b5a769a49f0b3/waveprop/simulation.py#L11C11-L11C11>`__).
     """
 
     def __init__(
