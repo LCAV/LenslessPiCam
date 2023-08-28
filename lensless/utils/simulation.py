@@ -1,5 +1,5 @@
 # #############################################################################
-# simulator.py
+# simulation.py
 # =================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]

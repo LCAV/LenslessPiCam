@@ -20,10 +20,10 @@ FarFieldSimulator
 ------------------
 
 A wrapper around `waveprop.simulation.FarFieldSimulator <https://github.com/ebezzam/waveprop/blob/82dfb08b4db11c0c07ef00bdb59b5a769a49f0b3/waveprop/simulation.py#L11C11-L11C11>`__
-is implemented as :py:class:`lensless.utils.simulator.FarFieldSimulator`.
+is implemented as :py:class:`lensless.utils.simulation.FarFieldSimulator`.
 It handles the conversion between the HWC and CHW dimension orderings so that the convention of LenslessPiCam can be maintained (namely HWC).
 
-.. autoclass:: lensless.utils.simulator.FarFieldSimulator
+.. autoclass:: lensless.utils.simulation.FarFieldSimulator
     :members:
     :special-members: __init__
 

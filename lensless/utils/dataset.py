@@ -12,7 +12,7 @@ import torch
 from abc import abstractmethod
 from torch.utils.data import Dataset
 from torchvision import transforms
-from lensless.utils.simulator import FarFieldSimulator
+from lensless.utils.simulation import FarFieldSimulator
 from lensless.utils.io import load_image, load_psf
 from lensless.utils.image import resize
 
