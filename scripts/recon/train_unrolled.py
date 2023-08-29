@@ -22,7 +22,7 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 from lensless import UnrolledFISTA, UnrolledADMM
-from lensless.utils.dataset import DiffuserCamTestDataset, SimulatedDataset
+from lensless.utils.dataset import DiffuserCamTestDataset, SimulatedFarFieldDataset
 from lensless.utils.image import rgb2gray
 from lensless.eval.benchmark import benchmark
 import torch
@@ -73,7 +73,7 @@ def simulate_dataset(config, psf):
     # create Pytorch dataset and dataloader
     if n_files is not None:
         ds = torch.utils.data.Subset(ds, np.arange(n_files))
-    ds_prop = SimulatedDataset(
+    ds_prop = SimulatedFarFieldDataset(
         dataset=ds, psf=psf, dataset_is_CHW=True, device_conv=device_conv, **config.simulation
     )
     ds_loader = torch.utils.data.DataLoader(

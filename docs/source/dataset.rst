@@ -14,7 +14,7 @@ datasets for training and testing.
     :members:
     :special-members: __init__
 
-.. autoclass:: lensless.utils.dataset.SimulatedDataset
+.. autoclass:: lensless.utils.dataset.SimulatedFarFieldDataset
     :members:
     :special-members: __init__
 

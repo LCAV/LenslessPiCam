@@ -121,10 +121,9 @@ class DualDataset(Dataset):
         return lensless, lensed
 
 
-class SimulatedDataset(DualDataset):
+class SimulatedFarFieldDataset(DualDataset):
     """
-    Dataset of propagated images (through simulation) from a Torch Dataset.
-    The `waveprop <https://github.com/ebezzam/waveprop/blob/master/waveprop/simulation.py>`_ package is used for the simulation,
+    Dataset of propagated images (through simulation) from a Torch Dataset. :py:class:`lensless.utils.simulation.FarFieldSimulator` is used for simulation,
     assuming a far-field propagation and a shift-invariant system with a single point spread function (PSF).
 
     """
@@ -144,10 +143,10 @@ class SimulatedDataset(DualDataset):
 
         dataset : :py:class:`torch.utils.data.Dataset`
             Dataset to propagate. Should output images with shape [H, W, C] unless ``dataset_is_CHW`` is ``True`` (and therefore images have the dimension ordering of [C, H, W]).
-        simulator : :py:class:`lensless.utils.FarFieldSimulator`
-            Waveprop simulator to use for the simulation. See `FarFieldSimulator <https://github.com/ebezzam/waveprop/blob/c07863aac87a8cd9f90ad43aa8428eb185c1595b/waveprop/simulation.py#L11>`. It is expected to have ``is_torch = True``.
+        simulator : :py:class:`lensless.utils.simulation.FarFieldSimulator`
+            Simulator object used on images from ``dataset``.Waveprop simulator to use for the simulation. It is expected to have ``is_torch = True``.
         pre_transform : PyTorch Transform or None, optional
-            Transform to apply to the images before simulation, by default ``None``. Note that this transform is applied on HCW images (diffferent from torchvision).
+            Transform to apply to the images before simulation, by default ``None``. Note that this transform is applied on HCW images (different from torchvision).
         dataset_is_CHW : bool, optional
             If True, the input dataset is expected to output images with shape [C, H, W], by default ``False``.
         flip : bool, optional
@@ -155,7 +154,7 @@ class SimulatedDataset(DualDataset):
         """
 
         # we do the flipping before the simualtion
-        super(SimulatedDataset, self).__init__(flip=False, **kwargs)
+        super(SimulatedFarFieldDataset, self).__init__(flip=False, **kwargs)
 
         assert isinstance(dataset, Dataset)
         self.dataset = dataset
@@ -167,6 +166,7 @@ class SimulatedDataset(DualDataset):
 
         # check simulator
         assert isinstance(simulator, FarFieldSimulator), "Simulator should be a FarFieldSimulator"
+        assert simulator.is_torch, "Simulator should be a pytorch simulator"
         assert simulator.psf is not None, "Simulator should have a psf"
         self.sim = simulator
 
