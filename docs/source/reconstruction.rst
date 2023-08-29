@@ -55,7 +55,7 @@
    Accelerated Proximal Gradient Descent (APGD)
    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-   .. autoclass:: lensless.APGD
+   .. autoclass:: lensless.recon.apgd.APGD
       :special-members: __init__
 
 
