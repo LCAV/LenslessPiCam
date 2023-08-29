@@ -1,3 +1,12 @@
+# #############################################################################
+# dataset.py
+# =================
+# Authors :
+# Yohann PERRON [yohann.perron@gmail.com]
+# Eric BEZZAM [ebezzam@gmail.com]
+# #############################################################################
+
+
 import json
 import math
 import time
@@ -25,7 +34,7 @@ def load_drunet(model_path, n_channels=3, requires_grad=False):
 
     Returns
     -------
-    model : :py:class:`~torch.nn.Module`
+    model : :py:class:`torch.nn.Module`
         Loaded model.
     """
 
@@ -53,11 +62,11 @@ def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference")
 
     Parameters
     ----------
-    model : :py:class:`~torch.nn.Module`
+    model : :py:class:`torch.nn.Module`
         Drunet compatible model. Its input must consist of 4 channels (RGB + noise level) and output an RGB image both in CHW format.
-    image : :py:class:`~torch.Tensor`
+    image : :py:class:`torch.Tensor`
         Input image.
-    noise_level : float or :py:class:`~torch.Tensor`
+    noise_level : float or :py:class:`torch.Tensor`
         Noise level in the image.
     device : str
         Device to use for computation. Can be "cpu" or "cuda".
@@ -66,7 +75,7 @@ def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference")
 
     Returns
     -------
-    image : :py:class:`~torch.Tensor`
+    image : :py:class:`torch.Tensor`
         Reconstructed image.
     """
     # convert from NDHWC to NCHW
@@ -116,7 +125,7 @@ def get_drunet_function(model, device="cpu", mode="inference"):
 
     Parameters
     ----------
-    model : torch.nn.Module
+    model : :py:class:`torch.nn.Module`
         DruNet like denoiser model
     device : str
         Device to use for computation. Can be "cpu" or "cuda".
@@ -140,11 +149,12 @@ def get_drunet_function(model, device="cpu", mode="inference"):
 
 
 def measure_gradient(model):
-    """Helper function to measure L2 norm of the gradient of a model.
+    """
+    Helper function to measure L2 norm of the gradient of a model.
 
     Parameters
     ----------
-    model : ''torch.nn.Module''
+    model : :py:class:`torch.nn.Module`
         Model to measure gradient of.
 
     Returns
@@ -161,7 +171,8 @@ def measure_gradient(model):
 
 
 def create_process_network(network, depth, device="cpu"):
-    """Helper function to create a process network.
+    """
+    Helper function to create a process network.
 
     Parameters
     ----------
@@ -174,8 +185,9 @@ def create_process_network(network, depth, device="cpu"):
 
     Returns
     -------
-    torch.nn.Module
-        New process network. Already trained for Drunet."""
+    :py:class:`torch.nn.Module`
+        New process network. Already trained for Drunet.
+    """
     if network == "DruNet":
         from lensless.recon.utils import load_drunet
 
@@ -219,15 +231,16 @@ class Trainer:
         skip_NAN=False,
         algorithm_name="Unknown",
     ):
-        """Class to train a reconstruction algorithm.
+        """
+        Class to train a reconstruction algorithm. Inspired by Trainer from `HuggingFace <https://huggingface.co/docs/transformers/main_classes/trainer>`__.
 
         Parameters
         ----------
-        recon : lensless.recon.TrainableReconstructionAlgorithm
+        recon : :py:class:`lensless.TrainableReconstructionAlgorithm`
             Reconstruction algorithm to train.
-        train_dataset : torch.utils.data.Dataset
+        train_dataset : :py:class:`torch.utils.data.Dataset`
             Dataset to use for training.
-        test_dataset : torch.utils.data.Dataset
+        test_dataset : :py:class:`torch.utils.data.Dataset`
             Dataset to use for testing.
         batch_size : int, optional
             Batch size to use for training, by default 4
@@ -244,7 +257,7 @@ class Trainer:
         skip_NAN : bool, optional
             Whether to skip update if any gradiant are NAN (True) or to throw an error(False), by default False
         algorithm_name : str, optional
-            Algorithm name for logging, by default "Unknown"
+            Algorithm name for logging, by default "Unknown".
 
         """
         self.device = recon._psf.device
@@ -338,11 +351,12 @@ class Trainer:
                         param.register_hook(detect_nan)
 
     def train_epoch(self, data_loader, disp=-1):
-        """Train for on epoch.
+        """
+        Train for one epoch.
 
         Parameters
         ----------
-        data_loader : torch.utils.data.DataLoader
+        data_loader : :py:class:`torch.utils.data.DataLoader`
             Data loader to use for training.
         disp : int, optional
             Display interval, if -1, no display, by default -1
@@ -414,7 +428,8 @@ class Trainer:
         return mean_loss
 
     def evaluate(self, mean_loss, save_pt):
-        """Evaluate the reconstruction algorithm on the test dataset.
+        """
+        Evaluate the reconstruction algorithm on the test dataset.
 
         Parameters
         ----------
@@ -439,7 +454,8 @@ class Trainer:
                 json.dump(self.metrics, f)
 
     def on_epoch_end(self, mean_loss, save_pt):
-        """Called at the end of each epoch.
+        """
+        Called at the end of each epoch.
 
         Parameters
         ----------
@@ -457,7 +473,8 @@ class Trainer:
         self.evaluate(mean_loss, save_pt)
 
     def train(self, n_epoch=1, save_pt=None, disp=-1):
-        """Train the reconstruction algorithm.
+        """
+        Train the reconstruction algorithm.
 
         Parameters
         ----------
@@ -480,6 +497,17 @@ class Trainer:
         print(f"Train time : {time.time() - start_time} s")
 
     def save(self, path="recon", include_optimizer=False):
+        """
+        Save state of reconstruction algorithm.
+
+        Parameters
+        ----------
+        path : str, optional
+            Path to save model to, by default "recon"
+        include_optimizer : bool, optional
+            Whether to include optimizer state, by default False
+
+        """
         # create directory if it does not exist
         if not os.path.exists(path):
             os.makedirs(path)

@@ -36,6 +36,8 @@ MOCK_MODULES = [
     "waveprop.fresnel",
     "waveprop.rs",
     "waveprop.noise",
+    "hydra",
+    "hydra.utils",
 ]
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
