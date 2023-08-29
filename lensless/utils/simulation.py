@@ -58,12 +58,14 @@ class FarFieldSimulator(FarFieldSimulator_wp):
             # convert HWC to CHW
             psf = psf.squeeze().movedim(-1, 0)
 
+        print(sensor)
+
         super().__init__(
-            psf,
             object_height,
             scene2mask,
             mask2sensor,
             sensor,
+            psf,
             output_dim,
             snr_db,
             max_val,

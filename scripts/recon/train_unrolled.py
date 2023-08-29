@@ -24,6 +24,7 @@ import matplotlib.pyplot as plt
 from lensless import UnrolledFISTA, UnrolledADMM
 from lensless.utils.dataset import DiffuserCamTestDataset, SimulatedFarFieldDataset
 from lensless.utils.image import rgb2gray
+from lensless.utils.simulation import FarFieldSimulator
 from lensless.eval.benchmark import benchmark
 import torch
 from torchvision import transforms, datasets
@@ -70,11 +71,17 @@ def simulate_dataset(config, psf):
     else:
         device_conv = "cpu"
 
+    # create simulator
+    simulator = FarFieldSimulator(
+        psf=psf,
+        is_torch=True,
+        **config.simulation,
+    )
     # create Pytorch dataset and dataloader
     if n_files is not None:
         ds = torch.utils.data.Subset(ds, np.arange(n_files))
     ds_prop = SimulatedFarFieldDataset(
-        dataset=ds, psf=psf, dataset_is_CHW=True, device_conv=device_conv, **config.simulation
+        dataset=ds, simulator=simulator, dataset_is_CHW=True, device_conv=device_conv
     )
     ds_loader = torch.utils.data.DataLoader(
         dataset=ds_prop, batch_size=batch_size, shuffle=True, pin_memory=(psf.device != "cpu")
