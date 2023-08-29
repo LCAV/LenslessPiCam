@@ -27,6 +27,7 @@ Added
 - New dataset for pair of original image and their measurement from a screen. See ``utils.dataset.MeasuredDataset`` and ``utils.dataset.MeasuredDatasetSimulatedOriginal``.
 - Support for unrolled loading and inference in the script ``admm.py``.
 - Tikhonov reconstruction for coded aperture measurements (MLS / MURA).
+- New ``Trainer`` class to train ``TrainableReconstructionAlgorithm`` with PyTorch.
 
 
 Changed

@@ -32,6 +32,7 @@ setuptools.setup(
         "matplotlib>=3.4.2",
         "rawpy>=0.16.0",
         "paramiko>=3.2.0",
+        "hydra-core",
     ],
     extra_requires={"dev": ["pudb", "black"]},
 )

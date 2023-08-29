@@ -10,8 +10,6 @@
 from lensless.utils.dataset import DiffuserCamTestDataset
 from tqdm import tqdm
 
-from lensless.utils.io import load_image
-
 try:
     import torch
     from torch.utils.data import DataLoader
