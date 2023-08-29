@@ -39,7 +39,7 @@ class CodedApertureReconstruction:
         """
         Parameters
         ----------
-        mask : py:class:`~lensless.hardware.mask.CodedAperture`
+        mask : py:class:`lensless.hardware.mask.CodedAperture`
             Coded aperture mask object.
         image_shape : (`array-like` or `tuple`)
             The shape of the image to reconstruct.
