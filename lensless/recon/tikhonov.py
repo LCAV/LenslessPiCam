@@ -74,7 +74,7 @@ class CodedApertureReconstruction:
 
         Parameters
         ----------
-        img : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
+        img : :py:class:`~numpy.ndarray` or :py:class:`torch.Tensor`
             Lensless capture measurement. Must be 3D even if grayscale.
 
         Returns
