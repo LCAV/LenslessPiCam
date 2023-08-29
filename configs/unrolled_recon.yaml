@@ -27,7 +27,7 @@ preprocess:
 display:
   # How many iterations to wait for intermediate plot. 
   # Set to negative value for no intermediate plots.
-  disp: 400
+  disp: 500
   # Whether to plot results.
   plot: True
   # Gamma factor for plotting.
@@ -48,17 +48,17 @@ reconstruction:
     learn_tk: True
   unrolled_admm:
     # Number of iterations
-    n_iter: 5
+    n_iter: 20
     # Hyperparameters
     mu1: 1e-4
     mu2: 1e-4
     mu3: 1e-4
     tau: 2e-4
   pre_process: 
-    network : UnetRes  # UnetRes or DruNet or null
+    network : null  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
   post_process: 
-    network : UnetRes  # UnetRes or DruNet or null
+    network : null  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
 
 # Train Dataset
@@ -73,18 +73,19 @@ target: "object_plane"    # "original" or "object_plane" or "label"
 simulation:
   grayscale: False
   # random variations
-  object_height: 0.6   # range for random height or scalar
+  object_height: 0.04   # range for random height or scalar
+  flip: True # change the orientation of the object (from vertical to horizontal)
   random_shift: False
   random_vflip: 0.5
   random_hflip: 0.5
   random_rotate: False
   # these distance parameters are typically fixed for a given PSF
-  # for tape_rgb psf      # for DiffuserCam psf
-  scene2mask: 40e-2       # scene2mask: 10e-2
-  mask2sensor: 4e-3       # mask2sensor: 9e-3
+  # for DiffuserCam psf # for tape_rgb psf     
+  scene2mask: 10e-2     # scene2mask: 40e-2       
+  mask2sensor: 9e-3     # mask2sensor: 4e-3       
   # see waveprop.devices
   sensor: "rpi_hq"
-  snr_db: 40
+  snr_db: 10
   # simulate different sensor resolution
   # output_dim: [24, 32]    # [H, W] or null
   # Downsampling for PSF
@@ -96,7 +97,7 @@ simulation:
 
 training:
   batch_size: 8
-  epoch: 50
+  epoch: 10
   #In case of instable training
   skip_NAN: True
   slow_start: False  #float how much to reduce lr for first epoch
@@ -104,7 +105,7 @@ training:
 
 optimizer:
   type: Adam
-  lr: 1e-6
+  lr: 1e-4
   
 loss: 'l2'
 # set lpips to false to deactivate. Otherwise, give the weigth for the loss (the main loss l2/l1 always having a weigth of 1)

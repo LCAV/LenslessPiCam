@@ -20,7 +20,12 @@ import os
 import numpy as np
 import time
 from lensless import UnrolledFISTA, UnrolledADMM
-from lensless.utils.dataset import DiffuserCamTestDataset, SimulatedFarFieldDataset
+from lensless.utils.dataset import (
+    DiffuserCamTestDataset,
+    SimulatedDataset,
+    SimulatedDatasetTrainableMask,
+)
+from lensless.recon.trainable_mask import AmplitudeMask
 from lensless.recon.utils import create_process_network
 from lensless.utils.image import rgb2gray
 from lensless.utils.simulation import FarFieldSimulator
@@ -29,7 +34,7 @@ import torch
 from torchvision import transforms, datasets
 
 
-def simulate_dataset(config, psf):
+def simulate_dataset(config, psf, mask=None):
     # load dataset
     transforms_list = [transforms.ToTensor()]
     data_path = os.path.join(get_original_cwd(), "data")
@@ -71,9 +76,18 @@ def simulate_dataset(config, psf):
     # create Pytorch dataset and dataloader
     if n_files is not None:
         ds = torch.utils.data.Subset(ds, np.arange(n_files))
-    ds_prop = SimulatedFarFieldDataset(
-        dataset=ds, simulator=simulator, dataset_is_CHW=True, device_conv=device_conv
-    )
+    if mask is None:
+        ds_prop = SimulatedDataset(
+            dataset=ds, simulator=simulator, dataset_is_CHW=True, device_conv=device_conv
+        )
+    else:
+        ds_prop = SimulatedDatasetTrainableMask(
+            dataset=ds,
+            mask=mask,
+            simulator=simulator,
+            dataset_is_CHW=True,
+            device_conv=device_conv,
+        )
     return ds_prop
 
 
@@ -100,8 +114,7 @@ def train_unrolled(
     background = benchmark_dataset.background
 
     # convert psf from BGR to RGB
-    if config.files.dataset in ["DiffuserCam"]:
-        psf = psf[..., [2, 1, 0]]
+    psf = psf[..., [2, 1, 0]]
 
     # if using a portrait dataset rotate the PSF
 
@@ -164,6 +177,10 @@ def train_unrolled(
     # transform from BGR to RGB
     transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
 
+    # create mask
+    # mask = AmplitudeMask(psf[:, :, :, 0, None], optimizer="Adam", lr=1e-3)
+    mask = AmplitudeMask(psf, optimizer="Adam", lr=1e-3)
+
     # load dataset and create dataloader
     if config.files.dataset == "DiffuserCam":
         # Use a ParallelDataset
@@ -187,15 +204,10 @@ def train_unrolled(
         )
     else:
         # Use a simulated dataset
-        dataset = simulate_dataset(config, psf)
-
-    # test mask
-    from lensless.recon.trainable_mask import AmplitudeMask
-
-    mask = AmplitudeMask(torch.rand_like(psf), optimizer="Adam", lr=1e-3)
+        dataset = simulate_dataset(config, psf, mask=mask)
 
     print(f"Setup time : {time.time() - start_time} s")
-
+    print(f"PSF shape : {psf.shape}")
     trainer = Trainer(
         recon,
         dataset,
@@ -204,6 +216,7 @@ def train_unrolled(
         batch_size=config.training.batch_size,
         loss=config.loss,
         lpips=config.lpips,
+        l1_mask=1.0,
         optimizer=config.optimizer.type,
         optimizer_lr=config.optimizer.lr,
         slow_start=config.training.slow_start,
@@ -212,7 +225,7 @@ def train_unrolled(
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=disp)
-    trainer.save(path=os.path.join(save, "recon.pt"))
+
     if mask is not None:
         print("Saving mask")
         print(f"mask shape: {mask._mask.shape}")
