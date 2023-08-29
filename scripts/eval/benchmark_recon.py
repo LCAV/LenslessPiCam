@@ -20,9 +20,10 @@ import glob
 import json
 import os
 import pathlib as plib
-from lensless.eval.benchmark import benchmark, DiffuserCamTestDataset
+from lensless.eval.benchmark import benchmark
 import matplotlib.pyplot as plt
 from lensless import ADMM, FISTA, GradientDescent, NesterovGradientDescent
+from lensless.utils.dataset import DiffuserCamTestDataset
 
 try:
     import torch

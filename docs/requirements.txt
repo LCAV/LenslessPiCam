@@ -5,3 +5,4 @@ numpy>=1.22      # so that default dtype are correctly rendered
 torch>=1.10
 torchvision>=0.15.2
 torchmetrics>=0.11.4
+waveprop>=0.0.5
