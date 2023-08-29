@@ -10,7 +10,7 @@ Reconstruction
 ==============
 
 The core algorithmic component of ``LenslessPiCam`` is the abstract
-class :py:class:`~lensless.ReconstructionAlgorithm`. The three reconstruction
+class :py:class:`~lensless.ReconstructionAlgorithm`. The five reconstruction
 strategies available in ``LenslessPiCam`` derive from this class:
 
 -  :py:class:`~lensless.GradientDescent`: projected gradient descent with a
@@ -25,6 +25,14 @@ strategies available in ``LenslessPiCam`` derive from this class:
    long as it is compatible with Pycsou, namely derives from one of
    `DiffFunc <https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/abc/operator.py#L980>`_
    or `ProxFunc <https://github.com/matthieumeo/pycsou/blob/a74b714192821501371c89dbd44eac15a5456a0f/src/pycsou/abc/operator.py#L741>`_.
+-  :py:class:`~lensless.UnrolledFISTA`: unrolled FISTA with a non-negativity constraint.
+-  :py:class:`~lensless.UnrolledADMM`: unrolled ADMM with a non-negativity constraint and a total variation (TV) regularizer [1]_.
+
+Note that the unrolled algorithms derive from the abstract class
+:py:class:`~lensless.TrainableReconstructionAlgorithm`, which itself derives from
+:py:class:`~lensless.ReconstructionAlgorithm` while adding functionality
+for training on batches and adding trainable pre- and post-processing
+blocks.
 
 New reconstruction algorithms can be conveniently implemented by
 deriving from the abstract class and defining the following abstract
@@ -154,6 +162,7 @@ import numpy as np
 import pathlib as plib
 import matplotlib.pyplot as plt
 from lensless.utils.plot import plot_image
+from lensless.utils.io import get_dtype
 from lensless.recon.rfft_convolve import RealFFTConvolve2D
 
 try:
@@ -232,16 +241,7 @@ class ReconstructionAlgorithm(abc.ABC):
         self._psf_shape = np.array(self._psf.shape)
 
         # set dtype
-        if dtype is None:
-            if self.is_torch:
-                dtype = torch.float32
-            else:
-                dtype = np.float32
-        else:
-            if self.is_torch:
-                dtype = torch.float32 if dtype == "float32" else torch.float64
-            else:
-                dtype = np.float32 if dtype == "float32" else np.float64
+        dtype = get_dtype(dtype, self.is_torch)
 
         if self.is_torch:
             if dtype:
@@ -491,7 +491,9 @@ class ReconstructionAlgorithm(abc.ABC):
 
         if (plot or save) and disp_iter is not None:
             if ax is None:
-                ax = plot_image(self._get_numpy_data(self._image_est[0]), gamma=gamma)
+                img = self._form_image()
+                ax = plot_image(self._get_numpy_data(img[0]), gamma=gamma)
+
         else:
             ax = None
             disp_iter = n_iter + 1

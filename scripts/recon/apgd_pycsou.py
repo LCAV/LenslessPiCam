@@ -17,7 +17,7 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 from lensless.utils.io import load_data
-from lensless import APGD
+from lensless.recon.apgd import APGD
 import os
 import pathlib as plib
 
@@ -28,7 +28,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="defaults_recon")
+@hydra.main(version_base=None, config_path="../../configs", config_name="apgd_l1")
 def apgd(
     config,
 ):
