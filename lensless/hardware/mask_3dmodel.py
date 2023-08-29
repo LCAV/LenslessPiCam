@@ -18,8 +18,7 @@ class Connection(ABC):
     """connections can in general use the mask array to determine where to connect to the mask, but it is not required."""
     pass
 
-class VaryingLenses:
-
+class HemnisphereLenses:
   def __init__(self, 
     N: int = 5, 
     dmin: float = 0.5e-3, 
@@ -51,6 +50,7 @@ class VaryingLenses:
             return True
     return False
 
+  @staticmethod
   def place_spheres_on_plane(width, height, dias, max_attempts=1000):
     """Try to place circles on a 2D plane."""
     placed_circles = []
@@ -62,7 +62,7 @@ class VaryingLenses:
             x = np.random.uniform(d/2, width - d/2)
             y = np.random.uniform(d/2, height - d/2)
             
-            if not VaryingLenses.does_circle_overlap(placed_circles, x, y, d):
+            if not HemnisphereLenses.does_circle_overlap(placed_circles, x, y, d):
                 placed_circles.append((x, y, d))
                 placed = True
                 break
@@ -89,7 +89,7 @@ class VaryingLenses:
     dias = np.random.uniform(self.dmin, self.dmax, self.N)
     dias = np.sort(dias)[::-1]
 
-    sphere_locations = VaryingLenses.place_spheres_on_plane(self.mask_size[0], self.mask_size[1], dias)
+    sphere_locations = HemnisphereLenses.place_spheres_on_plane(self.mask_size[0], self.mask_size[1], dias)
 
     sphere_model = cq.Workplane("XY")
     for (x, y, dia) in sphere_locations:
@@ -234,6 +234,13 @@ class Mask3DModel:
 
     cq.exporters.export(self.model, fname)
     
+def mold_from_mask(model: cq.Workplane, size: tuple[int, int, int] = (1.0e-1, 1.0e-1, 1.0e-2)) -> cq.Workplane:
+  """Creates a mold from a mask 3d model. The mold is a negative of the mask 3d model."""
+  mold = (cq.Workplane("XY")
+    .box(size[0]*1e3, size[1]*1e3, size[2]*1e3, centered=(True, True, False))     
+  )
+  return mold.cut(model)
+
 # --- from here, implementations of frames and connections ---
 
 class SimpleFrame(Frame):
