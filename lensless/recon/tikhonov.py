@@ -2,8 +2,8 @@
 # tikhonov.py
 # =================
 # Authors :
-# Aaron FARGEON [aa.fargeon@gmail.com]
 # Eric BEZZAM [ebezzam@gmail.com]
+# Aaron FARGEON [aa.fargeon@gmail.com]
 # #############################################################################
 
 """
@@ -19,7 +19,13 @@ capture, using the analytical solution to the Tikhonov optimization problem
 
 import numpy as np
 from numpy.linalg import multi_dot
-import torch
+
+try:
+    import torch
+
+    torch_available = True
+except ImportError:
+    torch_available = False
 
 
 class CodedApertureReconstruction:
@@ -80,7 +86,54 @@ class CodedApertureReconstruction:
             len(img.shape) == 3
         ), "Object should be a 3D array or tensor (HxWxC) even if grayscale."
 
-        if isinstance(img, np.ndarray):
+        if torch_available and isinstance(img, torch.Tensor):
+
+            # Empty matrix for reconstruction
+            n_channels = img.shape[-1]
+            x_est = torch.empty([self.P.shape[1], self.Q.shape[1], n_channels])
+
+            self.P = torch.from_numpy(self.P).float()
+            self.Q = torch.from_numpy(self.Q).float()
+
+            # Applying reconstruction for each channel
+            for c in range(n_channels):
+                Yc = img[:, :, c]
+
+                # SVD of left matrix
+                UL, SL, VLh = torch.linalg.svd(self.P)
+                VL = VLh.T
+                DL = torch.cat(
+                    (
+                        torch.diag(SL),
+                        torch.zeros([self.P.shape[0] - SL.size(0), SL.size(0)], device=SL.device),
+                    )
+                )
+                singLsq = SL**2
+
+                # SVD of right matrix
+                UR, SR, VRh = torch.linalg.svd(self.Q)
+                VR = VRh.T
+                DR = torch.cat(
+                    (
+                        torch.diag(SR),
+                        torch.zeros([self.Q.shape[0] - SR.size(0), SR.size(0)], device=SR.device),
+                    )
+                )
+                singRsq = SR**2
+
+                # Applying analytical reconstruction
+                inner = torch.linalg.multi_dot([DL.T, UL.T, Yc, UR, DR]) / (
+                    torch.outer(singLsq, singRsq) + torch.full(x_est.shape[0:2], self.lmbd)
+                )
+                x_est[:, :, c] = torch.linalg.multi_dot([VL, inner, VR.T])
+
+            # Non-negativity constraint: setting all negative values to 0
+            x_est = torch.clamp(x_est, min=0)
+
+            # Normalizing the image
+            x_est = (x_est - x_est.min()) / (x_est.max() - x_est.min())
+
+        else:
 
             # Empty matrix for reconstruction
             n_channels = img.shape[-1]
@@ -110,53 +163,6 @@ class CodedApertureReconstruction:
 
             # Non-negativity constraint: setting all negative values to 0
             x_est = x_est.clip(min=0)
-
-            # Normalizing the image
-            x_est = (x_est - x_est.min()) / (x_est.max() - x_est.min())
-
-        elif torch.isavailable and isinstance(img, torch.Tensor):
-
-            # Empty matrix for reconstruction
-            n_channels = img.shape[-1]
-            x_est = torch.empty([self.P.shape[1], self.Q.shape[1], n_channels])
-
-            # Applying reconstruction for each channel
-            for c in range(n_channels):
-                Yc = img[:, :, c]
-
-                # SVD of left matrix
-                UL, SL, VLh = torch.linalg.svd(self.P)
-                VL = VLh.T
-                DL = torch.cat(
-                    (
-                        torch.diag(SL),
-                        torch.zeros([self.P.shape[0] - SL.size(0), SL.size(0)], device=SL.device),
-                    )
-                )
-                singLsq = SL**2
-
-                # SVD of right matrix
-                UR, SR, VRh = torch.linalg.svd(self.Q)
-                VR = VRh.T
-                DR = torch.cat(
-                    (
-                        torch.diag(SR),
-                        torch.zeros([self.Q.shape[0] - SR.size(0), SR.size(0)], device=SR.device),
-                    )
-                )
-                singRsq = SR**2
-
-                # Applying analytical reconstruction
-                inner = torch.matmul(
-                    torch.matmul(torch.matmul(DL.T, UL.T), Yc), torch.matmul(UR, DR)
-                ) / (
-                    torch.outer(singLsq, singRsq)
-                    + torch.full(x_est.shape[0:2], self.lmbd, device=x_est.device)
-                )
-                x_est[:, :, c] = torch.matmul(torch.matmul(VL, inner), VR.T)
-
-            # Non-negativity constraint: setting all negative values to 0
-            x_est = torch.clamp(x_est, min=0)
 
             # Normalizing the image
             x_est = (x_est - x_est.min()) / (x_est.max() - x_est.min())
