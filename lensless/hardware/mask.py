@@ -25,7 +25,8 @@ from math import sqrt
 from perlin_numpy import generate_perlin_noise_2d
 from sympy.ntheory import quadratic_residues
 from scipy.signal import max_len_seq
-from scipy.linalg import circulant, multi_dot
+from scipy.linalg import circulant
+from numpy.linalg import multi_dot
 from waveprop.fresnel import fresnel_conv
 from waveprop.rs import angular_spectrum
 from waveprop.noise import add_shot_noise
