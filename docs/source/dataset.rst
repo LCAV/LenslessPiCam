@@ -10,11 +10,15 @@ datasets for training and testing.
     :members: _get_images_pair
     :special-members: __init__, __len__
 
-.. autoclass:: lensless.utils.dataset.LenslessDataset
+.. autoclass:: lensless.utils.dataset.SimulatedFarFieldDataset
     :members:
     :special-members: __init__
 
-.. autoclass:: lensless.utils.dataset.SimulatedFarFieldDataset
+.. autoclass:: lensless.utils.dataset.MeasuredDataset
+    :members:
+    :special-members: __init__
+
+.. autoclass:: lensless.utils.dataset.MeasuredDatasetSimulatedOriginal
     :members:
     :special-members: __init__
 

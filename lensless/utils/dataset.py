@@ -195,11 +195,11 @@ class SimulatedFarFieldDataset(DualDataset):
             return len([x for x in self.indices if x < self.n_files])
 
 
-class LenslessDataset(DualDataset):
+class MeasuredDatasetSimulatedOriginal(DualDataset):
     """
-    Dataset consisting of lensless image captured from a screen and the corresponding image shown on screen (not necessarily captured with a lens).
-    It can be used with a PyTorch DataLoader to load a batch of lensless and corresponding lensed images.
-    Unless the setup is perfectly calibrated, one should expect to have to use ``transform_lensed`` to adjust the alignement and rotation.
+    Dataset consisting of lensless image captured from a screen and the corresponding image shown on the screen.
+    Unlike :py:class:`lensless.utils.dataset.MeasuredDataset`, the ground-truth lensed image is simulated using a :py:class:`lensless.utils.simulation.FarFieldSimulator`
+    object rather than measured with a lensed camera.
     """
 
     def __init__(
@@ -221,7 +221,7 @@ class LenslessDataset(DualDataset):
         root_dir : str
             Path to the test dataset. It is expected to contain two folders: one of lensless images and one of original images.
         simulator : :py:class:`lensless.utils.simulatorFarFieldSimulator`
-            Waveprop simulator to use for the projection of the original image to object space. The psf musn't be specify. See `FarFieldSimulator <https://github.com/ebezzam/waveprop/blob/c07863aac87a8cd9f90ad43aa8428eb185c1595b/waveprop/simulation.py#L11>`. It is expect to have is_torch = True.
+            Simulator to use for the projection of the original image to object space. The PSF **should not** be specified, and it is expect to have ``is_torch = True``.
         lensless_fn : str, optional
             Name of the folder containing the lensless images, by default "diffuser".
         lensed_fn : str, optional
@@ -233,7 +233,7 @@ class LenslessDataset(DualDataset):
         downsample : int, optional
             Downsample factor of the lensless images, by default 1.
         """
-        super(LenslessDataset, self).__init__(downsample=1, **kwargs)
+        super(MeasuredDatasetSimulatedOriginal, self).__init__(downsample=1, **kwargs)
         self.pre_downsample = downsample
 
         self.root_dir = root_dir
@@ -253,6 +253,7 @@ class LenslessDataset(DualDataset):
 
         # check simulator
         assert isinstance(simulator, FarFieldSimulator), "Simulator should be a FarFieldSimulator"
+        assert simulator.is_torch, "Simulator should be a pytorch simulator"
         assert simulator.psf is None, "Simulator should not have a psf"
         self.sim = simulator
 
@@ -298,11 +299,11 @@ class LenslessDataset(DualDataset):
         return lensless, lensed
 
 
-class ParallelDataset(DualDataset):
+class MeasuredDataset(DualDataset):
     """
     Dataset consisting of lensless and corresponding lensed image.
     It can be used with a PyTorch DataLoader to load a batch of lensless and corresponding lensed images.
-    Unless the setup is perfectly calibrated, one should expect to have to use ``transform_lensed`` to adjust the alignement and rotation.
+    Unless the setup is perfectly calibrated, one should expect to have to use ``transform_lensed`` to adjust the alignment and rotation.
     """
 
     def __init__(
@@ -329,7 +330,7 @@ class ParallelDataset(DualDataset):
             Extension of the images, by default "npy".
         """
 
-        super(ParallelDataset, self).__init__(**kwargs)
+        super(MeasuredDataset, self).__init__(**kwargs)
 
         self.root_dir = root_dir
         self.lensless_dir = os.path.join(root_dir, lensless_fn)
@@ -376,7 +377,7 @@ class ParallelDataset(DualDataset):
         return lensless, lensed
 
 
-class DiffuserCamTestDataset(ParallelDataset):
+class DiffuserCamTestDataset(MeasuredDataset):
     """
     Dataset consisting of lensless and corresponding lensed image. This is the standard dataset used for benchmarking.
     """

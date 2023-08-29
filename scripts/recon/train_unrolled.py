@@ -213,14 +213,14 @@ def train_unrolled(
     # load dataset and create dataloader
     if config.files.dataset == "DiffuserCam":
         # Use a ParallelDataset
-        from lensless.utils.dataset import ParallelDataset
+        from lensless.utils.dataset import MeasuredDataset
 
         max_indices = 30000
         if config.files.n_files is not None:
             max_indices = config.files.n_files + 1000
 
         data_path = os.path.join(get_original_cwd(), "data", "DiffuserCam")
-        dataset = ParallelDataset(
+        dataset = MeasuredDataset(
             root_dir=data_path,
             indices=range(1000, max_indices),
             background=background,
