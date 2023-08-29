@@ -28,14 +28,14 @@ MOCK_MODULES = [
     "pycsou.util",
     "pycsou.util.ptype",
     "PIL",
+    "PIL.Image",
     "tqdm",
     "paramiko",
     "paramiko.ssh_exception",
     "perlin_numpy",
-    "waveprop",
-    "waveprop.fresnel",
-    "waveprop.rs",
-    "waveprop.noise",
+    "scipy.special",
+    "matplotlib.cm",
+    "pyffs",
 ]
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
