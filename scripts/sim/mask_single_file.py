@@ -213,10 +213,13 @@ def simulate(config):
     print("\nEvaluation:")
     print("MSE", mse(object_plane, recovered))
     print("PSNR", psnr(object_plane, recovered))
-    if image_format == "grayscale":
-        print("SSIM", ssim(object_plane, recovered, channel_axis=None))
-    else:
-        print("SSIM", ssim(object_plane, recovered))
+    try:
+        if image_format == "grayscale":
+            print("SSIM", ssim(object_plane, recovered, channel_axis=None))
+        else:
+            print("SSIM", ssim(object_plane, recovered))
+    except Exception:
+        print("SSIM : issue")
     if image_format == "rgb":
         print("LPIPS", lpips(object_plane, recovered))
 
