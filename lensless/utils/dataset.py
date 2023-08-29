@@ -167,7 +167,7 @@ class SimulatedFarFieldDataset(DualDataset):
         # check simulator
         assert isinstance(simulator, FarFieldSimulator), "Simulator should be a FarFieldSimulator"
         assert simulator.is_torch, "Simulator should be a pytorch simulator"
-        assert simulator.psf is not None, "Simulator should have a psf"
+        assert simulator.fft_shape is not None, "Simulator should have a psf"
         self.sim = simulator
 
     def get_image(self, index):
@@ -254,7 +254,7 @@ class MeasuredDatasetSimulatedOriginal(DualDataset):
         # check simulator
         assert isinstance(simulator, FarFieldSimulator), "Simulator should be a FarFieldSimulator"
         assert simulator.is_torch, "Simulator should be a pytorch simulator"
-        assert simulator.psf is None, "Simulator should not have a psf"
+        assert simulator.fft_shape is None, "Simulator should not have a psf"
         self.sim = simulator
 
     def __len__(self):
