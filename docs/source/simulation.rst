@@ -16,6 +16,18 @@ library is used with the following simulation steps:
 
 PyTorch support is available to speed up simulation on GPU, and to create Dataset and DataLoader objects for training and testing!
 
+FarFieldSimulator
+------------------
+
+A wrapper around `waveprop.simulation.FarFieldSimulator <https://github.com/ebezzam/waveprop/blob/82dfb08b4db11c0c07ef00bdb59b5a769a49f0b3/waveprop/simulation.py#L11C11-L11C11>`__
+is implemented as :py:class:`lensless.utils.simulation.FarFieldSimulator`.
+It handles the conversion between the HWC and CHW dimension orderings so that the convention of LenslessPiCam can be maintained (namely HWC).
+
+.. autoclass:: lensless.utils.simulation.FarFieldSimulator
+    :members:
+    :special-members: __init__
+
+
 Simulating 3D data
 ------------------
 
