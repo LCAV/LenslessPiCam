@@ -46,13 +46,12 @@ class TrainableMask(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
 
-class AmplitudeMask(TrainableMask):
+class TrainablePSF(TrainableMask):
     """
     Class for defining trainable amplitude masks.
     """
 
     def __init__(self, initial_mask, is_rgb=True, optimizer="Adam", lr=1e-3, **kwargs):
-        print("Warning: AmplitudeMask is not fully implemented yet.")
         super().__init__(initial_mask, optimizer, lr, **kwargs)
         self._is_rgb = is_rgb
 

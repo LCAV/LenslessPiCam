@@ -61,10 +61,17 @@ reconstruction:
     network : null  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
 
-# Train Dataset
+#Trainable Mask
+trainable_mask:
+  mask_type: "TrainablePSF" #None or "TrainablePSF"
+  initial_value: "DiffuserCam_gray" # "random" or "DiffuserCam" or "DiffuserCam_gray"
+  mask_lr: 1e-3
+  L1_strength: 1.0  #False or float
+  use_mask_in_dataset : True # Work only with simulated dataset
 
+# Train Dataset
 files:
-  dataset: "DiffuserCam"   # "mnist", "fashion_mnist", "cifar10", "CelebA", "DiffuserCam"
+  dataset: "CelebA"   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
   n_files: null    # null to use all
 
 target: "object_plane"    # "original" or "object_plane" or "label"

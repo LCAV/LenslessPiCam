@@ -73,6 +73,21 @@ class FarFieldSimulator(FarFieldSimulator_wp):
             **kwargs
         )
 
+        # save all the parameters in a dict
+        self.params = {
+            "object_height": object_height,
+            "scene2mask": scene2mask,
+            "mask2sensor": mask2sensor,
+            "sensor": sensor,
+            "output_dim": output_dim,
+            "snr_db": snr_db,
+            "max_val": max_val,
+            "device_conv": device_conv,
+            "random_shift": random_shift,
+            "is_torch": is_torch,
+        }
+        self.params.update(kwargs)
+
     def propagate(self, obj, return_object_plane=False):
         """
         Parameters

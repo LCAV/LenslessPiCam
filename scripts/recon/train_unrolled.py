@@ -22,10 +22,10 @@ import time
 from lensless import UnrolledFISTA, UnrolledADMM
 from lensless.utils.dataset import (
     DiffuserCamTestDataset,
-    SimulatedDataset,
+    SimulatedFarFieldDataset,
     SimulatedDatasetTrainableMask,
 )
-from lensless.recon.trainable_mask import AmplitudeMask
+import lensless.recon.trainable_mask
 from lensless.recon.utils import create_process_network
 from lensless.utils.image import rgb2gray
 from lensless.utils.simulation import FarFieldSimulator
@@ -77,7 +77,7 @@ def simulate_dataset(config, psf, mask=None):
     if n_files is not None:
         ds = torch.utils.data.Subset(ds, np.arange(n_files))
     if mask is None:
-        ds_prop = SimulatedDataset(
+        ds_prop = SimulatedFarFieldDataset(
             dataset=ds, simulator=simulator, dataset_is_CHW=True, device_conv=device_conv
         )
     else:
@@ -110,11 +110,11 @@ def train_unrolled(
         data_dir=path, downsample=config.simulation.downsample
     )
 
-    psf = benchmark_dataset.psf.to(device)
+    diffusercam_psf = benchmark_dataset.psf.to(device)
     background = benchmark_dataset.background
 
     # convert psf from BGR to RGB
-    psf = psf[..., [2, 1, 0]]
+    diffusercam_psf = diffusercam_psf[..., [2, 1, 0]]
 
     # if using a portrait dataset rotate the PSF
 
@@ -143,7 +143,7 @@ def train_unrolled(
     # create reconstruction algorithm
     if config.reconstruction.method == "unrolled_fista":
         recon = UnrolledFISTA(
-            psf,
+            diffusercam_psf,
             n_iter=config.reconstruction.unrolled_fista.n_iter,
             tk=config.reconstruction.unrolled_fista.tk,
             pad=True,
@@ -153,7 +153,7 @@ def train_unrolled(
         ).to(device)
     elif config.reconstruction.method == "unrolled_admm":
         recon = UnrolledADMM(
-            psf,
+            diffusercam_psf,
             n_iter=config.reconstruction.unrolled_admm.n_iter,
             mu1=config.reconstruction.unrolled_admm.mu1,
             mu2=config.reconstruction.unrolled_admm.mu2,
@@ -178,8 +178,21 @@ def train_unrolled(
     transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
 
     # create mask
-    # mask = AmplitudeMask(psf[:, :, :, 0, None], optimizer="Adam", lr=1e-3)
-    mask = AmplitudeMask(psf, optimizer="Adam", lr=1e-3)
+
+    mask_class = getattr(lensless.recon.trainable_mask, config.trainable_mask.mask_type)
+    if config.trainable_mask.initial_value == "random":
+        mask = mask_class(
+            torch.rand_like(diffusercam_psf), optimizer="Adam", lr=config.trainable_mask.mask_lr
+        )
+    elif config.trainable_mask.initial_value == "DiffuserCam":
+        mask = mask_class(diffusercam_psf, optimizer="Adam", lr=config.trainable_mask.mask_lr)
+    elif config.trainable_mask.initial_value == "DiffuserCam_gray":
+        mask = mask_class(
+            diffusercam_psf[:, :, :, 0, None],
+            optimizer="Adam",
+            lr=config.trainable_mask.mask_lr,
+            is_rgb=not config.simulation.grayscale,
+        )
 
     # load dataset and create dataloader
     if config.files.dataset == "DiffuserCam":
@@ -195,7 +208,7 @@ def train_unrolled(
             root_dir=data_path,
             indices=range(1000, max_indices),
             background=background,
-            psf=psf,
+            psf=diffusercam_psf,
             lensless_fn="diffuser_images",
             lensed_fn="ground_truth_lensed",
             downsample=config.simulation.downsample / 4,
@@ -204,10 +217,16 @@ def train_unrolled(
         )
     else:
         # Use a simulated dataset
-        dataset = simulate_dataset(config, psf, mask=mask)
+        if config.trainable_mask.use_mask_in_dataset:
+            dataset = simulate_dataset(config, diffusercam_psf, mask=mask)
+            # the mask use will differ from the one in the benchmark dataset
+            print("Trainable Mask will be used in the test dataset")
+            benchmark_dataset = None
+        else:
+            dataset = simulate_dataset(config, diffusercam_psf, mask=None)
 
     print(f"Setup time : {time.time() - start_time} s")
-    print(f"PSF shape : {psf.shape}")
+    print(f"PSF shape : {diffusercam_psf.shape}")
     trainer = Trainer(
         recon,
         dataset,
@@ -216,7 +235,7 @@ def train_unrolled(
         batch_size=config.training.batch_size,
         loss=config.loss,
         lpips=config.lpips,
-        l1_mask=1.0,
+        l1_mask=config.trainable_mask.L1_strength,
         optimizer=config.optimizer.type,
         optimizer_lr=config.optimizer.lr,
         slow_start=config.training.slow_start,

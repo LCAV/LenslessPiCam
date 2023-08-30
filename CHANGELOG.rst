@@ -28,7 +28,8 @@ Added
 - Support for unrolled loading and inference in the script ``admm.py``.
 - Tikhonov reconstruction for coded aperture measurements (MLS / MURA).
 - New ``Trainer`` class to train ``TrainableReconstructionAlgorithm`` with PyTorch.
-
+- New ``TrainableMask`` and ``TrainablePSF`` class to train/fine-tune a mask from a dataset.
+- New ``SimulatedDatasetTrainableMask`` class to train/fine-tune a mask for measurement.
 
 Changed
 ~~~~~~~
