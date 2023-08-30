@@ -78,7 +78,11 @@ def simulate_dataset(config, psf, mask=None):
         ds = torch.utils.data.Subset(ds, np.arange(n_files))
     if mask is None:
         ds_prop = SimulatedFarFieldDataset(
-            dataset=ds, simulator=simulator, dataset_is_CHW=True, device_conv=device_conv
+            dataset=ds,
+            simulator=simulator,
+            dataset_is_CHW=True,
+            device_conv=device_conv,
+            flip=config.simulation.flip,
         )
     else:
         ds_prop = SimulatedDatasetTrainableMask(
@@ -87,6 +91,7 @@ def simulate_dataset(config, psf, mask=None):
             simulator=simulator,
             dataset_is_CHW=True,
             device_conv=device_conv,
+            flip=config.simulation.flip,
         )
     return ds_prop
 
