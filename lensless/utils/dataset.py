@@ -460,6 +460,7 @@ class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
         self,
         mask,
         dataset,
+        simulator,
         pre_transform=None,
         dataset_is_CHW=False,
         flip=False,
@@ -482,18 +483,21 @@ class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
         """
 
         self._mask = mask
-        self._sim_arg = kwargs
 
-        psf = self._mask.get_psf()
+        temp_psf = self._mask.get_psf()
+        test_sim = FarFieldSimulator(psf=temp_psf, **simulator.params)
+        assert (
+            test_sim.conv_dim == simulator.conv_dim
+        ).all(), "PSF shape should match simulator shape"
+
         super(SimulatedDatasetTrainableMask, self).__init__(
-            psf, dataset, pre_transform, dataset_is_CHW, flip, **kwargs
+            dataset, simulator, pre_transform, dataset_is_CHW, flip, **kwargs
         )
 
     def _get_images_pair(self, index):
         # update psf
         psf = self._mask.get_psf()
-        psf = psf.squeeze().movedim(-1, 0)
-        self.sim = FarFieldSimulator(psf=psf, is_torch=True, **self._sim_arg)
+        self.sim = FarFieldSimulator(psf=psf, **self.sim.params)
         # hacky way to remove the cast to int8 which break differentiability
         # self.sim.output_dtype = torch.float32
         # return simulated images
