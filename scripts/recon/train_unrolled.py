@@ -183,21 +183,23 @@ def train_unrolled(
     transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
 
     # create mask
-
-    mask_class = getattr(lensless.recon.trainable_mask, config.trainable_mask.mask_type)
-    if config.trainable_mask.initial_value == "random":
-        mask = mask_class(
-            torch.rand_like(diffusercam_psf), optimizer="Adam", lr=config.trainable_mask.mask_lr
-        )
-    elif config.trainable_mask.initial_value == "DiffuserCam":
-        mask = mask_class(diffusercam_psf, optimizer="Adam", lr=config.trainable_mask.mask_lr)
-    elif config.trainable_mask.initial_value == "DiffuserCam_gray":
-        mask = mask_class(
-            diffusercam_psf[:, :, :, 0, None],
-            optimizer="Adam",
-            lr=config.trainable_mask.mask_lr,
-            is_rgb=not config.simulation.grayscale,
-        )
+    if config.trainable_mask.mask_type is not None:
+        mask_class = getattr(lensless.recon.trainable_mask, config.trainable_mask.mask_type)
+        if config.trainable_mask.initial_value == "random":
+            mask = mask_class(
+                torch.rand_like(diffusercam_psf), optimizer="Adam", lr=config.trainable_mask.mask_lr
+            )
+        elif config.trainable_mask.initial_value == "DiffuserCam":
+            mask = mask_class(diffusercam_psf, optimizer="Adam", lr=config.trainable_mask.mask_lr)
+        elif config.trainable_mask.initial_value == "DiffuserCam_gray":
+            mask = mask_class(
+                diffusercam_psf[:, :, :, 0, None],
+                optimizer="Adam",
+                lr=config.trainable_mask.mask_lr,
+                is_rgb=not config.simulation.grayscale,
+            )
+    else:
+        mask = None
 
     # load dataset and create dataloader
     if config.files.dataset == "DiffuserCam":
