@@ -86,7 +86,7 @@
    ~~~~~~~~~~~~~
 
    .. autoclass:: lensless.UnrolledADMM
-      :members: batch_call
+      :members: batch_call, load_pretrained
       :special-members: __init__
       :show-inheritance:
 

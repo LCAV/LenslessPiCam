@@ -191,8 +191,14 @@ def create_process_network(network, depth, device="cpu"):
     if network == "DruNet":
         from lensless.recon.utils import load_drunet
 
+        try:
+            base_path = get_original_cwd()
+        except ValueError:
+            # if not in hydra environement
+            base_path = os.getcwd()
+
         process = load_drunet(
-            os.path.join(get_original_cwd(), "data/drunet_color.pth"), requires_grad=True
+            os.path.join(base_path, "data/drunet_color.pth"), requires_grad=True
         ).to(device)
         process_name = "DruNet"
     elif network == "UnetRes":

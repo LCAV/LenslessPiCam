@@ -5,8 +5,10 @@
 # Yohann PERRON [yohann.perron@gmail.com]
 # #############################################################################
 
+import os
 from lensless.recon.trainable_recon import TrainableReconstructionAlgorithm
 from lensless.recon.admm import soft_thresh, finite_diff, finite_diff_adj, finite_diff_gram
+from enum import Enum
 
 
 try:
@@ -216,3 +218,107 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         image = self._convolver._crop(self._image_est)
         image[image < 0] = 0
         return image
+
+    @staticmethod
+    def load_pretrained(model_name, psf_name, path_to_models=None, device="cpu"):
+        """
+        Load pretrained model. If the model cannot be found on the local machine, it will be downloaded from the cloud.
+
+        Parameters
+        ----------
+        model_name : str
+            Name of the model to load. "Best", "Unrolled", "Pre_Unrolled", "Unrolled_Post", "Pre_Unrolled_Post"
+        psf_name : str
+            Name of the PSF use to train the model. "DiffuserCam"
+        path_to_models : str, optional
+            Path where the model are store, by default use current dir + /pretrain_models/
+        device : str, optional
+            Device to load the model on, by default "cpu"
+
+        Returns
+        -------
+        modell : ``lensless.UnrolledADMM``
+        """
+        import yaml
+        from lensless.utils.io import load_psf
+        from lensless.recon.utils import create_process_network
+
+        # create path to models
+        if path_to_models is None:
+            path_to_models = os.path.join(os.getcwd(), "pretrain_models")
+
+        if not os.path.exists(path_to_models):
+            os.makedirs(path_to_models)
+
+        # set Best model
+        if model_name == "Best":
+            model_name = "Pre_Unrolled_Post"
+
+        # Model directory
+        model_dir = model_name + "-" + psf_name
+
+        # check if model is already downloaded
+        if not os.path.exists(os.path.join(path_to_models, model_dir)):
+            # download model
+            raise NotImplementedError("Model not found. Automatic download not implemented.")
+
+        # load model parameters from json file
+        with open(os.path.join(path_to_models, model_dir, "model_params.yaml")) as yaml_file:
+            model_params = yaml.safe_load(yaml_file)
+
+        # check for psf with png ot tiff extension
+        if os.path.exists(os.path.join(path_to_models, model_dir, "psf.tiff")):
+            psf_path = os.path.join(path_to_models, model_dir, "psf.tiff")
+        elif os.path.exists(os.path.join(path_to_models, model_dir, "psf.png")):
+            psf_path = os.path.join(path_to_models, model_dir, "psf.png")
+
+        # load psf
+        psf = load_psf(
+            psf_path,
+            downsample=model_params["downsample"],
+            return_float=True,
+            bg_pix=(0, 15),
+        )
+        psf = torch.from_numpy(psf).to(device)
+        if model_params["psf_is_brg"]:
+            psf = psf[..., [2, 1, 0]]
+
+        # Load pre process model
+        pre_process, _ = create_process_network(
+            model_params["pre_process"]["network"],
+            model_params["pre_process"]["depth"],
+            device=device,
+        )
+        # Load post process model
+        post_process, _ = create_process_network(
+            model_params["post_process"]["network"],
+            model_params["post_process"]["depth"],
+            device=device,
+        )
+        # create model
+        model = UnrolledADMM(
+            psf,
+            n_iter=model_params["n_iter"],
+            mu1=model_params["mu1"],
+            mu2=model_params["mu2"],
+            mu3=model_params["mu3"],
+            tau=model_params["tau"],
+            pre_process=pre_process,
+            post_process=post_process,
+        )
+
+        # load model weights
+        model.load_state_dict(
+            torch.load(
+                os.path.join(path_to_models, model_dir, "model_weights.pt"), map_location=device
+            )
+        )
+
+        return model
+
+
+Pretrain_model_ADMM = Enum(
+    "Pretrain_model_ADMM",
+    ["Best", "Unrolled", "Pre_Unrolled", "Unrolled_Post", "Pre_Unrolled_Post"],
+)
+Pretrain_Dataset = Enum("Pretrain_Dataset_ADMM", ["DiffuserCam"])
