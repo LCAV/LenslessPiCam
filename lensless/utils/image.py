@@ -14,6 +14,7 @@ from lensless.hardware.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_
 try:
     import torch
     import torchvision.transforms as tf
+    from torchvision.transforms.functional import rgb_to_grayscale
 
     torch_available = True
 except ImportError:
@@ -82,10 +83,10 @@ def rgb2gray(rgb, weights=None, keepchanneldim=True):
 
     Parameters
     ----------
-    rgb : :py:class:`~numpy.ndarray`
+    rgb : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
         ([Depth,] Height, Width, Channel) image.
     weights : :py:class:`~numpy.ndarray`
-        [Optional] (3,) weights to convert from RGB to grayscale.
+        [Optional] (3,) weights to convert from RGB to grayscale. Only used for NumPy arrays.
     keepchanneldim : bool
         Whether to keep the channel dimension. Default is True.
 
@@ -95,21 +96,52 @@ def rgb2gray(rgb, weights=None, keepchanneldim=True):
         Grayscale image of dimension ([depth,] height, width [, 1]).
 
     """
-    if weights is None:
-        weights = np.array([0.299, 0.587, 0.114])
-    assert len(weights) == 3
 
-    if len(rgb.shape) == 4:
-        image = np.tensordot(rgb, weights, axes=((3,), 0))
-    elif len(rgb.shape) == 3:
-        image = np.tensordot(rgb, weights, axes=((2,), 0))
-    else:
-        raise ValueError("Input must be at least 3D.")
+    use_torch = False
+    if torch_available:
+        if torch.is_tensor(rgb):
+            use_torch = True
 
-    if keepchanneldim:
-        return image[..., np.newaxis]
-    else:
+    if use_torch:
+
+        # move channel dimension to third to last
+        if len(rgb.shape) == 4:
+            rgb = rgb.permute(0, 3, 1, 2)
+        elif len(rgb.shape) == 3:
+            rgb = rgb.permute(2, 0, 1)
+        else:
+            raise ValueError("Input must be at least 3D.")
+
+        image = rgb_to_grayscale(rgb)
+
+        # move channel dimension to last
+        if len(rgb.shape) == 4:
+            image = image.permute(0, 2, 3, 1)
+        elif len(rgb.shape) == 3:
+            image = image.permute(1, 2, 0)
+
+        if not keepchanneldim:
+            image = image.squeeze(-1)
+
         return image
+
+    else:
+
+        if weights is None:
+            weights = np.array([0.299, 0.587, 0.114])
+        assert len(weights) == 3
+
+        if len(rgb.shape) == 4:
+            image = np.tensordot(rgb, weights, axes=((3,), 0))
+        elif len(rgb.shape) == 3:
+            image = np.tensordot(rgb, weights, axes=((2,), 0))
+        else:
+            raise ValueError("Input must be at least 3D.")
+
+        if keepchanneldim:
+            return image[..., np.newaxis]
+        else:
+            return image
 
 
 def gamma_correction(vals, gamma=2.2):
