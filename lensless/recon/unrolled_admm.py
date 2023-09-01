@@ -242,10 +242,14 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         import yaml
         from lensless.utils.io import load_psf
         from lensless.recon.utils import create_process_network
+        from hydra.utils import get_original_cwd
 
         # create path to models
         if path_to_models is None:
-            path_to_models = os.path.join(os.getcwd(), "pretrained_models")
+            try:
+                path_to_models = os.path.join(get_original_cwd(), "pretrained_models")
+            except ValueError:
+                path_to_models = os.path.join(os.getcwd(), "pretrained_models")
 
         if not os.path.exists(path_to_models):
             os.makedirs(path_to_models)
@@ -259,6 +263,7 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
 
         # check if model is already downloaded
         if not os.path.exists(os.path.join(path_to_models, model_dir)):
+            print(os.path.join(path_to_models, model_dir))
             from torchvision.datasets.utils import download_and_extract_archive
 
             # download model
