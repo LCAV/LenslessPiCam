@@ -245,7 +245,7 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
 
         # create path to models
         if path_to_models is None:
-            path_to_models = os.path.join(os.getcwd(), "pretrain_models")
+            path_to_models = os.path.join(os.getcwd(), "pretrained_models")
 
         if not os.path.exists(path_to_models):
             os.makedirs(path_to_models)
