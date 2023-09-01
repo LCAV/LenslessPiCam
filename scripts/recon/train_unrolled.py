@@ -77,7 +77,7 @@ def simulate_dataset(config, psf):
     return ds_prop
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="unrolled_recon")
+@hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
 def train_unrolled(
     config,
 ):
