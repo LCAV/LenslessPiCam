@@ -62,8 +62,14 @@ admm:
   mu2: 1e-5
   mu3: 4e-5
   tau: 0.0001
-  #Loading unrolled model
-  unrolled: false
+  # Loading unrolled model
+  unrolled: False
+  # Use pre-trained model otehrwise will load from checkpoint_fp
+  pre_trained: True
+  # Pre-trained model information
+  pre_trained_name: "Best"  # "Best", "Unrolled", "Pre_Unrolled", "Unrolled_Post", "Pre_Unrolled_Post"
+  pre_trained_psf: "DiffuserCam"
+  #custom checkpoint file path and architecture
   checkpoint_fp: null
   pre_process_model: 
     network : null  # UnetRes or DruNet or null
