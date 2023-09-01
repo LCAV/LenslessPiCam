@@ -28,6 +28,7 @@ Added
 - Support for unrolled loading and inference in the script ``admm.py``.
 - Tikhonov reconstruction for coded aperture measurements (MLS / MURA): numpy and Pytorch support.
 - New ``Trainer`` class to train ``TrainableReconstructionAlgorithm`` with PyTorch.
+- PyTorch support for ``lensless.utils.io.rgb2gray``.
 
 
 Changed
