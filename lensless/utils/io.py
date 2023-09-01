@@ -134,9 +134,8 @@ def load_image(
         print_image_info(img)
 
     if bg is not None:
-
-        # if bg is float vector, turn into int-valued vector
-        if bg.max() <= 1:
+        # if bg is float vector and image is int, turn bg into int-valued vector
+        if bg.max() <= 1 and img.max() > 1:
             bg = bg * get_max_val(img)
 
         img = img - bg
