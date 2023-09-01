@@ -426,7 +426,7 @@ class ReconstructionAlgorithm(abc.ABC):
             Extracted data.
         """
         if self.is_torch:
-            return data.detach().cpu().numpy()
+            return data.detach().cpu().squeeze().numpy()
         else:
             return data
 

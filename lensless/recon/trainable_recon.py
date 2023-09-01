@@ -5,7 +5,10 @@
 # Yohann PERRON [yohann.perron@gmail.com]
 # #############################################################################
 
+import matplotlib.pyplot as plt
+import pathlib as plib
 from lensless.recon.recon import ReconstructionAlgorithm
+from lensless.utils.plot import plot_image
 
 try:
     import torch
@@ -203,7 +206,17 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         )
         if self.post_process is not None:
             if isinstance(im, tuple):
-                im = self.post_process(im[0], self.post_process_param), im[1]
+                im = self.post_process(im[0], self.post_process_param)
             else:
                 im = self.post_process(im, self.post_process_param)
+
+            if plot:
+                ax = plot_image(img=self._get_numpy_data(im), gamma=gamma)
+                ax.set_title(
+                    "Final reconstruction after {} iterations and post process".format(self._n_iter)
+                )
+                if save:
+                    plt.savefig(plib.Path(save) / "final.png")
+                return im, ax
+
         return im
