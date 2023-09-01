@@ -259,8 +259,17 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
 
         # check if model is already downloaded
         if not os.path.exists(os.path.join(path_to_models, model_dir)):
+            from torchvision.datasets.utils import download_and_extract_archive
+
             # download model
-            raise NotImplementedError("Model not found. Automatic download not implemented.")
+            filename = model_dir + ".zip"
+            url = (
+                "https://drive.switch.ch/index.php/s/JTJSNm0F4l0sJo7/download?path=%2Fmodels%2Fpretrain_models&files="
+                + filename
+            )
+            download_and_extract_archive(
+                url, path_to_models, filename=filename, remove_finished=True
+            )
 
         # load model parameters from json file
         with open(os.path.join(path_to_models, model_dir, "model_params.yaml")) as yaml_file:
@@ -315,10 +324,3 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         )
 
         return model
-
-
-Pretrain_model_ADMM = Enum(
-    "Pretrain_model_ADMM",
-    ["Best", "Unrolled", "Pre_Unrolled", "Unrolled_Post", "Pre_Unrolled_Post"],
-)
-Pretrain_Dataset = Enum("Pretrain_Dataset_ADMM", ["DiffuserCam"])
