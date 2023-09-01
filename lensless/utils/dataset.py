@@ -470,9 +470,9 @@ class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
         Parameters
         ----------
 
-        psf : torch.Tensor
+        mask : ``:py:class:lensless.recon.trainable_mask.TrainableMask``
             PSF to use for simulate. Should be a 4D tensor with shape [1, H, W, C]. Simulation of multi-depth data is not supported yet.
-        dataset : torch.utils.data.Dataset
+        dataset : ``:py:class:torch.utils.data.Dataset``
             Dataset to propagate. Should output images with shape [H, W, C] unless ``dataset_is_CHW`` is ``True`` (and therefore images have the dimension ordering of [C, H, W]).
         pre_transform : PyTorch Transform or None, optional
             Transform to apply to the images before simulation, by default ``None``.
@@ -489,6 +489,9 @@ class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
         assert (
             test_sim.conv_dim == simulator.conv_dim
         ).all(), "PSF shape should match simulator shape"
+        assert (
+            not simulator.quantize
+        ), "Simulator should not be quantized to matain differentiability. Please set quantize=False"
 
         super(SimulatedDatasetTrainableMask, self).__init__(
             dataset, simulator, pre_transform, dataset_is_CHW, flip, **kwargs
@@ -498,7 +501,6 @@ class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
         # update psf
         psf = self._mask.get_psf()
         self.sim = FarFieldSimulator(psf=psf, **self.sim.params)
-        # hacky way to remove the cast to int8 which break differentiability
-        # self.sim.output_dtype = torch.float32
+
         # return simulated images
         return super()._get_images_pair(index)

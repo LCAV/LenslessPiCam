@@ -1,5 +1,5 @@
 # #############################################################################
-# trainable_recon.py
+# trainable_mask.py
 # ==================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
@@ -11,13 +11,26 @@ import torch
 
 class TrainableMask(metaclass=abc.ABCMeta):
     """
-    Virtual class for defining trainable masks.
+    Abstract class for defining trainable masks.
+
     The following abstract methods need to be defined:
-    get_psf: getting the PSF of the mask from the mask parameter.
-    project: projecting the mask parameters to a valid space (should be a subspace of [0,1]).
+    1. get_psf: getting the PSF of the mask from the mask parameter.
+    2. project: projecting the mask parameters to a valid space (should be a subspace of [0,1]).
     """
 
     def __init__(self, initial_mask, optimizer="Adam", lr=1e-3, **kwargs):
+        """
+        Base constructor. Derived constructor may define new state variables
+
+        Parameters
+        ----------
+        initial_mask : ``torch.Tensor``
+            Initial mask parameters.
+        optimizer : str, optional
+            Optimizer to use for updating the mask parameters, by default "Adam"
+        lr : float, optional
+            Learning rate for the mask parameters, by default 1e-3
+        """
         self._mask = torch.nn.Parameter(initial_mask)
         self._optimizer = getattr(torch.optim, optimizer)([self._mask], lr=lr, **kwargs)
         self._counter = 0
@@ -48,7 +61,7 @@ class TrainableMask(metaclass=abc.ABCMeta):
 
 class TrainablePSF(TrainableMask):
     """
-    Class for defining trainable amplitude masks.
+    Class for defining an object that directly optimizes the PSF, without any constraints on what can be realized physically.
     """
 
     def __init__(self, initial_mask, is_rgb=True, optimizer="Adam", lr=1e-3, **kwargs):

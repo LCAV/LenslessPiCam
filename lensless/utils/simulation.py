@@ -27,6 +27,7 @@ class FarFieldSimulator(FarFieldSimulator_wp):
         device_conv="cpu",
         random_shift=False,
         is_torch=False,
+        quantize=True,
         **kwargs
     ):
         """
@@ -52,6 +53,8 @@ class FarFieldSimulator(FarFieldSimulator_wp):
             Whether to randomly shift the image, by default False.
         is_torch : bool, optional
             Whether to use pytorch, by default False.
+        quantize : bool, optional
+            Whether to quantize image, by default True.
         """
 
         if psf is not None:
@@ -70,6 +73,7 @@ class FarFieldSimulator(FarFieldSimulator_wp):
             device_conv,
             random_shift,
             is_torch,
+            quantize,
             **kwargs
         )
 
@@ -85,6 +89,7 @@ class FarFieldSimulator(FarFieldSimulator_wp):
             "device_conv": device_conv,
             "random_shift": random_shift,
             "is_torch": is_torch,
+            "quantize": quantize,
         }
         self.params.update(kwargs)
 
