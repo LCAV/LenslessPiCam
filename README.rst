@@ -84,15 +84,15 @@ install the library locally.
    python scripts/recon/admm.py
 
 
-Note (25-04-2023): for using reconstruction method based on Pycsou ``lensless.apgd.APGD``,
-V2 has to be installed:
+Note (25-04-2023): for using the reconstruction method based on Pycsou (now [Pyxu](https://github.com/matthieumeo/pyxu))
+``lensless.apgd.APGD``, a specific commit has to be installed (as there was no release at the time of implementation):
 
 .. code:: bash
 
-   pip install git+https://github.com/matthieumeo/pycsou.git@v2-dev
+   pip install git+https://github.com/matthieumeo/pycsou.git@38e9929c29509d350a7ff12c514e2880fdc99d6e
 
 If PyTorch is installed, you will need to be sure to have PyTorch 2.0 or higher, 
-as Pycsou V2 is not compatible with earlier versions of PyTorch. Moreover, 
+as Pycsou is not compatible with earlier versions of PyTorch. Moreover, 
 Pycsou requires Python within 
 `[3.9, 3.11) <https://github.com/matthieumeo/pycsou/blob/v2-dev/setup.cfg#L28>`__.
 

@@ -26,10 +26,12 @@ Added
 - New simulated dataset compatible with new data format ([(batch_size), depth, width, height, color]). See ``utils.dataset.SimulatedFarFieldDataset``.
 - New dataset for pair of original image and their measurement from a screen. See ``utils.dataset.MeasuredDataset`` and ``utils.dataset.MeasuredDatasetSimulatedOriginal``.
 - Support for unrolled loading and inference in the script ``admm.py``.
-- Tikhonov reconstruction for coded aperture measurements (MLS / MURA).
+- Tikhonov reconstruction for coded aperture measurements (MLS / MURA): numpy and Pytorch support.
 - New ``Trainer`` class to train ``TrainableReconstructionAlgorithm`` with PyTorch.
 - New ``TrainableMask`` and ``TrainablePSF`` class to train/fine-tune a mask from a dataset.
 - New ``SimulatedDatasetTrainableMask`` class to train/fine-tune a mask for measurement.
+- PyTorch support for ``lensless.utils.io.rgb2gray``.
+
 
 Changed
 ~~~~~~~
