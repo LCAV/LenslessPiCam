@@ -4,17 +4,17 @@ hydra:
 
 input:
   # File path for recorded PSF
-  psf: data/psf/tape_rgb.png
+  psf: data/DiffuserCam_Test/psf.tiff
   # File path for raw data  
-  data: data/raw_data/thumbs_up_rgb.png
+  data: data/DiffuserCam_Test/diffuser/im2.npy
   dtype: float32
 
-torch: False
+torch: True
 torch_device: 'cpu'
 
 preprocess:
   # Downsampling factor along X and Y
-  downsample: 4
+  downsample: 8
   # Image shape (height, width) for reconstruction.
   shape: null
   # Whether to flip image.
@@ -55,20 +55,20 @@ gradient_descent:
 
 admm:
   # Number of iterations
-  n_iter: 5
+  n_iter: 20
   # Hyperparameters
   mu1: 1e-6
   mu2: 1e-5
   mu3: 4e-5
   tau: 0.0001
   #Loading unrolled model
-  unrolled: false
-  checkpoint_fp: null
+  unrolled: True
+  checkpoint_fp: pretrained_models/Pre_Unrolled_Post-DiffuserCam/model_weights.pt
   pre_process_model: 
-    network : null  # UnetRes or DruNet or null
+    network : UnetRes  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
   post_process_model: 
-    network : null  # UnetRes or DruNet or null
+    network : DruNet  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
 
 apgd:
