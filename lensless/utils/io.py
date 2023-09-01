@@ -32,6 +32,7 @@ def load_image(
     downsample=None,
     bg=None,
     return_float=False,
+    normalize=True,
     shape=None,
     dtype=None,
 ):
@@ -69,6 +70,8 @@ def load_image(
         Background level to subtract.
     return_float : bool
         Whether to return image as float array, or unsigned int.
+    normalize : bool, optional
+        Whether to normalize image to [0, 1]. Default is True.
     shape : tuple, optional
         Shape (H, W, C) to resize to.
     dtype : str, optional
@@ -159,7 +162,8 @@ def load_image(
             dtype = np.float32
         assert dtype == np.float32 or dtype == np.float64
         img = img.astype(dtype)
-        img /= img.max()
+        if normalize:
+            img /= img.max()
 
     else:
         if dtype is None:
@@ -349,6 +353,7 @@ def load_data(
     shape=None,
     torch=False,
     torch_device="cpu",
+    normalize_data=True,
 ):
     """
     Load data for image reconstruction.
@@ -385,6 +390,8 @@ def load_data(
         Whether to sum RGB channels into single PSF, same across channels. Done
         in "Learned reconstructions for practical mask-based lensless imaging"
         of Kristina Monakhova et. al.
+    normalize_data : bool
+        Whether to normalize data to [0, 1].
 
     Returns
     -------
@@ -438,6 +445,7 @@ def load_data(
         as_4d=True,
         return_float=True,
         shape=shape,
+        normalize=normalize_data,
     )
 
     if data.shape != psf.shape:

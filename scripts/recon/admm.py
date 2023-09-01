@@ -42,6 +42,7 @@ def admm(config):
         torch=config.torch,
         torch_device=config.torch_device,
         bg_pix=config.preprocess.bg_pix,
+        normalize_data=not config.admm.unrolled,
     )
 
     disp = config["display"]["disp"]
@@ -86,6 +87,7 @@ def admm(config):
         print("Loading checkpoint from : ", path)
         assert os.path.exists(path), "Checkpoint does not exist"
         recon.load_state_dict(torch.load(path, map_location=config.torch_device))
+
     recon.set_data(data)
     print(f"Setup time : {time.time() - start_time} s")
 
