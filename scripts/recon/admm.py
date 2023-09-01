@@ -54,8 +54,18 @@ def admm(config):
 
     start_time = time.time()
     if not config.admm.unrolled:
+        # Normal ADMM
         recon = ADMM(psf, **config.admm)
+    elif config.admm.pre_trained:
+        assert config.torch, "Unrolled ADMM only works with torch"
+        from lensless.recon.unrolled_admm import UnrolledADMM
+
+        # load from pre-trained checkpoint
+        recon = UnrolledADMM.load_pretrained(
+            config.admm.pre_trained_name, config.admm.pre_trained_psf, device=config.torch_device
+        )
     else:
+        # load from custom checkpoint
         assert config.torch, "Unrolled ADMM only works with torch"
         from lensless.recon.unrolled_admm import UnrolledADMM
         import lensless.recon.utils
