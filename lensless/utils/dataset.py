@@ -3,6 +3,7 @@
 # =================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
+# Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
 import numpy as np
@@ -500,7 +501,7 @@ class TrainableMask(SimulatedFarFieldDataset):
     def _get_images_pair(self, index):
         # update psf
         psf = self._mask.get_psf()
-        self.sim = FarFieldSimulator(psf=psf, **self.sim.params)
+        self.sim.set_psf(psf)
 
         # return simulated images
         return super()._get_images_pair(index)

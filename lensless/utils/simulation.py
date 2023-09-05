@@ -3,6 +3,7 @@
 # =================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
+# Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
 import numpy as np
@@ -92,6 +93,18 @@ class FarFieldSimulator(FarFieldSimulator_wp):
             "quantize": quantize,
         }
         self.params.update(kwargs)
+
+    def set_psf(self, psf):
+        """
+        Set point spread function.
+
+        Parameters
+        ----------
+        psf : np.ndarray or torch.Tensor
+            Point spread function.
+        """
+        psf = psf.squeeze().movedim(-1, 0)
+        return super().set_psf(psf)
 
     def propagate(self, obj, return_object_plane=False):
         """

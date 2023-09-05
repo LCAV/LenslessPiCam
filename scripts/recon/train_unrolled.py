@@ -12,6 +12,11 @@ Train unrolled version of reconstruction algorithm.
 python scripts/recon/train_unrolled.py
 ```
 
+To fine-tune the DiffuserCam PSF, use the following command:
+```
+python scripts/recon/train_unrolled.py -cn fine-tune_PSF
+```
+
 """
 
 import hydra
