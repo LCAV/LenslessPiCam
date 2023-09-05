@@ -1,5 +1,5 @@
 # #############################################################################
-# dataset.py
+# utils.py
 # =================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
@@ -15,6 +15,7 @@ import os
 import matplotlib.pyplot as plt
 import torch
 from lensless.eval.benchmark import benchmark
+from lensless.hardware.trainable_mask import TrainableMask
 from tqdm import tqdm
 from lensless.recon.drunet.network_unet import UNetRes
 
@@ -222,9 +223,11 @@ class Trainer:
         recon,
         train_dataset,
         test_dataset,
+        mask=None,
         batch_size=4,
         loss="l2",
         lpips=None,
+        l1_mask=None,
         optimizer="Adam",
         optimizer_lr=1e-6,
         slow_start=None,
@@ -242,12 +245,16 @@ class Trainer:
             Dataset to use for training.
         test_dataset : :py:class:`torch.utils.data.Dataset`
             Dataset to use for testing.
+        mask : TrainableMask, optional
+            Trainable mask to use for training. If none, training with fix psf, by default None.
         batch_size : int, optional
             Batch size to use for training, by default 4
         loss : str, optional
             Loss function to use for training "l1" or "l2", by default "l2"
         lpips : float, optional
             the weight of the lpips(VGG) in the total loss. If None ignore. By default None
+        l1_mask : float, optional
+            the weight of the l1 norm of the mask in the total loss. If None ignore. By default None
         optimizer : str, optional
             Optimizer to use durring training. Available : "Adam". By default "Adam"
         optimizer_lr : float, optional
@@ -263,6 +270,15 @@ class Trainer:
         self.device = recon._psf.device
 
         self.recon = recon
+
+        if test_dataset is None:
+            # split train dataset
+            train_size = int(0.9 * len(train_dataset))
+            test_size = len(train_dataset) - train_size
+            train_dataset, test_dataset = torch.utils.data.random_split(
+                train_dataset, [train_size, test_size]
+            )
+
         self.train_dataloader = torch.utils.data.DataLoader(
             dataset=train_dataset,
             batch_size=batch_size,
@@ -272,6 +288,15 @@ class Trainer:
         self.test_dataset = test_dataset
         self.lpips = lpips
         self.skip_NAN = skip_NAN
+
+        if mask is not None:
+            assert isinstance(mask, TrainableMask)
+            self.mask = mask
+            self.use_mask = True
+        else:
+            self.use_mask = False
+
+        self.l1_mask = l1_mask
 
         # loss
         if loss == "l2":
@@ -358,8 +383,8 @@ class Trainer:
         ----------
         data_loader : :py:class:`torch.utils.data.DataLoader`
             Data loader to use for training.
-        disp : int, optional
-            Display interval, if -1, no display, by default -1
+        disp : int
+            Display interval, if -1, no display
 
         Returns
         -------
@@ -374,6 +399,11 @@ class Trainer:
             X = X.to(self.device)
             y = y.to(self.device)
 
+            # update psf according to mask
+            if self.use_mask:
+                self.recon._set_psf(self.mask.get_psf())
+
+            # forward pass
             y_pred = self.recon.batch_call(X.to(self.device))
             # normalizing each output
             eps = 1e-12
@@ -404,6 +434,8 @@ class Trainer:
                 loss_v = loss_v + self.lpips * torch.mean(
                     self.Loss_lpips(2 * y_pred - 1, 2 * y - 1)
                 )
+            if self.use_mask and self.l1_mask:
+                loss_v = loss_v + self.l1_mask * torch.mean(torch.abs(self.mask._mask))
             loss_v.backward()
 
             torch.nn.utils.clip_grad_norm_(self.recon.parameters(), 1.0)
@@ -420,6 +452,10 @@ class Trainer:
                     i += 1
                     continue
             self.optimizer.step()
+
+            # update mask
+            if self.use_mask:
+                self.mask.update_mask()
 
             mean_loss += (loss_v.item() - mean_loss) * (1 / i)
             pbar.set_description(f"loss : {mean_loss}")
@@ -488,6 +524,7 @@ class Trainer:
 
         start_time = time.time()
 
+        self.evaluate(-1, save_pt)
         for epoch in range(n_epoch):
             print(f"Epoch {epoch} with learning rate {self.scheduler.get_last_lr()}")
             mean_loss = self.train_epoch(self.train_dataloader, disp=disp)
@@ -497,31 +534,18 @@ class Trainer:
         print(f"Train time : {time.time() - start_time} s")
 
     def save(self, path="recon", include_optimizer=False):
-        """
-        Save state of reconstruction algorithm.
-
-        Parameters
-        ----------
-        path : str, optional
-            Path to save model to, by default "recon"
-        include_optimizer : bool, optional
-            Whether to include optimizer state, by default False
-
-        """
         # create directory if it does not exist
         if not os.path.exists(path):
             os.makedirs(path)
+        # save mask
+        if self.use_mask:
+            torch.save(self.mask._mask, os.path.join(path, "mask.pt"))
+            torch.save(self.mask._optimizer.state_dict(), os.path.join(path, "mask_optim.pt"))
+            import matplotlib.pyplot as plt
 
-        # TODO : ADD mask support
-        # # save mask
-        # if self.use_mask:
-        #     torch.save(self.mask._mask, os.path.join(path, "mask.pt"))
-        #     torch.save(self.mask._optimizer.state_dict(), os.path.join(path, "mask_optim.pt"))
-        #     import matplotlib.pyplot as plt
-
-        #     plt.imsave(
-        #         os.path.join(path, "psf.png"), self.mask.get_psf().detach().cpu().numpy()[0, ...]
-        #     )
+            plt.imsave(
+                os.path.join(path, "psf.png"), self.mask.get_psf().detach().cpu().numpy()[0, ...]
+            )
         # save optimizer
         if include_optimizer:
             torch.save(self.optimizer.state_dict(), os.path.join(path, "optim.pt"))

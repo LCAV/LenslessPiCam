@@ -3,6 +3,7 @@
 # =================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
+# Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
 import numpy as np
@@ -144,7 +145,7 @@ class SimulatedFarFieldDataset(DualDataset):
         dataset : :py:class:`torch.utils.data.Dataset`
             Dataset to propagate. Should output images with shape [H, W, C] unless ``dataset_is_CHW`` is ``True`` (and therefore images have the dimension ordering of [C, H, W]).
         simulator : :py:class:`lensless.utils.simulation.FarFieldSimulator`
-            Simulator object used on images from ``dataset``.Waveprop simulator to use for the simulation. It is expected to have ``is_torch = True``.
+            Simulator object used on images from ``dataset``. Waveprop simulator to use for the simulation. It is expected to have ``is_torch = True``.
         pre_transform : PyTorch Transform or None, optional
             Transform to apply to the images before simulation, by default ``None``. Note that this transform is applied on HCW images (different from torchvision).
         dataset_is_CHW : bool, optional
@@ -176,7 +177,7 @@ class SimulatedFarFieldDataset(DualDataset):
     def _get_images_pair(self, index):
         # load image
         img, _ = self.get_image(index)
-        # convert to CHW for simulator and transform
+        # convert to HWC for simulator and transform
         if self.dataset_is_CHW:
             img = img.moveaxis(-3, -1)
         if self.flip_pre_sim:
@@ -446,3 +447,52 @@ class DiffuserCamTestDataset(MeasuredDataset):
             lensed_fn="lensed",
             image_ext="npy",
         )
+
+
+class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
+    """
+    Dataset of propagated images (through simulation) from a Torch Dataset with learnable mask.
+    The `waveprop <https://github.com/ebezzam/waveprop/blob/master/waveprop/simulation.py>`_ package is used for the simulation,
+    assuming a far-field propagation and a shift-invariant system with a single point spread function (PSF).
+    To ensure autograd compatibility, the dataloader should have ``num_workers=0``.
+    """
+
+    def __init__(
+        self,
+        mask,
+        dataset,
+        simulator,
+        **kwargs,
+    ):
+        """
+        Parameters
+        ----------
+
+        mask : :py:class:`lensless.hardware.trainable_mask.TrainableMask`
+            Mask to use for simulation. Should be a 4D tensor with shape [1, H, W, C]. Simulation of multi-depth data is not supported yet.
+        dataset : :py:class:`torch.utils.data.Dataset`
+            Dataset to propagate. Should output images with shape [H, W, C] unless ``dataset_is_CHW`` is ``True`` (and therefore images have the dimension ordering of [C, H, W]).
+        simulator : :py:class:`lensless.utils.simulation.FarFieldSimulator`
+            Simulator object used on images from ``dataset``. Waveprop simulator to use for the simulation. It is expected to have ``is_torch = True``.
+        """
+
+        self._mask = mask
+
+        temp_psf = self._mask.get_psf()
+        test_sim = FarFieldSimulator(psf=temp_psf, **simulator.params)
+        assert (
+            test_sim.conv_dim == simulator.conv_dim
+        ).all(), "PSF shape should match simulator shape"
+        assert (
+            not simulator.quantize
+        ), "Simulator should not perform quantization to maintain differentiability. Please set quantize=False"
+
+        super(SimulatedDatasetTrainableMask, self).__init__(dataset, simulator, **kwargs)
+
+    def _get_images_pair(self, index):
+        # update psf
+        psf = self._mask.get_psf()
+        self.sim.set_psf(psf)
+
+        # return simulated images
+        return super()._get_images_pair(index)
