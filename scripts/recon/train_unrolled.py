@@ -216,6 +216,7 @@ def train_unrolled(
             max_indices = config.files.n_files + 1000
 
         data_path = os.path.join(get_original_cwd(), "data", "DiffuserCam")
+        assert os.path.exists(data_path), "DiffuserCam dataset not found"
         dataset = MeasuredDataset(
             root_dir=data_path,
             indices=range(1000, max_indices),
