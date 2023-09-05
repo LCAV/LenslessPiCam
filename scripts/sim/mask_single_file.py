@@ -110,6 +110,8 @@ def simulate(config):
             n_iter=config.mask.phase_mask_iter,
             **config.mask,
         )
+    assert mask is not None, "Unsuited mask type"
+    psf = mask.psf / np.linalg.norm(mask.psf.ravel())
 
     # 2) simulate measurement
     image = load_image(fp, verbose=True) / 255

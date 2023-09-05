@@ -1,0 +1,182 @@
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+save: True
+  
+simulation:
+  object_height: 0.3
+  # these distance parameters are typically fixed for a given PSF
+  scene2mask: 40e-2
+  mask2sensor: 4e-3
+  # see waveprop.devices
+  sensor: "rpi_hq"
+  snr_db: 20
+  # Downsampling for PSF
+  downsample: 8
+
+  # max val in simulated measured (quantized 8 bits)
+  max_val: 230
+
+  image_format: RGB
+
+  flatcam: False   # only supported if mask.type is "MURA" or "MLS"
+
+
+
+
+# COPIED FROM HERE: https://github.com/ebezzam/ilo_lensless/blob/ilo_lensless/configs/config_default.yaml
+# TODO PRUNE
+# Inputs/Outputs directories and files
+files:
+  original_fp: data/celeba_mini/000019.jpg
+  psf: data/psf/tape_rgb.png
+  
+  #preprocess_dir: files/demo/preprocessed/
+  preprocess_dir: data/celeba_mini_aligned/
+  #psf_dir: files/demo/psf/
+  output_dir: ./output/
+  files_ext: '.png'
+  #pandas_file: ./metrics.pkl
+
+  face_aligner: 'models/ilo/shape_predictor_68_face_landmarks.dat'
+
+mask:
+  type: "tape"    # "MURA", "MLS", "FZA", "PhaseContour"
+
+  # Coded Aperture (MURA or MLS)
+  #flatcam_method: 'MLS'
+  n_bits: 8 # e.g. 8 for MLS, 99 for MURA
+  
+  # Phase Contour
+  noise_period: [16, 16]
+  refractive_index: 1.2
+  phase_mask_iter: 10
+
+  # Fresnel Zone Aperture
+  radius: 0.32e-3
+
+lensless_imaging:
+  bool: false
+  psf_path: data/psf/tape_rgb.png # if simulated false
+
+  # PSF parameters  (TODO consistent with simulation)
+  scene2mask: 40e-2 #m
+  mask2sensor: 4e-3 #m
+  object_height: 0.45 #m, TODO: made big to fit entire region
+  sensor: 'rpi_hq'
+  psf_size: [3040, 4056]
+  downsample: 8
+  image_format: RGB
+
+  # Simulation parameters
+  simulated:
+    bool: False
+    gaussian_noise: True
+    snr: 40.0
+    max_val: 255
+    flatcam: False
+
+# Preprocessing actions
+preprocessing:
+  align:
+    bool: False 
+  resize:
+    bool: True
+    image_size: [1024, 1024]
+  grayscale:    # TODO : works but PSF grayscale? how to do ?
+    bool: False
+  mask:
+    bool: False 
+    bounding_box:
+      horizontal:
+        - 200
+        - 400
+      vertical:
+        - 200
+        - 400
+  noise:
+    bool: False
+    mode: gaussian #pepper #s&p #poisson #salt
+    mean: 0
+    var: 0.01
+    amount: 0.05
+    salt_vs_pepper: 0.5
+    
+# Tasks to perform
+task:
+  grayscale:
+    bool: False # TODO
+
+# Model configuration
+# only StyleGAN is supported for now.
+model:
+  type: 'stylegan2'
+  checkpoint: models/ilo/stylegan2-ffhq-config-f.pt
+  mapping: models/ilo/gaussian_fit.pt
+
+# Optimization parameters
+opti_params:
+  seed: 42
+  device: cuda
+
+  # batchsizes
+  batchsize_process : 1
+  batchsize_preprocess : 50
+
+  # Range of layers to optimize (no need to touch it)
+  start_layer: 0
+  end_layer: 8
+
+  # steps per layer -> define which layer is optimized
+  # if you want to skip optimization in some layers, just use 0 to the corresponding indices of steps.
+  # steps: [50, 50, 50, 50, 50, 50, 50, 50, 50]   # up to 9, but need to extend max_radius_*
+  steps: [50, 50, 50, 50, 50, 50]
+
+  # learning rate per layer
+  lr: [0.1, 0.08, 0.06, 0.04, 0.02, 0.01, 0.01, 0.01, 0.01]
+
+  # whether to schedule per layer or in total
+  lr_same_pace: False
+
+  # project latents to unit ball
+  project: False
+  # project: True
+
+  # projections (decent results with false, toilsome to fine-tune)
+  do_project_latent: False
+  do_project_noises: False
+  do_project_gen_out: False
+
+  max_radius_latent: [300, 500, 1000, 2000, 4000, 8000, 8000, 8000, 8000]
+  max_radius_noises: [300, 2000, 2000, 4000, 6000, 8000, 8000, 8000, 8000]
+  max_radius_gen_out: [0, 500, 1000, 2000, 4000, 8000, 8000, 8000, 8000]
+  # note:  first value of max_radius_gen_out is not used
+
+
+# Loss parameters
+loss_params:
+  ## weights of different losses
+  geocross: 0.01
+  mse: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+  pe: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+  dead_zone_linear: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+  # tolerance of dead zone linear function
+  dead_zone_linear_alpha: 0.05
+  # LPIPS method 
+  lpips_method: 'default'
+  
+
+logs:
+  # Save of logs
+  # if true, intermediate frames from optimization are saved.
+  save_gif: False
+  # determines how often we save intermediate frames in each steps. Activated only if save_gif=True.
+  save_every: 50
+
+  # Forward of generated images
+  # if true, save it
+  save_forward: True
+  # dir of forward save
+  forward_dir: ./output_forward/
+
