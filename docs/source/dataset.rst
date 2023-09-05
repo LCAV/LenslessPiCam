@@ -40,7 +40,7 @@ mask / PSF.
     :members:
     :special-members: __init__
 
-.. autoclass:: lensless.utils.dataset.TrainableMask
+.. autoclass:: lensless.utils.dataset.SimulatedDatasetTrainableMask
     :members:
     :special-members: __init__
 

@@ -145,7 +145,7 @@ class SimulatedFarFieldDataset(DualDataset):
         dataset : :py:class:`torch.utils.data.Dataset`
             Dataset to propagate. Should output images with shape [H, W, C] unless ``dataset_is_CHW`` is ``True`` (and therefore images have the dimension ordering of [C, H, W]).
         simulator : :py:class:`lensless.utils.simulation.FarFieldSimulator`
-            Simulator object used on images from ``dataset``.Waveprop simulator to use for the simulation. It is expected to have ``is_torch = True``.
+            Simulator object used on images from ``dataset``. Waveprop simulator to use for the simulation. It is expected to have ``is_torch = True``.
         pre_transform : PyTorch Transform or None, optional
             Transform to apply to the images before simulation, by default ``None``. Note that this transform is applied on HCW images (different from torchvision).
         dataset_is_CHW : bool, optional
@@ -449,7 +449,7 @@ class DiffuserCamTestDataset(MeasuredDataset):
         )
 
 
-class TrainableMask(SimulatedFarFieldDataset):
+class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
     """
     Dataset of propagated images (through simulation) from a Torch Dataset with learnable mask.
     The `waveprop <https://github.com/ebezzam/waveprop/blob/master/waveprop/simulation.py>`_ package is used for the simulation,
@@ -462,9 +462,6 @@ class TrainableMask(SimulatedFarFieldDataset):
         mask,
         dataset,
         simulator,
-        pre_transform=None,
-        dataset_is_CHW=False,
-        flip=False,
         **kwargs,
     ):
         """
@@ -475,12 +472,8 @@ class TrainableMask(SimulatedFarFieldDataset):
             Mask to use for simulation. Should be a 4D tensor with shape [1, H, W, C]. Simulation of multi-depth data is not supported yet.
         dataset : :py:class:`torch.utils.data.Dataset`
             Dataset to propagate. Should output images with shape [H, W, C] unless ``dataset_is_CHW`` is ``True`` (and therefore images have the dimension ordering of [C, H, W]).
-        pre_transform : PyTorch Transform or None, optional
-            Transform to apply to the images before simulation, by default ``None``.
-        dataset_is_CHW : bool, optional
-            If True, the input dataset is expected to output images with shape [C, H, W], by default ``False``.
-        flip : bool, optional
-            If True,images are flipped beffore the simulation, by default ``False``..
+        simulator : :py:class:`lensless.utils.simulation.FarFieldSimulator`
+            Simulator object used on images from ``dataset``. Waveprop simulator to use for the simulation. It is expected to have ``is_torch = True``.
         """
 
         self._mask = mask
@@ -494,9 +487,7 @@ class TrainableMask(SimulatedFarFieldDataset):
             not simulator.quantize
         ), "Simulator should not perform quantization to maintain differentiability. Please set quantize=False"
 
-        super(TrainableMask, self).__init__(
-            dataset, simulator, pre_transform, dataset_is_CHW, flip, **kwargs
-        )
+        super(SimulatedDatasetTrainableMask, self).__init__(dataset, simulator, **kwargs)
 
     def _get_images_pair(self, index):
         # update psf

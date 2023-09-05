@@ -28,7 +28,7 @@ from lensless import UnrolledFISTA, UnrolledADMM
 from lensless.utils.dataset import (
     DiffuserCamTestDataset,
     SimulatedFarFieldDataset,
-    TrainableMask,
+    SimulatedDatasetTrainableMask,
 )
 import lensless.hardware.trainable_mask
 from lensless.recon.utils import create_process_network
@@ -90,7 +90,7 @@ def simulate_dataset(config, psf, mask=None):
             flip=config.simulation.flip,
         )
     else:
-        ds_prop = TrainableMask(
+        ds_prop = SimulatedDatasetTrainableMask(
             dataset=ds,
             mask=mask,
             simulator=simulator,
