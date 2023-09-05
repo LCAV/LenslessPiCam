@@ -14,8 +14,10 @@ class TrainableMask(metaclass=abc.ABCMeta):
     Abstract class for defining trainable masks.
 
     The following abstract methods need to be defined:
-    1. get_psf: getting the PSF of the mask from the mask parameter.
-    2. project: projecting the mask parameters to a valid space (should be a subspace of [0,1]).
+
+    - :py:class:`~lensless.hardware.trainable_mask.TrainableMask.get_psf`: returning the PSF of the mask.
+    - :py:class:`~lensless.hardware.trainable_mask.TrainableMask.project`: projecting the mask parameters to a valid space (should be a subspace of [0,1]).
+
     """
 
     def __init__(self, initial_mask, optimizer="Adam", lr=1e-3, **kwargs):
@@ -24,7 +26,7 @@ class TrainableMask(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        initial_mask : ``torch.Tensor``
+        initial_mask : :py:class:`~torch.Tensor`
             Initial mask parameters.
         optimizer : str, optional
             Optimizer to use for updating the mask parameters, by default "Adam"
@@ -63,10 +65,15 @@ class TrainableMask(metaclass=abc.ABCMeta):
 class TrainablePSF(TrainableMask):
     """
     Class for defining an object that directly optimizes the PSF, without any constraints on what can be realized physically.
+
+    Parameters
+    ----------
+    is_rgb : bool, optional
+        Whether the mask is RGB or not, by default True.
     """
 
-    def __init__(self, initial_mask, is_rgb=True, optimizer="Adam", lr=1e-3, **kwargs):
-        super().__init__(initial_mask, optimizer, lr, **kwargs)
+    def __init__(self, is_rgb=True, **kwargs):
+        super().__init__(**kwargs)
         self._is_rgb = is_rgb
 
     def get_psf(self):
