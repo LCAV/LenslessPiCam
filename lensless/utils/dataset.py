@@ -448,7 +448,7 @@ class DiffuserCamTestDataset(MeasuredDataset):
         )
 
 
-class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
+class TrainableMask(SimulatedFarFieldDataset):
     """
     Dataset of propagated images (through simulation) from a Torch Dataset with learnable mask.
     The `waveprop <https://github.com/ebezzam/waveprop/blob/master/waveprop/simulation.py>`_ package is used for the simulation,
@@ -470,16 +470,16 @@ class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
         Parameters
         ----------
 
-        mask : ``:py:class:lensless.recon.trainable_mask.TrainableMask``
-            PSF to use for simulate. Should be a 4D tensor with shape [1, H, W, C]. Simulation of multi-depth data is not supported yet.
-        dataset : ``:py:class:torch.utils.data.Dataset``
+        mask : :py:class:`lensless.recon.trainable_mask.TrainableMask`
+            Mask to use for simulation. Should be a 4D tensor with shape [1, H, W, C]. Simulation of multi-depth data is not supported yet.
+        dataset : :py:class:`torch.utils.data.Dataset`
             Dataset to propagate. Should output images with shape [H, W, C] unless ``dataset_is_CHW`` is ``True`` (and therefore images have the dimension ordering of [C, H, W]).
         pre_transform : PyTorch Transform or None, optional
             Transform to apply to the images before simulation, by default ``None``.
         dataset_is_CHW : bool, optional
             If True, the input dataset is expected to output images with shape [C, H, W], by default ``False``.
         flip : bool, optional
-                If True,images are flipped beffore the simulation, by default ``False``..
+            If True,images are flipped beffore the simulation, by default ``False``..
         """
 
         self._mask = mask
@@ -491,9 +491,9 @@ class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
         ).all(), "PSF shape should match simulator shape"
         assert (
             not simulator.quantize
-        ), "Simulator should not be quantized to matain differentiability. Please set quantize=False"
+        ), "Simulator should not perform quantization to maintain differentiability. Please set quantize=False"
 
-        super(SimulatedDatasetTrainableMask, self).__init__(
+        super(TrainableMask, self).__init__(
             dataset, simulator, pre_transform, dataset_is_CHW, flip, **kwargs
         )
 
