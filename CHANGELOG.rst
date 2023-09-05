@@ -13,6 +13,24 @@ Unreleased
 Added
 ~~~~~
 
+- Nothing
+
+Changed
+~~~~~~~
+
+- Nothing
+
+Bugfix
+~~~~~~
+
+- Nothing
+
+1.0.5 - (2023-09-05)
+--------------------
+
+Added
+~~~~~
+
 - Sensor module.
 - Single-script and Telegram demo.
 - Link and citation for JOSS.
