@@ -30,7 +30,7 @@ from lensless.utils.dataset import (
     SimulatedFarFieldDataset,
     TrainableMask,
 )
-import lensless.recon.trainable_mask
+import lensless.hardware.trainable_mask
 from lensless.recon.utils import create_process_network
 from lensless.utils.image import rgb2gray
 from lensless.utils.simulation import FarFieldSimulator
@@ -189,7 +189,7 @@ def train_unrolled(
 
     # create mask
     if config.trainable_mask.mask_type is not None:
-        mask_class = getattr(lensless.recon.trainable_mask, config.trainable_mask.mask_type)
+        mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
         if config.trainable_mask.initial_value == "random":
             mask = mask_class(
                 torch.rand_like(diffusercam_psf), optimizer="Adam", lr=config.trainable_mask.mask_lr

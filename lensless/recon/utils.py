@@ -15,7 +15,7 @@ import os
 import matplotlib.pyplot as plt
 import torch
 from lensless.eval.benchmark import benchmark
-from lensless.recon.trainable_mask import TrainableMask
+from lensless.hardware.trainable_mask import TrainableMask
 from tqdm import tqdm
 from lensless.recon.drunet.network_unet import UNetRes
 

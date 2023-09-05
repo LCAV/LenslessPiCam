@@ -37,7 +37,8 @@ class TrainableMask(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def get_psf(self):
-        """Abstract method for getting the PSF of the mask. Should be fully compatible with pytorch autograd.
+        """
+        Abstract method for getting the PSF of the mask. Should be fully compatible with pytorch autograd.
 
         Returns
         -------

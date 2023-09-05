@@ -471,7 +471,7 @@ class TrainableMask(SimulatedFarFieldDataset):
         Parameters
         ----------
 
-        mask : :py:class:`lensless.recon.trainable_mask.TrainableMask`
+        mask : :py:class:`lensless.hardware.trainable_mask.TrainableMask`
             Mask to use for simulation. Should be a 4D tensor with shape [1, H, W, C]. Simulation of multi-depth data is not supported yet.
         dataset : :py:class:`torch.utils.data.Dataset`
             Dataset to propagate. Should output images with shape [H, W, C] unless ``dataset_is_CHW`` is ``True`` (and therefore images have the dimension ordering of [C, H, W]).

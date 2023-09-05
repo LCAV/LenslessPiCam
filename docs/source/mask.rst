@@ -34,10 +34,10 @@
    
    Trainable Mask
    ~~~~~~~~~~~~~~~~~~~~~
-   .. autoclass:: lensless.recon.trainable_mask.TrainableMask
+   .. autoclass:: lensless.hardware.trainable_mask.TrainableMask
       :members:
       :special-members: __init__
 
-   .. autoclass:: lensless.recon.trainable_mask.TrainablePSF
+   .. autoclass:: lensless.hardware.trainable_mask.TrainablePSF
       :members:
       :special-members: __init__
