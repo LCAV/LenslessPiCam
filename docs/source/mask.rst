@@ -31,3 +31,13 @@
    .. autoclass:: lensless.hardware.mask.FresnelZoneAperture
       :members:
       :special-members: __init__
+   
+   Trainable Mask
+   ~~~~~~~~~~~~~~~~~~~~~
+   .. autoclass:: lensless.hardware.trainable_mask.TrainableMask
+      :members:
+      :special-members: __init__
+
+   .. autoclass:: lensless.hardware.trainable_mask.TrainablePSF
+      :members:
+      :special-members: __init__

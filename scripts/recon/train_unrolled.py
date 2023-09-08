@@ -12,6 +12,11 @@ Train unrolled version of reconstruction algorithm.
 python scripts/recon/train_unrolled.py
 ```
 
+To fine-tune the DiffuserCam PSF, use the following command:
+```
+python scripts/recon/train_unrolled.py -cn fine-tune_PSF
+```
+
 """
 
 import hydra
@@ -20,7 +25,12 @@ import os
 import numpy as np
 import time
 from lensless import UnrolledFISTA, UnrolledADMM
-from lensless.utils.dataset import DiffuserCamTestDataset, SimulatedFarFieldDataset
+from lensless.utils.dataset import (
+    DiffuserCamTestDataset,
+    SimulatedFarFieldDataset,
+    SimulatedDatasetTrainableMask,
+)
+import lensless.hardware.trainable_mask
 from lensless.recon.utils import create_process_network
 from lensless.utils.image import rgb2gray
 from lensless.utils.simulation import FarFieldSimulator
@@ -29,7 +39,7 @@ import torch
 from torchvision import transforms, datasets
 
 
-def simulate_dataset(config, psf):
+def simulate_dataset(config, psf, mask=None):
     # load dataset
     transforms_list = [transforms.ToTensor()]
     data_path = os.path.join(get_original_cwd(), "data")
@@ -71,9 +81,23 @@ def simulate_dataset(config, psf):
     # create Pytorch dataset and dataloader
     if n_files is not None:
         ds = torch.utils.data.Subset(ds, np.arange(n_files))
-    ds_prop = SimulatedFarFieldDataset(
-        dataset=ds, simulator=simulator, dataset_is_CHW=True, device_conv=device_conv
-    )
+    if mask is None:
+        ds_prop = SimulatedFarFieldDataset(
+            dataset=ds,
+            simulator=simulator,
+            dataset_is_CHW=True,
+            device_conv=device_conv,
+            flip=config.simulation.flip,
+        )
+    else:
+        ds_prop = SimulatedDatasetTrainableMask(
+            dataset=ds,
+            mask=mask,
+            simulator=simulator,
+            dataset_is_CHW=True,
+            device_conv=device_conv,
+            flip=config.simulation.flip,
+        )
     return ds_prop
 
 
@@ -96,12 +120,11 @@ def train_unrolled(
         data_dir=path, downsample=config.simulation.downsample
     )
 
-    psf = benchmark_dataset.psf.to(device)
+    diffusercam_psf = benchmark_dataset.psf.to(device)
     background = benchmark_dataset.background
 
     # convert psf from BGR to RGB
-    if config.files.dataset in ["DiffuserCam"]:
-        psf = psf[..., [2, 1, 0]]
+    diffusercam_psf = diffusercam_psf[..., [2, 1, 0]]
 
     # if using a portrait dataset rotate the PSF
 
@@ -130,7 +153,7 @@ def train_unrolled(
     # create reconstruction algorithm
     if config.reconstruction.method == "unrolled_fista":
         recon = UnrolledFISTA(
-            psf,
+            diffusercam_psf,
             n_iter=config.reconstruction.unrolled_fista.n_iter,
             tk=config.reconstruction.unrolled_fista.tk,
             pad=True,
@@ -140,7 +163,7 @@ def train_unrolled(
         ).to(device)
     elif config.reconstruction.method == "unrolled_admm":
         recon = UnrolledADMM(
-            psf,
+            diffusercam_psf,
             n_iter=config.reconstruction.unrolled_admm.n_iter,
             mu1=config.reconstruction.unrolled_admm.mu1,
             mu2=config.reconstruction.unrolled_admm.mu2,
@@ -164,6 +187,25 @@ def train_unrolled(
     # transform from BGR to RGB
     transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
 
+    # create mask
+    if config.trainable_mask.mask_type is not None:
+        mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
+        if config.trainable_mask.initial_value == "random":
+            mask = mask_class(
+                torch.rand_like(diffusercam_psf), optimizer="Adam", lr=config.trainable_mask.mask_lr
+            )
+        elif config.trainable_mask.initial_value == "DiffuserCam":
+            mask = mask_class(diffusercam_psf, optimizer="Adam", lr=config.trainable_mask.mask_lr)
+        elif config.trainable_mask.initial_value == "DiffuserCam_gray":
+            mask = mask_class(
+                diffusercam_psf[:, :, :, 0, None],
+                optimizer="Adam",
+                lr=config.trainable_mask.mask_lr,
+                is_rgb=not config.simulation.grayscale,
+            )
+    else:
+        mask = None
+
     # load dataset and create dataloader
     if config.files.dataset == "DiffuserCam":
         # Use a ParallelDataset
@@ -174,11 +216,12 @@ def train_unrolled(
             max_indices = config.files.n_files + 1000
 
         data_path = os.path.join(get_original_cwd(), "data", "DiffuserCam")
+        assert os.path.exists(data_path), "DiffuserCam dataset not found"
         dataset = MeasuredDataset(
             root_dir=data_path,
             indices=range(1000, max_indices),
             background=background,
-            psf=psf,
+            psf=diffusercam_psf,
             lensless_fn="diffuser_images",
             lensed_fn="ground_truth_lensed",
             downsample=config.simulation.downsample / 4,
@@ -187,17 +230,25 @@ def train_unrolled(
         )
     else:
         # Use a simulated dataset
-        dataset = simulate_dataset(config, psf)
+        if config.trainable_mask.use_mask_in_dataset:
+            dataset = simulate_dataset(config, diffusercam_psf, mask=mask)
+            # the mask use will differ from the one in the benchmark dataset
+            print("Trainable Mask will be used in the test dataset")
+            benchmark_dataset = None
+        else:
+            dataset = simulate_dataset(config, diffusercam_psf, mask=None)
 
     print(f"Setup time : {time.time() - start_time} s")
-
+    print(f"PSF shape : {diffusercam_psf.shape}")
     trainer = Trainer(
         recon,
         dataset,
         benchmark_dataset,
+        mask=mask,
         batch_size=config.training.batch_size,
         loss=config.loss,
         lpips=config.lpips,
+        l1_mask=config.trainable_mask.L1_strength,
         optimizer=config.optimizer.type,
         optimizer_lr=config.optimizer.lr,
         slow_start=config.training.slow_start,
@@ -205,8 +256,18 @@ def train_unrolled(
         algorithm_name=algorithm_name,
     )
 
-    trainer.train(n_epoch=config.training.epoch, save_pt=save)
-    trainer.save(path=os.path.join(save, "recon.pt"))
+    trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=disp)
+
+    if mask is not None:
+        print("Saving mask")
+        print(f"mask shape: {mask._mask.shape}")
+        torch.save(mask._mask, os.path.join(save, "mask.pt"))
+        # save as image using plt
+        import matplotlib.pyplot as plt
+
+        print(f"mask max: {mask._mask.max()}")
+        print(f"mask min: {mask._mask.min()}")
+        plt.imsave(os.path.join(save, "mask.png"), mask._mask.detach().cpu().numpy()[0, ...])
 
 
 if __name__ == "__main__":

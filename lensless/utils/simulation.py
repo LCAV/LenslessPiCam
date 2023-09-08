@@ -3,6 +3,7 @@
 # =================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
+# Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
 import numpy as np
@@ -27,6 +28,7 @@ class FarFieldSimulator(FarFieldSimulator_wp):
         device_conv="cpu",
         random_shift=False,
         is_torch=False,
+        quantize=True,
         **kwargs
     ):
         """
@@ -52,6 +54,8 @@ class FarFieldSimulator(FarFieldSimulator_wp):
             Whether to randomly shift the image, by default False.
         is_torch : bool, optional
             Whether to use pytorch, by default False.
+        quantize : bool, optional
+            Whether to quantize image, by default True.
         """
 
         if psf is not None:
@@ -70,8 +74,37 @@ class FarFieldSimulator(FarFieldSimulator_wp):
             device_conv,
             random_shift,
             is_torch,
+            quantize,
             **kwargs
         )
+
+        # save all the parameters in a dict
+        self.params = {
+            "object_height": object_height,
+            "scene2mask": scene2mask,
+            "mask2sensor": mask2sensor,
+            "sensor": sensor,
+            "output_dim": output_dim,
+            "snr_db": snr_db,
+            "max_val": max_val,
+            "device_conv": device_conv,
+            "random_shift": random_shift,
+            "is_torch": is_torch,
+            "quantize": quantize,
+        }
+        self.params.update(kwargs)
+
+    def set_psf(self, psf):
+        """
+        Set point spread function.
+
+        Parameters
+        ----------
+        psf : np.ndarray or torch.Tensor
+            Point spread function.
+        """
+        psf = psf.squeeze().movedim(-1, 0)
+        return super().set_psf(psf)
 
     def propagate(self, obj, return_object_plane=False):
         """
