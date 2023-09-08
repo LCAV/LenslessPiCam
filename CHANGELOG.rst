@@ -28,6 +28,7 @@ Added
 - Support for unrolled loading and inference in the script ``admm.py``.
 - Tikhonov reconstruction for coded aperture measurements (MLS / MURA).
 - New ``Trainer`` class to train ``TrainableReconstructionAlgorithm`` with PyTorch.
+- New ``load_pretrained`` to load pretrained unrolled_admm model.
 
 
 Changed
