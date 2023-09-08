@@ -1,3 +1,4 @@
+# python scripts/recon/train_unrolled.py
 hydra:
   job:
     chdir: True    # change to output folder

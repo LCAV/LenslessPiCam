@@ -3,6 +3,7 @@
 # =================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
+# Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
 """
@@ -10,6 +11,13 @@ Train unrolled version of reconstruction algorithm.
 
 ```
 python scripts/recon/train_unrolled.py
+```
+
+By default it uses the configuration fro mthe file `configs/train_unrolledADMM.yaml`.
+
+To train pre- and post-processing networks, use the following command:
+```
+python scripts/recon/train_unrolled.py -cn train_pre-post-processing
 ```
 
 To fine-tune the DiffuserCam PSF, use the following command:
@@ -117,8 +125,7 @@ def train_unrolled(
     # benchmarking dataset:
     path = os.path.join(get_original_cwd(), "data")
     benchmark_dataset = DiffuserCamTestDataset(
-        # data_dir=path, downsample=config.simulation.downsample
-        data_dir=path, downsample=config.files.downsample
+        data_dir=path, n_files=config.files.n_files, downsample=config.files.downsample
     )
 
     diffusercam_psf = benchmark_dataset.psf.to(device)
