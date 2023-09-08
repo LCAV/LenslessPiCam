@@ -269,7 +269,7 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
             # download model
             filename = model_dir + ".zip"
             url = (
-                "https://drive.switch.ch/index.php/s/JTJSNm0F4l0sJo7/download?path=%2Fmodels%2Fpretrain_models&files="
+                "https://drive.switch.ch/index.php/s/EiWlwOIKjn1prpr/download?path=%2F&files="
                 + filename
             )
             download_and_extract_archive(
