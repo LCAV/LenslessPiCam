@@ -2,27 +2,16 @@ hydra:
   job:
     chdir: True    # change to output folder
 
-#Reconstruction algorithm
-input:
-  # File path for recorded PSF
-  psf: data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11/psf.tiff
-  dtype: float32
+
+# Train Dataset
+files:
+  dataset: "DiffuserCam"   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  n_files: null    # null to use all
+  downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
+
 
 torch: True
 torch_device: 'cuda'
-
-preprocess:
-  # Image shape (height, width) for reconstruction.
-  shape: null
-  # Whether image is raw bayer data.
-  bayer: False
-  blue_gain: null
-  red_gain: null
-  # Same PSF for all channels (sum) or unique PSF for RGB.
-  single_psf: False
-  # Whether to perform construction in grayscale.
-  gray: False
-
 
 display:
   # How many iterations to wait for intermediate plot. 
@@ -68,11 +57,6 @@ trainable_mask:
   mask_lr: 1e-3
   L1_strength: 1.0  #False or float
   use_mask_in_dataset : True # Work only with simulated dataset
-
-# Train Dataset
-files:
-  dataset: "DiffuserCam"   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
-  n_files: null    # null to use all
 
 target: "object_plane"    # "original" or "object_plane" or "label"
 

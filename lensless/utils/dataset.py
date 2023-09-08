@@ -400,7 +400,7 @@ class DiffuserCamTestDataset(MeasuredDataset):
         n_files : int, optional
             Number of image pairs to load in the dataset , by default 200.
         downsample : int, optional
-            Downsample factor of the lensless images, by default 8.
+            Downsample factor of the lensless images, by default 2. Note that the PSF has a resolution of 4x of the images.
         """
 
         # download dataset if necessary
@@ -424,7 +424,7 @@ class DiffuserCamTestDataset(MeasuredDataset):
         psf_fp = os.path.join(data_dir, "psf.tiff")
         psf, background = load_psf(
             psf_fp,
-            downsample=downsample,
+            downsample=downsample * 4,
             return_float=True,
             return_bg=True,
             bg_pix=(0, 15),
@@ -439,7 +439,7 @@ class DiffuserCamTestDataset(MeasuredDataset):
             root_dir=data_dir,
             indices=range(n_files),
             background=background,
-            downsample=downsample / 4,
+            downsample=downsample,
             flip=False,
             transform_lensless=transform_BRG2RGB,
             transform_lensed=transform_BRG2RGB,
