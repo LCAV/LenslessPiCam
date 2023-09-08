@@ -1,62 +1,24 @@
-input:
-  psf: data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11/psf.tiff
-  dtype: float32
-torch: true
-torch_device: cuda
-preprocess:
-  shape: null
-  bayer: false
-  blue_gain: null
-  red_gain: null
-  single_psf: false
-  gray: false
+# python scripts/recon/train_unrolled.py -cn train_pre-post-processing
+defaults:
+  - train_unrolledADMM
+  - _self_
+
 display:
   disp: 400
-  plot: true
-  gamma: null
-save: true
+
 reconstruction:
   method: unrolled_admm
-  unrolled_fista:
-    n_iter: 50
-    tk: 1
-    learn_tk: true
-  unrolled_admm:
-    n_iter: 20
-    mu1: 0.0001
-    mu2: 0.0001
-    mu3: 0.0001
-    tau: 0.0002
+
   pre_process:
     network: UnetRes
     depth: 2
   post_process:
     network: DruNet
     depth: 4
-files:
-  dataset: DiffuserCam
-  n_files: null
-target: object_plane
-simulation:
-  grayscale: false
-  object_height: 0.6
-  random_shift: false
-  random_vflip: 0.5
-  random_hflip: 0.5
-  random_rotate: false
-  scene2mask: 0.4
-  mask2sensor: 0.004
-  sensor: rpi_hq
-  snr_db: 40
-  downsample: 8
-  max_val: 255
+
 training:
-  batch_size: 8
   epoch: 50
-  skip_NAN: true
   slow_start: 0.01
-optimizer:
-  type: Adam
-  lr: 1.0e-04
+
 loss: l2
 lpips: 1.0
