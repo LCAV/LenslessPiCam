@@ -20,14 +20,14 @@ from tqdm import tqdm
 from lensless.recon.drunet.network_unet import UNetRes
 
 
-def load_drunet(model_path, n_channels=3, requires_grad=False):
+def load_drunet(model_path=None, n_channels=3, requires_grad=False):
     """
     Load a pre-trained Drunet model.
 
     Parameters
     ----------
-    model_path : str
-        Path to pre-trained model.
+    model_path : str, optional
+        Path to pre-trained model. Download if not provided.
     n_channels : int
         Number of channels in input image.
     requires_grad : bool
@@ -38,6 +38,25 @@ def load_drunet(model_path, n_channels=3, requires_grad=False):
     model : :py:class:`torch.nn.Module`
         Loaded model.
     """
+
+    if model_path is None:
+        model_path = os.path.join(get_original_cwd(), "models", "drunet_color.pth")
+        if not os.path.exists(model_path):
+            try:
+                from torchvision.datasets.utils import download_url
+            except ImportError:
+                exit()
+            msg = "Do you want to download the pretrainde DRUNet model (130MB)?"
+
+            # default to yes if no input is given
+            valid = input("%s (Y/n) " % msg).lower() != "n"
+            output_path = os.path.join(get_original_cwd(), "models")
+            if valid:
+                url = "https://drive.switch.ch/index.php/s/jTdeMHom025RFRQ/download"
+                filename = "drunet_color.pth"
+                download_url(url, output_path, filename=filename)
+
+    assert os.path.exists(model_path), f"Model path {model_path} does not exist"
 
     model = UNetRes(
         in_nc=n_channels + 1,
@@ -192,9 +211,7 @@ def create_process_network(network, depth, device="cpu"):
     if network == "DruNet":
         from lensless.recon.utils import load_drunet
 
-        process = load_drunet(
-            os.path.join(get_original_cwd(), "data/drunet_color.pth"), requires_grad=True
-        ).to(device)
+        process = load_drunet(requires_grad=True).to(device)
         process_name = "DruNet"
     elif network == "UnetRes":
         from lensless.recon.drunet.network_unet import UNetRes
