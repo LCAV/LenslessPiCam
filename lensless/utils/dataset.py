@@ -26,7 +26,9 @@ class DualDataset(Dataset):
     def __init__(
         self,
         indices=None,
+        # psf_path=None,
         background=None,
+        # background_pix=(0, 15),
         downsample=1,
         flip=False,
         transform_lensless=None,
@@ -38,18 +40,22 @@ class DualDataset(Dataset):
 
         Parameters
         ----------
-            indices : range or int or None
-                Indices of the images to use in the dataset (if integer, it should be interpreted as range(indices)), by default None.
-            background : :py:class:`~torch.Tensor` or None, optional
-                If not ``None``, background is removed from lensless images, by default ``None``.
-            downsample : int, optional
-                Downsample factor of the lensless images, by default 1.
-            flip : bool, optional
-                If ``True``, lensless images are flipped, by default ``False``.
-            transform_lensless : PyTorch Transform or None, optional
-                Transform to apply to the lensless images, by default ``None``. Note that this transform is applied on HWC images (different from torchvision).
-            transform_lensed : PyTorch Transform or None, optional
-                Transform to apply to the lensed images, by default ``None``. Note that this transform is applied on HWC images (different from torchvision).
+        indices : range or int or None
+            Indices of the images to use in the dataset (if integer, it should be interpreted as range(indices)), by default None.
+        psf_path : str
+            Path to the PSF of the imaging system, by default None.
+        background : :py:class:`~torch.Tensor` or None, optional
+            If not ``None``, background is removed from lensless images, by default ``None``. If PSF is provided, background is estimated from the PSF.
+        background_pix : tuple, optional
+            Pixels to use for background estimation, by default (0, 15).
+        downsample : int, optional
+            Downsample factor of the lensless images, by default 1.
+        flip : bool, optional
+            If ``True``, lensless images are flipped, by default ``False``.
+        transform_lensless : PyTorch Transform or None, optional
+            Transform to apply to the lensless images, by default ``None``. Note that this transform is applied on HWC images (different from torchvision).
+        transform_lensed : PyTorch Transform or None, optional
+            Transform to apply to the lensed images, by default ``None``. Note that this transform is applied on HWC images (different from torchvision).
         """
         if isinstance(indices, int):
             indices = range(indices)
@@ -59,6 +65,21 @@ class DualDataset(Dataset):
         self.flip = flip
         self.transform_lensless = transform_lensless
         self.transform_lensed = transform_lensed
+
+        # self.psf = None
+        # if psf_path is not None:
+        #     psf, background = load_psf(
+        #         psf_path,
+        #         downsample=downsample,
+        #         return_float=True,
+        #         return_bg=True,
+        #         bg_pix=background_pix,
+        #     )
+        #     if self.background is None:
+        #         self.background = background
+        #     self.psf = torch.from_numpy(psf)
+        #     if self.transform_lensless is not None:
+        #         self.psf = self.transform_lensless(self.psf)
 
     @abstractmethod
     def __len__(self):
@@ -365,6 +386,7 @@ class MeasuredDataset(DualDataset):
             lensed_fp = os.path.join(self.lensed_dir, self.files[idx])
             lensless = np.load(lensless_fp)
             lensed = np.load(lensed_fp)
+
         else:
             # more standard image formats: png, jpg, tiff, etc.
             lensless_fp = os.path.join(self.lensless_dir, self.files[idx])
@@ -380,6 +402,53 @@ class MeasuredDataset(DualDataset):
                 # 16 bit
                 lensless = lensless.astype(np.float32) / 65535
                 lensed = lensed.astype(np.float32) / 65535
+
+        return lensless, lensed
+
+
+class DiffuserCamMirflickr(MeasuredDataset):
+    def __init__(
+        self,
+        dataset_dir,
+        psf_path,
+        downsample=2,
+        **kwargs,
+    ):
+
+        psf, background = load_psf(
+            psf_path,
+            downsample=downsample * 4,  # PSF is 4x the resolution of the images
+            return_float=True,
+            return_bg=True,
+            bg_pix=(0, 15),
+        )
+        transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
+        self.psf = transform_BRG2RGB(torch.from_numpy(psf))
+        self.allowed_idx = np.arange(2, 25001)
+
+        super().__init__(
+            root_dir=dataset_dir,
+            background=background,
+            downsample=downsample,
+            flip=False,
+            transform_lensless=transform_BRG2RGB,
+            transform_lensed=transform_BRG2RGB,
+            lensless_fn="diffuser_images",
+            lensed_fn="ground_truth_lensed",
+            image_ext="npy",
+            **kwargs,
+        )
+
+    def _get_images_pair(self, idx):
+
+        assert idx >= self.allowed_idx.min(), f"idx should be >= {self.allowed_idx.min()}"
+        assert idx <= self.allowed_idx.max(), f"idx should be <= {self.allowed_idx.max()}"
+
+        fn = f"im{idx}.npy"
+        lensless_fp = os.path.join(self.lensless_dir, fn)
+        lensed_fp = os.path.join(self.lensed_dir, fn)
+        lensless = np.load(lensless_fp)
+        lensed = np.load(lensed_fp)
 
         return lensless, lensed
 
@@ -411,7 +480,9 @@ class DiffuserCamTestDataset(MeasuredDataset):
 
         # download dataset if necessary
         if data_dir is None:
-            data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data", "DiffuserCam_Test")
+            data_dir = os.path.join(
+                os.path.dirname(__file__), "..", "..", "data", "DiffuserCam_Test"
+            )
         if not os.path.isdir(data_dir):
             main_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
             print("No dataset found for benchmarking.")
