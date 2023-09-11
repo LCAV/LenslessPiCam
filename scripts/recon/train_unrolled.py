@@ -102,9 +102,7 @@ def simulate_dataset(config, psf, mask=None):
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
-def train_unrolled(
-    config,
-):
+def train_unrolled(config):
     if config.torch_device == "cuda" and torch.cuda.is_available():
         print("Using GPU for training.")
         device = "cuda"
@@ -115,10 +113,10 @@ def train_unrolled(
     # torch.autograd.set_detect_anomaly(True)
 
     # benchmarking dataset:
-    path = os.path.join(get_original_cwd(), "data")
+    eval_path = os.path.join(get_original_cwd(), config.files.eval_dataset)
     benchmark_dataset = DiffuserCamTestDataset(
         # data_dir=path, downsample=config.simulation.downsample
-        data_dir=path, downsample=config.files.downsample
+        data_dir=eval_path, downsample=config.files.downsample, n_files=config.files.n_files
     )
 
     diffusercam_psf = benchmark_dataset.psf.to(device)

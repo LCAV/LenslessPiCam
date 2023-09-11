@@ -240,6 +240,9 @@ class MeasuredDatasetSimulatedOriginal(DualDataset):
         self.root_dir = root_dir
         self.lensless_dir = os.path.join(root_dir, lensless_fn)
         self.original_dir = os.path.join(root_dir, original_fn)
+        assert os.path.isdir(self.lensless_dir)
+        assert os.path.isdir(self.original_dir)
+
         self.image_ext = image_ext.lower()
         self.original_ext = original_ext.lower() if original_ext is not None else image_ext.lower()
 
@@ -336,6 +339,9 @@ class MeasuredDataset(DualDataset):
         self.root_dir = root_dir
         self.lensless_dir = os.path.join(root_dir, lensless_fn)
         self.lensed_dir = os.path.join(root_dir, lensed_fn)
+        assert os.path.isdir(self.lensless_dir)
+        assert os.path.isdir(self.lensed_dir)
+
         self.image_ext = image_ext.lower()
 
         files = glob.glob(os.path.join(self.lensless_dir, "*." + image_ext))
@@ -385,7 +391,7 @@ class DiffuserCamTestDataset(MeasuredDataset):
 
     def __init__(
         self,
-        data_dir="data",
+        data_dir=None,
         n_files=200,
         downsample=2,
     ):
@@ -396,7 +402,7 @@ class DiffuserCamTestDataset(MeasuredDataset):
         Parameters
         ----------
         data_dir : str, optional
-            The path to the folder containing the DiffuserCam_Test dataset, by default "data".
+            The path to ``DiffuserCam_Test`` dataset, by default looks inside the ``data`` folder.
         n_files : int, optional
             Number of image pairs to load in the dataset , by default 200.
         downsample : int, optional
@@ -404,9 +410,10 @@ class DiffuserCamTestDataset(MeasuredDataset):
         """
 
         # download dataset if necessary
-        main_dir = data_dir
-        data_dir = os.path.join(data_dir, "DiffuserCam_Test")
+        if data_dir is None:
+            data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data", "DiffuserCam_Test")
         if not os.path.isdir(data_dir):
+            main_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
             print("No dataset found for benchmarking.")
             try:
                 from torchvision.datasets.utils import download_and_extract_archive

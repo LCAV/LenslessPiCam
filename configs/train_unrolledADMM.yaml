@@ -1,3 +1,4 @@
+# python scripts/recon/train_unrolled.py
 hydra:
   job:
     chdir: True    # change to output folder
@@ -6,9 +7,9 @@ hydra:
 # Train Dataset
 files:
   dataset: "DiffuserCam"   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
-  n_files: null    # null to use all
+  eval_dataset: data/DiffuserCam_Test
+  n_files: null    # null to use all for both datasets
   downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
-
 
 torch: True
 torch_device: 'cuda'
