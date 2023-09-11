@@ -392,7 +392,7 @@ class DiffuserCamTestDataset(MeasuredDataset):
     def __init__(
         self,
         data_dir=None,
-        n_files=200,
+        n_files=None,
         downsample=2,
     ):
         """
@@ -404,7 +404,7 @@ class DiffuserCamTestDataset(MeasuredDataset):
         data_dir : str, optional
             The path to ``DiffuserCam_Test`` dataset, by default looks inside the ``data`` folder.
         n_files : int, optional
-            Number of image pairs to load in the dataset , by default 200.
+            Number of image pairs to load in the dataset , by default use all.
         downsample : int, optional
             Downsample factor of the lensless images, by default 2. Note that the PSF has a resolution of 4x of the images.
         """
@@ -431,7 +431,7 @@ class DiffuserCamTestDataset(MeasuredDataset):
         psf_fp = os.path.join(data_dir, "psf.tiff")
         psf, background = load_psf(
             psf_fp,
-            downsample=downsample * 4,
+            downsample=downsample * 4,  # PSF is 4x the resolution of the images
             return_float=True,
             return_bg=True,
             bg_pix=(0, 15),
@@ -442,9 +442,14 @@ class DiffuserCamTestDataset(MeasuredDataset):
 
         self.psf = transform_BRG2RGB(torch.from_numpy(psf))
 
+        if n_files is None:
+            indices = None
+        else:
+            indices = range(n_files)
+
         super().__init__(
             root_dir=data_dir,
-            indices=range(n_files),
+            indices=indices,
             background=background,
             downsample=downsample,
             flip=False,
