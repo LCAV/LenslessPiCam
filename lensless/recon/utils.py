@@ -46,7 +46,7 @@ def load_drunet(model_path=None, n_channels=3, requires_grad=False):
                 from torchvision.datasets.utils import download_url
             except ImportError:
                 exit()
-            msg = "Do you want to download the pretrainde DRUNet model (130MB)?"
+            msg = "Do you want to download the pretrained DRUNet model (130MB)?"
 
             # default to yes if no input is given
             valid = input("%s (Y/n) " % msg).lower() != "n"
