@@ -123,12 +123,11 @@ def train_unrolled(config):
     # benchmarking dataset:
     eval_path = os.path.join(get_original_cwd(), config.files.eval_dataset)
     benchmark_dataset = DiffuserCamTestDataset(
-        # data_dir=path, downsample=config.simulation.downsample
         data_dir=eval_path, downsample=config.files.downsample, n_files=config.files.n_files
     )
 
     diffusercam_psf = benchmark_dataset.psf.to(device)
-    background = benchmark_dataset.background
+    # background = benchmark_dataset.background
 
     # convert psf from BGR to RGB
     diffusercam_psf = diffusercam_psf[..., [2, 1, 0]]
@@ -191,8 +190,6 @@ def train_unrolled(config):
 
     # print number of parameters
     print(f"Training model with {sum(p.numel() for p in recon.parameters())} parameters")
-    # transform from BGR to RGB
-    transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
 
     # create mask
     if config.trainable_mask.mask_type is not None:
@@ -215,41 +212,69 @@ def train_unrolled(config):
 
     # load dataset and create dataloader
     if config.files.dataset == "DiffuserCam":
-        # Use a ParallelDataset
-        from lensless.utils.dataset import MeasuredDataset
+        # # Use a ParallelDataset
+        # from lensless.utils.dataset import MeasuredDataset
 
-        max_indices = 30000
-        if config.files.n_files is not None:
-            max_indices = config.files.n_files + 1000
+        # max_indices = 30000
+        # if config.files.n_files is not None:
+        #     max_indices = config.files.n_files + 1000
 
-        data_path = os.path.join(get_original_cwd(), "data", "DiffuserCam")
-        assert os.path.exists(data_path), "DiffuserCam dataset not found"
-        dataset = MeasuredDataset(
-            root_dir=data_path,
-            indices=range(1000, max_indices),
-            background=background,
-            psf=diffusercam_psf,
-            lensless_fn="diffuser_images",
-            lensed_fn="ground_truth_lensed",
-            downsample=config.files.downsample,
-            transform_lensless=transform_BRG2RGB,
-            transform_lensed=transform_BRG2RGB,
+        # indices = range(1000, max_indices)
+
+        # # transform from BGR to RGB
+        # transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
+
+        # data_path = os.path.join(get_original_cwd(), "data", "DiffuserCam")
+        # assert os.path.exists(data_path), "DiffuserCam dataset not found"
+        # train_set = MeasuredDataset(
+        #     root_dir=data_path,
+        #     indices=range(1000, max_indices),
+        #     background=background,
+        #     psf=diffusercam_psf,
+        #     lensless_fn="diffuser_images",
+        #     lensed_fn="ground_truth_lensed",
+        #     downsample=config.files.downsample,
+        #     transform_lensless=transform_BRG2RGB,
+        #     transform_lensed=transform_BRG2RGB,
+        # )
+
+        # files = []
+        # for i in range(len(train_set)):
+        #     idx = indices[i]
+        #     _file = train_set.files[idx]
+        #     _file = _file.split(".")[0]
+        #     files.append(int(_file[2:]))
+        # files = np.array(files)
+        # files = np.sort(files)
+        # n_overlap = np.sum(files <= 1000)
+
+        from lensless.utils.dataset import DiffuserCamMirflickr
+        from torch.utils.data import Subset
+
+        original_path = os.path.join(get_original_cwd(), "data", "DiffuserCam")
+        psf_path = os.path.join(get_original_cwd(), "data", "psf.tiff")
+        dataset = DiffuserCamMirflickr(
+            dataset_dir=original_path,
+            psf_path=psf_path,
         )
+        indices = dataset.allowed_idx[dataset.allowed_idx > 1000]
+        train_set = Subset(dataset, indices)
+
     else:
         # Use a simulated dataset
         if config.trainable_mask.use_mask_in_dataset:
-            dataset = simulate_dataset(config, diffusercam_psf, mask=mask)
+            train_set = simulate_dataset(config, diffusercam_psf, mask=mask)
             # the mask use will differ from the one in the benchmark dataset
             print("Trainable Mask will be used in the test dataset")
             benchmark_dataset = None
         else:
-            dataset = simulate_dataset(config, diffusercam_psf, mask=None)
+            train_set = simulate_dataset(config, diffusercam_psf, mask=None)
 
     print(f"Setup time : {time.time() - start_time} s")
     print(f"PSF shape : {diffusercam_psf.shape}")
     trainer = Trainer(
         recon,
-        dataset,
+        train_set,
         benchmark_dataset,
         mask=mask,
         batch_size=config.training.batch_size,

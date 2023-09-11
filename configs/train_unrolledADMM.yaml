@@ -6,7 +6,7 @@ hydra:
 
 # Train Dataset
 files:
-  dataset: "DiffuserCam"   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  dataset: DiffuserCam   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
   eval_dataset: data/DiffuserCam_Test
   n_files: null    # null to use all for both datasets
   downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
