@@ -259,6 +259,7 @@ def train_unrolled(config):
         )
         indices = dataset.allowed_idx[dataset.allowed_idx > 1000]
         train_set = Subset(dataset, indices)
+        print("Train test size : ", len(train_set))
 
     else:
         # Use a simulated dataset

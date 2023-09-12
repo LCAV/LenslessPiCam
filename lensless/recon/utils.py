@@ -254,6 +254,12 @@ class Trainer:
         """
         Class to train a reconstruction algorithm. Inspired by Trainer from `HuggingFace <https://huggingface.co/docs/transformers/main_classes/trainer>`__.
 
+        The train and test metrics at the end of each epoch can be found in ``self.metrics``,
+        with "LOSS" being the train loss. The test loss can be found in "MSE" (if loss is "l2") or
+        "MAE" (if loss is "l1"). If ``lpips`` is not None, the LPIPS loss is also added
+        to the train loss, such that the test loss can be computed as "MSE" + ``lpips`` * "LPIPS_Vgg"
+        (or "MAE" + ``lpips`` * "LPIPS_Vgg").
+
         Parameters
         ----------
         recon : :py:class:`lensless.TrainableReconstructionAlgorithm`
@@ -265,17 +271,17 @@ class Trainer:
         mask : TrainableMask, optional
             Trainable mask to use for training. If none, training with fix psf, by default None.
         batch_size : int, optional
-            Batch size to use for training, by default 4
+            Batch size to use for training, by default 4.
         loss : str, optional
-            Loss function to use for training "l1" or "l2", by default "l2"
+            Loss function to use for training "l1" or "l2", by default "l2".
         lpips : float, optional
-            the weight of the lpips(VGG) in the total loss. If None ignore. By default None
+            the weight of the lpips(VGG) in the total loss. If None ignore. By default None.
         l1_mask : float, optional
-            the weight of the l1 norm of the mask in the total loss. If None ignore. By default None
+            the weight of the l1 norm of the mask in the total loss. If None ignore. By default None.
         optimizer : str, optional
-            Optimizer to use durring training. Available : "Adam". By default "Adam"
+            Optimizer to use durring training. Available : "Adam". By default "Adam".
         optimizer_lr : float, optional
-            Learning rate for the optimizer, by default 1e-6
+            Learning rate for the optimizer, by default 1e-6.
         slow_start : float, optional
             Multiplicative factor to reduce the learning rate during the first two epochs. If None, ignored. Default is None.
         skip_NAN : bool, optional
@@ -362,7 +368,7 @@ class Trainer:
         )
 
         self.metrics = {
-            "LOSS": [],
+            "LOSS": [],  # train loss
             "MSE": [],
             "MAE": [],
             "LPIPS_Vgg": [],
