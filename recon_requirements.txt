@@ -8,4 +8,5 @@ waveprop>=0.0.7     # for simulation
 # Library for learning algorithm
 torch >= 2.0.0
 torchvision
+torchmetrics
 lpips
