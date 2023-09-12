@@ -136,7 +136,7 @@ def load_image(
     if bg is not None:
 
         # if bg is float vector, turn into int-valued vector
-        if bg.max() <= 1:
+        if bg.max() <= 1 and img.dtype not in [np.float32, np.float64]:
             bg = bg * get_max_val(img)
 
         img = img - bg
@@ -350,6 +350,7 @@ def load_data(
     shape=None,
     torch=False,
     torch_device="cpu",
+    normalize=False,
 ):
     """
     Load data for image reconstruction.
@@ -386,6 +387,8 @@ def load_data(
         Whether to sum RGB channels into single PSF, same across channels. Done
         in "Learned reconstructions for practical mask-based lensless imaging"
         of Kristina Monakhova et. al.
+    normalize : bool default True
+        Whether to normalize data to unit norm.
 
     Returns
     -------
@@ -444,6 +447,9 @@ def load_data(
     if data.shape != psf.shape:
         # in DiffuserCam dataset, images are already reshaped
         data = resize(data, shape=psf.shape)
+
+    if normalize:
+        data /= np.linalg.norm(data.ravel())
 
     if data.shape[3] > 1 and psf.shape[3] == 1:
         warnings.warn(

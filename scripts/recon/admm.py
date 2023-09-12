@@ -13,8 +13,9 @@ import time
 import pathlib as plib
 import matplotlib.pyplot as plt
 import numpy as np
-from lensless.utils.io import load_data
+from lensless.utils.io import load_data, load_image
 from lensless import ADMM
+from lensless.utils.plot import plot_image
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="defaults_recon")
@@ -42,6 +43,8 @@ def admm(config):
         torch=config.torch,
         torch_device=config.torch_device,
         bg_pix=config.preprocess.bg_pix,
+        # TODO normalize?
+        normalize=not config["admm"]["unrolled"],  # unrolled ADMM assumes unnormalized data
     )
 
     disp = config["display"]["disp"]
@@ -52,6 +55,15 @@ def admm(config):
     if save:
         save = os.getcwd()
 
+    if save:
+        if config.torch:
+            org_data = data.cpu().numpy()
+        else:
+            org_data = data
+        ax = plot_image(org_data, gamma=config["display"]["gamma"])
+        ax.set_title("Original measurement")
+        plt.savefig(plib.Path(save) / "lensless.png")
+
     start_time = time.time()
     if not config.admm.unrolled:
         recon = ADMM(psf, **config.admm)
@@ -60,14 +72,14 @@ def admm(config):
         from lensless.recon.unrolled_admm import UnrolledADMM
         import lensless.recon.utils
 
-        pre_process = lensless.recon.utils.create_process_network(
+        pre_process, _ = lensless.recon.utils.create_process_network(
             network=config.admm.pre_process_model.network,
-            depth=config.admm.pre_process_depth.depth,
+            depth=config.admm.pre_process_model.depth,
             device=config.torch_device,
         )
-        post_process = lensless.recon.utils.create_process_network(
+        post_process, _ = lensless.recon.utils.create_process_network(
             network=config.admm.post_process_model.network,
-            depth=config.admm.post_process_depth.depth,
+            depth=config.admm.post_process_model.depth,
             device=config.torch_device,
         )
 
@@ -82,12 +94,21 @@ def admm(config):
     start_time = time.time()
     if config.torch:
         with torch.no_grad():
-            res = recon.apply(
-                disp_iter=disp,
-                save=save,
-                gamma=config["display"]["gamma"],
-                plot=config["display"]["plot"],
-            )
+            if config.admm.unrolled:
+                res = recon.apply(
+                    disp_iter=disp,
+                    save=save,
+                    gamma=config["display"]["gamma"],
+                    plot=config["display"]["plot"],
+                    output_intermediate=True,
+                )
+            else:
+                res = recon.apply(
+                    disp_iter=disp,
+                    save=save,
+                    gamma=config["display"]["gamma"],
+                    plot=config["display"]["plot"],
+                )
     else:
         res = recon.apply(
             disp_iter=disp,
@@ -105,7 +126,80 @@ def admm(config):
     if config["display"]["plot"]:
         plt.show()
     if save:
+
+        if config.admm.unrolled:
+            # Save intermediate results
+            if res[1] is not None:
+                pre_processed_image = res[1].cpu().numpy()
+                ax = plot_image(pre_processed_image, gamma=config["display"]["gamma"])
+                ax.set_title("Image after preprocessing")
+                plt.savefig(plib.Path(save) / "pre_processed.png")
+
+            if res[2] is not None:
+                pre_post_process_image = res[2].cpu().numpy()
+                ax = plot_image(pre_post_process_image, gamma=config["display"]["gamma"])
+                ax.set_title("Image after preprocessing")
+                plt.savefig(plib.Path(save) / "pre_post_process.png")
+
         np.save(plib.Path(save) / "final_reconstruction.npy", img)
+
+        if config.input.original is not None:
+            original = load_image(
+                to_absolute_path(config.input.original),
+                flip=config["preprocess"]["flip"],
+                red_gain=config["preprocess"]["red_gain"],
+                blue_gain=config["preprocess"]["blue_gain"],
+                shape=img.shape[-3:],
+            )
+            ax = plot_image(original, gamma=config["display"]["gamma"])
+            ax.set_title("Ground truth image")
+            plt.savefig(plib.Path(save) / "original.png")
+
+            # compute metrics
+            from torchmetrics.image import lpip, psnr
+
+            lpips_func = lpip.LearnedPerceptualImagePatchSimilarity(net_type="vgg", normalize=True)
+            psnr_funct = psnr.PeakSignalNoiseRatio()
+
+            img_torch = torch.from_numpy(img).squeeze(0)
+            original_torch = torch.from_numpy(original).unsqueeze(0)
+
+            # channel as first dimension
+            img_torch = img_torch.movedim(-1, -3)
+            original_torch = original_torch.movedim(-1, -3)
+
+            # normalize
+            img_torch = img_torch / torch.amax(img_torch)
+
+            # compute metrics
+            lpips = lpips_func(img_torch, original_torch)
+            psnr = psnr_funct(img_torch, original_torch)
+            print(f"LPIPS : {lpips}")
+            print(f"PSNR : {psnr}")
+
+            raise ValueError
+
+        # If the recon algorithm is unrolled and has a preprocessing step, plot result without preprocessing
+        if config.admm.unrolled and recon.pre_process is not None:
+            recon.set_data(data)
+            recon.pre_process = None
+            with torch.no_grad():
+                res = recon.apply(
+                    disp_iter=disp,
+                    save=False,
+                    gamma=config["display"]["gamma"],
+                    plot=config["display"]["plot"],
+                    output_intermediate=True,
+                )
+
+            img = res[0].cpu().numpy()
+            np.save(plib.Path(save) / "final_reconstruction_no_preprocessing.npy", img[0])
+            ax = plot_image(img, gamma=config["display"]["gamma"])
+            plt.savefig(plib.Path(save) / "final_reconstruction_no_preprocessing.png")
+            pre_post_process_image = res[2].cpu().numpy()
+            ax = plot_image(pre_post_process_image, gamma=config["display"]["gamma"])
+            plt.savefig(plib.Path(save) / "pre_post_process_no_preprocessing.png")
+
         print(f"Files saved to : {save}")
 
 

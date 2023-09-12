@@ -5,7 +5,10 @@
 # Yohann PERRON [yohann.perron@gmail.com]
 # #############################################################################
 
+import pathlib as plib
+from matplotlib import pyplot as plt
 from lensless.recon.recon import ReconstructionAlgorithm
+from lensless.utils.plot import plot_image
 
 try:
     import torch
@@ -153,7 +156,15 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         return image_est
 
     def apply(
-        self, disp_iter=10, plot_pause=0.2, plot=True, save=False, gamma=None, ax=None, reset=True
+        self,
+        disp_iter=10,
+        plot_pause=0.2,
+        plot=True,
+        save=False,
+        gamma=None,
+        ax=None,
+        reset=True,
+        output_intermediate=False,
     ):
         """
         Method for performing iterative reconstruction. Contrary to non-trainable reconstruction
@@ -178,6 +189,8 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             Gamma correction factor to apply for plots. Default is None.
         ax : :py:class:`~matplotlib.axes.Axes`, optional
             `Axes` object to fill for plotting/saving, default is to create one.
+        output_intermediate : bool, optional
+            Whether to output intermediate reconstructions after preprocessing and before postprocessing.
 
         Returns
         -------
@@ -188,8 +201,11 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             returning if `plot` or `save` is True.
 
         """
+        pre_processed_image = None
         if self.pre_process is not None:
             self._data = self.pre_process(self._data, self.pre_process_param)
+            if output_intermediate:
+                pre_processed_image = self._data[0, ...].clone()
 
         im = super(TrainableReconstructionAlgorithm, self).apply(
             n_iter=self._n_iter,
@@ -201,6 +217,30 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             ax=ax,
             reset=reset,
         )
+
+        # remove plot if returned
+        if plot:
+            im, _ = im
+
+        # post process data
+        pre_post_process_image = None
         if self.post_process is not None:
+            # apply post process
+            if output_intermediate:
+                pre_post_process_image = im.clone()
             im = self.post_process(im, self.post_process_param)
-        return im
+
+        if plot:
+            ax = plot_image(self._get_numpy_data(im[0]), ax=ax, gamma=gamma)
+            ax.set_title(
+                "Final reconstruction after {} iterations and post process".format(self._n_iter)
+            )
+            if save:
+                plt.savefig(plib.Path(save) / "final.png")
+
+        if output_intermediate:
+            return im, pre_processed_image, pre_post_process_image
+        elif plot:
+            return im, ax
+        else:
+            return im
