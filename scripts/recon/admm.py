@@ -168,7 +168,7 @@ def admm(config):
             img_torch = img_torch.movedim(-1, -3)
             original_torch = original_torch.movedim(-1, -3)
 
-            # normalize
+            # normalize, TODO img max value is 14 which seems strange
             img_torch = img_torch / torch.amax(img_torch)
 
             # compute metrics
@@ -176,8 +176,6 @@ def admm(config):
             psnr = psnr_funct(img_torch, original_torch)
             print(f"LPIPS : {lpips}")
             print(f"PSNR : {psnr}")
-
-            raise ValueError
 
         # If the recon algorithm is unrolled and has a preprocessing step, plot result without preprocessing
         if config.admm.unrolled and recon.pre_process is not None:
