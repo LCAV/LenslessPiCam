@@ -43,8 +43,7 @@ def admm(config):
         torch=config.torch,
         torch_device=config.torch_device,
         bg_pix=config.preprocess.bg_pix,
-        # TODO normalize?
-        normalize=not config["admm"]["unrolled"],  # unrolled ADMM assumes unnormalized data
+        normalize=config.preprocess.normalize,
     )
 
     disp = config["display"]["disp"]
@@ -88,6 +87,7 @@ def admm(config):
         print("Loading checkpoint from : ", path)
         assert os.path.exists(path), "Checkpoint does not exist"
         recon.load_state_dict(torch.load(path, map_location=config.torch_device))
+
     recon.set_data(data)
     print(f"Setup time : {time.time() - start_time} s")
 
@@ -138,7 +138,7 @@ def admm(config):
             if res[2] is not None:
                 pre_post_process_image = res[2].cpu().numpy()
                 ax = plot_image(pre_post_process_image, gamma=config["display"]["gamma"])
-                ax.set_title("Image after preprocessing")
+                ax.set_title("Image prior to post-processing")
                 plt.savefig(plib.Path(save) / "pre_post_process.png")
 
         np.save(plib.Path(save) / "final_reconstruction.npy", img)

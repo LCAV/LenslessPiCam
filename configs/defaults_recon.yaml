@@ -14,6 +14,7 @@ torch: False
 torch_device: 'cpu'
 
 preprocess:
+  normalize: True
   # Downsampling factor along X and Y
   downsample: 4
   # Image shape (height, width) for reconstruction.

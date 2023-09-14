@@ -20,6 +20,7 @@ torch_device: 'cuda:0'
 
 preprocess:
   downsample: 8   # factor for PSF, which is 4x resolution of image
+  normalize: False
 
 admm:
   # Number of iterations
@@ -40,10 +41,3 @@ admm:
     network : DruNet  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
   
-  # checkpoint_fp: outputs/2023-09-11/15-19-35/recon.pt  # pre and post Unet
-  # pre_process_model: 
-  #   network : UnetRes  # UnetRes or DruNet or null
-  #   depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
-  # post_process_model: 
-  #   network : UnetRes  # UnetRes or DruNet or null
-  #   depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet

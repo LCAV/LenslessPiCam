@@ -256,6 +256,7 @@ def train_unrolled(config):
         dataset = DiffuserCamMirflickr(
             dataset_dir=original_path,
             psf_path=psf_path,
+            downsample=config.files.downsample,
         )
         indices = dataset.allowed_idx[dataset.allowed_idx > 1000]
         train_set = Subset(dataset, indices)
