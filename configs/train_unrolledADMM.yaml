@@ -90,6 +90,8 @@ simulation:
 training:
   batch_size: 8
   epoch: 50
+  metric_for_best_model: LPIPS_Vgg
+  save_every: null
   #In case of instable training
   skip_NAN: True
   slow_start: False  #float how much to reduce lr for first epoch

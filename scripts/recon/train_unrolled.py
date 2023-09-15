@@ -258,7 +258,11 @@ def train_unrolled(config):
             psf_path=psf_path,
             downsample=config.files.downsample,
         )
+        # test set is after 1000
         indices = dataset.allowed_idx[dataset.allowed_idx > 1000]
+        if config.files.n_files is not None:
+            indices = indices[: config.files.n_files]
+
         train_set = Subset(dataset, indices)
         print("Train test size : ", len(train_set))
 
@@ -288,6 +292,8 @@ def train_unrolled(config):
         slow_start=config.training.slow_start,
         skip_NAN=config.training.skip_NAN,
         algorithm_name=algorithm_name,
+        metric_for_best_model=config.training.metric_for_best_model,
+        save_every=config.training.save_every,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=disp)
