@@ -153,6 +153,33 @@ def simulate_dataset(config):
     return ds_prop, mask
 
 
+def prep_trainable_mask(config, dataset):
+    mask = None
+    if config.trainable_mask.mask_type is not None:
+        mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
+
+        if config.trainable_mask.initial_value == "random":
+            initial_mask = torch.rand_like(dataset.psf)
+        elif config.trainable_mask.initial_value == "psf":
+            initial_mask = dataset.psf.clone()
+        else:
+            raise ValueError(
+                f"Initial PSF value {config.trainable_mask.initial_value} not supported"
+            )
+
+        if config.trainable_mask.grayscale:
+            initial_mask = rgb2gray(initial_mask)
+
+        mask = mask_class(
+            initial_mask,
+            optimizer="Adam",
+            lr=config.trainable_mask.mask_lr,
+            is_rgb=not config.trainable_mask.grayscale,
+        )
+
+    return mask
+
+
 @hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
 def train_unrolled(config):
 
@@ -170,37 +197,6 @@ def train_unrolled(config):
     else:
         print("Using CPU for training.")
         device = "cpu"
-
-    # # benchmarking dataset:
-    # eval_path = os.path.join(get_original_cwd(), config.files.eval_dataset)
-    # benchmark_dataset = DiffuserCamTestDataset(
-    #     data_dir=eval_path, downsample=config.files.downsample, n_files=config.files.n_files
-    # )
-
-    # diffusercam_psf = benchmark_dataset.psf.to(device)
-    # # background = benchmark_dataset.background
-
-    # # convert psf from BGR to RGB
-    # diffusercam_psf = diffusercam_psf[..., [2, 1, 0]]
-
-    # # create mask
-    # if config.trainable_mask.mask_type is not None:
-    #     mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
-    #     if config.trainable_mask.initial_value == "random":
-    #         mask = mask_class(
-    #             torch.rand_like(diffusercam_psf), optimizer="Adam", lr=config.trainable_mask.mask_lr
-    #         )
-    #     elif config.trainable_mask.initial_value == "DiffuserCam":
-    #         mask = mask_class(diffusercam_psf, optimizer="Adam", lr=config.trainable_mask.mask_lr)
-    #     elif config.trainable_mask.initial_value == "DiffuserCam_gray":
-    #         mask = mask_class(
-    #             diffusercam_psf[:, :, :, 0, None],
-    #             optimizer="Adam",
-    #             lr=config.trainable_mask.mask_lr,
-    #             is_rgb=not config.simulation.grayscale,
-    #         )
-    # else:
-    #     mask = None
 
     # load dataset and create dataloader
     train_set = None
@@ -229,33 +225,19 @@ def train_unrolled(config):
         print("Test test size : ", len(test_set))
 
         # -- if learning mask
-        mask = None
-        if config.trainable_mask.mask_type is not None:
-            mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
-
-            if config.trainable_mask.initial_value == "random":
-                mask = mask_class(
-                    torch.rand_like(dataset.psf), optimizer="Adam", lr=config.trainable_mask.mask_lr
-                )
-            # TODO : change to PSF
-            elif config.trainable_mask.initial_value == "DiffuserCam":
-                mask = mask_class(dataset.psf, optimizer="Adam", lr=config.trainable_mask.mask_lr)
-            elif config.trainable_mask.initial_value == "DiffuserCam_gray":
-                # TODO convert to grayscale
-                mask = mask_class(
-                    dataset.psf[:, :, :, 0, None],
-                    optimizer="Adam",
-                    lr=config.trainable_mask.mask_lr,
-                    is_rgb=not config.simulation.grayscale,
-                )
-
+        mask = prep_trainable_mask(config, dataset)
+        if mask is not None:
             # plot initial PSF
             psf_np = mask.get_psf().detach().cpu().numpy()[0, ...]
+            if config.trainable_mask.grayscale:
+                psf_np = psf_np[:, :, -1]
+
             save_image(psf_np, os.path.join(save, "psf_initial.png"))
             plot_image(psf_np, gamma=config.display.gamma)
             plt.savefig(os.path.join(save, "psf_initial_plot.png"))
 
     else:
+
         # Use a simulated dataset
         if config.trainable_mask.use_mask_in_dataset:
             train_set, mask = simulate_dataset(config)
@@ -263,7 +245,6 @@ def train_unrolled(config):
             print("Trainable Mask will be used in the test dataset")
             test_set = None
         else:
-            # TODO handlge case where finetuning PSF
             train_set, mask = simulate_dataset(config)
 
     start_time = time.time()

@@ -55,7 +55,9 @@ reconstruction:
 #Trainable Mask
 trainable_mask:
   mask_type: Null #Null or "TrainablePSF"
-  initial_value: "DiffuserCam_gray" # "random" or "DiffuserCam" or "DiffuserCam_gray"
+  # "random" (with shape of config.files.psf) or "psf" (using config.files.psf)
+  initial_value: psf
+  grayscale: False
   mask_lr: 1e-3
   L1_strength: 1.0  #False or float
   use_mask_in_dataset : True # Work only with simulated dataset

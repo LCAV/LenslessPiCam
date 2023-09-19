@@ -3,6 +3,7 @@
 # ==================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
+# Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
 import abc
@@ -76,12 +77,16 @@ class TrainablePSF(TrainableMask):
     def __init__(self, initial_mask, optimizer="Adam", lr=1e-3, is_rgb=True, **kwargs):
         super().__init__(initial_mask, optimizer, lr, **kwargs)
         self._is_rgb = is_rgb
+        if is_rgb:
+            assert initial_mask.shape[-1] == 3, "RGB mask should have 3 channels"
+        else:
+            assert initial_mask.shape[-1] == 1, "Monochrome mask should have 1 channel"
 
     def get_psf(self):
         if self._is_rgb:
-            return self._mask.expand(-1, -1, -1, 3)
-        else:
             return self._mask
+        else:
+            return self._mask.expand(-1, -1, -1, 3)
 
     def project(self):
         self._mask.data = torch.clamp(self._mask, 0, 1)
