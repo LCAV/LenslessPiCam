@@ -10,15 +10,17 @@
 import json
 import math
 import numpy as np
+import matplotlib.pyplot as plt
 import time
 from hydra.utils import get_original_cwd
 import os
-import matplotlib.pyplot as plt
 import torch
 from lensless.eval.benchmark import benchmark
 from lensless.hardware.trainable_mask import TrainableMask
 from tqdm import tqdm
 from lensless.recon.drunet.network_unet import UNetRes
+from lensless.utils.io import save_image
+from lensless.utils.plot import plot_image
 
 
 def load_drunet(model_path=None, n_channels=3, requires_grad=False):
@@ -253,6 +255,7 @@ class Trainer:
         algorithm_name="Unknown",
         metric_for_best_model=None,
         save_every=None,
+        gamma=None,
     ):
         """
         Class to train a reconstruction algorithm. Inspired by Trainer from `HuggingFace <https://huggingface.co/docs/transformers/main_classes/trainer>`__.
@@ -295,6 +298,9 @@ class Trainer:
             Metric to use for saving the best model. If None, will default to evaluation loss. Default is None.
         save_every : int, optional
             Save model every ``save_every`` epochs. If None, just save best model.
+        gamma : float, optional
+            Gamma correction to apply to PSFs when plotting. If None, no gamma correction is applied. Default is None.
+
 
         """
         self.device = recon._psf.device
@@ -327,6 +333,7 @@ class Trainer:
             self.use_mask = False
 
         self.l1_mask = l1_mask
+        self.gamma = gamma
 
         # loss
         if loss == "l2":
@@ -385,15 +392,14 @@ class Trainer:
             "ReconstructionError": [],
             "n_iter": self.recon._n_iter,
             "algorithm": algorithm_name,
+            "metric_for_best_model": metric_for_best_model,
+            "best_epoch": 0,
+            "best_eval_score": 0
+            if metric_for_best_model == "PSNR" or metric_for_best_model == "SSIM"
+            else np.inf,
         }
-        self.metric_for_best_model = metric_for_best_model
-        if self.metric_for_best_model is not None:
-            assert self.metric_for_best_model in self.metrics.keys()
-        if self.metric_for_best_model == "PSNR" or self.metric_for_best_model == "SSIM":
-            self.best_eval_score = 0
-        else:
-            self.best_eval_score = np.inf
-        self.best_epoch_fn = None
+        if metric_for_best_model is not None:
+            assert metric_for_best_model in self.metrics.keys()
         self.save_every = save_every
 
         # Backward hook that detect NAN in the gradient and print the layer weights
@@ -529,13 +535,15 @@ class Trainer:
                 json.dump(self.metrics, f)
 
         # check best metric
-        if self.metric_for_best_model is None:
+        if self.metrics["metric_for_best_model"] is None:
             eval_loss = current_metrics["MSE"]
             if self.lpips is not None:
                 eval_loss += self.lpips * current_metrics["LPIPS_Vgg"]
+            if self.use_mask and self.l1_mask:
+                eval_loss += self.l1_mask * np.mean(np.abs(self.mask._mask.cpu().detach().numpy()))
             return eval_loss
         else:
-            return current_metrics[self.metric_for_best_model]
+            return current_metrics[self.metrics["metric_for_best_model"]]
 
     def on_epoch_end(self, mean_loss, save_pt, epoch):
         """
@@ -558,23 +566,24 @@ class Trainer:
         # self.save(path=save_pt, include_optimizer=False)
         epoch_eval_metric = self.evaluate(mean_loss, save_pt)
         new_best = False
-        if self.metric_for_best_model == "PSNR" or self.metric_for_best_model == "SSIM":
-            if epoch_eval_metric > self.best_eval_score:
-                self.best_eval_score = epoch_eval_metric
+        if (
+            self.metrics["metric_for_best_model"] == "PSNR"
+            or self.metrics["metric_for_best_model"] == "SSIM"
+        ):
+            if epoch_eval_metric > self.metrics["best_eval_score"]:
+                self.metrics["best_eval_score"] = epoch_eval_metric
                 new_best = True
         else:
-            if epoch_eval_metric < self.best_eval_score:
-                self.best_eval_score = epoch_eval_metric
+            if epoch_eval_metric < self.metrics["best_eval_score"]:
+                self.metrics["best_eval_score"] = epoch_eval_metric
                 new_best = True
 
         if new_best:
-            if self.best_epoch_fn is not None:
-                os.remove(os.path.join(save_pt, self.best_epoch_fn))
-            self.best_epoch_fn = f"recon_BEST_epoch{epoch}.pt"
-            self.save(path=save_pt, include_optimizer=False, fn=self.best_epoch_fn)
+            self.metrics["best_epoch"] = epoch
+            self.save(path=save_pt, include_optimizer=False, epoch="BEST")
 
         if self.save_every is not None and epoch % self.save_every == 0:
-            self.save(path=save_pt, include_optimizer=False, fn=f"recon_epoch{epoch}.pt")
+            self.save(path=save_pt, include_optimizer=False, epoch=epoch)
 
     def train(self, n_epoch=1, save_pt=None, disp=-1):
         """
@@ -602,21 +611,24 @@ class Trainer:
 
         print(f"Train time : {time.time() - start_time} s")
 
-    def save(self, path="recon", include_optimizer=False, fn="recon.pt"):
+    def save(self, epoch, path="recon", include_optimizer=False):
         # create directory if it does not exist
         if not os.path.exists(path):
             os.makedirs(path)
         # save mask
         if self.use_mask:
-            torch.save(self.mask._mask, os.path.join(path, "mask.pt"))
-            torch.save(self.mask._optimizer.state_dict(), os.path.join(path, "mask_optim.pt"))
-            import matplotlib.pyplot as plt
-
-            plt.imsave(
-                os.path.join(path, "psf.png"), self.mask.get_psf().detach().cpu().numpy()[0, ...]
+            torch.save(self.mask._mask, os.path.join(path, f"mask_epoch{epoch}.pt"))
+            torch.save(
+                self.mask._optimizer.state_dict(), os.path.join(path, f"mask_optim_epoch{epoch}.pt")
             )
+
+            psf_np = self.mask.get_psf().detach().cpu().numpy()[0, ...]
+            save_image(psf_np, os.path.join(path, f"psf_epoch{epoch}.png"))
+            plot_image(psf_np, gamma=self.gamma)
+            plt.savefig(os.path.join(path, f"psf_epoch{epoch}_plot.png"))
+
         # save optimizer
         if include_optimizer:
-            torch.save(self.optimizer.state_dict(), os.path.join(path, "optim.pt"))
+            torch.save(self.optimizer.state_dict(), os.path.join(path, f"optim_epoch{epoch}.pt"))
         # save recon
-        torch.save(self.recon.state_dict(), os.path.join(path, f"{fn}"))
+        torch.save(self.recon.state_dict(), os.path.join(path, f"recon_epoch{epoch}"))

@@ -9,7 +9,7 @@ import abc
 import torch
 
 
-class TrainableMask(metaclass=abc.ABCMeta):
+class TrainableMask(torch.nn.Module, metaclass=abc.ABCMeta):
     """
     Abstract class for defining trainable masks.
 
@@ -33,6 +33,7 @@ class TrainableMask(metaclass=abc.ABCMeta):
         lr : float, optional
             Learning rate for the mask parameters, by default 1e-3
         """
+        super().__init__()
         self._mask = torch.nn.Parameter(initial_mask)
         self._optimizer = getattr(torch.optim, optimizer)([self._mask], lr=lr, **kwargs)
         self._counter = 0
@@ -72,8 +73,8 @@ class TrainablePSF(TrainableMask):
         Whether the mask is RGB or not, by default True.
     """
 
-    def __init__(self, is_rgb=True, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, initial_mask, optimizer="Adam", lr=1e-3, is_rgb=True, **kwargs):
+        super().__init__(initial_mask, optimizer, lr, **kwargs)
         self._is_rgb = is_rgb
 
     def get_psf(self):

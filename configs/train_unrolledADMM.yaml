@@ -3,10 +3,11 @@ hydra:
   job:
     chdir: True    # change to output folder
 
-
 # Train Dataset
 files:
-  dataset: DiffuserCam   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  dataset: data/DiffuserCam   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  psf: data/psf.tiff
+  diffusercam_psf: True
   eval_dataset: data/DiffuserCam_Test
   n_files: null    # null to use all for both datasets
   downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
@@ -90,7 +91,7 @@ simulation:
 training:
   batch_size: 8
   epoch: 50
-  metric_for_best_model: LPIPS_Vgg
+  metric_for_best_model: null   # e.g. LPIPS_Vgg, null does test loss
   save_every: null
   #In case of instable training
   skip_NAN: True

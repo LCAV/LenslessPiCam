@@ -407,6 +407,12 @@ class MeasuredDataset(DualDataset):
 
 
 class DiffuserCamMirflickr(MeasuredDataset):
+    """
+    Helper class for DiffuserCam Mirflickr dataset.
+
+    Note that image colors are in BGR format: https://github.com/Waller-Lab/LenslessLearning/blob/master/utils.py#L432
+    """
+
     def __init__(
         self,
         dataset_dir,
