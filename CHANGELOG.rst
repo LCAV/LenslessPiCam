@@ -13,17 +13,22 @@ Unreleased
 Added
 ~~~~~
 
-- Nothing
+- Trainable reconstruction can return intermediate outputs (between pre- and post-processing).
+- Auto-download for DRUNet model.
+- ``utils.dataset.DiffuserCamMirflickr`` helper class for Mirflickr dataset.
 
 Changed
 ~~~~~~~
 
-- Nothing
+- Better logic for saving best model. Based on desired metric rather than last epoch, and intermediate models can be saved.
+- Optional normalization in ``utils.io.load_image``.
 
 Bugfix
 ~~~~~~
 
-- Nothing
+- Support for unrolled reconstruction with grayscale, needed to copy to three channels for LPIPS.
+- Fix bad train/test split for DiffuserCamMirflickr in unrolled training.
+
 
 1.0.5 - (2023-09-05)
 --------------------
