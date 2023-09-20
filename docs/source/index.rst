@@ -35,6 +35,7 @@ Contents
 
    simulation
    data
+   dataset
 
 .. toctree::
    :hidden:

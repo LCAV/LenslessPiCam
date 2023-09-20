@@ -13,6 +13,29 @@ Unreleased
 Added
 ~~~~~
 
+- Trainable reconstruction can return intermediate outputs (between pre- and post-processing).
+- Auto-download for DRUNet model.
+- ``utils.dataset.DiffuserCamMirflickr`` helper class for Mirflickr dataset.
+
+Changed
+~~~~~~~
+
+- Better logic for saving best model. Based on desired metric rather than last epoch, and intermediate models can be saved.
+- Optional normalization in ``utils.io.load_image``.
+
+Bugfix
+~~~~~~
+
+- Support for unrolled reconstruction with grayscale, needed to copy to three channels for LPIPS.
+- Fix bad train/test split for DiffuserCamMirflickr in unrolled training.
+
+
+1.0.5 - (2023-09-05)
+--------------------
+
+Added
+~~~~~
+
 - Sensor module.
 - Single-script and Telegram demo.
 - Link and citation for JOSS.
@@ -22,8 +45,15 @@ Added
 - Script for measuring arbitrary dataset (from Raspberry Pi).
 - Support for preprocessing and postprocessing, such as denoising, in ``TrainableReconstructionAlgorithm``. Both trainable and fix postprocessing can be used.
 - Utilities to load a trained DruNet model for use as postprocessing in ``TrainableReconstructionAlgorithm``.
+- Unified interface for dataset. See ``utils.dataset.DualDataset``.
+- New simulated dataset compatible with new data format ([(batch_size), depth, width, height, color]). See ``utils.dataset.SimulatedFarFieldDataset``.
+- New dataset for pair of original image and their measurement from a screen. See ``utils.dataset.MeasuredDataset`` and ``utils.dataset.MeasuredDatasetSimulatedOriginal``.
 - Support for unrolled loading and inference in the script ``admm.py``.
-- Tikhonov reconstruction for coded aperture measurements (MLS / MURA).
+- Tikhonov reconstruction for coded aperture measurements (MLS / MURA): numpy and Pytorch support.
+- New ``Trainer`` class to train ``TrainableReconstructionAlgorithm`` with PyTorch.
+- New ``TrainableMask`` and ``TrainablePSF`` class to train/fine-tune a mask from a dataset.
+- New ``SimulatedDatasetTrainableMask`` class to train/fine-tune a mask for measurement.
+- PyTorch support for ``lensless.utils.io.rgb2gray``.
 
 
 Changed

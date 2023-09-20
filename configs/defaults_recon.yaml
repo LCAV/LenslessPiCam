@@ -8,11 +8,13 @@ input:
   # File path for raw data  
   data: data/raw_data/thumbs_up_rgb.png
   dtype: float32
+  original: null   # ground truth image
 
 torch: False
 torch_device: 'cpu'
 
 preprocess:
+  normalize: True
   # Downsampling factor along X and Y
   downsample: 4
   # Image shape (height, width) for reconstruction.
@@ -27,6 +29,7 @@ preprocess:
   single_psf: False
   # Whether to perform construction in grayscale.
   gray: False
+  bg_pix: [5, 25]   # null to skip
 
 
 display:

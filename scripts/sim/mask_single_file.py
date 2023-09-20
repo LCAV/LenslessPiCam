@@ -19,6 +19,11 @@ python scripts/sim/mask_single_file.py mask.type=MLS simulation.flatcam=True rec
 python scripts/sim/mask_single_file.py mask.type=MURA mask.n_bits=99 simulation.flatcam=True recon.algo=tikhonov
 ```
 
+Using Torch
+```
+python scripts/sim/mask_single_file.py mask.type=MLS simulation.flatcam=True recon.algo=tikhonov use_torch=True
+```
+
 Simulate FlatCam with PSF simulation and Tikhonov reconstuction:
 ```
 python scripts/sim/mask_single_file.py mask.type=MLS simulation.flatcam=False recon.algo=tikhonov
@@ -56,6 +61,7 @@ from waveprop.simulation import FarFieldSimulator
 import os
 from lensless.hardware.mask import CodedAperture, PhaseContour, FresnelZoneAperture
 from lensless.recon.tikhonov import CodedApertureReconstruction
+import torch
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="mask_sim_single")
@@ -107,6 +113,9 @@ def simulate(config):
 
     # 2) simulate measurement
     image = load_image(fp, verbose=True) / 255
+    if config.use_torch:
+        image = image.transpose(2, 0, 1)
+        image = torch.from_numpy(image).float()
 
     flatcam_sim = config.simulation.flatcam
     if flatcam_sim and mask_type.upper() not in ["MURA", "MLS"]:
@@ -116,16 +125,28 @@ def simulate(config):
         flatcam_sim = False
 
     # use far field simulator to get correct object plane sizing
+    psf = mask.psf
+    if config.use_torch:
+        psf = psf.transpose(2, 0, 1)
+        psf = torch.from_numpy(psf).float()
+
     simulator = FarFieldSimulator(
-        psf=mask.psf,
+        psf=psf,
         object_height=object_height,
         scene2mask=scene2mask,
         mask2sensor=mask2sensor,
         sensor=sensor,
         snr_db=snr_db,
         max_val=max_val,
+        is_torch=config.use_torch,
     )
     image_plane, object_plane = simulator.propagate(image, return_object_plane=True)
+
+    # channels as last dimension
+    if config.use_torch:
+        image_plane = image_plane.permute(1, 2, 0)
+        object_plane = object_plane.permute(1, 2, 0)
+        image = image.permute(1, 2, 0)
 
     if image_format == "grayscale":
         image_plane = rgb2gray(image_plane)
@@ -178,6 +199,12 @@ def simulate(config):
     else:
         raise ValueError(f"Reconstruction algorithm {config.recon.algo} not recognized.")
 
+    # back to numpy for evaluation and plotting
+    if config.use_torch:
+        recovered = recovered.numpy()
+        object_plane = object_plane.numpy()
+        image_plane = image_plane.numpy()
+
     # 4) evaluate
     if image_format == "grayscale":
         object_plane = object_plane[:, :, 0]
@@ -218,7 +245,7 @@ def simulate(config):
     ax[4].set_title("Reconstruction")
 
     for a in ax:
-        a.set_xticks([]), a.set_yticks([])
+        a.set_axis_off()
 
     plt.tight_layout()
     plt.savefig("result.png")

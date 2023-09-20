@@ -60,7 +60,8 @@ Python 3.9, as some Python library versions may not be available with
 earlier versions of Python. Moreover, its `end-of-life <https://endoflife.date/python>`__ 
 is Oct 2025.
 
-**Local machine**
+*Local machine setup*
+=====================
 
 Below are commands that worked for our configuration (Ubuntu
 21.04), but there are certainly other ways to download a repository and
@@ -83,16 +84,20 @@ install the library locally.
    # (optional) try reconstruction on local machine
    python scripts/recon/admm.py
 
+   # (optional) try reconstruction on local machine with GPU
+   python scripts/recon/admm.py -cn pytorch
 
-Note (25-04-2023): for using reconstruction method based on Pycsou ``lensless.apgd.APGD``,
-V2 has to be installed:
+
+Note (25-04-2023): for using the :py:class:`~lensless.recon.apgd.APGD` reconstruction method based on Pycsou
+(now `Pyxu <https://github.com/matthieumeo/pyxu>`__), a specific commit has 
+to be installed (as there was no release at the time of implementation):
 
 .. code:: bash
 
-   pip install git+https://github.com/matthieumeo/pycsou.git@v2-dev
+   pip install git+https://github.com/matthieumeo/pycsou.git@38e9929c29509d350a7ff12c514e2880fdc99d6e
 
 If PyTorch is installed, you will need to be sure to have PyTorch 2.0 or higher, 
-as Pycsou V2 is not compatible with earlier versions of PyTorch. Moreover, 
+as Pycsou is not compatible with earlier versions of PyTorch. Moreover, 
 Pycsou requires Python within 
 `[3.9, 3.11) <https://github.com/matthieumeo/pycsou/blob/v2-dev/setup.cfg#L28>`__.
 
@@ -102,7 +107,8 @@ Moreover, ``numba`` (requirement for Pycsou V2) may require an older version of 
 
    pip install numpy==1.23.5
 
-**Raspberry Pi**
+*Raspberry Pi setup*
+====================
 
 After `flashing your Raspberry Pi with SSH enabled <https://medium.com/@bezzam/setting-up-a-raspberry-pi-without-a-monitor-headless-9a3c2337f329>`__, 
 you need to set it up for `passwordless access <https://medium.com/@bezzam/headless-and-passwordless-interfacing-with-a-raspberry-pi-ssh-453dd75154c3>`__. 

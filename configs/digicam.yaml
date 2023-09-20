@@ -1,0 +1,23 @@
+rpi:
+  username: null
+  hostname: null
+
+device: adafruit
+virtual: False
+save: True
+
+# pattern: data/psf/adafruit_random_pattern_20230719.npy
+pattern: random
+# pattern: rect
+# pattern: circ
+min_val: 0         # if pattern: random, min for range(0,1)
+rect_shape: [20, 10]  # if pattern: rect
+radius: 20            # if pattern: circ
+center: [0, 0]
+
+
+aperture:
+  center: [59,76]
+  shape: [19,26]
+
+z: 4   # mask to sensor distance

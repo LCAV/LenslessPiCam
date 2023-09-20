@@ -32,7 +32,13 @@ from waveprop.rs import angular_spectrum
 from waveprop.noise import add_shot_noise
 from lensless.hardware.sensor import VirtualSensor
 from lensless.utils.image import resize
-from lensless.utils.image import rgb2bayer, bayer2rgb
+
+try:
+    import torch
+
+    torch_available = True
+except ImportError:
+    torch_available = False
 
 
 class Mask(abc.ABC):
@@ -296,11 +302,22 @@ class CodedAperture(Mask):
 
         # Convolve image
         n_channels = obj.shape[-1]
-        meas = np.dstack([multi_dot([P, obj[:, :, c], Q.T]) for c in range(n_channels)])
+
+        if torch_available and isinstance(obj, torch.Tensor):
+            P = torch.from_numpy(P).float()
+            Q = torch.from_numpy(Q).float()
+            meas = torch.dstack(
+                [torch.linalg.multi_dot([P, obj[:, :, c], Q.T]) for c in range(n_channels)]
+            ).float()
+        else:
+            meas = np.dstack([multi_dot([P, obj[:, :, c], Q.T]) for c in range(n_channels)])
 
         # Add noise
         if snr_db is not None:
             meas = add_shot_noise(meas, snr_db=snr_db)
+
+        if torch_available and isinstance(obj, torch.Tensor):
+            meas = meas.to(obj)
 
         return meas
 

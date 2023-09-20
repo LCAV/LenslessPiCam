@@ -3,6 +3,10 @@ defaults:
   - defaults_recon
   - _self_
 
+preprocess:
+  # Downsampling factor along X and Y
+  downsample: 8
+
 apgd:
   # Proximal prior / regularization: nonneg, l1, null
   prox_penalty: l1

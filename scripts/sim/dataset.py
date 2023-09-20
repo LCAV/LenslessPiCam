@@ -32,7 +32,7 @@ def simulate(config):
     if not os.path.isdir(dataset):
         print(f"No dataset found at {dataset}")
         try:
-            from torchvision.datasets.utils import download_and_extract_archive, download_url
+            from torchvision.datasets.utils import download_and_extract_archive
         except ImportError:
             exit()
         msg = "Do you want to download the sample CelebA dataset (764KB)?"
