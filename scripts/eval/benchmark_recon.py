@@ -44,9 +44,7 @@ def benchmark_recon(config):
         device = "cpu"
 
     # Benchmark dataset
-    benchmark_dataset = DiffuserCamTestDataset(
-        data_dir=os.path.join(get_original_cwd(), "data"), n_files=n_files, downsample=downsample
-    )
+    benchmark_dataset = DiffuserCamTestDataset(n_files=n_files, downsample=downsample)
     psf = benchmark_dataset.psf.to(device)
 
     model_list = []  # list of algoritms to benchmark

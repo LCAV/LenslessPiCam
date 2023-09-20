@@ -77,6 +77,23 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
     return np.clip(resized, min_val, max_val)
 
 
+def is_grayscale(img):
+    """
+    Check if image is RGB. Assuming image is of shape ([depth,] height, width, color).
+
+    Parameters
+    ----------
+    img : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
+        Image array.
+
+    Returns
+    -------
+    bool
+        Whether image is RGB.
+    """
+    return img.shape[-1] == 1
+
+
 def rgb2gray(rgb, weights=None, keepchanneldim=True):
     """
     Convert RGB array to grayscale.

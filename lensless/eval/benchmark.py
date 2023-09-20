@@ -93,7 +93,20 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
             if metric == "ReconstructionError":
                 metrics_values[metric] += model.reconstruction_error().cpu().item()
             else:
-                metrics_values[metric] += metrics[metric](prediction, lensed).cpu().item()
+                if "LPIPS" in metric:
+                    if prediction.shape[1] == 1:
+                        # LPIPS needs 3 channels
+                        metrics_values[metric] += (
+                            metrics[metric](
+                                prediction.repeat(1, 3, 1, 1), lensed.repeat(1, 3, 1, 1)
+                            )
+                            .cpu()
+                            .item()
+                        )
+                    else:
+                        metrics_values[metric] += metrics[metric](prediction, lensed).cpu().item()
+                else:
+                    metrics_values[metric] += metrics[metric](prediction, lensed).cpu().item()
 
         model.reset()
 

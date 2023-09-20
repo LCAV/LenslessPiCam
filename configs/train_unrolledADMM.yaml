@@ -1,28 +1,19 @@
+# python scripts/recon/train_unrolled.py
 hydra:
   job:
     chdir: True    # change to output folder
 
-#Reconstruction algorithm
-input:
-  # File path for recorded PSF
-  psf: data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11/psf.tiff
-  dtype: float32
+# Dataset
+files:
+  dataset: data/DiffuserCam   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  celeba_root: null   # path to parent directory of CelebA: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
+  psf: data/psf.tiff
+  diffusercam_psf: True
+  n_files: null    # null to use all for both train/test
+  downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
 
 torch: True
 torch_device: 'cuda'
-
-preprocess:
-  # Image shape (height, width) for reconstruction.
-  shape: null
-  # Whether image is raw bayer data.
-  bayer: False
-  blue_gain: null
-  red_gain: null
-  # Same PSF for all channels (sum) or unique PSF for RGB.
-  single_psf: False
-  # Whether to perform construction in grayscale.
-  gray: False
-
 
 display:
   # How many iterations to wait for intermediate plot. 
@@ -64,15 +55,11 @@ reconstruction:
 #Trainable Mask
 trainable_mask:
   mask_type: Null #Null or "TrainablePSF"
-  initial_value: "DiffuserCam_gray" # "random" or "DiffuserCam" or "DiffuserCam_gray"
+  # "random" (with shape of config.files.psf) or "psf" (using config.files.psf)
+  initial_value: psf
+  grayscale: False
   mask_lr: 1e-3
   L1_strength: 1.0  #False or float
-  use_mask_in_dataset : True # Work only with simulated dataset
-
-# Train Dataset
-files:
-  dataset: "DiffuserCam"   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
-  n_files: null    # null to use all
 
 target: "object_plane"    # "original" or "object_plane" or "label"
 
@@ -98,13 +85,16 @@ simulation:
   # Downsampling for PSF
   downsample: 8
   # max val in simulated measured (quantized 8 bits)
+  quantize: False   # must be False for differentiability
   max_val: 255
 
 #Training
 
 training:
   batch_size: 8
-  epoch: 10
+  epoch: 50
+  metric_for_best_model: null   # e.g. LPIPS_Vgg, null does test loss
+  save_every: null
   #In case of instable training
   skip_NAN: True
   slow_start: False  #float how much to reduce lr for first epoch

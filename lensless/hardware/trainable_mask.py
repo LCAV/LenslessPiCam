@@ -3,13 +3,15 @@
 # ==================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
+# Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
 import abc
 import torch
+from lensless.utils.image import is_grayscale
 
 
-class TrainableMask(metaclass=abc.ABCMeta):
+class TrainableMask(torch.nn.Module, metaclass=abc.ABCMeta):
     """
     Abstract class for defining trainable masks.
 
@@ -33,6 +35,7 @@ class TrainableMask(metaclass=abc.ABCMeta):
         lr : float, optional
             Learning rate for the mask parameters, by default 1e-3
         """
+        super().__init__()
         self._mask = torch.nn.Parameter(initial_mask)
         self._optimizer = getattr(torch.optim, optimizer)([self._mask], lr=lr, **kwargs)
         self._counter = 0
@@ -68,18 +71,31 @@ class TrainablePSF(TrainableMask):
 
     Parameters
     ----------
-    is_rgb : bool, optional
-        Whether the mask is RGB or not, by default True.
+    grayscale : bool, optional
+        Whether mask should be returned as grayscale when calling :py:class:`~lensless.hardware.trainable_mask.TrainableMask.get_psf`.
+        Otherwise PSF will be returned as RGB. By default False.
     """
 
-    def __init__(self, is_rgb=True, **kwargs):
-        super().__init__(**kwargs)
-        self._is_rgb = is_rgb
+    def __init__(self, initial_mask, optimizer="Adam", lr=1e-3, grayscale=False, **kwargs):
+        super().__init__(initial_mask, optimizer, lr, **kwargs)
+        assert (
+            len(initial_mask.shape) == 4
+        ), "Mask must be of shape (depth, height, width, channels)"
+        self.grayscale = grayscale
+        self._is_grayscale = is_grayscale(initial_mask)
+        if grayscale:
+            assert self._is_grayscale, "Mask must be grayscale"
 
     def get_psf(self):
-        if self._is_rgb:
-            return self._mask.expand(-1, -1, -1, 3)
+        if self._is_grayscale:
+            if self.grayscale:
+                # simulation in grayscale
+                return self._mask
+            else:
+                # replicate to 3 channels
+                return self._mask.expand(-1, -1, -1, 3)
         else:
+            # assume RGB
             return self._mask
 
     def project(self):

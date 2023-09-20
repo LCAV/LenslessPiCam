@@ -26,7 +26,9 @@ class DualDataset(Dataset):
     def __init__(
         self,
         indices=None,
+        # psf_path=None,
         background=None,
+        # background_pix=(0, 15),
         downsample=1,
         flip=False,
         transform_lensless=None,
@@ -38,18 +40,22 @@ class DualDataset(Dataset):
 
         Parameters
         ----------
-            indices : range or int or None
-                Indices of the images to use in the dataset (if integer, it should be interpreted as range(indices)), by default None.
-            background : :py:class:`~torch.Tensor` or None, optional
-                If not ``None``, background is removed from lensless images, by default ``None``.
-            downsample : int, optional
-                Downsample factor of the lensless images, by default 1.
-            flip : bool, optional
-                If ``True``, lensless images are flipped, by default ``False``.
-            transform_lensless : PyTorch Transform or None, optional
-                Transform to apply to the lensless images, by default ``None``. Note that this transform is applied on HWC images (different from torchvision).
-            transform_lensed : PyTorch Transform or None, optional
-                Transform to apply to the lensed images, by default ``None``. Note that this transform is applied on HWC images (different from torchvision).
+        indices : range or int or None
+            Indices of the images to use in the dataset (if integer, it should be interpreted as range(indices)), by default None.
+        psf_path : str
+            Path to the PSF of the imaging system, by default None.
+        background : :py:class:`~torch.Tensor` or None, optional
+            If not ``None``, background is removed from lensless images, by default ``None``. If PSF is provided, background is estimated from the PSF.
+        background_pix : tuple, optional
+            Pixels to use for background estimation, by default (0, 15).
+        downsample : int, optional
+            Downsample factor of the lensless images, by default 1.
+        flip : bool, optional
+            If ``True``, lensless images are flipped, by default ``False``.
+        transform_lensless : PyTorch Transform or None, optional
+            Transform to apply to the lensless images, by default ``None``. Note that this transform is applied on HWC images (different from torchvision).
+        transform_lensed : PyTorch Transform or None, optional
+            Transform to apply to the lensed images, by default ``None``. Note that this transform is applied on HWC images (different from torchvision).
         """
         if isinstance(indices, int):
             indices = range(indices)
@@ -59,6 +65,21 @@ class DualDataset(Dataset):
         self.flip = flip
         self.transform_lensless = transform_lensless
         self.transform_lensed = transform_lensed
+
+        # self.psf = None
+        # if psf_path is not None:
+        #     psf, background = load_psf(
+        #         psf_path,
+        #         downsample=downsample,
+        #         return_float=True,
+        #         return_bg=True,
+        #         bg_pix=background_pix,
+        #     )
+        #     if self.background is None:
+        #         self.background = background
+        #     self.psf = torch.from_numpy(psf)
+        #     if self.transform_lensless is not None:
+        #         self.psf = self.transform_lensless(self.psf)
 
     @abstractmethod
     def __len__(self):
@@ -151,7 +172,7 @@ class SimulatedFarFieldDataset(DualDataset):
         dataset_is_CHW : bool, optional
             If True, the input dataset is expected to output images with shape [C, H, W], by default ``False``.
         flip : bool, optional
-            If True, images are flipped beffore the simulation, by default ``False``..
+            If True, images are flipped beffore the simulation, by default ``False``.
         """
 
         # we do the flipping before the simualtion
@@ -171,6 +192,10 @@ class SimulatedFarFieldDataset(DualDataset):
         assert simulator.fft_shape is not None, "Simulator should have a psf"
         self.sim = simulator
 
+    @property
+    def psf(self):
+        return self.sim.get_psf()
+
     def get_image(self, index):
         return self.dataset[index]
 
@@ -185,7 +210,14 @@ class SimulatedFarFieldDataset(DualDataset):
         if self._pre_transform is not None:
             img = self._pre_transform(img)
 
-        lensless, lensed = self.sim.propagate(img, return_object_plane=True)
+        lensless, lensed = self.sim.propagate_image(img, return_object_plane=True)
+
+        if lensed.shape[-1] == 1 and lensless.shape[-1] == 3:
+            # copy to 3 channels
+            lensed = lensed.repeat(1, 1, 3)
+        assert (
+            lensed.shape[-1] == lensless.shape[-1]
+        ), "Lensed and lensless should have same number of channels"
 
         return lensless, lensed
 
@@ -240,6 +272,9 @@ class MeasuredDatasetSimulatedOriginal(DualDataset):
         self.root_dir = root_dir
         self.lensless_dir = os.path.join(root_dir, lensless_fn)
         self.original_dir = os.path.join(root_dir, original_fn)
+        assert os.path.isdir(self.lensless_dir)
+        assert os.path.isdir(self.original_dir)
+
         self.image_ext = image_ext.lower()
         self.original_ext = original_ext.lower() if original_ext is not None else image_ext.lower()
 
@@ -295,7 +330,7 @@ class MeasuredDatasetSimulatedOriginal(DualDataset):
 
         # project original image to lensed space
         with torch.no_grad():
-            lensed = self.sim.propagate()
+            lensed = self.sim.propagate_image()
 
         return lensless, lensed
 
@@ -336,6 +371,9 @@ class MeasuredDataset(DualDataset):
         self.root_dir = root_dir
         self.lensless_dir = os.path.join(root_dir, lensless_fn)
         self.lensed_dir = os.path.join(root_dir, lensed_fn)
+        assert os.path.isdir(self.lensless_dir)
+        assert os.path.isdir(self.lensed_dir)
+
         self.image_ext = image_ext.lower()
 
         files = glob.glob(os.path.join(self.lensless_dir, "*." + image_ext))
@@ -359,6 +397,7 @@ class MeasuredDataset(DualDataset):
             lensed_fp = os.path.join(self.lensed_dir, self.files[idx])
             lensless = np.load(lensless_fp)
             lensed = np.load(lensed_fp)
+
         else:
             # more standard image formats: png, jpg, tiff, etc.
             lensless_fp = os.path.join(self.lensless_dir, self.files[idx])
@@ -378,6 +417,59 @@ class MeasuredDataset(DualDataset):
         return lensless, lensed
 
 
+class DiffuserCamMirflickr(MeasuredDataset):
+    """
+    Helper class for DiffuserCam Mirflickr dataset.
+
+    Note that image colors are in BGR format: https://github.com/Waller-Lab/LenslessLearning/blob/master/utils.py#L432
+    """
+
+    def __init__(
+        self,
+        dataset_dir,
+        psf_path,
+        downsample=2,
+        **kwargs,
+    ):
+
+        psf, background = load_psf(
+            psf_path,
+            downsample=downsample * 4,  # PSF is 4x the resolution of the images
+            return_float=True,
+            return_bg=True,
+            bg_pix=(0, 15),
+        )
+        transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
+        self.psf = transform_BRG2RGB(torch.from_numpy(psf))
+        self.allowed_idx = np.arange(2, 25001)
+
+        super().__init__(
+            root_dir=dataset_dir,
+            background=background,
+            downsample=downsample,
+            flip=False,
+            transform_lensless=transform_BRG2RGB,
+            transform_lensed=transform_BRG2RGB,
+            lensless_fn="diffuser_images",
+            lensed_fn="ground_truth_lensed",
+            image_ext="npy",
+            **kwargs,
+        )
+
+    def _get_images_pair(self, idx):
+
+        assert idx >= self.allowed_idx.min(), f"idx should be >= {self.allowed_idx.min()}"
+        assert idx <= self.allowed_idx.max(), f"idx should be <= {self.allowed_idx.max()}"
+
+        fn = f"im{idx}.npy"
+        lensless_fp = os.path.join(self.lensless_dir, fn)
+        lensed_fp = os.path.join(self.lensed_dir, fn)
+        lensless = np.load(lensless_fp)
+        lensed = np.load(lensed_fp)
+
+        return lensless, lensed
+
+
 class DiffuserCamTestDataset(MeasuredDataset):
     """
     Dataset consisting of lensless and corresponding lensed image. This is the standard dataset used for benchmarking.
@@ -385,8 +477,8 @@ class DiffuserCamTestDataset(MeasuredDataset):
 
     def __init__(
         self,
-        data_dir="data",
-        n_files=200,
+        data_dir=None,
+        n_files=None,
         downsample=2,
     ):
         """
@@ -396,17 +488,20 @@ class DiffuserCamTestDataset(MeasuredDataset):
         Parameters
         ----------
         data_dir : str, optional
-            The path to the folder containing the DiffuserCam_Test dataset, by default "data".
+            The path to ``DiffuserCam_Test`` dataset, by default looks inside the ``data`` folder.
         n_files : int, optional
-            Number of image pairs to load in the dataset , by default 200.
+            Number of image pairs to load in the dataset , by default use all.
         downsample : int, optional
-            Downsample factor of the lensless images, by default 8.
+            Downsample factor of the lensless images, by default 2. Note that the PSF has a resolution of 4x of the images.
         """
 
         # download dataset if necessary
-        main_dir = data_dir
-        data_dir = os.path.join(data_dir, "DiffuserCam_Test")
+        if data_dir is None:
+            data_dir = os.path.join(
+                os.path.dirname(__file__), "..", "..", "data", "DiffuserCam_Test"
+            )
         if not os.path.isdir(data_dir):
+            main_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
             print("No dataset found for benchmarking.")
             try:
                 from torchvision.datasets.utils import download_and_extract_archive
@@ -424,7 +519,7 @@ class DiffuserCamTestDataset(MeasuredDataset):
         psf_fp = os.path.join(data_dir, "psf.tiff")
         psf, background = load_psf(
             psf_fp,
-            downsample=downsample,
+            downsample=downsample * 4,  # PSF is 4x the resolution of the images
             return_float=True,
             return_bg=True,
             bg_pix=(0, 15),
@@ -435,11 +530,16 @@ class DiffuserCamTestDataset(MeasuredDataset):
 
         self.psf = transform_BRG2RGB(torch.from_numpy(psf))
 
+        if n_files is None:
+            indices = None
+        else:
+            indices = range(n_files)
+
         super().__init__(
             root_dir=data_dir,
-            indices=range(n_files),
+            indices=indices,
             background=background,
-            downsample=downsample / 4,
+            downsample=downsample,
             flip=False,
             transform_lensless=transform_BRG2RGB,
             transform_lensed=transform_BRG2RGB,
@@ -492,7 +592,7 @@ class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
     def _get_images_pair(self, index):
         # update psf
         psf = self._mask.get_psf()
-        self.sim.set_psf(psf)
+        self.sim.set_point_spread_function(psf)
 
         # return simulated images
         return super()._get_images_pair(index)

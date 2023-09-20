@@ -34,6 +34,7 @@ def load_image(
     return_float=False,
     shape=None,
     dtype=None,
+    normalize=True,
 ):
     """
     Load image as numpy array.
@@ -73,6 +74,8 @@ def load_image(
         Shape (H, W, C) to resize to.
     dtype : str, optional
         Data type of returned data. Default is to use that of input.
+    normalize : bool, default True
+        If ``return_float``, whether to normalize data to maximum value of 1.
 
     Returns
     -------
@@ -136,7 +139,7 @@ def load_image(
     if bg is not None:
 
         # if bg is float vector, turn into int-valued vector
-        if bg.max() <= 1:
+        if bg.max() <= 1 and img.dtype not in [np.float32, np.float64]:
             bg = bg * get_max_val(img)
 
         img = img - bg
@@ -160,7 +163,8 @@ def load_image(
             dtype = np.float32
         assert dtype == np.float32 or dtype == np.float64
         img = img.astype(dtype)
-        img /= img.max()
+        if normalize:
+            img /= img.max()
 
     else:
         if dtype is None:
@@ -336,6 +340,7 @@ def load_psf(
 def load_data(
     psf_fp,
     data_fp,
+    return_float=True,
     downsample=None,
     bg_pix=(5, 25),
     plot=True,
@@ -350,6 +355,7 @@ def load_data(
     shape=None,
     torch=False,
     torch_device="cpu",
+    normalize=False,
 ):
     """
     Load data for image reconstruction.
@@ -360,6 +366,8 @@ def load_data(
         Full path to PSF file.
     data_fp : str
         Full path to measurement file.
+    return_float : bool, optional
+        Whether to return PSF as float array, or unsigned int.
     downsample : int or float
         Downsampling factor.
     bg_pix : tuple, optional
@@ -386,6 +394,8 @@ def load_data(
         Whether to sum RGB channels into single PSF, same across channels. Done
         in "Learned reconstructions for practical mask-based lensless imaging"
         of Kristina Monakhova et. al.
+    normalize : bool default True
+        Whether to normalize data to maximum value of 1.
 
     Returns
     -------
@@ -415,7 +425,7 @@ def load_data(
     psf, bg = load_psf(
         psf_fp,
         downsample=downsample,
-        return_float=True,
+        return_float=return_float,
         bg_pix=bg_pix,
         return_bg=True,
         flip=flip,
@@ -437,8 +447,9 @@ def load_data(
         red_gain=red_gain,
         bg=bg,
         as_4d=True,
-        return_float=True,
+        return_float=return_float,
         shape=shape,
+        normalize=normalize,
     )
 
     if data.shape != psf.shape:

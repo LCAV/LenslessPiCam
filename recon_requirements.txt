@@ -3,9 +3,10 @@ lpips==0.1.4
 pylops==1.18.0
 scikit-image>=0.19.0rc0
 click>=8.0.1
-waveprop>=0.0.7     # for simulation
+waveprop>=0.0.8     # for simulation
 
 # Library for learning algorithm
 torch >= 2.0.0
 torchvision
+torchmetrics
 lpips
