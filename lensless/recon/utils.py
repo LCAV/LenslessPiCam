@@ -243,6 +243,7 @@ class Trainer:
         recon,
         train_dataset,
         test_dataset,
+        test_size=0.15,
         mask=None,
         batch_size=4,
         loss="l2",
@@ -274,6 +275,8 @@ class Trainer:
             Dataset to use for training.
         test_dataset : :py:class:`torch.utils.data.Dataset`
             Dataset to use for testing.
+        test_size : float, optional
+            If test_dataset is None, fraction of the train dataset to use for testing, by default 0.15.
         mask : TrainableMask, optional
             Trainable mask to use for training. If none, training with fix psf, by default None.
         batch_size : int, optional
@@ -307,13 +310,16 @@ class Trainer:
 
         self.recon = recon
 
+        assert train_dataset is not None
         if test_dataset is None:
+            assert test_size < 1.0 and test_size > 0.0
             # split train dataset
-            train_size = int(0.9 * len(train_dataset))
+            train_size = int((1 - test_size) * len(train_dataset))
             test_size = len(train_dataset) - train_size
             train_dataset, test_dataset = torch.utils.data.random_split(
                 train_dataset, [train_size, test_size]
             )
+            print(f"Train size : {train_size}, Test size : {test_size}")
 
         self.train_dataloader = torch.utils.data.DataLoader(
             dataset=train_dataset,
@@ -475,6 +481,12 @@ class Trainer:
 
             loss_v = self.Loss(y_pred, y)
             if self.lpips:
+
+                if y_pred.shape[1] == 1:
+                    # if only one channel, repeat for LPIPS
+                    y_pred = y_pred.repeat(1, 3, 1, 1)
+                    y = y.repeat(1, 3, 1, 1)
+
                 # value for LPIPS needs to be in range [-1, 1]
                 loss_v = loss_v + self.lpips * torch.mean(
                     self.Loss_lpips(2 * y_pred - 1, 2 * y - 1)
@@ -623,6 +635,7 @@ class Trainer:
             )
 
             psf_np = self.mask.get_psf().detach().cpu().numpy()[0, ...]
+            psf_np = psf_np.squeeze()  # remove (potential) singleton color channel
             save_image(psf_np, os.path.join(path, f"psf_epoch{epoch}.png"))
             plot_image(psf_np, gamma=self.gamma)
             plt.savefig(os.path.join(path, f"psf_epoch{epoch}_plot.png"))

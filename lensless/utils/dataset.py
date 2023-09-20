@@ -172,7 +172,7 @@ class SimulatedFarFieldDataset(DualDataset):
         dataset_is_CHW : bool, optional
             If True, the input dataset is expected to output images with shape [C, H, W], by default ``False``.
         flip : bool, optional
-            If True, images are flipped beffore the simulation, by default ``False``..
+            If True, images are flipped beffore the simulation, by default ``False``.
         """
 
         # we do the flipping before the simualtion
@@ -192,6 +192,10 @@ class SimulatedFarFieldDataset(DualDataset):
         assert simulator.fft_shape is not None, "Simulator should have a psf"
         self.sim = simulator
 
+    @property
+    def psf(self):
+        return self.sim.get_psf()
+
     def get_image(self, index):
         return self.dataset[index]
 
@@ -206,7 +210,14 @@ class SimulatedFarFieldDataset(DualDataset):
         if self._pre_transform is not None:
             img = self._pre_transform(img)
 
-        lensless, lensed = self.sim.propagate(img, return_object_plane=True)
+        lensless, lensed = self.sim.propagate_image(img, return_object_plane=True)
+
+        if lensed.shape[-1] == 1 and lensless.shape[-1] == 3:
+            # copy to 3 channels
+            lensed = lensed.repeat(1, 1, 3)
+        assert (
+            lensed.shape[-1] == lensless.shape[-1]
+        ), "Lensed and lensless should have same number of channels"
 
         return lensless, lensed
 
@@ -319,7 +330,7 @@ class MeasuredDatasetSimulatedOriginal(DualDataset):
 
         # project original image to lensed space
         with torch.no_grad():
-            lensed = self.sim.propagate()
+            lensed = self.sim.propagate_image()
 
         return lensless, lensed
 
@@ -581,7 +592,7 @@ class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
     def _get_images_pair(self, index):
         # update psf
         psf = self._mask.get_psf()
-        self.sim.set_psf(psf)
+        self.sim.set_point_spread_function(psf)
 
         # return simulated images
         return super()._get_images_pair(index)

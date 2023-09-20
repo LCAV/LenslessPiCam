@@ -13,7 +13,7 @@ Train unrolled version of reconstruction algorithm.
 python scripts/recon/train_unrolled.py
 ```
 
-By default it uses the configuration fro mthe file `configs/train_unrolledADMM.yaml`.
+By default it uses the configuration from the file `configs/train_unrolledADMM.yaml`.
 
 To train pre- and post-processing networks, use the following command:
 ```
@@ -23,6 +23,11 @@ python scripts/recon/train_unrolled.py -cn train_pre-post-processing
 To fine-tune the DiffuserCam PSF, use the following command:
 ```
 python scripts/recon/train_unrolled.py -cn fine-tune_PSF
+```
+
+To train a PSF from scratch with a simulated dataset, use the following command:
+```
+python scripts/recon/train_unrolled.py -cn train_psf_from_scratch
 ```
 
 """
@@ -42,7 +47,7 @@ from lensless.utils.dataset import (
 from torch.utils.data import Subset
 import lensless.hardware.trainable_mask
 from lensless.recon.utils import create_process_network
-from lensless.utils.image import rgb2gray
+from lensless.utils.image import rgb2gray, is_grayscale
 from lensless.utils.simulation import FarFieldSimulator
 from lensless.recon.utils import Trainer
 import torch
@@ -58,6 +63,11 @@ log = logging.getLogger(__name__)
 
 def simulate_dataset(config):
 
+    if config.torch_device == "cuda" and torch.cuda.is_available():
+        device = "cuda"
+    else:
+        device = "cpu"
+
     # prepare PSF
     psf_fp = os.path.join(get_original_cwd(), config.files.psf)
     psf, _ = load_psf(
@@ -71,26 +81,8 @@ def simulate_dataset(config):
         transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
         psf = transform_BRG2RGB(torch.from_numpy(psf))
 
-    # prepare mask
-    if config.trainable_mask.mask_type is not None:
-        mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
-        if config.trainable_mask.initial_value == "random":
-            mask = mask_class(
-                torch.rand_like(psf), optimizer="Adam", lr=config.trainable_mask.mask_lr
-            )
-        # TODO : change to PSF
-        elif config.trainable_mask.initial_value == "DiffuserCam":
-            mask = mask_class(psf, optimizer="Adam", lr=config.trainable_mask.mask_lr)
-        elif config.trainable_mask.initial_value == "DiffuserCam_gray":
-            # TODO convert to grayscale
-            mask = mask_class(
-                psf[:, :, :, 0, None],
-                optimizer="Adam",
-                lr=config.trainable_mask.mask_lr,
-                is_rgb=not config.simulation.grayscale,
-            )
-    else:
-        mask = None
+    # drop depth dimension
+    psf = psf.to(device)
 
     # load dataset
     transforms_list = [transforms.ToTensor()]
@@ -99,26 +91,38 @@ def simulate_dataset(config):
         transforms_list.append(transforms.Grayscale())
     transform = transforms.Compose(transforms_list)
     if config.files.dataset == "mnist":
-        ds = datasets.MNIST(root=data_path, train=True, download=True, transform=transform)
+        train_ds = datasets.MNIST(root=data_path, train=True, download=True, transform=transform)
+        test_ds = datasets.MNIST(root=data_path, train=False, download=True, transform=transform)
     elif config.files.dataset == "fashion_mnist":
-        ds = datasets.FashionMNIST(root=data_path, train=True, download=True, transform=transform)
+        train_ds = datasets.FashionMNIST(
+            root=data_path, train=True, download=True, transform=transform
+        )
+        test_ds = datasets.FashionMNIST(
+            root=data_path, train=False, download=True, transform=transform
+        )
     elif config.files.dataset == "cifar10":
-        ds = datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform)
+        train_ds = datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform)
+        test_ds = datasets.CIFAR10(root=data_path, train=False, download=True, transform=transform)
     elif config.files.dataset == "CelebA":
-        ds = datasets.CelebA(root=data_path, split="train", download=True, transform=transform)
+        root = config.files.celeba_root
+        data_path = os.path.join(root, "celeba")
+        assert os.path.isdir(
+            data_path
+        ), f"Data path {data_path} does not exist. Make sure you download the CelebA dataset and provide the parent directory as 'config.files.celeba_root'. Download link: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html"
+        train_ds = datasets.CelebA(root=root, split="train", download=False, transform=transform)
+        test_ds = datasets.CelebA(root=root, split="test", download=False, transform=transform)
     else:
         raise NotImplementedError(f"Dataset {config.files.dataset} not implemented.")
 
     # convert PSF
-    if config.simulation.grayscale:
+    if config.simulation.grayscale and not is_grayscale(psf):
         psf = rgb2gray(psf)
-    if not isinstance(psf, torch.Tensor):
-        psf = transforms.ToTensor()(psf)
 
-    n_files = config.files.n_files
-    device_conv = config.torch_device
+    # prepare mask
+    mask = prep_trainable_mask(config, psf, grayscale=config.simulation.grayscale)
 
     # check if gpu is available
+    device_conv = config.torch_device
     if device_conv == "cuda" and torch.cuda.is_available():
         device_conv = "cuda"
     else:
@@ -130,51 +134,67 @@ def simulate_dataset(config):
         is_torch=True,
         **config.simulation,
     )
+
     # create Pytorch dataset and dataloader
+    n_files = config.files.n_files
     if n_files is not None:
-        ds = torch.utils.data.Subset(ds, np.arange(n_files))
+        train_ds = torch.utils.data.Subset(train_ds, np.arange(n_files))
+        test_ds = torch.utils.data.Subset(test_ds, np.arange(n_files))
     if mask is None:
-        ds_prop = SimulatedFarFieldDataset(
-            dataset=ds,
+        train_ds_prop = SimulatedFarFieldDataset(
+            dataset=train_ds,
+            simulator=simulator,
+            dataset_is_CHW=True,
+            device_conv=device_conv,
+            flip=config.simulation.flip,
+        )
+        test_ds_prop = SimulatedFarFieldDataset(
+            dataset=test_ds,
             simulator=simulator,
             dataset_is_CHW=True,
             device_conv=device_conv,
             flip=config.simulation.flip,
         )
     else:
-        ds_prop = SimulatedDatasetTrainableMask(
-            dataset=ds,
+        train_ds_prop = SimulatedDatasetTrainableMask(
+            dataset=train_ds,
             mask=mask,
             simulator=simulator,
             dataset_is_CHW=True,
             device_conv=device_conv,
             flip=config.simulation.flip,
         )
-    return ds_prop, mask
+        test_ds_prop = SimulatedDatasetTrainableMask(
+            dataset=test_ds,
+            mask=mask,
+            simulator=simulator,
+            dataset_is_CHW=True,
+            device_conv=device_conv,
+            flip=config.simulation.flip,
+        )
+
+    return train_ds_prop, test_ds_prop, mask
 
 
-def prep_trainable_mask(config, dataset):
+def prep_trainable_mask(config, psf, grayscale=False):
     mask = None
     if config.trainable_mask.mask_type is not None:
         mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
 
         if config.trainable_mask.initial_value == "random":
-            initial_mask = torch.rand_like(dataset.psf)
+            initial_mask = torch.rand_like(psf)
         elif config.trainable_mask.initial_value == "psf":
-            initial_mask = dataset.psf.clone()
+            initial_mask = psf.clone()
         else:
             raise ValueError(
                 f"Initial PSF value {config.trainable_mask.initial_value} not supported"
             )
 
-        if config.trainable_mask.grayscale:
+        if config.trainable_mask.grayscale and not is_grayscale(initial_mask):
             initial_mask = rgb2gray(initial_mask)
 
         mask = mask_class(
-            initial_mask,
-            optimizer="Adam",
-            lr=config.trainable_mask.mask_lr,
-            is_rgb=not config.trainable_mask.grayscale,
+            initial_mask, optimizer="Adam", lr=config.trainable_mask.mask_lr, grayscale=grayscale
         )
 
     return mask
@@ -201,6 +221,7 @@ def train_unrolled(config):
     # load dataset and create dataloader
     train_set = None
     test_set = None
+    psf = None
     if "DiffuserCam" in config.files.dataset:
 
         original_path = os.path.join(get_original_cwd(), config.files.dataset)
@@ -221,11 +242,9 @@ def train_unrolled(config):
 
         train_set = Subset(dataset, train_indices)
         test_set = Subset(dataset, test_indices)
-        print("Train test size : ", len(train_set))
-        print("Test test size : ", len(test_set))
 
         # -- if learning mask
-        mask = prep_trainable_mask(config, dataset)
+        mask = prep_trainable_mask(config, dataset.psf)
         if mask is not None:
             # plot initial PSF
             psf_np = mask.get_psf().detach().cpu().numpy()[0, ...]
@@ -236,16 +255,18 @@ def train_unrolled(config):
             plot_image(psf_np, gamma=config.display.gamma)
             plt.savefig(os.path.join(save, "psf_initial_plot.png"))
 
+        psf = dataset.psf
+
     else:
 
-        # Use a simulated dataset
-        if config.trainable_mask.use_mask_in_dataset:
-            train_set, mask = simulate_dataset(config)
-            # the mask use will differ from the one in the benchmark dataset
-            print("Trainable Mask will be used in the test dataset")
-            test_set = None
-        else:
-            train_set, mask = simulate_dataset(config)
+        train_set, test_set, mask = simulate_dataset(config)
+        psf = train_set.psf
+
+    assert train_set is not None
+    assert psf is not None
+
+    print("Train test size : ", len(train_set))
+    print("Test test size : ", len(test_set))
 
     start_time = time.time()
 
@@ -261,10 +282,11 @@ def train_unrolled(config):
         config.reconstruction.post_process.depth,
         device=device,
     )
+
     # create reconstruction algorithm
     if config.reconstruction.method == "unrolled_fista":
         recon = UnrolledFISTA(
-            dataset.psf,
+            psf,
             n_iter=config.reconstruction.unrolled_fista.n_iter,
             tk=config.reconstruction.unrolled_fista.tk,
             pad=True,
@@ -274,7 +296,7 @@ def train_unrolled(config):
         ).to(device)
     elif config.reconstruction.method == "unrolled_admm":
         recon = UnrolledADMM(
-            dataset.psf,
+            psf,
             n_iter=config.reconstruction.unrolled_admm.n_iter,
             mu1=config.reconstruction.unrolled_admm.mu1,
             mu2=config.reconstruction.unrolled_admm.mu2,
@@ -300,11 +322,11 @@ def train_unrolled(config):
     log.info(f"Training model with {n_param} parameters")
 
     print(f"Setup time : {time.time() - start_time} s")
-    print(f"PSF shape : {dataset.psf.shape}")
+    print(f"PSF shape : {psf.shape}")
     trainer = Trainer(
-        recon,
-        train_set,
-        test_set,
+        recon=recon,
+        train_dataset=train_set,
+        test_dataset=test_set,
         mask=mask,
         batch_size=config.training.batch_size,
         loss=config.loss,

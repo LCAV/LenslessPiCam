@@ -3,13 +3,13 @@ hydra:
   job:
     chdir: True    # change to output folder
 
-# Train Dataset
+# Dataset
 files:
   dataset: data/DiffuserCam   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  celeba_root: null   # path to parent directory of CelebA: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
   psf: data/psf.tiff
   diffusercam_psf: True
-  eval_dataset: data/DiffuserCam_Test
-  n_files: null    # null to use all for both datasets
+  n_files: null    # null to use all for both train/test
   downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
 
 torch: True
@@ -60,7 +60,6 @@ trainable_mask:
   grayscale: False
   mask_lr: 1e-3
   L1_strength: 1.0  #False or float
-  use_mask_in_dataset : True # Work only with simulated dataset
 
 target: "object_plane"    # "original" or "object_plane" or "label"
 
@@ -86,6 +85,7 @@ simulation:
   # Downsampling for PSF
   downsample: 8
   # max val in simulated measured (quantized 8 bits)
+  quantize: False   # must be False for differentiability
   max_val: 255
 
 #Training

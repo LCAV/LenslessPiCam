@@ -8,6 +8,7 @@
 
 import abc
 import torch
+from lensless.utils.image import is_grayscale
 
 
 class TrainableMask(torch.nn.Module, metaclass=abc.ABCMeta):
@@ -70,23 +71,32 @@ class TrainablePSF(TrainableMask):
 
     Parameters
     ----------
-    is_rgb : bool, optional
-        Whether the mask is RGB or not, by default True.
+    grayscale : bool, optional
+        Whether mask should be returned as grayscale when calling :py:class:`~lensless.hardware.trainable_mask.TrainableMask.get_psf`.
+        Otherwise PSF will be returned as RGB. By default False.
     """
 
-    def __init__(self, initial_mask, optimizer="Adam", lr=1e-3, is_rgb=True, **kwargs):
+    def __init__(self, initial_mask, optimizer="Adam", lr=1e-3, grayscale=False, **kwargs):
         super().__init__(initial_mask, optimizer, lr, **kwargs)
-        self._is_rgb = is_rgb
-        if is_rgb:
-            assert initial_mask.shape[-1] == 3, "RGB mask should have 3 channels"
-        else:
-            assert initial_mask.shape[-1] == 1, "Monochrome mask should have 1 channel"
+        assert (
+            len(initial_mask.shape) == 4
+        ), "Mask must be of shape (depth, height, width, channels)"
+        self.grayscale = grayscale
+        self._is_grayscale = is_grayscale(initial_mask)
+        if grayscale:
+            assert self._is_grayscale, "Mask must be grayscale"
 
     def get_psf(self):
-        if self._is_rgb:
-            return self._mask
+        if self._is_grayscale:
+            if self.grayscale:
+                # simulation in grayscale
+                return self._mask
+            else:
+                # replicate to 3 channels
+                return self._mask.expand(-1, -1, -1, 3)
         else:
-            return self._mask.expand(-1, -1, -1, 3)
+            # assume RGB
+            return self._mask
 
     def project(self):
         self._mask.data = torch.clamp(self._mask, 0, 1)

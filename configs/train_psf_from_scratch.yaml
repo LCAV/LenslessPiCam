@@ -3,11 +3,16 @@ defaults:
   - train_unrolledADMM
   - _self_
 
+# Train Dataset
+files:
+  dataset: mnist   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  celeba_root: /scratch/bezzam
+  downsample: 8
+
 #Trainable Mask
 trainable_mask:
   mask_type: TrainablePSF #Null or "TrainablePSF"
-  initial_value: "random" # "random" or "DiffuserCam" or "DiffuserCam_gray"
+  initial_value: "random"
 
-# Train Dataset
-files:
-  dataset: "CelebA"   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+simulation:
+  grayscale: False

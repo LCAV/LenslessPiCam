@@ -6,8 +6,8 @@
 # Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
-import numpy as np
 from waveprop.simulation import FarFieldSimulator as FarFieldSimulator_wp
+import torch
 
 
 class FarFieldSimulator(FarFieldSimulator_wp):
@@ -34,7 +34,7 @@ class FarFieldSimulator(FarFieldSimulator_wp):
         """
         Parameters
         ----------
-        psf : np.ndarray, optional.
+        psf : np.ndarray or torch.Tensor, optional.
             Point spread function. If not provided, return image at object plane.
         object_height : float or (float, float)
             Height of object in meters. Or range of values to randomly sample from.
@@ -58,9 +58,15 @@ class FarFieldSimulator(FarFieldSimulator_wp):
             Whether to quantize image, by default True.
         """
 
-        if psf is not None:
-            # convert HWC to CHW
-            psf = psf.squeeze().movedim(-1, 0)
+        assert len(psf.shape) == 4, "PSF must be of shape (depth, height, width, channels)"
+
+        if torch.is_tensor(psf):
+            # drop depth dimension, and convert HWC to CHW
+            psf = psf[0].movedim(-1, 0)
+            assert psf.shape[0] == 1 or psf.shape[0] == 3, "PSF must have 1 or 3 channels"
+        else:
+            psf = psf[0]
+            assert psf.shape[-1] == 1 or psf.shape[-1] == 3, "PSF must have 1 or 3 channels"
 
         super().__init__(
             object_height,
@@ -78,6 +84,13 @@ class FarFieldSimulator(FarFieldSimulator_wp):
             **kwargs
         )
 
+        if self.is_torch:
+            assert self.psf.shape[0] == 1 or self.psf.shape[0] == 3, "PSF must have 1 or 3 channels"
+        else:
+            assert (
+                self.psf.shape[-1] == 1 or self.psf.shape[-1] == 3
+            ), "PSF must have 1 or 3 channels"
+
         # save all the parameters in a dict
         self.params = {
             "object_height": object_height,
@@ -94,7 +107,15 @@ class FarFieldSimulator(FarFieldSimulator_wp):
         }
         self.params.update(kwargs)
 
-    def set_psf(self, psf):
+    def get_psf(self):
+        if self.is_torch:
+            # convert CHW to HWC
+            return self.psf.movedim(0, -1).unsqueeze(0)
+        else:
+            return self.psf[None, ...]
+
+    # needs different name from parent class
+    def set_point_spread_function(self, psf):
         """
         Set point spread function.
 
@@ -103,19 +124,32 @@ class FarFieldSimulator(FarFieldSimulator_wp):
         psf : np.ndarray or torch.Tensor
             Point spread function.
         """
-        psf = psf.squeeze().movedim(-1, 0)
+        assert len(psf.shape) == 4, "PSF must be of shape (depth, height, width, channels)"
+
+        if torch.is_tensor(psf):
+            # convert HWC to CHW
+            psf = psf[0].movedim(-1, 0)
+            assert psf.shape[0] == 1 or psf.shape[0] == 3, "PSF must have 1 or 3 channels"
+        else:
+            psf = psf[0]
+            assert psf.shape[-1] == 1 or psf.shape[-1] == 3, "PSF must have 1 or 3 channels"
+
         return super().set_psf(psf)
 
-    def propagate(self, obj, return_object_plane=False):
+    def propagate_image(self, obj, return_object_plane=False):
         """
         Parameters
         ----------
         obj : np.ndarray or torch.Tensor
-            Single image to propagate at format HWC.
+            Single image to propagate of format HWC.
         return_object_plane : bool, optional
             Whether to return object plane, by default False.
         """
+
+        assert obj.shape[-1] == 1 or obj.shape[-1] == 3, "Image must have 1 or 3 channels"
+
         if self.is_torch:
+            # channel in first dimension as expected by waveprop for pytorch
             obj = obj.moveaxis(-1, 0)
             res = super().propagate(obj, return_object_plane)
             if isinstance(res, tuple):
@@ -124,10 +158,6 @@ class FarFieldSimulator(FarFieldSimulator_wp):
                 res = res.moveaxis(-3, -1)
             return res
         else:
-            obj = np.moveaxis(obj, -1, 0)
+            # TODO: not tested, but normally don't need to move dimensions for numpy
             res = super().propagate(obj, return_object_plane)
-            if isinstance(res, tuple):
-                res = np.moveaxis(res[0], -3, -1), np.moveaxis(res[1], -3, -1)
-            else:
-                res = np.moveaxis(res, -3, -1)
             return res
