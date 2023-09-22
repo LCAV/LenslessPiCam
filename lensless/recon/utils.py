@@ -246,6 +246,7 @@ class Trainer:
         test_size=0.15,
         mask=None,
         batch_size=4,
+        eval_batch_size=10,
         loss="l2",
         lpips=None,
         l1_mask=None,
@@ -257,6 +258,7 @@ class Trainer:
         metric_for_best_model=None,
         save_every=None,
         gamma=None,
+        logger=None,
     ):
         """
         Class to train a reconstruction algorithm. Inspired by Trainer from `HuggingFace <https://huggingface.co/docs/transformers/main_classes/trainer>`__.
@@ -281,6 +283,8 @@ class Trainer:
             Trainable mask to use for training. If none, training with fix psf, by default None.
         batch_size : int, optional
             Batch size to use for training, by default 4.
+        eval_batch_size : int, optional
+            Batch size to use for evaluation, by default 10.
         loss : str, optional
             Loss function to use for training "l1" or "l2", by default "l2".
         lpips : float, optional
@@ -303,11 +307,13 @@ class Trainer:
             Save model every ``save_every`` epochs. If None, just save best model.
         gamma : float, optional
             Gamma correction to apply to PSFs when plotting. If None, no gamma correction is applied. Default is None.
+        logger : :py:class:`logging.Logger`, optional
+            Logger to use for logging. If None, just print to terminal. Default is None.
 
 
         """
         self.device = recon._psf.device
-
+        self.logger = logger
         self.recon = recon
 
         assert train_dataset is not None
@@ -319,7 +325,10 @@ class Trainer:
             train_dataset, test_dataset = torch.utils.data.random_split(
                 train_dataset, [train_size, test_size]
             )
-            print(f"Train size : {train_size}, Test size : {test_size}")
+            if self.logger is not None:
+                self.logger.info(f"Train size : {train_size}, Test size : {test_size}")
+            else:
+                print(f"Train size : {train_size}, Test size : {test_size}")
 
         self.train_dataloader = torch.utils.data.DataLoader(
             dataset=train_dataset,
@@ -330,6 +339,7 @@ class Trainer:
         self.test_dataset = test_dataset
         self.lpips = lpips
         self.skip_NAN = skip_NAN
+        self.eval_batch_size = eval_batch_size
 
         if mask is not None:
             assert isinstance(mask, TrainableMask)
@@ -413,10 +423,16 @@ class Trainer:
 
             def detect_nan(grad):
                 if torch.isnan(grad).any():
-                    print(grad, flush=True)
+                    if self.logger:
+                        self.logger.info(grad)
+                    else:
+                        print(grad, flush=True)
                     for name, param in recon.named_parameters():
                         if param.requires_grad:
-                            print(name, param)
+                            if self.logger:
+                                self.logger.info(name, param)
+                            else:
+                                print(name, param)
                     raise ValueError("Gradient is NaN")
                 return grad
 
@@ -505,7 +521,10 @@ class Trainer:
                         is_NAN = True
                         break
                 if is_NAN:
-                    print("NAN detected in gradiant, skipping training step")
+                    if self.logger is not None:
+                        self.logger.info("NAN detected in gradiant, skipping training step")
+                    else:
+                        print("NAN detected in gradiant, skipping training step")
                     i += 1
                     continue
             self.optimizer.step()
@@ -517,6 +536,9 @@ class Trainer:
             mean_loss += (loss_v.item() - mean_loss) * (1 / i)
             pbar.set_description(f"loss : {mean_loss}")
             i += 1
+
+        if self.logger is not None:
+            self.logger.info(f"loss : {mean_loss}")
 
         return mean_loss
 
@@ -534,7 +556,7 @@ class Trainer:
         if self.test_dataset is None:
             return
         # benchmarking
-        current_metrics = benchmark(self.recon, self.test_dataset, batchsize=10)
+        current_metrics = benchmark(self.recon, self.test_dataset, batchsize=self.eval_batch_size)
 
         # update metrics with current metrics
         self.metrics["LOSS"].append(mean_loss)
@@ -615,13 +637,19 @@ class Trainer:
 
         self.evaluate(-1, save_pt)
         for epoch in range(n_epoch):
-            print(f"Epoch {epoch} with learning rate {self.scheduler.get_last_lr()}")
+            if self.logger is not None:
+                self.logger.info(f"Epoch {epoch} with learning rate {self.scheduler.get_last_lr()}")
+            else:
+                print(f"Epoch {epoch} with learning rate {self.scheduler.get_last_lr()}")
             mean_loss = self.train_epoch(self.train_dataloader, disp=disp)
             # offset because of evaluate before loop
             self.on_epoch_end(mean_loss, save_pt, epoch + 1)
             self.scheduler.step()
 
-        print(f"Train time : {time.time() - start_time} s")
+        if self.logger is not None:
+            self.logger.info(f"Train time : {time.time() - start_time} s")
+        else:
+            print(f"Train time : {time.time() - start_time} s")
 
     def save(self, epoch, path="recon", include_optimizer=False):
         # create directory if it does not exist
