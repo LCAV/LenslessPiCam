@@ -212,10 +212,10 @@ def train_unrolled(config):
         save = os.getcwd()
 
     if config.torch_device == "cuda" and torch.cuda.is_available():
-        print("Using GPU for training.")
+        log.info("Using GPU for training.")
         device = "cuda"
     else:
-        print("Using CPU for training.")
+        log.info("Using CPU for training.")
         device = "cpu"
 
     # load dataset and create dataloader
@@ -265,8 +265,8 @@ def train_unrolled(config):
     assert train_set is not None
     assert psf is not None
 
-    print("Train test size : ", len(train_set))
-    print("Test test size : ", len(test_set))
+    log.info(f"Train test size : {len(train_set)}")
+    log.info(f"Test test size : {len(test_set)}")
 
     start_time = time.time()
 
@@ -321,8 +321,9 @@ def train_unrolled(config):
         n_param += sum(p.numel() for p in mask.parameters())
     log.info(f"Training model with {n_param} parameters")
 
-    print(f"Setup time : {time.time() - start_time} s")
-    print(f"PSF shape : {psf.shape}")
+    log.info(f"Setup time : {time.time() - start_time} s")
+    log.info(f"PSF shape : {psf.shape}")
+    log.info(f"Results saved in {save}")
     trainer = Trainer(
         recon=recon,
         train_dataset=train_set,
@@ -340,9 +341,12 @@ def train_unrolled(config):
         metric_for_best_model=config.training.metric_for_best_model,
         save_every=config.training.save_every,
         gamma=config.display.gamma,
+        logger=log,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=disp)
+
+    log.info(f"Results saved in {save}")
 
 
 if __name__ == "__main__":
