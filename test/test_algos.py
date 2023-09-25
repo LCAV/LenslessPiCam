@@ -183,7 +183,7 @@ def test_trainable_recon(algorithm):
                 next(recon.parameters(), None) is not None
             ), f"{algorithm.__name__} has no trainable parameters"
 
-            res = recon.batch_call(data)
+            res = recon.forward(data)
             loss = torch.mean(res)
             loss.backward()
 
@@ -197,7 +197,7 @@ def test_trainable_recon(algorithm):
 
 @pytest.mark.parametrize("algorithm", trainable_algos)
 def test_trainable_batch(algorithm):
-    # test if batch_call and pally give the same result for any batch size
+    # test if forward and pally give the same result for any batch size
     if not torch_is_available:
         return
     for dtype, torch_type in [("float32", torch.float32), ("float64", torch.float64)]:
@@ -215,8 +215,8 @@ def test_trainable_batch(algorithm):
         recon = algorithm(
             psf, dtype=dtype, n_iter=_n_iter, pre_process=pre_process, post_process=post_process
         )
-        res1 = recon.batch_call(data1)
-        res2 = recon.batch_call(data2)
+        res1 = recon.forward(data1)
+        res2 = recon.forward(data2)
         recon.set_data(data2[0])
         res3 = recon.apply(disp_iter=None, plot=False)
 

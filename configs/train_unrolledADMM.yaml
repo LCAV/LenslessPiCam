@@ -13,7 +13,8 @@ files:
   downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
 
 torch: True
-torch_device: 'cuda'
+torch_device: cuda:0
+multi_gpu: True
 
 display:
   # How many iterations to wait for intermediate plot. 

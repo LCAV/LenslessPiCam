@@ -75,7 +75,7 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
                 prediction = model.apply(plot=False, save=False, **kwargs)
 
             else:
-                prediction = model.batch_call(lensless, **kwargs)
+                prediction = model.forward(lensless, **kwargs)
 
         # Convert to [N*D, C, H, W] for torchmetrics
         prediction = prediction.reshape(-1, *prediction.shape[-3:]).movedim(-1, -3)

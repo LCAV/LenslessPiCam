@@ -49,7 +49,7 @@ import lensless.hardware.trainable_mask
 from lensless.recon.utils import create_process_network
 from lensless.utils.image import rgb2gray, is_grayscale
 from lensless.utils.simulation import FarFieldSimulator
-from lensless.recon.utils import Trainer
+from lensless.recon.utils import Trainer, device_checks
 import torch
 from torchvision import transforms, datasets
 from lensless.utils.io import load_psf
@@ -61,12 +61,25 @@ import matplotlib.pyplot as plt
 log = logging.getLogger(__name__)
 
 
+class MyDataParallel(torch.nn.DataParallel):
+    def __getattr__(self, name):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.module, name)
+
+
 def simulate_dataset(config):
 
-    if config.torch_device == "cuda" and torch.cuda.is_available():
-        device = "cuda"
-    else:
-        device = "cpu"
+    # if config.torch_device == "cuda" and torch.cuda.is_available():
+    #     device = "cuda"
+    # else:
+    #     device = "cpu"
+    device, use_cuda, multi_gpu, device_ids = device_checks(config.torch_device, config.multi_gpu)
+
+    import pudb
+
+    pudb.set_trace()
 
     # prepare PSF
     psf_fp = os.path.join(get_original_cwd(), config.files.psf)
@@ -211,12 +224,9 @@ def train_unrolled(config):
     if save:
         save = os.getcwd()
 
-    if config.torch_device == "cuda" and torch.cuda.is_available():
-        log.info("Using GPU for training.")
-        device = "cuda"
-    else:
-        log.info("Using CPU for training.")
-        device = "cpu"
+    device, use_cuda, multi_gpu, device_ids = device_checks(
+        config.torch_device, config.multi_gpu, logger=log.info
+    )
 
     # load dataset and create dataloader
     train_set = None
@@ -293,7 +303,7 @@ def train_unrolled(config):
             learn_tk=config.reconstruction.unrolled_fista.learn_tk,
             pre_process=pre_process,
             post_process=post_process,
-        ).to(device)
+        )
     elif config.reconstruction.method == "unrolled_admm":
         recon = UnrolledADMM(
             psf,
@@ -304,9 +314,15 @@ def train_unrolled(config):
             tau=config.reconstruction.unrolled_admm.tau,
             pre_process=pre_process,
             post_process=post_process,
-        ).to(device)
+        )
     else:
         raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
+
+    if multi_gpu:
+        # recon = torch.nn.DataParallel(recon, device_ids=device_ids)
+        recon = MyDataParallel(recon, device_ids=device_ids)
+    if use_cuda:
+        recon.to(device)
 
     # constructing algorithm name by appending pre and post process
     algorithm_name = config.reconstruction.method

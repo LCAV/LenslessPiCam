@@ -98,8 +98,7 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
             self._PsiT = psi_adj
             self._PsiTPsi = psi_gram(self._padded_shape)
 
-        self._PsiTPsi = self._PsiTPsi.to(self._psf.device)
-
+        self._PsiTPsi = torch.nn.Parameter(self._PsiTPsi.to(self._psf.device), requires_grad=False)
         self.reset()
 
     def _Psi(self, x):

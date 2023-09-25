@@ -122,10 +122,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
         return process_function, process_model, process_param
 
-    def batch_call(self, batch):
+    def forward(self, batch):
         """
         Method for performing iterative reconstruction on a batch of images.
-        This implementation is a properly vectorized implementation of FISTA.
 
         Parameters
         ----------

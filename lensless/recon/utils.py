@@ -237,6 +237,53 @@ def create_process_network(network, depth, device="cpu"):
     return (process, process_name)
 
 
+def device_checks(device=None, multi_gpu=False, logger=None):
+
+    if logger is None:
+        logger = print
+
+    use_cuda = torch.cuda.is_available()
+    device_ids = None
+    if device is None:
+        if use_cuda:
+            logger("CUDA available, using GPU.")
+            device = "cuda:0"
+            n_gpus = torch.cuda.device_count()
+            if n_gpus > 1 and multi_gpu:
+                print(f"-- using {n_gpus} GPUs")
+                device_ids = np.arange(n_gpus).tolist()
+        else:
+            device = "cpu"
+            logger("CUDA not available, using CPU.")
+    else:
+        if device == "cpu":
+            use_cuda = False
+        else:
+            try:
+                gpu_id = int(device.split(":")[1])
+            except ValueError:
+                raise ValueError(
+                    "Bad device specification. Should be 'cpu' or something like 'cuda:1' to set the GPU ID."
+                )
+            assert use_cuda, f"No GPU available but device set to {device}."
+            n_gpus = torch.cuda.device_count()
+            assert gpu_id < n_gpus, f"GPU {device} not available"
+            if n_gpus > 1 and multi_gpu:
+                device_ids = np.arange(n_gpus)
+                device_ids[[0, gpu_id]] = device_ids[[gpu_id, 0]]
+                device_ids = device_ids.tolist()
+            elif device is not None:
+                device_ids = [int(device.split(":")[1])]
+
+    if device_ids is None or len(device_ids) == 1:
+        multi_gpu = False
+    logger(f"main device : {device}")
+    logger(f"multi GPU : {multi_gpu}")
+    logger(f"device ids : {device_ids}")
+
+    return device, use_cuda, multi_gpu, device_ids
+
+
 class Trainer:
     def __init__(
         self,
@@ -312,6 +359,7 @@ class Trainer:
 
 
         """
+
         self.device = recon._psf.device
         self.logger = logger
         self.recon = recon
@@ -471,7 +519,7 @@ class Trainer:
                 self.recon._set_psf(self.mask.get_psf())
 
             # forward pass
-            y_pred = self.recon.batch_call(X.to(self.device))
+            y_pred = self.recon.forward(X.to(self.device))
             # normalizing each output
             eps = 1e-12
             y_pred_max = torch.amax(y_pred, dim=(-1, -2, -3), keepdim=True) + eps
