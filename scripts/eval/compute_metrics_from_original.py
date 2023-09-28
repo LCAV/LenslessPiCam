@@ -15,6 +15,7 @@ python scripts/eval/compute_metrics_from_original.py
 """
 
 import hydra
+import os
 from hydra.utils import to_absolute_path
 import numpy as np
 import matplotlib.pyplot as plt
@@ -61,6 +62,9 @@ def compute_metrics(config):
     print("SSIM", ssim(img_resize, est))
     print("LPIPS", lpips(img_resize, est))
 
+    plt.savefig("comparison.png")
+    save = os.getcwd() + "/comparison.png"
+    print(f"Save comparison to {save}")
     plt.show()
 
 
