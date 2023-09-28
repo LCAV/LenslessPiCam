@@ -259,6 +259,7 @@ class Trainer:
         save_every=None,
         gamma=None,
         logger=None,
+        crop=None,
     ):
         """
         Class to train a reconstruction algorithm. Inspired by Trainer from `HuggingFace <https://huggingface.co/docs/transformers/main_classes/trainer>`__.
@@ -309,6 +310,8 @@ class Trainer:
             Gamma correction to apply to PSFs when plotting. If None, no gamma correction is applied. Default is None.
         logger : :py:class:`logging.Logger`, optional
             Logger to use for logging. If None, just print to terminal. Default is None.
+        crop : dict, optional
+            Crop to apply to images before computing loss (by applying a mask). If None, no crop is applied. Default is None.
 
 
         """
@@ -369,6 +372,21 @@ class Trainer:
                 return ImportError(
                     "lpips package is need for LPIPS loss. Install using : pip install lpips"
                 )
+
+        if crop is not None:
+            datashape = train_dataset[0][0].shape
+            # create binary mask to multiply with before computing loss
+            self.mask_crop = torch.zeros(datashape, dtype=torch.bool).to(self.device)
+
+            # move channel dimension to third to last
+            self.mask_crop = self.mask_crop.movedim(-1, -3)
+
+            # set values to True in mask
+            self.mask_crop[
+                :, :, crop.vertical[0] : crop.vertical[1], crop.horizontal[0] : crop.horizontal[1]
+            ] = True
+        else:
+            self.mask_crop = None
 
         # optimizer
         if optimizer == "Adam":
@@ -495,6 +513,11 @@ class Trainer:
             y_pred = y_pred.reshape(-1, *y_pred.shape[-3:]).movedim(-1, -3)
             y = y.reshape(-1, *y.shape[-3:]).movedim(-1, -3)
 
+            # crop
+            if self.mask_crop is not None:
+                y_pred = y_pred * self.mask_crop
+                y = y * self.mask_crop
+
             loss_v = self.Loss(y_pred, y)
             if self.lpips:
 
@@ -556,7 +579,9 @@ class Trainer:
         if self.test_dataset is None:
             return
         # benchmarking
-        current_metrics = benchmark(self.recon, self.test_dataset, batchsize=self.eval_batch_size)
+        current_metrics = benchmark(
+            self.recon, self.test_dataset, batchsize=self.eval_batch_size, mask_crop=self.mask_crop
+        )
 
         # update metrics with current metrics
         self.metrics["LOSS"].append(mean_loss)

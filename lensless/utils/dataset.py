@@ -133,8 +133,8 @@ class DualDataset(Dataset):
 
         # flip image x and y if needed
         if self.flip:
-            lensless = torch.rot90(lensless, dims=(-3, -2))
-            lensed = torch.rot90(lensed, dims=(-3, -2))
+            lensless = torch.rot90(lensless, dims=(-3, -2), k=2)
+            lensed = torch.rot90(lensed, dims=(-3, -2), k=2)
         if self.transform_lensless:
             lensless = self.transform_lensless(lensless)
         if self.transform_lensed:
@@ -230,20 +230,27 @@ class SimulatedFarFieldDataset(DualDataset):
 
 class MeasuredDatasetSimulatedOriginal(DualDataset):
     """
+    Abstract class for defining a dataset of paired lensed and lensless images.
+
     Dataset consisting of lensless image captured from a screen and the corresponding image shown on the screen.
     Unlike :py:class:`lensless.utils.dataset.MeasuredDataset`, the ground-truth lensed image is simulated using a :py:class:`lensless.utils.simulation.FarFieldSimulator`
     object rather than measured with a lensed camera.
+
+    The class assumes that the ``measured_dir`` and ``original_dir`` have file names that match.
+
+    The method ``_get_images_pair`` must be defined.
     """
 
     def __init__(
         self,
-        root_dir,
+        measured_dir,
+        original_dir,
         simulator,
-        lensless_fn="diffuser",
-        original_fn="lensed",
-        image_ext="npy",
-        original_ext=None,
+        measurement_ext="png",
+        original_ext="jpg",
         downsample=1,
+        background=None,
+        flip=False,
         **kwargs,
     ):
         """
@@ -251,41 +258,33 @@ class MeasuredDatasetSimulatedOriginal(DualDataset):
 
         Parameters
         ----------
-        root_dir : str
-            Path to the test dataset. It is expected to contain two folders: one of lensless images and one of original images.
-        simulator : :py:class:`lensless.utils.simulatorFarFieldSimulator`
-            Simulator to use for the projection of the original image to object space. The PSF **should not** be specified, and it is expect to have ``is_torch = True``.
-        lensless_fn : str, optional
-            Name of the folder containing the lensless images, by default "diffuser".
-        lensed_fn : str, optional
-            Name of the folder containing the lensed images, by default "lensed".
-        image_ext : str, optional
-            Extension of the images, by default "npy".
-        original_ext : str, optional
-            Extension of the original image if different from lenless, by default None.
-        downsample : int, optional
-            Downsample factor of the lensless images, by default 1.
         """
-        super(MeasuredDatasetSimulatedOriginal, self).__init__(downsample=1, **kwargs)
+        super(MeasuredDatasetSimulatedOriginal, self).__init__(
+            downsample=1, background=background, flip=flip, **kwargs
+        )
         self.pre_downsample = downsample
 
-        self.root_dir = root_dir
-        self.lensless_dir = os.path.join(root_dir, lensless_fn)
-        self.original_dir = os.path.join(root_dir, original_fn)
-        assert os.path.isdir(self.lensless_dir)
+        self.measured_dir = measured_dir
+        self.original_dir = original_dir
+        assert os.path.isdir(self.measured_dir)
         assert os.path.isdir(self.original_dir)
 
-        self.image_ext = image_ext.lower()
-        self.original_ext = original_ext.lower() if original_ext is not None else image_ext.lower()
+        self.measurement_ext = measurement_ext.lower()
+        self.original_ext = original_ext.lower()
 
-        files = glob.glob(os.path.join(self.lensless_dir, "*." + image_ext))
+        files = glob.glob(os.path.join(self.measured_dir, "*." + self.measurement_ext))
         files.sort()
         self.files = [os.path.basename(fn) for fn in files]
 
         if len(self.files) == 0:
             raise FileNotFoundError(
-                f"No files found in {self.lensless_dir} with extension {image_ext}"
+                f"No files found in {self.lensless_dir} with extension {self.measurement_ext }"
             )
+
+        # check that corresponding files exist
+        for fn in self.files:
+            original_fp = os.path.join(self.original_dir, fn[:-3] + self.original_ext)
+            assert os.path.exists(original_fp), f"File {original_fp} does not exist"
 
         # check simulator
         assert isinstance(simulator, FarFieldSimulator), "Simulator should be a FarFieldSimulator"
@@ -299,30 +298,176 @@ class MeasuredDatasetSimulatedOriginal(DualDataset):
         else:
             return len([i for i in self.indices if i < len(self.files)])
 
-    def _get_images_pair(self, idx):
-        if self.image_ext == "npy" or self.image_ext == "npz":
-            lensless_fp = os.path.join(self.lensless_dir, self.files[idx])
-            original_fp = os.path.join(self.original_dir, self.files[idx])
-            lensless = np.load(lensless_fp)
-            lensless = resize(lensless, factor=1 / self.downsample)
-            original = np.load(original_fp[:-3] + self.original_ext)
-        else:
-            # more standard image formats: png, jpg, tiff, etc.
-            lensless_fp = os.path.join(self.lensless_dir, self.files[idx])
-            original_fp = os.path.join(self.original_dir, self.files[idx])
-            lensless = load_image(lensless_fp, downsample=self.pre_downsample)
-            original = load_image(
-                original_fp[:-3] + self.original_ext, downsample=self.pre_downsample
-            )
+    # def _get_images_pair(self, idx):
+    #     if self.image_ext == "npy" or self.image_ext == "npz":
+    #         lensless_fp = os.path.join(self.lensless_dir, self.files[idx])
+    #         original_fp = os.path.join(self.original_dir, self.files[idx])
+    #         lensless = np.load(lensless_fp)
+    #         lensless = resize(lensless, factor=1 / self.downsample)
+    #         original = np.load(original_fp[:-3] + self.original_ext)
+    #     else:
+    #         # more standard image formats: png, jpg, tiff, etc.
+    #         lensless_fp = os.path.join(self.lensless_dir, self.files[idx])
+    #         original_fp = os.path.join(self.original_dir, self.files[idx])
+    #         lensless = load_image(lensless_fp, downsample=self.pre_downsample)
+    #         original = load_image(
+    #             original_fp[:-3] + self.original_ext, downsample=self.pre_downsample
+    #         )
 
-            # convert to float
-            if lensless.dtype == np.uint8:
-                lensless = lensless.astype(np.float32) / 255
-                original = original.astype(np.float32) / 255
-            else:
-                # 16 bit
-                lensless = lensless.astype(np.float32) / 65535
-                original = original.astype(np.float32) / 65535
+    #         # convert to float
+    #         if lensless.dtype == np.uint8:
+    #             lensless = lensless.astype(np.float32) / 255
+    #             original = original.astype(np.float32) / 255
+    #         else:
+    #             # 16 bit
+    #             lensless = lensless.astype(np.float32) / 65535
+    #             original = original.astype(np.float32) / 65535
+
+    #     # convert to torch
+    #     lensless = torch.from_numpy(lensless)
+    #     original = torch.from_numpy(original)
+
+    #     # project original image to lensed space
+    #     with torch.no_grad():
+    #         lensed = self.sim.propagate_image()
+
+    #     return lensless, lensed
+
+
+class DigiCamCelebA(MeasuredDatasetSimulatedOriginal):
+    def __init__(
+        self,
+        celeba_root,
+        data_dir=None,
+        psf_path=None,
+        downsample=1,
+        flip=True,
+        vertical_shift=-85,
+        horizontal_shift=-15,
+        simulation_config=None,
+        **kwargs,
+    ):
+        """
+
+        Parameters
+        ----------
+        celeba_root : str
+            Path to the CelebA dataset.
+        data_dir : str, optional
+            Path to the lensless images, by default looks inside the ``data`` folder. Can download if not available.
+        psf_path : str, optional
+            Path to the PSF of the imaging system, by default looks inside the ``data/psf`` folder. Can download if not available.
+        downsample : int, optional
+            Downsample factor of the lensless images, by default 1.
+        flip : bool, optional
+            If True, measurements are flipped, by default ``True``. Does not get applied to the original images.
+        vertical_shift : int, optional
+            Vertical shift (in pixels) of the lensed images to align, by default 0.
+        horizontal_shift : int, optional
+            Horizontal shift (in pixels) of the lensed images to align, by default 0.
+        """
+
+        # download dataset if necessary
+        if data_dir is None:
+            data_dir = os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "data",
+                "celeba_adafruit_random_2mm_20230720_10K",
+            )
+        if not os.path.isdir(data_dir):
+            main_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+            print("DigiCam CelebA dataset not found.")
+            try:
+                from torchvision.datasets.utils import download_and_extract_archive
+            except ImportError:
+                exit()
+            msg = "Do you want to download this dataset of 10K examples (12.2GB)?"
+
+            # default to yes if no input is given
+            valid = input("%s (Y/n) " % msg).lower() != "n"
+            if valid:
+                url = "https://drive.switch.ch/index.php/s/9NNGCJs3DoBDGlY/download"
+                filename = "celeba_adafruit_random_2mm_20230720_10K.zip"
+                download_and_extract_archive(url, main_dir, filename=filename, remove_finished=True)
+
+        # download PSF if necessary
+        if psf_path is None:
+            psf_path = os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "data",
+                "psf",
+                "adafruit_random_2mm_20231907.png",
+            )
+        if not os.path.exists(psf_path):
+            try:
+                from torchvision.datasets.utils import download_url
+            except ImportError:
+                exit()
+            msg = "Do you want to download the PSF (38.8MB)?"
+
+            # default to yes if no input is given
+            valid = input("%s (Y/n) " % msg).lower() != "n"
+            output_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "psf")
+            if valid:
+                url = "https://drive.switch.ch/index.php/s/kfN5vOqvVkNyHmc/download"
+                filename = "adafruit_random_2mm_20231907.png"
+                download_url(url, output_path, filename=filename)
+
+        # load PSF
+        self.flip_measurement = flip
+        self.vertical_shift = vertical_shift
+        self.horizontal_shift = horizontal_shift
+        psf, background = load_psf(
+            psf_path,
+            downsample=downsample * 4,  # PSF is 4x the resolution of the images
+            return_float=True,
+            return_bg=True,
+            flip=flip,
+            bg_pix=(0, 15),
+        )
+        self.psf = torch.from_numpy(psf)
+
+        # create simulator
+        simulation_config["output_dim"] = tuple(self.psf.shape[-3:-1])
+        simulator = FarFieldSimulator(
+            is_torch=True,
+            **simulation_config,
+        )
+
+        super().__init__(
+            measured_dir=data_dir,
+            original_dir=os.path.join(celeba_root, "celeba", "img_align_celeba"),
+            simulator=simulator,
+            measurement_ext="png",
+            original_ext="jpg",
+            downsample=downsample,
+            background=background,
+            flip=False,  # will do flipping only on measurement
+            **kwargs,
+        )
+
+    def _get_images_pair(self, idx):
+
+        # more standard image formats: png, jpg, tiff, etc.
+        lensless_fp = os.path.join(self.measured_dir, self.files[idx])
+        original_fp = os.path.join(self.original_dir, self.files[idx][:-3] + self.original_ext)
+        lensless = load_image(
+            lensless_fp, downsample=self.pre_downsample, flip=self.flip_measurement
+        )
+        original = load_image(original_fp[:-3] + self.original_ext)
+
+        # convert to float
+        if lensless.dtype == np.uint8:
+            lensless = lensless.astype(np.float32) / 255
+            original = original.astype(np.float32) / 255
+        else:
+            # 16 bit
+            lensless = lensless.astype(np.float32) / 65535
+            original = original.astype(np.float32) / 65535
 
         # convert to torch
         lensless = torch.from_numpy(lensless)
@@ -330,7 +475,12 @@ class MeasuredDatasetSimulatedOriginal(DualDataset):
 
         # project original image to lensed space
         with torch.no_grad():
-            lensed = self.sim.propagate_image()
+            lensed = self.sim.propagate_image(original, return_object_plane=True)
+
+        if self.vertical_shift != 0:
+            lensed = torch.roll(lensed, self.vertical_shift, dims=-3)
+        if self.horizontal_shift != 0:
+            lensed = torch.roll(lensed, self.horizontal_shift, dims=-2)
 
         return lensless, lensed
 

@@ -43,6 +43,7 @@ from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     SimulatedFarFieldDataset,
     SimulatedDatasetTrainableMask,
+    DigiCamCelebA,
 )
 from torch.utils.data import Subset
 import lensless.hardware.trainable_mask
@@ -257,6 +258,75 @@ def train_unrolled(config):
 
         psf = dataset.psf
 
+    elif "celeba_adafruit" in config.files.dataset:
+
+        dataset = DigiCamCelebA(
+            data_dir=os.path.join(get_original_cwd(), config.files.dataset),
+            celeba_root=config.files.celeba_root,
+            psf_path=os.path.join(get_original_cwd(), config.files.psf),
+            downsample=config.files.downsample,
+            vertical_shift=config.files.vertical_shift,
+            horizontal_shift=config.files.horizontal_shift,
+            simulation_config=config.simulation,
+        )
+        dataset.psf = dataset.psf.to(device)
+        psf = dataset.psf
+        log.info(f"Data shape :  {dataset[0][0].shape}")
+
+        # reconstruct lensless with ADMM
+        lensless, lensed = dataset[0]
+        from lensless import ADMM
+
+        recon = ADMM(psf)
+        recon.set_data(lensless.to(psf.device))
+        print("Reconstructing lensless image with ADMM...")
+        start_time = time.time()
+        res = recon.apply(disp_iter=None, plot=False, n_iter=10)
+        print(f"Processing time : {time.time() - start_time} s")
+        res_np = res[0].cpu().numpy()
+        res_np = res_np / res_np.max()
+        save_image(res_np, "lensless_recon.png")
+        lensed_np = lensed[0].cpu().numpy()
+        save_image(lensed_np, "lensed.png")
+        lensless_np = lensless[0].cpu().numpy()
+        save_image(lensless_np, "lensless_raw.png")
+
+        # -- plot lensed and res on top of each other
+        if config.training.crop is not None:
+            res_np = res_np[
+                config.training.crop.vertical[0] : config.training.crop.vertical[1],
+                config.training.crop.horizontal[0] : config.training.crop.horizontal[1],
+            ]
+            lensed_np = lensed_np[
+                config.training.crop.vertical[0] : config.training.crop.vertical[1],
+                config.training.crop.horizontal[0] : config.training.crop.horizontal[1],
+            ]
+            log.info(f"Cropped shape :  {res_np.shape}")
+        plt.figure()
+        plt.imshow(lensed_np, alpha=0.5)
+        plt.imshow(res_np, alpha=0.7)
+        plt.savefig("overlay_lensed_recon.png")
+
+        # train-test split
+        train_size = int((1 - config.files.test_size) * len(dataset))
+        test_size = len(dataset) - train_size
+        train_set, test_set = torch.utils.data.random_split(dataset, [train_size, test_size])
+        if config.files.n_files is not None:
+            train_set = Subset(train_set, np.arange(config.files.n_files))
+            test_set = Subset(test_set, np.arange(config.files.n_files))
+
+        # -- if learning mask
+        mask = prep_trainable_mask(config, dataset.psf)
+        if mask is not None:
+            # plot initial PSF
+            psf_np = mask.get_psf().detach().cpu().numpy()[0, ...]
+            if config.trainable_mask.grayscale:
+                psf_np = psf_np[:, :, -1]
+
+            save_image(psf_np, os.path.join(save, "psf_initial.png"))
+            plot_image(psf_np, gamma=config.display.gamma)
+            plt.savefig(os.path.join(save, "psf_initial_plot.png"))
+
     else:
 
         train_set, test_set, mask = simulate_dataset(config)
@@ -330,6 +400,7 @@ def train_unrolled(config):
         test_dataset=test_set,
         mask=mask,
         batch_size=config.training.batch_size,
+        eval_batch_size=config.training.eval_batch_size,
         loss=config.loss,
         lpips=config.lpips,
         l1_mask=config.trainable_mask.L1_strength,
@@ -342,6 +413,7 @@ def train_unrolled(config):
         save_every=config.training.save_every,
         gamma=config.display.gamma,
         logger=log,
+        crop=config.training.crop,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=disp)

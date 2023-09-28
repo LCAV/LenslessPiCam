@@ -504,17 +504,19 @@ def load_data(
 def save_image(img, fp, max_val=255):
     """Save as uint8 image."""
 
-    if img.dtype == np.uint16:
-        img = img.astype(np.float32)
+    img_tmp = img.copy()
 
-    if img.dtype == np.float64 or img.dtype == np.float32:
-        img -= img.min()
-        img /= img.max()
-        img *= max_val
-        img = img.astype(np.uint8)
+    if img_tmp.dtype == np.uint16:
+        img_tmp = img_tmp.astype(np.float32)
 
-    img = Image.fromarray(img)
-    img.save(fp)
+    if img_tmp.dtype == np.float64 or img_tmp.dtype == np.float32:
+        img_tmp -= img_tmp.min()
+        img_tmp /= img_tmp.max()
+        img_tmp *= max_val
+        img_tmp = img_tmp.astype(np.uint8)
+
+    img_tmp = Image.fromarray(img_tmp)
+    img_tmp.save(fp)
 
 
 def get_dtype(dtype=None, is_torch=False):

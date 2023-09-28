@@ -22,7 +22,7 @@ except ImportError:
     )
 
 
-def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
+def benchmark(model, dataset, batchsize=1, metrics=None, mask_crop=None, **kwargs):
     """
     Compute multiple metrics for a reconstruction algorithm.
 
@@ -36,6 +36,8 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
         Batch size for processing. For maximum compatibility use 1 (batchsize above 1 are not supported on all algorithm), by default 1
     metrics : dict, optional
         Dictionary of metrics to compute. If None, MSE, MAE, SSIM, LPIPS and PSNR are computed.
+    mask_crop : torch.Tensor, optional
+        Mask to apply to the output of the reconstruction algorithm, by default None.
 
     Returns
     -------
@@ -80,6 +82,11 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
         # Convert to [N*D, C, H, W] for torchmetrics
         prediction = prediction.reshape(-1, *prediction.shape[-3:]).movedim(-1, -3)
         lensed = lensed.reshape(-1, *lensed.shape[-3:]).movedim(-1, -3)
+
+        if mask_crop is not None:
+            prediction = prediction * mask_crop
+            lensed = lensed * mask_crop
+
         # normalization
         prediction_max = torch.amax(prediction, dim=(-1, -2, -3), keepdim=True)
         if torch.all(prediction_max != 0):
