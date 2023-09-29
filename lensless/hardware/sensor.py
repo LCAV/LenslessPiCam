@@ -135,7 +135,14 @@ class VirtualSensor(object):
     """
 
     def __init__(
-        self, pixel_size, resolution, diagonal=None, color=True, bit_depth=None, downsample=None
+        self,
+        pixel_size,
+        resolution,
+        diagonal=None,
+        color=True,
+        bit_depth=None,
+        downsample=None,
+        **kwargs,
     ):
         """
         Base constructor.
