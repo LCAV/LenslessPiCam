@@ -32,7 +32,9 @@ def liveview(config):
     rgb = config.capture.rgb
     gray = config.capture.gray
 
-    username, hostname = check_username_hostname(config.rpi.username, config.rpi.hostname)
+    check_username_hostname(config.rpi.username, config.rpi.hostname)
+    username = config.rpi.username
+    hostname = config.rpi.hostname
     legacy = config.capture.legacy
     nbits_out = config.capture.nbits_out
     fn = config.capture.raw_data_fn

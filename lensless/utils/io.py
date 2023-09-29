@@ -1,3 +1,11 @@
+# #############################################################################
+# io.py
+# =================
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# #############################################################################
+
+
 import warnings
 from PIL import Image
 import cv2
@@ -6,7 +14,7 @@ import os.path
 
 from lensless.utils.plot import plot_image
 from lensless.hardware.constants import RPI_HQ_CAMERA_BLACK_LEVEL, RPI_HQ_CAMERA_CCM_MATRIX
-from lensless.utils.image import bayer2rgb_cc, print_image_info, resize, rgb2gray
+from lensless.utils.image import bayer2rgb_cc, print_image_info, resize, rgb2gray, get_max_val
 
 
 def load_image(
@@ -22,6 +30,11 @@ def load_image(
     nbits_out=None,
     as_4d=False,
     downsample=None,
+    bg=None,
+    return_float=False,
+    shape=None,
+    dtype=None,
+    normalize=True,
 ):
     """
     Load image as numpy array.
@@ -53,6 +66,17 @@ def load_image(
         height, width, color).
     downsample : int, optional
         Downsampling factor. Recommended for image reconstruction.
+    bg : array_like
+        Background level to subtract.
+    return_float : bool
+        Whether to return image as float array, or unsigned int.
+    shape : tuple, optional
+        Shape (H, W, C) to resize to.
+    dtype : str, optional
+        Data type of returned data. Default is to use that of input.
+    normalize : bool, default True
+        If ``return_float``, whether to normalize data to maximum value of 1.
+
     Returns
     -------
     img : :py:class:`~numpy.ndarray`
@@ -103,6 +127,8 @@ def load_image(
         if len(img.shape) == 3:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
+    original_dtype = img.dtype
+
     if flip:
         img = np.flipud(img)
         img = np.fliplr(img)
@@ -110,14 +136,40 @@ def load_image(
     if verbose:
         print_image_info(img)
 
+    if bg is not None:
+
+        # if bg is float vector, turn into int-valued vector
+        if bg.max() <= 1 and img.dtype not in [np.float32, np.float64]:
+            bg = bg * get_max_val(img)
+
+        img = img - bg
+        img = np.clip(img, a_min=0, a_max=img.max())
+
     if as_4d:
         if len(img.shape) == 3:
             img = img[np.newaxis, :, :, :]
         elif len(img.shape) == 2:
             img = img[np.newaxis, :, :, np.newaxis]
 
-    if downsample is not None:
-        img = resize(img, factor=1 / downsample)
+    if downsample is not None or shape is not None:
+        if downsample is not None:
+            factor = 1 / downsample
+        else:
+            factor = None
+        img = resize(img, factor=factor, shape=shape)
+
+    if return_float:
+        if dtype is None:
+            dtype = np.float32
+        assert dtype == np.float32 or dtype == np.float64
+        img = img.astype(dtype)
+        if normalize:
+            img /= img.max()
+
+    else:
+        if dtype is None:
+            dtype = original_dtype
+        img = img.astype(dtype)
 
     return img
 
@@ -212,6 +264,7 @@ def load_psf(
         )
 
     original_dtype = psf.dtype
+    max_val = get_max_val(psf)
     psf = np.array(psf, dtype=dtype)
 
     if use_3d:
@@ -274,6 +327,7 @@ def load_psf(
     if return_float:
         # psf /= psf.max()
         psf /= np.linalg.norm(psf.ravel())
+        bg /= max_val
     else:
         psf = psf.astype(original_dtype)
 
@@ -286,6 +340,7 @@ def load_psf(
 def load_data(
     psf_fp,
     data_fp,
+    return_float=True,
     downsample=None,
     bg_pix=(5, 25),
     plot=True,
@@ -300,6 +355,7 @@ def load_data(
     shape=None,
     torch=False,
     torch_device="cpu",
+    normalize=False,
 ):
     """
     Load data for image reconstruction.
@@ -310,6 +366,8 @@ def load_data(
         Full path to PSF file.
     data_fp : str
         Full path to measurement file.
+    return_float : bool, optional
+        Whether to return PSF as float array, or unsigned int.
     downsample : int or float
         Downsampling factor.
     bg_pix : tuple, optional
@@ -336,6 +394,8 @@ def load_data(
         Whether to sum RGB channels into single PSF, same across channels. Done
         in "Learned reconstructions for practical mask-based lensless imaging"
         of Kristina Monakhova et. al.
+    normalize : bool default True
+        Whether to normalize data to maximum value of 1.
 
     Returns
     -------
@@ -365,7 +425,7 @@ def load_data(
     psf, bg = load_psf(
         psf_fp,
         downsample=downsample,
-        return_float=True,
+        return_float=return_float,
         bg_pix=bg_pix,
         return_bg=True,
         flip=flip,
@@ -379,21 +439,22 @@ def load_data(
     )
 
     # load and process raw measurement
-    data = load_image(data_fp, flip=flip, bayer=bayer, blue_gain=blue_gain, red_gain=red_gain)
-    data = np.array(data, dtype=dtype)
-
-    data -= bg
-    data = np.clip(data, a_min=0, a_max=data.max())
-
-    if len(data.shape) == 3:
-        data = data[np.newaxis, :, :, :]
-    elif len(data.shape) == 2:
-        data = data[np.newaxis, :, :, np.newaxis]
+    data = load_image(
+        data_fp,
+        flip=flip,
+        bayer=bayer,
+        blue_gain=blue_gain,
+        red_gain=red_gain,
+        bg=bg,
+        as_4d=True,
+        return_float=return_float,
+        shape=shape,
+        normalize=normalize,
+    )
 
     if data.shape != psf.shape:
         # in DiffuserCam dataset, images are already reshaped
         data = resize(data, shape=psf.shape)
-    data /= np.linalg.norm(data.ravel())
 
     if data.shape[3] > 1 and psf.shape[3] == 1:
         warnings.warn(
@@ -454,3 +515,58 @@ def save_image(img, fp, max_val=255):
 
     img = Image.fromarray(img)
     img.save(fp)
+
+
+def get_dtype(dtype=None, is_torch=False):
+    """
+    Get dtype for numpy or torch.
+
+    Parameters
+    ----------
+    dtype : str, optional
+        "float32" or "float64", Default is "float32".
+    is_torch : bool, optional
+        Whether to return torch dtype.
+    """
+    if dtype is None:
+        dtype = "float32"
+    assert dtype == "float32" or dtype == "float64"
+
+    if is_torch:
+        import torch
+
+    if dtype is None:
+        if is_torch:
+            dtype = torch.float32
+        else:
+            dtype = np.float32
+    else:
+        if is_torch:
+            dtype = torch.float32 if dtype == "float32" else torch.float64
+        else:
+            dtype = np.float32 if dtype == "float32" else np.float64
+
+    return dtype
+
+
+def get_ctypes(dtype, is_torch):
+    if not is_torch:
+        if dtype == np.float32 or dtype == np.complex64:
+            return np.complex64, np.complex64
+        elif dtype == np.float64 or dtype == np.complex128:
+            return np.complex128, np.complex128
+        else:
+            raise ValueError("Unexpected dtype: ", dtype)
+    else:
+        import torch
+
+        if dtype == np.float32 or dtype == np.complex64:
+            return torch.complex64, np.complex64
+        elif dtype == np.float64 or dtype == np.complex128:
+            return torch.complex128, np.complex128
+        elif dtype == torch.float32 or dtype == torch.complex64:
+            return torch.complex64, np.complex64
+        elif dtype == torch.float64 or dtype == torch.complex128:
+            return torch.complex128, np.complex128
+        else:
+            raise ValueError("Unexpected dtype: ", dtype)

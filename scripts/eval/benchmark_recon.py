@@ -20,9 +20,10 @@ import glob
 import json
 import os
 import pathlib as plib
-from lensless.eval.benchmark import benchmark, DiffuserCamTestDataset
+from lensless.eval.benchmark import benchmark
 import matplotlib.pyplot as plt
 from lensless import ADMM, FISTA, GradientDescent, NesterovGradientDescent
+from lensless.utils.dataset import DiffuserCamTestDataset
 
 try:
     import torch
@@ -43,9 +44,7 @@ def benchmark_recon(config):
         device = "cpu"
 
     # Benchmark dataset
-    benchmark_dataset = DiffuserCamTestDataset(
-        data_dir=os.path.join(get_original_cwd(), "data"), n_files=n_files, downsample=downsample
-    )
+    benchmark_dataset = DiffuserCamTestDataset(n_files=n_files, downsample=downsample)
     psf = benchmark_dataset.psf.to(device)
 
     model_list = []  # list of algoritms to benchmark

@@ -10,6 +10,7 @@ data/*
 models/*
 *.png
 *.jpg
+*.npy
 
 configs/telegram_demo_secret.yaml
 

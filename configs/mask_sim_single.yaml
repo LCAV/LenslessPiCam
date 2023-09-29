@@ -8,6 +8,7 @@ files:
   #original: data/original/mnist_3.png
 
 save: True
+use_torch: False
   
 simulation:
   object_height: 0.3
