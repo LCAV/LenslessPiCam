@@ -5,7 +5,7 @@ python scripts/measure/remote_capture.py
 Check out the `configs/demo.yaml` file for parameters, specifically:
 
 - `rpi`: RPi parameters
-- `capture`: parameters for displaying image
+- `capture`: parameters for taking pictures
 
 """
 
@@ -17,8 +17,7 @@ from pprint import pprint
 import matplotlib.pyplot as plt
 import rawpy
 from lensless.hardware.utils import check_username_hostname
-
-
+from lensless.hardware.sensor import SensorOptions
 from lensless.utils.image import rgb2gray, print_image_info
 from lensless.utils.plot import plot_image, pixel_histogram
 from lensless.utils.io import save_image
@@ -27,6 +26,9 @@ from lensless.utils.io import load_image
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="demo")
 def liveview(config):
+
+    sensor = config.capture.sensor
+    assert sensor in SensorOptions.values(), f"Sensor must be one of {SensorOptions.values()}"
 
     bayer = config.capture.bayer
     rgb = config.capture.rgb
@@ -62,17 +64,12 @@ def liveview(config):
     remote_fn = "remote_capture"
     print("\nTaking picture...")
     pic_command = (
-        f"{config.rpi.python} {config.capture.script} bayer={bayer} fn={remote_fn} exp={config.capture.exp} iso={config.capture.iso} "
-        f"config_pause={config.capture.config_pause} sensor_mode={config.capture.sensor_mode} nbits_out={config.capture.nbits_out}"
+        f"{config.rpi.python} {config.capture.script} sensor={sensor} bayer={bayer} fn={remote_fn} exp={config.capture.exp} iso={config.capture.iso} "
+        f"config_pause={config.capture.config_pause} sensor_mode={config.capture.sensor_mode} nbits_out={config.capture.nbits_out} "
+        f"legacy={config.capture.legacy} rgb={config.capture.rgb} gray={config.capture.gray} "
     )
     if config.capture.nbits > 8:
         pic_command += " sixteen=True"
-    if config.capture.rgb:
-        pic_command += " rgb=True"
-    if config.capture.legacy:
-        pic_command += " legacy=True"
-    if config.capture.gray:
-        pic_command += " gray=True"
     if config.capture.down:
         pic_command += f" down={config.capture.down}"
     if config.capture.awb_gains:

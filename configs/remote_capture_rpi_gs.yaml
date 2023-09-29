@@ -1,0 +1,23 @@
+# python scripts/measure/remote_capture.py -cn remote_capture_rpi_gs
+defaults:
+  - demo
+  - _self_
+
+output: rpi_gs_capture   # output folder for results
+save: True
+plot: True
+
+rpi:
+  username: null
+  hostname: null
+  python: ~/LenslessPiCam/lensless_env/bin/python
+
+capture:
+  sensor: rpi_gs
+  exp: 0.5
+  bayer: True
+  legacy: False   # must be False for rpi_gs
+  rgb: False
+  gray: False
+  down: null
+  awb_gains: null

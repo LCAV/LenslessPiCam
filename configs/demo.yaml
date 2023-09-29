@@ -30,6 +30,7 @@ display:
   white: False
 
 capture:
+  sensor: rpi_hq
   gamma: null # for visualization
   exp: 0.02
   delay: 2
