@@ -57,6 +57,9 @@ class RealFFTConvolve2D:
         self._is_rgb = psf.shape[3] == 3
         assert self._is_rgb or psf.shape[3] == 1
 
+        # save normalization
+        self.norm = norm
+
         # set dtype
         if dtype is None:
             if self.is_torch:

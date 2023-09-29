@@ -404,6 +404,28 @@ class ReconstructionAlgorithm(abc.ABC):
         """Get current image estimate as [Batch, Depth, Height, Width, Channels]."""
         return self._form_image()
 
+    def _set_psf(self, psf):
+        """
+        Set PSF.
+
+        Parameters
+        ----------
+        psf : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
+            PSF to set.
+        """
+        assert len(psf.shape) == 4, "PSF must be 4D: (depth, height, width, channels)."
+        assert psf.shape[3] == 3 or psf.shape[3] == 1, "PSF must either be rgb (3) or grayscale (1)"
+        assert self._psf.shape == psf.shape, "new PSF must have same shape as old PSF"
+        assert isinstance(psf, type(self._psf)), "new PSF must have same type as old PSF"
+
+        self._psf = psf
+        self._convolver = RealFFTConvolve2D(
+            psf,
+            dtype=self._convolver._psf.dtype,
+            pad=self._convolver.pad,
+            norm=self._convolver.norm,
+        )
+
     def _progress(self):
         """
         Optional method for printing progress update, e.g. relative improvement

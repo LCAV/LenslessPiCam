@@ -1,0 +1,18 @@
+# python scripts/recon/train_unrolled.py -cn train_psf_from_scratch
+defaults:
+  - train_unrolledADMM
+  - _self_
+
+# Train Dataset
+files:
+  dataset: mnist   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  celeba_root: /scratch/bezzam
+  downsample: 8
+
+#Trainable Mask
+trainable_mask:
+  mask_type: TrainablePSF #Null or "TrainablePSF"
+  initial_value: "random"
+
+simulation:
+  grayscale: False
