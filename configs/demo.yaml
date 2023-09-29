@@ -42,7 +42,8 @@ capture:
   nbits_out: 8    # light data transer, doesn't seem to worsen performance
   nbits: 12
   legacy: True
-  gray: False
+  gray: False     # only for legacy=True, if bayer=True, remote script returns grayscale data
+  # rgb: False   # only for legacy=True, if bayer=True, remote script return RGB data
   raw_data_fn: raw_data
   bayer: True
   source: white

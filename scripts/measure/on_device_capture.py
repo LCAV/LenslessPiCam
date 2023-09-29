@@ -210,6 +210,7 @@ def capture(config):
             else:
                 output = (np.sum(stream.array, axis=2) >> 2).astype(np.uint8)
 
+            # returning non-bayer data
             if rgb or gray:
                 if sixteen:
                     n_bits = 12  # assuming Raspberry Pi HQ
@@ -248,7 +249,7 @@ def capture(config):
 
         else:
 
-            # returning non-bayer data
+            # capturing and returning non-bayer data
             from picamerax import PiCamera
 
             camera = PiCamera()
