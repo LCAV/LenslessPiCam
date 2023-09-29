@@ -25,7 +25,7 @@ class HemnisphereLenses:
     dmax: float = 1.5e-3,
     mask_size: np.ndarray = np.array([4.712e-3 , 6.2744e-3]),
     height: Optional[float] = 1e-3,
-    padding=10e-3,
+    size: Optional[tuple[float, float]] = (10, 13),
     simplify: bool = False,
     show_axis: bool = False,
   ):
@@ -33,7 +33,7 @@ class HemnisphereLenses:
     self.dmax = dmax
     self.dmin = dmin
     self.mask_size = mask_size
-    self.padding = padding
+    self.size = size
 
     self.height = height
     self.simplify = simplify
@@ -80,7 +80,7 @@ class HemnisphereLenses:
     model = cq.Workplane("XY")
     
     frame = (cq.Workplane("XY")
-      .box(2*self.padding*1e3 + self.mask_size[0]*1e3, 2*self.padding*1e3 + self.mask_size[1]*1e3, self.height*1e3, centered=(True, True, False))
+      .box(self.size[0], self.size[1], self.height*1e3, centered=(True, True, False))
     )
 
     model = model.add(frame)
@@ -107,6 +107,16 @@ class HemnisphereLenses:
       model = model.combine(glue=True)
 
     self.model = model
+
+  def save(self, fname):
+    assert self.model is not None, "Model not generated yet."
+
+    directory = os.path.dirname(fname)
+    if directory and not os.path.exists(directory):
+        print(f"Error: The directory {directory} does not exist! Failed to save CadQuery model.")
+        return
+
+    cq.exporters.export(self.model, fname)
 
 class Mask3DModel:
   def __init__(self,
@@ -234,23 +244,32 @@ class Mask3DModel:
 
     cq.exporters.export(self.model, fname)
     
-def mold_from_mask(model: cq.Workplane, size: tuple[int, int, int] = (1.0e-1, 1.0e-1, 1.0e-2)) -> cq.Workplane:
+def mold_from_mask(model: cq.Workplane, size: tuple[int, int, int] = (0.4e-1, 0.4e-1, 3.0e-3)) -> cq.Workplane:
   """Creates a mold from a mask 3d model. The mold is a negative of the mask 3d model."""
   mold = (cq.Workplane("XY")
     .box(size[0]*1e3, size[1]*1e3, size[2]*1e3, centered=(True, True, False))     
   )
-  return mold.cut(model)
+  mold = mold.cut(model).rotate((0, 0, 0), (1, 0, 0), 180)
+  return mold
 
 # --- from here, implementations of frames and connections ---
 
 class SimpleFrame(Frame):
-  def __init__(self, padding: float = 2):
+  def __init__(self, padding: float = 2, size: Optional[tuple[float, float]] = None):
+    """
+    Specify either padding or size. If size is specified, padding is ignored.
+    Args:
+        padding (float, optional): padding around the mask. Defaults to 2.
+        size (Optional[tuple[float, float]], optional): size of the frame. Defaults to None.
+    """
     self.padding = padding
+    self.size = size
     
   def generate(self, mask_size, depth: float) -> cq.Workplane:
     width, height = mask_size[0], mask_size[1]
+    size = self.size if self.size is not None else (width + 2*self.padding, height + 2*self.padding)
     return (cq.Workplane("XY")
-      .box(width+2*self.padding, height+2*self.padding, depth, centered=(True, True, False))
+      .box(size[0], size[1], depth, centered=(True, True, False))
       .rect(width, height)
       .cutThruAll()
     )
