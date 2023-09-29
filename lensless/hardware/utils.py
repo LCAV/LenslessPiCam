@@ -58,6 +58,9 @@ def display(
 
 def check_username_hostname(username, hostname, timeout=10):
 
+    assert username is not None, "Username must be specified"
+    assert hostname is not None, "Hostname must be specified"
+
     client = paramiko.client.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 

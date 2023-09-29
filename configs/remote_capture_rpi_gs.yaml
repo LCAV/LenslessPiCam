@@ -14,7 +14,7 @@ rpi:
 
 capture:
   sensor: rpi_gs
-  exp: 0.5
+  exp: 0.2
   bayer: True
   legacy: False   # must be False for rpi_gs
   rgb: False

@@ -1,6 +1,23 @@
 """
 
-python scripts/measure/remote_capture.py
+For Bayer data with RPI HQ sensor:
+```
+python scripts/measure/remote_capture.py \
+rpi.username=USERNAME rpi.hostname=IP_ADDRESS
+```
+
+For Bayer data with RPI Global shutter sensor:
+```
+python scripts/measure/remote_capture.py -cn remote_capture_rpi_gs \
+rpi.username=USERNAME rpi.hostname=IP_ADDRESS
+```
+
+For RGB data with RPI HQ RPI Global shutter sensor:
+```
+python scripts/measure/remote_capture.py -cn remote_capture_rpi_gs \
+rpi.username=USERNAME rpi.hostname=IP_ADDRESS \
+capture.bayer=False capture.down=2
+```
 
 Check out the `configs/demo.yaml` file for parameters, specifically:
 
@@ -54,12 +71,6 @@ def liveview(config):
     else:
         save = False
 
-    # proceed with capture
-    # if bayer:
-    #     assert not rgb
-    #     assert not gray
-    assert hostname is not None
-
     # take picture
     remote_fn = "remote_capture"
     print("\nTaking picture...")
@@ -85,7 +96,7 @@ def liveview(config):
     result = ssh.stdout.readlines()
     error = ssh.stderr.readlines()
 
-    if error != []:
+    if error != [] and legacy:  # new camera software seems to return error even if it works
         print("ERROR: %s" % error)
         return
     if result == []:
@@ -108,6 +119,7 @@ def liveview(config):
         "RPi distribution" in result_dict.keys()
         and "bullseye" in result_dict["RPi distribution"]
         and not legacy
+        and bayer
     ):
         # copy over DNG file
         remotefile = f"~/{remote_fn}.dng"
