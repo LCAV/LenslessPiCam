@@ -3,6 +3,7 @@
 # =================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
+# Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
 """
@@ -12,30 +13,77 @@ Train unrolled version of reconstruction algorithm.
 python scripts/recon/train_unrolled.py
 ```
 
+By default it uses the configuration from the file `configs/train_unrolledADMM.yaml`.
+
+To train pre- and post-processing networks, use the following command:
+```
+python scripts/recon/train_unrolled.py -cn train_pre-post-processing
+```
+
+To fine-tune the DiffuserCam PSF, use the following command:
+```
+python scripts/recon/train_unrolled.py -cn fine-tune_PSF
+```
+
+To train a PSF from scratch with a simulated dataset, use the following command:
+```
+python scripts/recon/train_unrolled.py -cn train_psf_from_scratch
+```
+
 """
 
-import math
+import logging
 import hydra
 from hydra.utils import get_original_cwd
 import os
 import numpy as np
 import time
-import matplotlib.pyplot as plt
 from lensless import UnrolledFISTA, UnrolledADMM
-from waveprop.dataset_util import SimulatedPytorchDataset
-from lensless.utils.image import rgb2gray
-from lensless.eval.benchmark import benchmark, DiffuserCamTestDataset
+from lensless.utils.dataset import (
+    DiffuserCamMirflickr,
+    SimulatedFarFieldDataset,
+    SimulatedDatasetTrainableMask,
+)
+from torch.utils.data import Subset
+import lensless.hardware.trainable_mask
+from lensless.recon.utils import create_process_network
+from lensless.utils.image import rgb2gray, is_grayscale
+from lensless.utils.simulation import FarFieldSimulator
+from lensless.recon.utils import Trainer
 import torch
 from torchvision import transforms, datasets
-from tqdm import tqdm
+from lensless.utils.io import load_psf
+from lensless.utils.io import save_image
+from lensless.utils.plot import plot_image
+import matplotlib.pyplot as plt
 
-try:
-    import json
-except ImportError:
-    print("json package not found, metrics will not be saved")
+# A logger for this file
+log = logging.getLogger(__name__)
 
 
-def simulate_dataset(config, psf):
+def simulate_dataset(config):
+
+    if config.torch_device == "cuda" and torch.cuda.is_available():
+        device = "cuda"
+    else:
+        device = "cpu"
+
+    # prepare PSF
+    psf_fp = os.path.join(get_original_cwd(), config.files.psf)
+    psf, _ = load_psf(
+        psf_fp,
+        downsample=config.files.downsample,
+        return_float=True,
+        return_bg=True,
+        bg_pix=(0, 15),
+    )
+    if config.files.diffusercam_psf:
+        transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
+        psf = transform_BRG2RGB(torch.from_numpy(psf))
+
+    # drop depth dimension
+    psf = psf.to(device)
+
     # load dataset
     transforms_list = [transforms.ToTensor()]
     data_path = os.path.join(get_original_cwd(), "data")
@@ -43,120 +91,117 @@ def simulate_dataset(config, psf):
         transforms_list.append(transforms.Grayscale())
     transform = transforms.Compose(transforms_list)
     if config.files.dataset == "mnist":
-        ds = datasets.MNIST(root=data_path, train=True, download=True, transform=transform)
+        train_ds = datasets.MNIST(root=data_path, train=True, download=True, transform=transform)
+        test_ds = datasets.MNIST(root=data_path, train=False, download=True, transform=transform)
     elif config.files.dataset == "fashion_mnist":
-        ds = datasets.FashionMNIST(root=data_path, train=True, download=True, transform=transform)
+        train_ds = datasets.FashionMNIST(
+            root=data_path, train=True, download=True, transform=transform
+        )
+        test_ds = datasets.FashionMNIST(
+            root=data_path, train=False, download=True, transform=transform
+        )
     elif config.files.dataset == "cifar10":
-        ds = datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform)
+        train_ds = datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform)
+        test_ds = datasets.CIFAR10(root=data_path, train=False, download=True, transform=transform)
     elif config.files.dataset == "CelebA":
-        ds = datasets.CelebA(root=data_path, split="train", download=True, transform=transform)
+        root = config.files.celeba_root
+        data_path = os.path.join(root, "celeba")
+        assert os.path.isdir(
+            data_path
+        ), f"Data path {data_path} does not exist. Make sure you download the CelebA dataset and provide the parent directory as 'config.files.celeba_root'. Download link: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html"
+        train_ds = datasets.CelebA(root=root, split="train", download=False, transform=transform)
+        test_ds = datasets.CelebA(root=root, split="test", download=False, transform=transform)
     else:
         raise NotImplementedError(f"Dataset {config.files.dataset} not implemented.")
 
     # convert PSF
-    if config.simulation.grayscale:
+    if config.simulation.grayscale and not is_grayscale(psf):
         psf = rgb2gray(psf)
-    if not isinstance(psf, torch.Tensor):
-        psf = transforms.ToTensor()(psf)
-    elif psf.shape[-1] == 3:
-        # Waveprop syntetic dataset expect C H W
-        psf = psf.permute(2, 0, 1)
 
-    # batch_size = config.files.batch_size
-    batch_size = config.training.batch_size
-    n_files = config.files.n_files
-    device_conv = config.torch_device
-    target = config.target
+    # prepare mask
+    mask = prep_trainable_mask(config, psf, grayscale=config.simulation.grayscale)
 
     # check if gpu is available
+    device_conv = config.torch_device
     if device_conv == "cuda" and torch.cuda.is_available():
         device_conv = "cuda"
     else:
         device_conv = "cpu"
 
+    # create simulator
+    simulator = FarFieldSimulator(
+        psf=psf,
+        is_torch=True,
+        **config.simulation,
+    )
+
     # create Pytorch dataset and dataloader
+    n_files = config.files.n_files
     if n_files is not None:
-        ds = torch.utils.data.Subset(ds, np.arange(n_files))
-    ds_prop = SimulatedPytorchDataset(
-        dataset=ds, psf=psf, device_conv=device_conv, target=target, **config.simulation
-    )
-    ds_loader = torch.utils.data.DataLoader(
-        dataset=ds_prop, batch_size=batch_size, shuffle=True, pin_memory=(psf.device != "cpu")
-    )
-    return ds_loader
-
-
-def create_process_network(network, depth, device="cpu"):
-    if network == "DruNet":
-        from lensless.recon.utils import load_drunet
-
-        process = load_drunet(
-            os.path.join(get_original_cwd(), "data/drunet_color.pth"), requires_grad=True
-        ).to(device)
-        process_name = "DruNet"
-    elif network == "UnetRes":
-        from lensless.recon.drunet.network_unet import UNetRes
-
-        n_channels = 3
-        process = UNetRes(
-            in_nc=n_channels + 1,
-            out_nc=n_channels,
-            nc=[64, 128, 256, 512],
-            nb=depth,
-            act_mode="R",
-            downsample_mode="strideconv",
-            upsample_mode="convtranspose",
-        ).to(device)
-        process_name = "UnetRes_d" + str(depth)
+        train_ds = torch.utils.data.Subset(train_ds, np.arange(n_files))
+        test_ds = torch.utils.data.Subset(test_ds, np.arange(n_files))
+    if mask is None:
+        train_ds_prop = SimulatedFarFieldDataset(
+            dataset=train_ds,
+            simulator=simulator,
+            dataset_is_CHW=True,
+            device_conv=device_conv,
+            flip=config.simulation.flip,
+        )
+        test_ds_prop = SimulatedFarFieldDataset(
+            dataset=test_ds,
+            simulator=simulator,
+            dataset_is_CHW=True,
+            device_conv=device_conv,
+            flip=config.simulation.flip,
+        )
     else:
-        process = None
-        process_name = None
+        train_ds_prop = SimulatedDatasetTrainableMask(
+            dataset=train_ds,
+            mask=mask,
+            simulator=simulator,
+            dataset_is_CHW=True,
+            device_conv=device_conv,
+            flip=config.simulation.flip,
+        )
+        test_ds_prop = SimulatedDatasetTrainableMask(
+            dataset=test_ds,
+            mask=mask,
+            simulator=simulator,
+            dataset_is_CHW=True,
+            device_conv=device_conv,
+            flip=config.simulation.flip,
+        )
 
-    return (process, process_name)
+    return train_ds_prop, test_ds_prop, mask
 
 
-def measure_gradient(model):
-    # return the L2 norm of the gradient
-    total_norm = 0.0
-    for p in model.parameters():
-        param_norm = p.grad.detach().data.norm(2)
-        total_norm += param_norm.item() ** 2
-    total_norm = total_norm**0.5
-    return total_norm
+def prep_trainable_mask(config, psf, grayscale=False):
+    mask = None
+    if config.trainable_mask.mask_type is not None:
+        mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
+
+        if config.trainable_mask.initial_value == "random":
+            initial_mask = torch.rand_like(psf)
+        elif config.trainable_mask.initial_value == "psf":
+            initial_mask = psf.clone()
+        else:
+            raise ValueError(
+                f"Initial PSF value {config.trainable_mask.initial_value} not supported"
+            )
+
+        if config.trainable_mask.grayscale and not is_grayscale(initial_mask):
+            initial_mask = rgb2gray(initial_mask)
+
+        mask = mask_class(
+            initial_mask, optimizer="Adam", lr=config.trainable_mask.mask_lr, grayscale=grayscale
+        )
+
+    return mask
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="unrolled_recon")
-def train_unrolled(
-    config,
-):
-    if config.torch_device == "cuda" and torch.cuda.is_available():
-        print("Using GPU for training.")
-        device = "cuda"
-    else:
-        print("Using CPU for training.")
-        device = "cpu"
-
-    # torch.autograd.set_detect_anomaly(True)
-
-    # if using a portrait dataset rotate the PSF
-    flip = config.files.dataset in ["CelebA"]
-
-    # benchmarking dataset:
-    path = os.path.join(get_original_cwd(), "data")
-    benchmark_dataset = DiffuserCamTestDataset(
-        data_dir=path, downsample=config.simulation.downsample
-    )
-
-    psf = benchmark_dataset.psf.to(device)
-    background = benchmark_dataset.background
-
-    # convert psf from BGR to RGB
-    if config.files.dataset in ["DiffuserCam"]:
-        psf = psf[..., [2, 1, 0]]
-
-    # if using a portrait dataset rotate the PSF
-    if flip:
-        psf = torch.rot90(psf, dims=[0, 1])
+@hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
+def train_unrolled(config):
 
     disp = config.display.disp
     if disp < 0:
@@ -165,6 +210,63 @@ def train_unrolled(
     save = config.save
     if save:
         save = os.getcwd()
+
+    if config.torch_device == "cuda" and torch.cuda.is_available():
+        log.info("Using GPU for training.")
+        device = "cuda"
+    else:
+        log.info("Using CPU for training.")
+        device = "cpu"
+
+    # load dataset and create dataloader
+    train_set = None
+    test_set = None
+    psf = None
+    if "DiffuserCam" in config.files.dataset:
+
+        original_path = os.path.join(get_original_cwd(), config.files.dataset)
+        psf_path = os.path.join(get_original_cwd(), config.files.psf)
+        dataset = DiffuserCamMirflickr(
+            dataset_dir=original_path,
+            psf_path=psf_path,
+            downsample=config.files.downsample,
+        )
+        dataset.psf = dataset.psf.to(device)
+        # train-test split as in https://waller-lab.github.io/LenslessLearning/dataset.html
+        # first 1000 files for test, the rest for training
+        train_indices = dataset.allowed_idx[dataset.allowed_idx > 1000]
+        test_indices = dataset.allowed_idx[dataset.allowed_idx <= 1000]
+        if config.files.n_files is not None:
+            train_indices = train_indices[: config.files.n_files]
+            test_indices = test_indices[: config.files.n_files]
+
+        train_set = Subset(dataset, train_indices)
+        test_set = Subset(dataset, test_indices)
+
+        # -- if learning mask
+        mask = prep_trainable_mask(config, dataset.psf)
+        if mask is not None:
+            # plot initial PSF
+            psf_np = mask.get_psf().detach().cpu().numpy()[0, ...]
+            if config.trainable_mask.grayscale:
+                psf_np = psf_np[:, :, -1]
+
+            save_image(psf_np, os.path.join(save, "psf_initial.png"))
+            plot_image(psf_np, gamma=config.display.gamma)
+            plt.savefig(os.path.join(save, "psf_initial_plot.png"))
+
+        psf = dataset.psf
+
+    else:
+
+        train_set, test_set, mask = simulate_dataset(config)
+        psf = train_set.psf
+
+    assert train_set is not None
+    assert psf is not None
+
+    log.info(f"Train test size : {len(train_set)}")
+    log.info(f"Test test size : {len(test_set)}")
 
     start_time = time.time()
 
@@ -180,6 +282,7 @@ def train_unrolled(
         config.reconstruction.post_process.depth,
         device=device,
     )
+
     # create reconstruction algorithm
     if config.reconstruction.method == "unrolled_fista":
         recon = UnrolledFISTA(
@@ -191,7 +294,6 @@ def train_unrolled(
             pre_process=pre_process,
             post_process=post_process,
         ).to(device)
-        n_iter = config.reconstruction.unrolled_fista.n_iter
     elif config.reconstruction.method == "unrolled_admm":
         recon = UnrolledADMM(
             psf,
@@ -203,7 +305,6 @@ def train_unrolled(
             pre_process=pre_process,
             post_process=post_process,
         ).to(device)
-        n_iter = config.reconstruction.unrolled_admm.n_iter
     else:
         raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
 
@@ -215,196 +316,37 @@ def train_unrolled(
         algorithm_name += "_" + post_process_name
 
     # print number of parameters
-    print(f"Training model with {sum(p.numel() for p in recon.parameters())} parameters")
-    # transform from BGR to RGB
-    transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
+    n_param = sum(p.numel() for p in recon.parameters())
+    if mask is not None:
+        n_param += sum(p.numel() for p in mask.parameters())
+    log.info(f"Training model with {n_param} parameters")
 
-    # load dataset and create dataloader
-    if config.files.dataset == "DiffuserCam":
-        # Use a ParallelDataset
-        from lensless.eval.benchmark import ParallelDataset
+    log.info(f"Setup time : {time.time() - start_time} s")
+    log.info(f"PSF shape : {psf.shape}")
+    log.info(f"Results saved in {save}")
+    trainer = Trainer(
+        recon=recon,
+        train_dataset=train_set,
+        test_dataset=test_set,
+        mask=mask,
+        batch_size=config.training.batch_size,
+        loss=config.loss,
+        lpips=config.lpips,
+        l1_mask=config.trainable_mask.L1_strength,
+        optimizer=config.optimizer.type,
+        optimizer_lr=config.optimizer.lr,
+        slow_start=config.training.slow_start,
+        skip_NAN=config.training.skip_NAN,
+        algorithm_name=algorithm_name,
+        metric_for_best_model=config.training.metric_for_best_model,
+        save_every=config.training.save_every,
+        gamma=config.display.gamma,
+        logger=log,
+    )
 
-        data_path = os.path.join(get_original_cwd(), "data", "DiffuserCam")
-        dataset = ParallelDataset(
-            root_dir=data_path,
-            n_files=config.files.n_files,
-            background=background,
-            psf=psf,
-            lensless_fn="diffuser_images",
-            lensed_fn="ground_truth_lensed",
-            downsample=config.simulation.downsample,
-            transform_lensless=transform_BRG2RGB,
-            transform_lensed=transform_BRG2RGB,
-        )
-        data_loader = torch.utils.data.DataLoader(
-            dataset=dataset,
-            batch_size=config.training.batch_size,
-            shuffle=True,
-            pin_memory=(device != "cpu"),
-        )
-    else:
-        # Use a simulated dataset
-        data_loader = simulate_dataset(config, psf)
+    trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=disp)
 
-    print(f"Setup time : {time.time() - start_time} s")
-
-    start_time = time.time()
-
-    # loss
-    if config.loss == "l2":
-        Loss = torch.nn.MSELoss()
-    elif config.loss == "l1":
-        Loss = torch.nn.L1Loss()
-    else:
-        raise ValueError(f"Unsuported loss : {config.loss}")
-
-    # Lpips loss
-    if config.lpips:
-        try:
-            import lpips
-
-            loss_lpips = lpips.LPIPS(net="vgg").to(device)
-        except ImportError:
-            return ImportError(
-                "lpips package is need for LPIPS loss. Install using : pip install lpips"
-            )
-
-    # optimizer
-    if config.optimizer.type == "Adam":
-        # the parameters of the base model and non torch.Module process must be added separatly
-        parameters = [{"params": recon.parameters()}]
-        optimizer = torch.optim.Adam(parameters, lr=config.optimizer.lr)
-    else:
-        raise ValueError(f"Unsuported optimizer : {config.optimizer.type}")
-    # Scheduler
-    if config.training.slow_start:
-
-        def learning_rate_function(epoch):
-            if epoch == 0:
-                return config.training.slow_start
-            elif epoch == 1:
-                return math.sqrt(config.training.slow_start)
-            else:
-                return 1
-
-    else:
-
-        def learning_rate_function(epoch):
-            return 1
-
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=learning_rate_function)
-
-    metrics = {
-        "LOSS": [],
-        "MSE": [],
-        "MAE": [],
-        "LPIPS_Vgg": [],
-        "LPIPS_Alex": [],
-        "PSNR": [],
-        "SSIM": [],
-        "ReconstructionError": [],
-        "n_iter": n_iter,
-        "algorithm": algorithm_name,
-    }
-
-    # Backward hook that detect NAN in the gradient and print the layer weights
-    if not config.training.skip_NAN:
-
-        def detect_nan(grad):
-            if torch.isnan(grad).any():
-                print(grad, flush=True)
-                for name, param in recon.named_parameters():
-                    if param.requires_grad:
-                        print(name, param)
-                raise ValueError("Gradient is NaN")
-            return grad
-
-        for param in recon.parameters():
-            if param.requires_grad:
-                param.register_hook(detect_nan)
-                if param.requires_grad:
-                    param.register_hook(detect_nan)
-
-    # Training loop
-    for epoch in range(config.training.epoch):
-        print(f"Epoch {epoch} with learning rate {scheduler.get_last_lr()}")
-        mean_loss = 0.0
-        i = 1.0
-        pbar = tqdm(data_loader)
-        for X, y in pbar:
-            # send to device
-            X = X.to(device)
-            y = y.to(device)
-            if X.shape[3] == 3:
-                X = X
-                y = y
-
-            y_pred = recon.batch_call(X.to(device))
-            # normalizing each output
-            eps = 1e-12
-            y_pred_max = torch.amax(y_pred, dim=(-1, -2, -3), keepdim=True) + eps
-            y_pred = y_pred / y_pred_max
-
-            # normalizing y
-            y = y.to(device)
-            y_max = torch.amax(y, dim=(-1, -2, -3), keepdim=True) + eps
-            y = y / y_max
-
-            if i % disp == 1 and config.display.plot:
-                img_pred = y_pred[0, 0].cpu().detach().numpy()
-                img_truth = y[0, 0].cpu().detach().numpy()
-
-                plt.imshow(img_pred)
-                plt.savefig(f"y_pred_{i-1}.png")
-                plt.imshow(img_truth)
-                plt.savefig(f"y_{i-1}.png")
-
-            optimizer.zero_grad(set_to_none=True)
-            # convert to CHW for loss and remove depth
-            y_pred = y_pred.reshape(-1, *y_pred.shape[-3:]).movedim(-1, -3)
-            y = y.reshape(-1, *y.shape[-3:]).movedim(-1, -3)
-
-            loss_v = Loss(y_pred, y)
-            if config.lpips:
-                # value for LPIPS needs to be in range [-1, 1]
-                loss_v = loss_v + config.lpips * torch.mean(loss_lpips(2 * y_pred - 1, 2 * y - 1))
-            loss_v.backward()
-            torch.nn.utils.clip_grad_norm_(recon.parameters(), 1.0)
-
-            # if any gradient is NaN, skip training step
-            is_NAN = False
-            for param in recon.parameters():
-                if torch.isnan(param.grad).any():
-                    is_NAN = True
-                    break
-            if is_NAN:
-                print("NAN detected in gradiant, skipping training step")
-                i += 1
-                continue
-            optimizer.step()
-
-            mean_loss += (loss_v.item() - mean_loss) * (1 / i)
-            pbar.set_description(f"loss : {mean_loss}")
-            i += 1
-
-        # benchmarking
-        current_metrics = benchmark(recon, benchmark_dataset, batchsize=10)
-        # update metrics with current metrics
-        metrics["LOSS"].append(mean_loss)
-        for key in current_metrics:
-            metrics[key].append(current_metrics[key])
-
-        # Update learning rate
-        scheduler.step()
-
-    print(f"Train time : {time.time() - start_time} s")
-
-    # save dictionary metrics to file with json
-    with open(os.path.join(save, "metrics.json"), "w") as f:
-        json.dump(metrics, f)
-
-    # save pytorch model recon
-    torch.save(recon.state_dict(), "recon.pt")
+    log.info(f"Results saved in {save}")
 
 
 if __name__ == "__main__":

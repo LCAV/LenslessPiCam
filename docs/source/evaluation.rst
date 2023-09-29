@@ -23,8 +23,4 @@
 
    .. automodule:: lensless.eval.benchmark
 
-   .. autoclass:: lensless.eval.benchmark.ParallelDataset
-      :members:
-      :special-members: __init__
-
    .. autofunction:: lensless.eval.benchmark.benchmark

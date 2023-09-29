@@ -1,33 +1,24 @@
+# python scripts/recon/train_unrolled.py
 hydra:
   job:
     chdir: True    # change to output folder
 
-#Reconstruction algorithm
-input:
-  # File path for recorded PSF
-  psf: data/DiffuserCam_Mirflickr_200_3011302021_11h43_seed11/psf.tiff
-  dtype: float32
+# Dataset
+files:
+  dataset: data/DiffuserCam   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  celeba_root: null   # path to parent directory of CelebA: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
+  psf: data/psf.tiff
+  diffusercam_psf: True
+  n_files: null    # null to use all for both train/test
+  downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
 
 torch: True
 torch_device: 'cuda'
 
-preprocess:
-  # Image shape (height, width) for reconstruction.
-  shape: null
-  # Whether image is raw bayer data.
-  bayer: False
-  blue_gain: null
-  red_gain: null
-  # Same PSF for all channels (sum) or unique PSF for RGB.
-  single_psf: False
-  # Whether to perform construction in grayscale.
-  gray: False
-
-
 display:
   # How many iterations to wait for intermediate plot. 
   # Set to negative value for no intermediate plots.
-  disp: 400
+  disp: 500
   # Whether to plot results.
   plot: True
   # Gamma factor for plotting.
@@ -48,24 +39,27 @@ reconstruction:
     learn_tk: True
   unrolled_admm:
     # Number of iterations
-    n_iter: 5
+    n_iter: 20
     # Hyperparameters
     mu1: 1e-4
     mu2: 1e-4
     mu3: 1e-4
     tau: 2e-4
   pre_process: 
-    network : UnetRes  # UnetRes or DruNet or null
+    network : null  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
   post_process: 
-    network : UnetRes  # UnetRes or DruNet or null
+    network : null  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
 
-# Train Dataset
-
-files:
-  dataset: "DiffuserCam"   # "mnist", "fashion_mnist", "cifar10", "CelebA", "DiffuserCam"
-  n_files: null    # null to use all
+#Trainable Mask
+trainable_mask:
+  mask_type: Null #Null or "TrainablePSF"
+  # "random" (with shape of config.files.psf) or "psf" (using config.files.psf)
+  initial_value: psf
+  grayscale: False
+  mask_lr: 1e-3
+  L1_strength: 1.0  #False or float
 
 target: "object_plane"    # "original" or "object_plane" or "label"
 
@@ -73,23 +67,25 @@ target: "object_plane"    # "original" or "object_plane" or "label"
 simulation:
   grayscale: False
   # random variations
-  object_height: 0.6   # range for random height or scalar
+  object_height: 0.04   # range for random height or scalar
+  flip: True # change the orientation of the object (from vertical to horizontal)
   random_shift: False
   random_vflip: 0.5
   random_hflip: 0.5
   random_rotate: False
   # these distance parameters are typically fixed for a given PSF
-  # for tape_rgb psf      # for DiffuserCam psf
-  scene2mask: 40e-2       # scene2mask: 10e-2
-  mask2sensor: 4e-3       # mask2sensor: 9e-3
+  # for DiffuserCam psf # for tape_rgb psf     
+  scene2mask: 10e-2     # scene2mask: 40e-2       
+  mask2sensor: 9e-3     # mask2sensor: 4e-3       
   # see waveprop.devices
   sensor: "rpi_hq"
-  snr_db: 40
+  snr_db: 10
   # simulate different sensor resolution
   # output_dim: [24, 32]    # [H, W] or null
   # Downsampling for PSF
   downsample: 8
   # max val in simulated measured (quantized 8 bits)
+  quantize: False   # must be False for differentiability
   max_val: 255
 
 #Training
@@ -97,6 +93,8 @@ simulation:
 training:
   batch_size: 8
   epoch: 50
+  metric_for_best_model: null   # e.g. LPIPS_Vgg, null does test loss
+  save_every: null
   #In case of instable training
   skip_NAN: True
   slow_start: False  #float how much to reduce lr for first epoch
@@ -104,7 +102,7 @@ training:
 
 optimizer:
   type: Adam
-  lr: 1e-6
+  lr: 1e-4
   
 loss: 'l2'
 # set lpips to false to deactivate. Otherwise, give the weigth for the loss (the main loss l2/l1 always having a weigth of 1)
