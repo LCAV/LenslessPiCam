@@ -1,3 +1,4 @@
+sensor: rpi_hq
 bayer: True
 fn: test
 exp: 0.5
@@ -9,7 +10,7 @@ sensor_mode: "0"
 rgb: False
 gray: False
 iso: 100
-sixteen: True   # whether 16 bits or 8
+sixteen: True   # whether 16 bits or 8 (from Bayer data)
 legacy: True    
 down: null
 res: null

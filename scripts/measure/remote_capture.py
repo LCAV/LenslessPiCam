@@ -1,11 +1,28 @@
 """
 
-python scripts/measure/remote_capture.py
+For Bayer data with RPI HQ sensor:
+```
+python scripts/measure/remote_capture.py \
+rpi.username=USERNAME rpi.hostname=IP_ADDRESS
+```
+
+For Bayer data with RPI Global shutter sensor:
+```
+python scripts/measure/remote_capture.py -cn remote_capture_rpi_gs \
+rpi.username=USERNAME rpi.hostname=IP_ADDRESS
+```
+
+For RGB data with RPI HQ RPI Global shutter sensor:
+```
+python scripts/measure/remote_capture.py -cn remote_capture_rpi_gs \
+rpi.username=USERNAME rpi.hostname=IP_ADDRESS \
+capture.bayer=False capture.down=2
+```
 
 Check out the `configs/demo.yaml` file for parameters, specifically:
 
 - `rpi`: RPi parameters
-- `capture`: parameters for displaying image
+- `capture`: parameters for taking pictures
 
 """
 
@@ -17,8 +34,7 @@ from pprint import pprint
 import matplotlib.pyplot as plt
 import rawpy
 from lensless.hardware.utils import check_username_hostname
-
-
+from lensless.hardware.sensor import SensorOptions
 from lensless.utils.image import rgb2gray, print_image_info
 from lensless.utils.plot import plot_image, pixel_histogram
 from lensless.utils.io import save_image
@@ -27,6 +43,9 @@ from lensless.utils.io import load_image
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="demo")
 def liveview(config):
+
+    sensor = config.capture.sensor
+    assert sensor in SensorOptions.values(), f"Sensor must be one of {SensorOptions.values()}"
 
     bayer = config.capture.bayer
     rgb = config.capture.rgb
@@ -52,27 +71,16 @@ def liveview(config):
     else:
         save = False
 
-    # proceed with capture
-    # if bayer:
-    #     assert not rgb
-    #     assert not gray
-    assert hostname is not None
-
     # take picture
     remote_fn = "remote_capture"
     print("\nTaking picture...")
     pic_command = (
-        f"{config.rpi.python} {config.capture.script} bayer={bayer} fn={remote_fn} exp={config.capture.exp} iso={config.capture.iso} "
-        f"config_pause={config.capture.config_pause} sensor_mode={config.capture.sensor_mode} nbits_out={config.capture.nbits_out}"
+        f"{config.rpi.python} {config.capture.script} sensor={sensor} bayer={bayer} fn={remote_fn} exp={config.capture.exp} iso={config.capture.iso} "
+        f"config_pause={config.capture.config_pause} sensor_mode={config.capture.sensor_mode} nbits_out={config.capture.nbits_out} "
+        f"legacy={config.capture.legacy} rgb={config.capture.rgb} gray={config.capture.gray} "
     )
     if config.capture.nbits > 8:
         pic_command += " sixteen=True"
-    if config.capture.rgb:
-        pic_command += " rgb=True"
-    if config.capture.legacy:
-        pic_command += " legacy=True"
-    if config.capture.gray:
-        pic_command += " gray=True"
     if config.capture.down:
         pic_command += f" down={config.capture.down}"
     if config.capture.awb_gains:
@@ -88,7 +96,7 @@ def liveview(config):
     result = ssh.stdout.readlines()
     error = ssh.stderr.readlines()
 
-    if error != []:
+    if error != [] and legacy:  # new camera software seems to return error even if it works
         print("ERROR: %s" % error)
         return
     if result == []:
@@ -112,46 +120,59 @@ def liveview(config):
         and "bullseye" in result_dict["RPi distribution"]
         and not legacy
     ):
-        # copy over DNG file
-        remotefile = f"~/{remote_fn}.dng"
-        localfile = f"{fn}.dng"
-        print(f"\nCopying over picture as {localfile}...")
-        os.system('scp "%s@%s:%s" %s' % (username, hostname, remotefile, localfile))
-        raw = rawpy.imread(localfile)
 
-        # https://letmaik.github.io/rawpy/api/rawpy.Params.html#rawpy.Params
-        # https://www.libraw.org/docs/API-datastruct-eng.html
-        if nbits_out > 8:
-            # only 8 or 16 bit supported by postprocess
-            if nbits_out != 16:
-                print("casting to 16 bit...")
-            output_bps = 16
+        if bayer:
+
+            # copy over DNG file
+            remotefile = f"~/{remote_fn}.dng"
+            localfile = f"{fn}.dng"
+            print(f"\nCopying over picture as {localfile}...")
+            os.system('scp "%s@%s:%s" %s' % (username, hostname, remotefile, localfile))
+            raw = rawpy.imread(localfile)
+
+            # https://letmaik.github.io/rawpy/api/rawpy.Params.html#rawpy.Params
+            # https://www.libraw.org/docs/API-datastruct-eng.html
+            if nbits_out > 8:
+                # only 8 or 16 bit supported by postprocess
+                if nbits_out != 16:
+                    print("casting to 16 bit...")
+                output_bps = 16
+            else:
+                if nbits_out != 8:
+                    print("casting to 8 bit...")
+                output_bps = 8
+            img = raw.postprocess(
+                adjust_maximum_thr=0,  # default 0.75
+                no_auto_scale=False,
+                gamma=(1, 1),
+                output_bps=output_bps,
+                bright=1,  # default 1
+                exp_shift=1,
+                no_auto_bright=True,
+                use_camera_wb=True,
+                use_auto_wb=False,  # default is False? f both use_camera_wb and use_auto_wb are True, then use_auto_wb has priority.
+            )
+
+            # print image properties
+            print_image_info(img)
+
+            # save as PNG
+            png_out = f"{fn}.png"
+            print(f"Saving RGB file as: {png_out}")
+            cv2.imwrite(png_out, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+
         else:
-            if nbits_out != 8:
-                print("casting to 8 bit...")
-            output_bps = 8
-        img = raw.postprocess(
-            adjust_maximum_thr=0,  # default 0.75
-            no_auto_scale=False,
-            gamma=(1, 1),
-            output_bps=output_bps,
-            bright=1,  # default 1
-            exp_shift=1,
-            no_auto_bright=True,
-            use_camera_wb=True,
-            use_auto_wb=False,  # default is False? f both use_camera_wb and use_auto_wb are True, then use_auto_wb has priority.
-        )
 
-        # print image properties
-        print_image_info(img)
+            remotefile = f"~/{remote_fn}.png"
+            localfile = f"{fn}.png"
+            if save:
+                localfile = os.path.join(save, localfile)
+            print(f"\nCopying over picture as {localfile}...")
+            os.system('scp "%s@%s:%s" %s' % (username, hostname, remotefile, localfile))
 
-        # save as PNG
-        png_out = f"{fn}.png"
-        print(f"Saving RGB file as: {png_out}")
-        cv2.imwrite(png_out, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-        if not bayer:
-            os.remove(localfile)
+            img = load_image(localfile, verbose=True)
 
+    # legacy software running on RPi
     else:
         # copy over file
         # more pythonic? https://stackoverflow.com/questions/250283/how-to-scp-in-python

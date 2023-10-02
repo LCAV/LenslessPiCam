@@ -58,10 +58,14 @@ class SensorParam:
     DIAGONAL = "diagonal"
     COLOR = "color"
     BIT_DEPTH = "bit_depth"
+    MAX_EXPOSURE = "max_exposure"  # in seconds
+    MIN_EXPOSURE = "min_exposure"  # in seconds
 
 
 """
 Note sensors are in landscape orientation.
+
+Max exposure for RPi cameras: https://www.raspberrypi.com/documentation/accessories/camera.html#hardware-specification
 """
 sensor_dict = {
     # Raspberry Pi HQ Camera Sensor
@@ -73,6 +77,8 @@ sensor_dict = {
         SensorParam.DIAGONAL: 7.857e-3,
         SensorParam.COLOR: True,
         SensorParam.BIT_DEPTH: [8, 12],
+        SensorParam.MAX_EXPOSURE: 670.74,
+        SensorParam.MIN_EXPOSURE: 0.02,
     },
     # Raspberry Pi Global Shutter Camera
     # https://www.raspberrypi.com/products/raspberry-pi-global-shutter-camera/
@@ -83,6 +89,8 @@ sensor_dict = {
         SensorParam.DIAGONAL: 6.3e-3,
         SensorParam.COLOR: True,
         SensorParam.BIT_DEPTH: [8, 12],
+        SensorParam.MAX_EXPOSURE: 15534385e-6,
+        SensorParam.MIN_EXPOSURE: 29e-6,
     },
     # Raspberry Pi Camera Module V2
     # https://www.raspberrypi.com/documentation/accessories/camera.html#hardware-specification
@@ -93,6 +101,8 @@ sensor_dict = {
         SensorParam.DIAGONAL: 4.6e-3,
         SensorParam.COLOR: True,
         SensorParam.BIT_DEPTH: [8],
+        SensorParam.MAX_EXPOSURE: 11.76,
+        SensorParam.MIN_EXPOSURE: 0.02,  # TODO : verify
     },
     # Basler daA720-520um
     # https://www.baslerweb.com/en/products/cameras/area-scan-cameras/dart/daa720-520um-cs-mount/
@@ -125,7 +135,14 @@ class VirtualSensor(object):
     """
 
     def __init__(
-        self, pixel_size, resolution, diagonal=None, color=True, bit_depth=None, downsample=None
+        self,
+        pixel_size,
+        resolution,
+        diagonal=None,
+        color=True,
+        bit_depth=None,
+        downsample=None,
+        **kwargs,
     ):
         """
         Base constructor.
