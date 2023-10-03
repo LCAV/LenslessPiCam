@@ -60,8 +60,12 @@ def admm(config):
         else:
             org_data = data
         ax = plot_image(org_data, gamma=config["display"]["gamma"])
-        ax.set_title("Original measurement")
+        ax.set_title("Raw data")
         plt.savefig(plib.Path(save) / "lensless.png")
+
+        # close axes
+        fig = plt.gcf()
+        plt.close(fig)
 
     start_time = time.time()
     if not config.admm.unrolled:

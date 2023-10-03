@@ -89,7 +89,27 @@ def load_image(
         assert bayer
         raw = rawpy.imread(fp)
         img = raw.raw_image
-        # TODO : use raw.postprocess?
+        # # # TODO : use raw.postprocess?
+        # img = raw.postprocess(
+        #     adjust_maximum_thr=0,  # default 0.75
+        #     no_auto_scale=False,
+        #     # no_auto_scale=True,
+        #     gamma=(1, 1),
+        #     bright=1,  # default 1
+        #     exp_shift=1,
+        #     no_auto_bright=True,
+        #     # use_camera_wb=True,
+        #     # use_auto_wb=False,
+        #     # -- gives better balance for PSF measurement
+        #     use_camera_wb=False,
+        #     use_auto_wb=True,  # default is False? f both use_camera_wb and use_auto_wb are True, then use_auto_wb has priority.
+        # )
+
+        # if red_gain is None or blue_gain is None:
+        #     camera_wb = raw.camera_whitebalance
+        #     red_gain = camera_wb[0]
+        #     blue_gain = camera_wb[1]
+
         ccm = raw.color_matrix[:, :3]
         black_level = np.array(raw.black_level_per_channel[:3]).astype(np.float32)
     elif "npy" in fp or "npz" in fp:

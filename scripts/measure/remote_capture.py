@@ -125,33 +125,40 @@ def liveview(config):
 
             # copy over DNG file
             remotefile = f"~/{remote_fn}.dng"
-            localfile = f"{fn}.dng"
+            localfile = os.path.join(save, f"{fn}.dng")
             print(f"\nCopying over picture as {localfile}...")
             os.system('scp "%s@%s:%s" %s' % (username, hostname, remotefile, localfile))
-            raw = rawpy.imread(localfile)
 
-            # https://letmaik.github.io/rawpy/api/rawpy.Params.html#rawpy.Params
-            # https://www.libraw.org/docs/API-datastruct-eng.html
-            if nbits_out > 8:
-                # only 8 or 16 bit supported by postprocess
-                if nbits_out != 16:
-                    print("casting to 16 bit...")
-                output_bps = 16
-            else:
-                if nbits_out != 8:
-                    print("casting to 8 bit...")
-                output_bps = 8
-            img = raw.postprocess(
-                adjust_maximum_thr=0,  # default 0.75
-                no_auto_scale=False,
-                gamma=(1, 1),
-                output_bps=output_bps,
-                bright=1,  # default 1
-                exp_shift=1,
-                no_auto_bright=True,
-                use_camera_wb=True,
-                use_auto_wb=False,  # default is False? f both use_camera_wb and use_auto_wb are True, then use_auto_wb has priority.
-            )
+            img = load_image(localfile, verbose=True, bayer=bayer, nbits_out=nbits_out)
+
+            # raw = rawpy.imread(localfile)
+
+            # # https://letmaik.github.io/rawpy/api/rawpy.Params.html#rawpy.Params
+            # # https://www.libraw.org/docs/API-datastruct-eng.html
+            # if nbits_out > 8:
+            #     # only 8 or 16 bit supported by postprocess
+            #     if nbits_out != 16:
+            #         print("casting to 16 bit...")
+            #     output_bps = 16
+            # else:
+            #     if nbits_out != 8:
+            #         print("casting to 8 bit...")
+            #     output_bps = 8
+            # img = raw.postprocess(
+            #     adjust_maximum_thr=0,  # default 0.75
+            #     no_auto_scale=False,
+            #     # no_auto_scale=True,
+            #     gamma=(1, 1),
+            #     output_bps=output_bps,
+            #     bright=1,  # default 1
+            #     exp_shift=1,
+            #     no_auto_bright=True,
+            #     # use_camera_wb=True,
+            #     # use_auto_wb=False,
+            #     # -- gives better balance for PSF measurement
+            #     use_camera_wb=False,
+            #     use_auto_wb=True,  # default is False? f both use_camera_wb and use_auto_wb are True, then use_auto_wb has priority.
+            # )
 
             # print image properties
             print_image_info(img)

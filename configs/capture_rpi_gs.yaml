@@ -1,4 +1,4 @@
-# python scripts/measure/remote_capture.py -cn remote_capture_rpi_gs
+# python scripts/measure/remote_capture.py -cn capture_rpi_gs
 defaults:
   - demo
   - _self_

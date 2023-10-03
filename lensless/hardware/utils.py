@@ -98,7 +98,9 @@ def get_distro():
     return f"{RELEASE_DATA['NAME']} {RELEASE_DATA['VERSION']}"
 
 
-def set_mask_sensor_distance(distance, rpi_username, rpi_hostname, motor=1):
+def set_mask_sensor_distance(
+    distance, rpi_username, rpi_hostname, motor=1, max_distance=16, timeout=5
+):
     """
     Set the distance between the mask and sensor.
 
@@ -115,13 +117,10 @@ def set_mask_sensor_distance(distance, rpi_username, rpi_hostname, motor=1):
         Hostname of Raspberry Pi.
     """
 
-    MAX_DISTANCE = 16  # mm
-    timeout = 5
-
     client = check_username_hostname(rpi_username, rpi_hostname)
     assert motor in [0, 1]
     assert distance >= 0, "Distance must be non-negative"
-    assert distance < MAX_DISTANCE, f"Distance must be less than {MAX_DISTANCE} mm"
+    assert distance <= max_distance, f"Distance must be less than {max_distance} mm"
 
     # assumes that `StepperDriver` is in home directory
     rpi_python = "python3"
@@ -130,7 +129,7 @@ def set_mask_sensor_distance(distance, rpi_username, rpi_hostname, motor=1):
     # reset to zero
     print("Resetting to zero distance...")
     try:
-        command = f"{rpi_python} {script} {motor} REV {MAX_DISTANCE * 1000}"
+        command = f"{rpi_python} {script} {motor} REV {max_distance * 1000}"
         _stdin, _stdout, _stderr = client.exec_command(command, timeout=timeout)
     except socket.timeout:  # socket.timeout
         pass
