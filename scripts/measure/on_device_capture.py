@@ -73,6 +73,10 @@ def capture(config):
     res = config.res
     nbits_out = config.nbits_out
 
+    assert (
+        nbits_out in sensor_dict[sensor][SensorParam.BIT_DEPTH]
+    ), f"nbits_out must be one of {sensor_dict[sensor][SensorParam.BIT_DEPTH]} for sensor {sensor}"
+
     # https://www.raspberrypi.com/documentation/accessories/camera.html#hardware-specification
     sensor_param = sensor_dict[sensor]
     assert exp <= sensor_param[SensorParam.MAX_EXPOSURE]

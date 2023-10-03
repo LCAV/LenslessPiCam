@@ -21,3 +21,5 @@ capture:
   gray: False
   down: null
   awb_gains: null
+  nbits_out: 10
+  nbits: 10   # 8 or 10 for global shutter
