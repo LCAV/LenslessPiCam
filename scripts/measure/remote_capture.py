@@ -34,7 +34,7 @@ from pprint import pprint
 import matplotlib.pyplot as plt
 import rawpy
 from lensless.hardware.utils import check_username_hostname
-from lensless.hardware.sensor import SensorOptions
+from lensless.hardware.sensor import SensorOptions, sensor_dict, SensorParam
 from lensless.utils.image import rgb2gray, print_image_info
 from lensless.utils.plot import plot_image, pixel_histogram
 from lensless.utils.io import save_image
@@ -60,6 +60,13 @@ def liveview(config):
     gamma = config.capture.gamma
     source = config.capture.source
     plot = config.plot
+
+    assert (
+        nbits_out in sensor_dict[sensor][SensorParam.BIT_DEPTH]
+    ), f"capture.nbits_out must be one of {sensor_dict[sensor][SensorParam.BIT_DEPTH]} for sensor {sensor}"
+    assert (
+        config.capture.nbits in sensor_dict[sensor][SensorParam.BIT_DEPTH]
+    ), f"capture.nbits must be one of {sensor_dict[sensor][SensorParam.BIT_DEPTH]} for sensor {sensor}"
 
     if config.save:
         if config.output is not None:
