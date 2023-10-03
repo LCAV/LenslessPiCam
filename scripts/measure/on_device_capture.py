@@ -96,6 +96,7 @@ def capture(config):
 
             assert down is None
 
+            # https://www.raspberrypi.com/documentation/computers/camera_software.html#raw-image-capture
             jpg_fn = fn + ".jpg"
             fn += ".dng"
             pic_command = [
@@ -107,6 +108,10 @@ def capture(config):
                 f"{int(exp * 1e6)}",
                 "-o",
                 f"{jpg_fn}",
+                # long exposure: https://www.raspberrypi.com/documentation/computers/camera_software.html#very-long-exposures
+                # -- setting awbgains caused issues
+                # "--awbgains 1,1",
+                # "--immediate"
             ]
 
             cmd = subprocess.Popen(
