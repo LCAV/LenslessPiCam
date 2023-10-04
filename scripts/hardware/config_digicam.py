@@ -63,10 +63,20 @@ def config_digicam(config):
     # apply aperture
     if config.aperture is not None:
 
-        aperture = np.zeros(shape, dtype=np.uint8)
-        top_left = np.array(config.aperture.center) - np.array(config.aperture.shape) // 2
-        bottom_right = top_left + np.array(config.aperture.shape)
-        aperture[:, top_left[0] : bottom_right[0], top_left[1] : bottom_right[1]] = 1
+        # aperture = np.zeros(shape, dtype=np.uint8)
+        # top_left = np.array(config.aperture.center) - np.array(config.aperture.shape) // 2
+        # bottom_right = top_left + np.array(config.aperture.shape)
+        # aperture[:, top_left[0] : bottom_right[0], top_left[1] : bottom_right[1]] = 1
+
+        apert_dim = np.array(config.aperture.shape) * np.array(pixel_pitch)
+        ap = rect_aperture(
+            apert_dim=apert_dim,
+            slm_shape=slm_devices[device][SLMParam.SLM_SHAPE],
+            pixel_pitch=pixel_pitch,
+            center=np.array(config.aperture.center) * pixel_pitch,
+        )
+        aperture = ap.values
+        aperture[aperture > 0] = 1
         pattern = pattern * aperture
 
     # save pattern
