@@ -16,6 +16,19 @@ from torchvision import transforms
 from lensless.utils.simulation import FarFieldSimulator
 from lensless.utils.io import load_image, load_psf
 from lensless.utils.image import resize
+import re
+
+
+def convert(text):
+    return int(text) if text.isdigit() else text.lower()
+
+
+def alphanum_key(key):
+    return [convert(c) for c in re.split("([0-9]+)", key)]
+
+
+def natural_sort(arr):
+    return sorted(arr, key=alphanum_key)
 
 
 class DualDataset(Dataset):
@@ -278,8 +291,8 @@ class MeasuredDatasetSimulatedOriginal(DualDataset):
         self.image_ext = image_ext.lower()
         self.original_ext = original_ext.lower() if original_ext is not None else image_ext.lower()
 
-        files = glob.glob(os.path.join(self.lensless_dir, "*." + image_ext))
-        files.sort()
+        files = natural_sort(glob.glob(os.path.join(self.lensless_dir, "*." + image_ext)))
+        # files.sort()
         self.files = [os.path.basename(fn) for fn in files]
 
         if len(self.files) == 0:
@@ -376,8 +389,7 @@ class MeasuredDataset(DualDataset):
 
         self.image_ext = image_ext.lower()
 
-        files = glob.glob(os.path.join(self.lensless_dir, "*." + image_ext))
-        files.sort()
+        files = natural_sort(glob.glob(os.path.join(self.lensless_dir, "*." + image_ext)))
         self.files = [os.path.basename(fn) for fn in files]
 
         if len(self.files) == 0:
@@ -432,6 +444,26 @@ class DiffuserCamMirflickr(MeasuredDataset):
         **kwargs,
     ):
 
+        # check psf path exist
+        if not os.path.exists(psf_path):
+            psf_path = os.path.join(
+                os.path.dirname(__file__), "..", "..", "data", "psf", "diffusercam_psf.tiff"
+            )
+
+            try:
+                from torchvision.datasets.utils import download_url
+            except ImportError:
+                exit()
+            msg = "Do you want to download the DiffuserCam PSF (5.9MB)?"
+
+            # default to yes if no input is given
+            valid = input("%s (Y/n) " % msg).lower() != "n"
+            output_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "psf")
+            if valid:
+                url = "https://drive.switch.ch/index.php/s/BteiuEcONmhmDSn/download"
+                filename = "diffusercam_psf.tiff"
+                download_url(url, output_path, filename=filename)
+
         psf, background = load_psf(
             psf_path,
             downsample=downsample * 4,  # PSF is 4x the resolution of the images
@@ -442,6 +474,10 @@ class DiffuserCamMirflickr(MeasuredDataset):
         transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
         self.psf = transform_BRG2RGB(torch.from_numpy(psf))
         self.allowed_idx = np.arange(2, 25001)
+
+        assert os.path.isdir(os.path.join(dataset_dir, "diffuser_images")) and os.path.isdir(
+            os.path.join(dataset_dir, "ground_truth_lensed")
+        ), "Dataset should contain 'diffuser_images' and 'ground_truth_lensed' folders. It can be downloaded from https://waller-lab.github.io/LenslessLearning/dataset.html"
 
         super().__init__(
             root_dir=dataset_dir,
@@ -502,12 +538,12 @@ class DiffuserCamTestDataset(MeasuredDataset):
             )
         if not os.path.isdir(data_dir):
             main_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data")
-            print("No dataset found for benchmarking.")
+            print("DiffuserCam test set not found for benchmarking.")
             try:
                 from torchvision.datasets.utils import download_and_extract_archive
             except ImportError:
                 exit()
-            msg = "Do you want to download the sample dataset (3.5GB)?"
+            msg = "Do you want to download the dataset (3.5GB)?"
 
             # default to yes if no input is given
             valid = input("%s (Y/n) " % msg).lower() != "n"
