@@ -203,10 +203,6 @@ def prep_trainable_mask(config, psf, grayscale=False):
 @hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
 def train_unrolled(config):
 
-    disp = config.display.disp
-    if disp < 0:
-        disp = None
-
     save = config.save
     if save:
         save = os.getcwd()
@@ -267,6 +263,8 @@ def train_unrolled(config):
 
     log.info(f"Train test size : {len(train_set)}")
     log.info(f"Test test size : {len(test_set)}")
+
+    raise ValueError
 
     start_time = time.time()
 
@@ -344,7 +342,7 @@ def train_unrolled(config):
         logger=log,
     )
 
-    trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=disp)
+    trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)
 
     log.info(f"Results saved in {save}")
 

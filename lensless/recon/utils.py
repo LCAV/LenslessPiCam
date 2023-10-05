@@ -442,7 +442,7 @@ class Trainer:
                     if param.requires_grad:
                         param.register_hook(detect_nan)
 
-    def train_epoch(self, data_loader, disp=-1):
+    def train_epoch(self, data_loader):
         """
         Train for one epoch.
 
@@ -450,8 +450,6 @@ class Trainer:
         ----------
         data_loader : :py:class:`torch.utils.data.DataLoader`
             Data loader to use for training.
-        disp : int
-            Display interval, if -1, no display
 
         Returns
         -------
@@ -480,15 +478,6 @@ class Trainer:
             # normalizing y
             y_max = torch.amax(y, dim=(-1, -2, -3), keepdim=True) + eps
             y = y / y_max
-
-            if i % disp == 1:
-                img_pred = y_pred[0, 0].cpu().detach().numpy()
-                img_truth = y[0, 0].cpu().detach().numpy()
-
-                plt.imshow(img_pred)
-                plt.savefig(f"y_pred_{i-1}.png")
-                plt.imshow(img_truth)
-                plt.savefig(f"y_{i-1}.png")
 
             self.optimizer.zero_grad(set_to_none=True)
             # convert to CHW for loss and remove depth
@@ -542,7 +531,7 @@ class Trainer:
 
         return mean_loss
 
-    def evaluate(self, mean_loss, save_pt):
+    def evaluate(self, mean_loss, save_pt, epoch, disp=None):
         """
         Evaluate the reconstruction algorithm on the test dataset.
 
@@ -552,11 +541,26 @@ class Trainer:
             Mean loss of the last epoch.
         save_pt : str
             Path to save metrics dictionary to. If None, no logging of metrics.
+        disp : list of int, optional
+            Test set examples to visualize at the end of each epoch, by default None.
         """
         if self.test_dataset is None:
             return
+
+        if disp is not None:
+            output_dir = os.path.join("eval_recon")
+            if not os.path.exists(output_dir):
+                os.mkdir(output_dir)
+            output_dir = os.path.join(output_dir, str(epoch))
+
         # benchmarking
-        current_metrics = benchmark(self.recon, self.test_dataset, batchsize=self.eval_batch_size)
+        current_metrics = benchmark(
+            self.recon,
+            self.test_dataset,
+            batchsize=self.eval_batch_size,
+            save_idx=disp,
+            output_dir=output_dir,
+        )
 
         # update metrics with current metrics
         self.metrics["LOSS"].append(mean_loss)
@@ -566,7 +570,7 @@ class Trainer:
         if save_pt:
             # save dictionary metrics to file with json
             with open(os.path.join(save_pt, "metrics.json"), "w") as f:
-                json.dump(self.metrics, f)
+                json.dump(self.metrics, f, indent=4)
 
         # check best metric
         if self.metrics["metric_for_best_model"] is None:
@@ -579,7 +583,7 @@ class Trainer:
         else:
             return current_metrics[self.metrics["metric_for_best_model"]]
 
-    def on_epoch_end(self, mean_loss, save_pt, epoch):
+    def on_epoch_end(self, mean_loss, save_pt, epoch, disp=None):
         """
         Called at the end of each epoch.
 
@@ -591,6 +595,8 @@ class Trainer:
             Path to save metrics dictionary to. If None, no logging of metrics.
         epoch : int
             Current epoch.
+        disp : list of int, optional
+            Test set examples to visualize at the end of each epoch, by default None.
         """
         if save_pt is None:
             # Use current directory
@@ -598,7 +604,7 @@ class Trainer:
 
         # save model
         # self.save(path=save_pt, include_optimizer=False)
-        epoch_eval_metric = self.evaluate(mean_loss, save_pt)
+        epoch_eval_metric = self.evaluate(mean_loss, save_pt, epoch, disp=disp)
         new_best = False
         if (
             self.metrics["metric_for_best_model"] == "PSNR"
@@ -619,7 +625,7 @@ class Trainer:
         if self.save_every is not None and epoch % self.save_every == 0:
             self.save(path=save_pt, include_optimizer=False, epoch=epoch)
 
-    def train(self, n_epoch=1, save_pt=None, disp=-1):
+    def train(self, n_epoch=1, save_pt=None, disp=None):
         """
         Train the reconstruction algorithm.
 
@@ -629,21 +635,21 @@ class Trainer:
             Number of epochs to train for, by default 1
         save_pt : str, optional
             Path to save metrics dictionary to. If None, use current directory, by default None
-        disp : int, optional
-            Display interval, if -1, no display. Default is -1.
+        disp : list of int, optional
+            test set examples to visualize at the end of each epoch, by default None.
         """
 
         start_time = time.time()
 
-        self.evaluate(-1, save_pt)
+        self.evaluate(-1, save_pt, epoch=0, disp=disp)
         for epoch in range(n_epoch):
             if self.logger is not None:
                 self.logger.info(f"Epoch {epoch} with learning rate {self.scheduler.get_last_lr()}")
             else:
                 print(f"Epoch {epoch} with learning rate {self.scheduler.get_last_lr()}")
-            mean_loss = self.train_epoch(self.train_dataloader, disp=disp)
+            mean_loss = self.train_epoch(self.train_dataloader)
             # offset because of evaluate before loop
-            self.on_epoch_end(mean_loss, save_pt, epoch + 1)
+            self.on_epoch_end(mean_loss, save_pt, epoch + 1, disp=disp)
             self.scheduler.step()
 
         if self.logger is not None:
