@@ -11,6 +11,7 @@ files:
   diffusercam_psf: True
   n_files: null    # null to use all for both train/test
   downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
+  test_size: 0.15
 
 torch: True
 torch_device: 'cuda'
@@ -67,6 +68,7 @@ target: "object_plane"    # "original" or "object_plane" or "label"
 #for simulated dataset
 simulation:
   grayscale: False
+  output_dim: null     # should be set if no PSF is used    
   # random variations
   object_height: 0.04   # range for random height or scalar
   flip: True # change the orientation of the object (from vertical to horizontal)
@@ -94,12 +96,17 @@ simulation:
 training:
   batch_size: 8
   epoch: 50
+  eval_batch_size: 10
   metric_for_best_model: null   # e.g. LPIPS_Vgg, null does test loss
   save_every: null
   #In case of instable training
   skip_NAN: True
   slow_start: False  #float how much to reduce lr for first epoch
 
+  crop: null   # crop region for computing loss
+  # crop:
+  #   vertical: [30, 560]
+  #   horizontal: [275, 710]
 
 optimizer:
   type: Adam
