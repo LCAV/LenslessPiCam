@@ -1,3 +1,4 @@
+# python scripts/eval/benchmark_recon.py
 #Hydra config
 hydra:
   run:
@@ -7,13 +8,18 @@ hydra:
 
 device: "cuda"
 # numbers of iterations to benchmark
-n_iter_range: [5, 10, 30, 60, 100, 200, 300]
+n_iter_range: [5, 10, 20, 50, 100, 200, 300]
 # number of files to benchmark
-n_files: 200
+n_files: 200    # null for all files
 #How much should the image be downsampled
-downsample: 8
+downsample: 2
 #algorithm to benchmark
 algorithms: ["ADMM", "ADMM_Monakhova2019", "FISTA"] #["ADMM", "ADMM_Monakhova2019", "FISTA", "GradientDescent", "NesterovGradientDescent"]
+
+# baseline from Monakhova et al. 2019, https://arxiv.org/abs/1908.11502
+baseline: "MONAKHOVA 100iter"
+
+save_idx: [0, 1, 2, 3, 4]   # provide index of files to save e.g. [1, 5, 10]
 
 # Hyperparameters
 nesterov:
