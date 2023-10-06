@@ -3,6 +3,9 @@ hydra:
   job:
     chdir: True    # change to output folder
 
+
+seed: 0
+
 # Dataset
 files:
   dataset: data/DiffuserCam   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"

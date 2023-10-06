@@ -204,6 +204,13 @@ def prep_trainable_mask(config, psf, grayscale=False):
 @hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
 def train_unrolled(config):
 
+    # set seed
+    seed = config.seed
+    if seed is not None:
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        generator = torch.Generator().manual_seed(seed)
+
     save = config.save
     if save:
         save = os.getcwd()
@@ -306,7 +313,9 @@ def train_unrolled(config):
         # train-test split
         train_size = int((1 - config.files.test_size) * len(dataset))
         test_size = len(dataset) - train_size
-        train_set, test_set = torch.utils.data.random_split(dataset, [train_size, test_size])
+        train_set, test_set = torch.utils.data.random_split(
+            dataset, [train_size, test_size], generator=generator
+        )
         if config.files.n_files is not None:
             train_set = Subset(train_set, np.arange(config.files.n_files))
             test_set = Subset(test_set, np.arange(config.files.n_files))
@@ -333,8 +342,6 @@ def train_unrolled(config):
 
     log.info(f"Train test size : {len(train_set)}")
     log.info(f"Test test size : {len(test_set)}")
-
-    raise ValueError
 
     start_time = time.time()
 
