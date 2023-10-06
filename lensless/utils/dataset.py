@@ -285,13 +285,13 @@ class MeasuredDatasetSimulatedOriginal(DualDataset):
         self.measurement_ext = measurement_ext.lower()
         self.original_ext = original_ext.lower()
 
-        files = natural_sort(glob.glob(os.path.join(self.lensless_dir, "*." + measurement_ext)))
+        files = natural_sort(glob.glob(os.path.join(self.measured_dir, "*." + measurement_ext)))
 
         self.files = [os.path.basename(fn) for fn in files]
 
         if len(self.files) == 0:
             raise FileNotFoundError(
-                f"No files found in {self.lensless_dir} with extension {self.measurement_ext }"
+                f"No files found in {self.measured_dir} with extension {self.measurement_ext }"
             )
 
         # check that corresponding files exist
