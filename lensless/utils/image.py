@@ -50,7 +50,8 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
     img_shape = np.array(img.shape)[-3:-1]
 
     assert not ((factor is None) and (shape is None)), "Must specify either factor or shape"
-    new_shape = tuple((img_shape * factor).astype(int)) if (shape is None) else shape[-3:-1]
+    new_shape = tuple(img_shape * factor) if shape is None else shape[-3:-1]
+    new_shape = [int(i) for i in new_shape]
 
     if np.array_equal(img_shape, new_shape):
         return img
