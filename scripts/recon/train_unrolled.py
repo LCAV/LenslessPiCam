@@ -56,6 +56,7 @@ from torchvision import transforms, datasets
 from lensless.utils.io import load_psf
 from lensless.utils.io import save_image
 from lensless.utils.plot import plot_image
+from lensless import ADMM
 import matplotlib.pyplot as plt
 
 # A logger for this file
@@ -177,7 +178,7 @@ def simulate_dataset(config):
     return train_ds_prop, test_ds_prop, mask
 
 
-def prep_trainable_mask(config, psf, grayscale=False):
+def prep_trainable_mask(config, psf, downsample=None):
     mask = None
     if config.trainable_mask.mask_type is not None:
         mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
@@ -186,6 +187,28 @@ def prep_trainable_mask(config, psf, grayscale=False):
             initial_mask = torch.rand_like(psf)
         elif config.trainable_mask.initial_value == "psf":
             initial_mask = psf.clone()
+        # if file ending with "npy"
+        elif config.trainable_mask.initial_value.endswith("npy"):
+            pattern = np.load(os.path.join(get_original_cwd(), config.trainable_mask.initial_value))
+
+            # -- apply aperture
+            ap_center = np.array(config.trainable_mask.ap_center)
+            ap_shape = np.array(config.trainable_mask.ap_shape)
+            # -- extract aperture region
+            idx_1 = ap_center[0] - ap_shape[0] // 2
+            idx_2 = ap_center[1] - ap_shape[1] // 2
+
+            initial_mask = pattern[
+                :,
+                idx_1 : idx_1 + ap_shape[0],
+                idx_2 : idx_2 + ap_shape[1],
+            ]
+            initial_mask = initial_mask / 255.0
+            if config.trainable_mask.slm == "adafruit":
+                # flatten color channel along rows
+                initial_mask = initial_mask.reshape((-1, initial_mask.shape[-1]), order="F")
+
+            initial_mask = torch.from_numpy(initial_mask.astype(np.float32))
         else:
             raise ValueError(
                 f"Initial PSF value {config.trainable_mask.initial_value} not supported"
@@ -195,7 +218,7 @@ def prep_trainable_mask(config, psf, grayscale=False):
             initial_mask = rgb2gray(initial_mask)
 
         mask = mask_class(
-            initial_mask, optimizer="Adam", lr=config.trainable_mask.mask_lr, grayscale=grayscale
+            initial_mask, optimizer="Adam", downsample=downsample, **config.trainable_mask
         )
 
     return mask
@@ -206,10 +229,9 @@ def train_unrolled(config):
 
     # set seed
     seed = config.seed
-    if seed is not None:
-        torch.manual_seed(seed)
-        np.random.seed(seed)
-        generator = torch.Generator().manual_seed(seed)
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    generator = torch.Generator().manual_seed(seed)
 
     save = config.save
     if save:
@@ -268,47 +290,13 @@ def train_unrolled(config):
             celeba_root=config.files.celeba_root,
             psf_path=os.path.join(get_original_cwd(), config.files.psf),
             downsample=config.files.downsample,
-            vertical_shift=config.files.vertical_shift,
-            horizontal_shift=config.files.horizontal_shift,
+            # vertical_shift=config.files.vertical_shift,
+            # horizontal_shift=config.files.horizontal_shift,
             simulation_config=config.simulation,
+            crop=config.training.crop,
         )
         dataset.psf = dataset.psf.to(device)
-        psf = dataset.psf
         log.info(f"Data shape :  {dataset[0][0].shape}")
-
-        # reconstruct lensless with ADMM
-        lensless, lensed = dataset[0]
-        from lensless import ADMM
-
-        recon = ADMM(psf)
-        recon.set_data(lensless.to(psf.device))
-        print("Reconstructing lensless image with ADMM...")
-        start_time = time.time()
-        res = recon.apply(disp_iter=None, plot=False, n_iter=10)
-        print(f"Processing time : {time.time() - start_time} s")
-        res_np = res[0].cpu().numpy()
-        res_np = res_np / res_np.max()
-        save_image(res_np, "lensless_recon.png")
-        lensed_np = lensed[0].cpu().numpy()
-        save_image(lensed_np, "lensed.png")
-        lensless_np = lensless[0].cpu().numpy()
-        save_image(lensless_np, "lensless_raw.png")
-
-        # -- plot lensed and res on top of each other
-        if config.training.crop is not None:
-            res_np = res_np[
-                config.training.crop.vertical[0] : config.training.crop.vertical[1],
-                config.training.crop.horizontal[0] : config.training.crop.horizontal[1],
-            ]
-            lensed_np = lensed_np[
-                config.training.crop.vertical[0] : config.training.crop.vertical[1],
-                config.training.crop.horizontal[0] : config.training.crop.horizontal[1],
-            ]
-            log.info(f"Cropped shape :  {res_np.shape}")
-        plt.figure()
-        plt.imshow(lensed_np, alpha=0.5)
-        plt.imshow(res_np, alpha=0.7)
-        plt.savefig("overlay_lensed_recon.png")
 
         # train-test split
         train_size = int((1 - config.files.test_size) * len(dataset))
@@ -321,16 +309,77 @@ def train_unrolled(config):
             test_set = Subset(test_set, np.arange(config.files.n_files))
 
         # -- if learning mask
-        mask = prep_trainable_mask(config, dataset.psf)
+        downsample = config.files.downsample * 4  # measured files are 4x downsampled
+        mask = prep_trainable_mask(config, dataset.psf, downsample=downsample)
+
         if mask is not None:
             # plot initial PSF
-            psf_np = mask.get_psf().detach().cpu().numpy()[0, ...]
-            if config.trainable_mask.grayscale:
-                psf_np = psf_np[:, :, -1]
+            with torch.no_grad():
+                psf_np = mask.get_psf().detach().cpu().numpy()[0, ...]
+                if config.trainable_mask.grayscale:
+                    psf_np = psf_np[:, :, -1]
 
             save_image(psf_np, os.path.join(save, "psf_initial.png"))
             plot_image(psf_np, gamma=config.display.gamma)
             plt.savefig(os.path.join(save, "psf_initial_plot.png"))
+
+            # save original PSF as well
+            psf_meas = dataset.psf.detach().cpu().numpy()[0, ...]
+            plot_image(psf_meas, gamma=config.display.gamma)
+            plt.savefig(os.path.join(save, "psf_meas_plot.png"))
+
+            with torch.no_grad():
+                psf = mask.get_psf().to(dataset.psf)
+
+        else:
+
+            psf = dataset.psf
+
+        # print info about PSF
+        log.info(f"PSF shape : {psf.shape}")
+        log.info(f"PSF min : {psf.min()}")
+        log.info(f"PSF max : {psf.max()}")
+        log.info(f"PSF dtype : {psf.dtype}")
+        log.info(f"PSF norm : {psf.norm()}")
+
+        # reconstruct lensless with ADMM
+        if config.test_idx is not None:
+
+            log.info("Reconstruction a few images with ADMM...")
+
+            for i, _idx in enumerate(config.test_idx):
+
+                lensless, lensed = dataset[_idx]
+                recon = ADMM(psf)
+                recon.set_data(lensless.to(psf.device))
+                start_time = time.time()
+                res = recon.apply(disp_iter=None, plot=False, n_iter=10)
+                res_np = res[0].cpu().numpy()
+                res_np = res_np / res_np.max()
+                save_image(res_np, f"lensless_recon_{_idx}.png")
+                lensed_np = lensed[0].cpu().numpy()
+                save_image(lensed_np, f"lensed_{_idx}.png")
+                lensless_np = lensless[0].cpu().numpy()
+                save_image(lensless_np, f"lensless_raw_{_idx}.png")
+
+                # -- plot lensed and res on top of each other
+                if config.training.crop_preloss:
+                    crop = dataset.crop
+
+                    res_np = res_np[
+                        crop["vertical"][0] : crop["vertical"][1],
+                        crop["horizontal"][0] : crop["horizontal"][1],
+                    ]
+                    lensed_np = lensed_np[
+                        crop["vertical"][0] : crop["vertical"][1],
+                        crop["horizontal"][0] : crop["horizontal"][1],
+                    ]
+                    if i == 0:
+                        log.info(f"Cropped shape :  {res_np.shape}")
+                plt.figure()
+                plt.imshow(lensed_np, alpha=0.4)
+                plt.imshow(res_np, alpha=0.7)
+                plt.savefig(f"overlay_lensed_recon_{_idx}.png")
 
     else:
 
@@ -418,7 +467,7 @@ def train_unrolled(config):
         save_every=config.training.save_every,
         gamma=config.display.gamma,
         logger=log,
-        crop=config.training.crop,
+        crop=dataset.crop if config.training.crop_preloss else None,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)

@@ -373,20 +373,7 @@ class Trainer:
                     "lpips package is need for LPIPS loss. Install using : pip install lpips"
                 )
 
-        if crop is not None:
-            datashape = train_dataset[0][0].shape
-            # create binary mask to multiply with before computing loss
-            self.mask_crop = torch.zeros(datashape, dtype=torch.bool).to(self.device)
-
-            # move channel dimension to third to last
-            self.mask_crop = self.mask_crop.movedim(-1, -3)
-
-            # set values to True in mask
-            self.mask_crop[
-                :, :, crop.vertical[0] : crop.vertical[1], crop.horizontal[0] : crop.horizontal[1]
-            ] = True
-        else:
-            self.mask_crop = None
+        self.crop = crop
 
         # optimizer
         if optimizer == "Adam":
@@ -484,7 +471,7 @@ class Trainer:
 
             # update psf according to mask
             if self.use_mask:
-                self.recon._set_psf(self.mask.get_psf())
+                self.recon._set_psf(self.mask.get_psf().to(self.device))
 
             # forward pass
             y_pred = self.recon.batch_call(X.to(self.device))
@@ -503,9 +490,17 @@ class Trainer:
             y = y.reshape(-1, *y.shape[-3:]).movedim(-1, -3)
 
             # crop
-            if self.mask_crop is not None:
-                y_pred = y_pred * self.mask_crop
-                y = y * self.mask_crop
+            if self.crop is not None:
+                y_pred = y_pred[
+                    ...,
+                    self.crop["vertical"][0] : self.crop["vertical"][1],
+                    self.crop["horizontal"][0] : self.crop["horizontal"][1],
+                ]
+                y = y[
+                    ...,
+                    self.crop["vertical"][0] : self.crop["vertical"][1],
+                    self.crop["horizontal"][0] : self.crop["horizontal"][1],
+                ]
 
             loss_v = self.Loss(y_pred, y)
             if self.lpips:
@@ -583,7 +578,7 @@ class Trainer:
             batchsize=self.eval_batch_size,
             save_idx=disp,
             output_dir=output_dir,
-            mask_crop=self.mask_crop,
+            crop=self.crop,
         )
 
         # update metrics with current metrics

@@ -355,12 +355,16 @@ class DigiCamCelebA(MeasuredDatasetSimulatedOriginal):
         psf_path=None,
         downsample=1,
         flip=True,
-        vertical_shift=-85,
-        horizontal_shift=-15,
+        vertical_shift=None,
+        horizontal_shift=None,
+        crop=None,
         simulation_config=None,
         **kwargs,
     ):
         """
+
+        Some parameters default to work for the ``celeba_adafruit_random_2mm_20230720_10K`` dataset,
+        namely: flip, vertical_shift, horizontal_shift, crop, simulation_config.
 
         Parameters
         ----------
@@ -375,10 +379,32 @@ class DigiCamCelebA(MeasuredDatasetSimulatedOriginal):
         flip : bool, optional
             If True, measurements are flipped, by default ``True``. Does not get applied to the original images.
         vertical_shift : int, optional
-            Vertical shift (in pixels) of the lensed images to align, by default 0.
+            Vertical shift (in pixels) of the lensed images to align.
         horizontal_shift : int, optional
-            Horizontal shift (in pixels) of the lensed images to align, by default 0.
+            Horizontal shift (in pixels) of the lensed images to align.
+        crop : dict, optional
+            Dictionary of crop parameters (vertical: [start, end], horizontal: [start, end]) to select region of interest.
         """
+
+        if vertical_shift is None:
+            # default to (no downsampling) of celeba_adafruit_random_2mm_20230720_10K
+            vertical_shift = -85
+            horizontal_shift = -5
+
+        if crop is None:
+            crop = {"vertical": [30, 560], "horizontal": [285, 720]}
+        self.crop = crop
+
+        self.vertical_shift = vertical_shift
+        self.horizontal_shift = horizontal_shift
+        if downsample != 1:
+            self.vertical_shift = int(self.vertical_shift // downsample)
+            self.horizontal_shift = int(self.horizontal_shift // downsample)
+
+            self.crop["vertical"][0] = int(self.crop["vertical"][0] // downsample)
+            self.crop["vertical"][1] = int(self.crop["vertical"][1] // downsample)
+            self.crop["horizontal"][0] = int(self.crop["horizontal"][0] // downsample)
+            self.crop["horizontal"][1] = int(self.crop["horizontal"][1] // downsample)
 
         # download dataset if necessary
         if data_dir is None:
@@ -432,8 +458,6 @@ class DigiCamCelebA(MeasuredDatasetSimulatedOriginal):
 
         # load PSF
         self.flip_measurement = flip
-        self.vertical_shift = vertical_shift
-        self.horizontal_shift = horizontal_shift
         psf, background = load_psf(
             psf_path,
             downsample=downsample * 4,  # PSF is 4x the resolution of the images

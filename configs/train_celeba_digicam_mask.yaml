@@ -1,0 +1,64 @@
+# python scripts/recon/train_unrolled.py -cn train_celeba_digicam_mask
+defaults:
+  - train_celeba_digicam
+  - _self_
+
+# Train Dataset
+files:
+  dataset: /scratch/bezzam/celeba_adafruit_random_2mm_20230720_10K
+  celeba_root: /scratch/bezzam
+  psf: data/psf/adafruit_random_2mm_20231907.png
+
+# for prepping ground truth data
+simulation:
+  scene2mask: 0.25   # [m]
+  mask2sensor: 0.002   # [m]
+  object_height: 0.33   # [m]
+
+
+reconstruction:
+  method: unrolled_admm
+  unrolled_admm:
+    # Number of iterations
+    n_iter: 10
+
+  pre_process: 
+    network : null  # UnetRes or DruNet or null
+    depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
+  post_process: 
+    network : null  # UnetRes or DruNet or null
+    depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
+
+#Training
+training:
+  batch_size: 2
+  epoch: 50
+  eval_batch_size: 15
+
+  # crop: null
+  crop_preloss: True
+
+#Trainable Mask
+trainable_mask:
+  mask_type: AdafruitLCD #Null or "TrainablePSF" or "AdafruitLCD"
+  # "random" (with shape of config.files.psf) or path to npy file
+  initial_value: data/psf/adafruit_random_pattern_20230719.npy
+  grayscale: False
+  mask_lr: 1e-3
+  L1_strength: False
+
+  # only for AdafruitLCD
+  ap_center: [59, 76]
+  ap_shape: [19, 26]
+  rotate: -0.8   # rotation in degrees
+  slm: adafruit
+  sensor: rpi_hq
+  flipud: True
+  waveprop: True
+  # to align with measured PSF (so reconstruction also aligned)
+  vertical_shift: -20 # [px]
+  horizontal_shift: -100  # [px]
+  # below are ignored if waveprop=False
+  scene2mask: 0.3   # [m]
+  mask2sensor: 0.002   # [m]
+  

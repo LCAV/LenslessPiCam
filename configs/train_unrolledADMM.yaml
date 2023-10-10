@@ -19,6 +19,8 @@ files:
 torch: True
 torch_device: 'cuda'
 
+# see some outputs of classical ADMM before training
+test_idx: [0, 1, 2, 3, 4]
 
 # test set example to visualize at the end of every epoch
 eval_disp_idx: [0, 1, 2, 3, 4]
@@ -59,7 +61,7 @@ reconstruction:
 
 #Trainable Mask
 trainable_mask:
-  mask_type: Null #Null or "TrainablePSF"
+  mask_type: Null #Null or "TrainablePSF" or "AdafruitLCD"
   # "random" (with shape of config.files.psf) or "psf" (using config.files.psf)
   initial_value: psf
   grayscale: False
@@ -106,10 +108,10 @@ training:
   skip_NAN: True
   slow_start: False  #float how much to reduce lr for first epoch
 
-  crop: null   # crop region for computing loss
-  # crop:
-  #   vertical: [30, 560]
-  #   horizontal: [275, 710]
+  crop_preloss: True # crop region for computing loss
+  crop: null
+    # vertical: null
+    # horizontal: null
 
 optimizer:
   type: Adam

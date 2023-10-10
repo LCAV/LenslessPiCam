@@ -1,0 +1,44 @@
+# python scripts/recon/train_unrolled.py -cn train_celeba_digicam
+defaults:
+  - train_unrolledADMM
+  - _self_
+
+# Train Dataset
+files:
+  dataset: /scratch/bezzam/celeba_adafruit_random_2mm_20230720_10K
+  celeba_root: /scratch/bezzam
+  psf: data/psf/adafruit_random_2mm_20231907.png
+
+# for prepping ground truth data
+simulation:
+  scene2mask: 0.25   # [m]
+  mask2sensor: 0.002   # [m]
+  object_height: 0.33   # [m]
+
+
+reconstruction:
+  method: unrolled_admm
+  unrolled_admm:
+    # Number of iterations
+    n_iter: 10
+
+  pre_process: 
+    network : null  # UnetRes or DruNet or null
+    depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
+  post_process: 
+    network : null  # UnetRes or DruNet or null
+    depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
+
+
+# see some outputs of classical ADMM before training
+test_idx: [0, 1, 2, 3, 4]
+
+#Training
+training:
+  batch_size: 2
+  epoch: 50
+  eval_batch_size: 15
+
+  # crop: null
+  crop_preloss: True
+
