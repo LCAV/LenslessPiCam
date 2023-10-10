@@ -239,8 +239,8 @@ def get_intensity_psf(
 
     is_torch = False
     device = None
-    if torch_available:
-        is_torch = isinstance(mask, torch.Tensor)
+    if torch_available and isinstance(mask, torch.Tensor):
+        is_torch = True
         device = mask.device
 
     dtype = mask.dtype
@@ -268,7 +268,7 @@ def get_intensity_psf(
             wv=color_system.wv,
             dz=scene2mask,
             return_psf=True,
-            is_torch=True,
+            is_torch=is_torch,
             device=device,
             dtype=dtype,
         )
