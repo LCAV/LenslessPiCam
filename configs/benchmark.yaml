@@ -6,6 +6,10 @@ hydra:
   job:
     chdir: True
 
+
+dataset: DiffuserCam   # DiffuserCam, DigiCamCelebA
+seed: 0
+
 device: "cuda"
 # numbers of iterations to benchmark
 n_iter_range: [5, 10, 20, 50, 100, 200, 300]
@@ -32,3 +36,43 @@ admm:
   mu2: 1e-5
   mu3: 4e-5
   tau: 0.0001
+
+
+# for DigiCamCelebA
+files:
+  test_size: 0.15
+  dataset: /scratch/bezzam/celeba_adafruit_random_2mm_20230720_10K
+  celeba_root: /scratch/bezzam
+  psf: data/psf/adafruit_random_2mm_20231907.png
+
+  downsample: 1
+
+# for prepping ground truth data
+#for simulated dataset
+simulation:
+  grayscale: False
+  output_dim: null     # should be set if no PSF is used    
+  # random variations
+  object_height: 0.33   # [m], range for random height or scalar
+  flip: True # change the orientation of the object (from vertical to horizontal)
+  random_shift: False
+  random_vflip: 0.5
+  random_hflip: 0.5
+  random_rotate: False
+  # these distance parameters are typically fixed for a given PSF
+  # for DiffuserCam psf # for tape_rgb psf     
+  # scene2mask: 10e-2     # scene2mask: 40e-2       
+  # mask2sensor: 9e-3     # mask2sensor: 4e-3  
+  # -- for CelebA
+  scene2mask: 0.25   # [m]
+  mask2sensor: 0.002   # [m]     
+  # see waveprop.devices
+  sensor: "rpi_hq"
+  snr_db: 10
+  # simulate different sensor resolution
+  # output_dim: [24, 32]    # [H, W] or null
+  # Downsampling for PSF
+  downsample: 8
+  # max val in simulated measured (quantized 8 bits)
+  quantize: False   # must be False for differentiability
+  max_val: 255

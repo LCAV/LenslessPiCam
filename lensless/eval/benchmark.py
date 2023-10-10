@@ -30,7 +30,7 @@ def benchmark(
     dataset,
     batchsize=1,
     metrics=None,
-    mask_crop=None,
+    crop=None,
     save_idx=None,
     output_dir=None,
     **kwargs,
@@ -52,8 +52,8 @@ def benchmark(
         List of indices to save the predictions, by default None (not to save any).
     output_dir : str, optional
         Directory to save the predictions, by default save in working directory if save_idx is provided.
-    mask_crop : torch.Tensor, optional
-        Mask to apply to the output of the reconstruction algorithm, by default None.
+    crop : dict, optional
+        Dictionary of crop parameters (vertical: [start, end], horizontal: [start, end]), by default None (no crop).
 
     Returns
     -------
@@ -103,20 +103,30 @@ def benchmark(
             else:
                 prediction = model.batch_call(lensless, **kwargs)
 
+        # Convert to [N*D, C, H, W] for torchmetrics
+        prediction = prediction.reshape(-1, *prediction.shape[-3:]).movedim(-1, -3)
+        lensed = lensed.reshape(-1, *lensed.shape[-3:]).movedim(-1, -3)
+
+        if crop is not None:
+            prediction = prediction[
+                ...,
+                crop["vertical"][0] : crop["vertical"][1],
+                crop["horizontal"][0] : crop["horizontal"][1],
+            ]
+            lensed = lensed[
+                ...,
+                crop["vertical"][0] : crop["vertical"][1],
+                crop["horizontal"][0] : crop["horizontal"][1],
+            ]
+
         if save_idx is not None:
             batch_idx = np.arange(idx, idx + batchsize)
             for i, idx in enumerate(batch_idx):
                 if idx in save_idx:
                     prediction_np = prediction.cpu().numpy()[i].squeeze()
+                    # switch to [H, W, C]
+                    prediction_np = np.moveaxis(prediction_np, 0, -1)
                     save_image(prediction_np, fp=os.path.join(output_dir, f"{idx}.png"))
-
-        # Convert to [N*D, C, H, W] for torchmetrics
-        prediction = prediction.reshape(-1, *prediction.shape[-3:]).movedim(-1, -3)
-        lensed = lensed.reshape(-1, *lensed.shape[-3:]).movedim(-1, -3)
-
-        if mask_crop is not None:
-            prediction = prediction * mask_crop
-            lensed = lensed * mask_crop
 
         # normalization
         prediction_max = torch.amax(prediction, dim=(-1, -2, -3), keepdim=True)
