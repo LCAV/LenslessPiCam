@@ -398,12 +398,14 @@ def train_unrolled(config):
     pre_process, pre_process_name = create_process_network(
         config.reconstruction.pre_process.network,
         config.reconstruction.pre_process.depth,
+        nc=config.reconstruction.pre_process.nc,
         device=device,
     )
     # Load post process model
     post_process, post_process_name = create_process_network(
         config.reconstruction.post_process.network,
         config.reconstruction.post_process.depth,
+        nc=config.reconstruction.post_process.nc,
         device=device,
     )
 
@@ -458,9 +460,7 @@ def train_unrolled(config):
         loss=config.loss,
         lpips=config.lpips,
         l1_mask=config.trainable_mask.L1_strength,
-        optimizer=config.optimizer.type,
-        optimizer_lr=config.optimizer.lr,
-        slow_start=config.training.slow_start,
+        optimizer=config.optimizer,
         skip_NAN=config.training.skip_NAN,
         algorithm_name=algorithm_name,
         metric_for_best_model=config.training.metric_for_best_model,

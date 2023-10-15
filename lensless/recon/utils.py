@@ -193,7 +193,7 @@ def measure_gradient(model):
     return total_norm
 
 
-def create_process_network(network, depth, device="cpu"):
+def create_process_network(network, depth, device="cpu", nc=None):
     """
     Helper function to create a process network.
 
@@ -211,6 +211,12 @@ def create_process_network(network, depth, device="cpu"):
     :py:class:`torch.nn.Module`
         New process network. Already trained for Drunet.
     """
+
+    if nc is None:
+        nc = [64, 128, 256, 512]
+    else:
+        assert len(nc) == 4
+
     if network == "DruNet":
         from lensless.recon.utils import load_drunet
 
@@ -223,7 +229,7 @@ def create_process_network(network, depth, device="cpu"):
         process = UNetRes(
             in_nc=n_channels + 1,
             out_nc=n_channels,
-            nc=[64, 128, 256, 512],
+            nc=nc,
             nb=depth,
             act_mode="R",
             downsample_mode="strideconv",
@@ -376,31 +382,41 @@ class Trainer:
         self.crop = crop
 
         # optimizer
-        if optimizer == "Adam":
+        if optimizer.type == "Adam":
             # the parameters of the base model and non torch.Module process must be added separatly
             parameters = [{"params": recon.parameters()}]
-            self.optimizer = torch.optim.Adam(parameters, lr=optimizer_lr)
+            self.optimizer = torch.optim.Adam(parameters, lr=optimizer.lr)
         else:
-            raise ValueError(f"Unsuported optimizer : {optimizer}")
+            raise ValueError(f"Unsupported optimizer : {optimizer.type}")
         # Scheduler
-        if slow_start:
+        if optimizer.slow_start:
 
             def learning_rate_function(epoch):
                 if epoch == 0:
-                    return slow_start
+                    return optimizer.slow_start
                 elif epoch == 1:
-                    return math.sqrt(slow_start)
+                    return math.sqrt(optimizer.slow_start)
                 else:
                     return 1
+
+            self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+                self.optimizer, lr_lambda=learning_rate_function
+            )
+
+        elif optimizer.step:
+
+            self.scheduler = torch.optim.lr_scheduler.StepLR(
+                self.optimizer, step_size=optimizer.step, gamma=optimizer.gamma, verbose=True
+            )
 
         else:
 
             def learning_rate_function(epoch):
                 return 1
 
-        self.scheduler = torch.optim.lr_scheduler.LambdaLR(
-            self.optimizer, lr_lambda=learning_rate_function
-        )
+            self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+                self.optimizer, lr_lambda=learning_rate_function
+            )
 
         self.metrics = {
             "LOSS": [],  # train loss

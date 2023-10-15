@@ -8,7 +8,7 @@ seed: 0
 
 # Dataset
 files:
-  dataset: data/DiffuserCam   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  dataset: /scratch/bezzam/DiffuserCam_mirflickr/dataset  # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
   celeba_root: null   # path to parent directory of CelebA: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
   psf: data/psf/diffusercam_psf.tiff
   diffusercam_psf: True
@@ -55,9 +55,11 @@ reconstruction:
   pre_process: 
     network : null  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
+    nc: null
   post_process: 
     network : null  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
+    nc: null
 
 #Trainable Mask
 trainable_mask:
@@ -106,7 +108,6 @@ training:
   save_every: null
   #In case of instable training
   skip_NAN: True
-  slow_start: False  #float how much to reduce lr for first epoch
 
   crop_preloss: True # crop region for computing loss
   crop: null
@@ -116,6 +117,11 @@ training:
 optimizer:
   type: Adam
   lr: 1e-4
+  slow_start: False  #float how much to reduce lr for first epoch
+  # Decay LR in step fashion: https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html
+  step: False     # int, period of learning rate decay. False to not apply
+  gamma: 0.1      # float, factor for learning rate decay 
+  
   
 loss: 'l2'
 # set lpips to false to deactivate. Otherwise, give the weigth for the loss (the main loss l2/l1 always having a weigth of 1)
