@@ -66,7 +66,7 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
     else:
         resized = np.array(
             [
-                cv2.resize(img[i], dsize=new_shape[::-1], interpolation=interpolation)
+                cv2.resize(img[i], dsize=tuple(new_shape[::-1]), interpolation=interpolation)
                 for i in range(img.shape[-4])
             ]
         )
