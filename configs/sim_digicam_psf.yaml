@@ -3,10 +3,10 @@ hydra:
   job:
     chdir: True    # change to output folder
 
-use_torch: False
+use_torch: True
 dtype: float32
 torch_device: cuda
-requires_grad: True
+requires_grad: False
 
 digicam:
 

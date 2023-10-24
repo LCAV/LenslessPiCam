@@ -352,7 +352,6 @@ def train_unrolled(config):
                 lensless, lensed = dataset[_idx]
                 recon = ADMM(psf)
                 recon.set_data(lensless.to(psf.device))
-                start_time = time.time()
                 res = recon.apply(disp_iter=None, plot=False, n_iter=10)
                 res_np = res[0].cpu().numpy()
                 res_np = res_np / res_np.max()
