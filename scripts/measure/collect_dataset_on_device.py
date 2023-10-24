@@ -214,9 +214,9 @@ def collect_dataset(config):
                     )
 
                     if down:
-                        output = resize(output[None, ...], 1 / down, interpolation=cv2.INTER_CUBIC)[
-                            0
-                        ]
+                        output = resize(
+                            output[None, ...], factor=1 / down, interpolation=cv2.INTER_CUBIC
+                        )[0]
 
                     # print range
                     print(f"{output_fp}, range: {output.min()} - {output.max()}")
