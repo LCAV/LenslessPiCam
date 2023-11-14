@@ -41,6 +41,7 @@ class TrainableMask(torch.nn.Module, metaclass=abc.ABCMeta):
         super().__init__()
         self._mask = torch.nn.Parameter(initial_mask)
         self._optimizer = getattr(torch.optim, optimizer)([self._mask], lr=lr)
+        self.train_mask_vals = True
         self._counter = 0
 
     @abc.abstractmethod
@@ -61,6 +62,10 @@ class TrainableMask(torch.nn.Module, metaclass=abc.ABCMeta):
         self._optimizer.zero_grad(set_to_none=True)
         self.project()
         self._counter += 1
+
+    def get_vals(self):
+        """Get the mask parameters."""
+        return self._mask
 
     @abc.abstractmethod
     def project(self):
@@ -111,6 +116,10 @@ class AdafruitLCD(TrainableMask):
         initial_vals,
         sensor,
         slm,
+        optimizer="Adam",
+        lr=1e-3,
+        train_mask_vals=True,
+        color_filter=None,
         rotate=None,
         flipud=False,
         use_waveprop=None,
@@ -119,6 +128,7 @@ class AdafruitLCD(TrainableMask):
         scene2mask=None,
         mask2sensor=None,
         downsample=None,
+        min_val=0,
         **kwargs
     ):
         """
@@ -135,9 +145,26 @@ class AdafruitLCD(TrainableMask):
         flipud : bool, optional
             Whether to flip the mask vertically, by default False
         """
+
         super().__init__(initial_vals, **kwargs)
+        self.train_mask_vals = train_mask_vals
+        if color_filter is not None:
+            self.color_filter = torch.nn.Parameter(color_filter)
+            if train_mask_vals:
+                param = [self._mask, self.color_filter]
+            else:
+                del self._mask
+                self._mask = initial_vals
+                param = [self.color_filter]
+            self._optimizer = getattr(torch.optim, optimizer)(param, lr=lr)
+        else:
+            self.color_filter = None
+            assert (
+                train_mask_vals
+            ), "If color filter is not trainable, mask values must be trainable"
 
         self.slm_param = slm_dict[slm]
+        self.device = slm
         self.sensor = VirtualSensor.from_name(sensor, downsample=downsample)
         self.rotate = rotate
         self.flipud = flipud
@@ -146,6 +173,7 @@ class AdafruitLCD(TrainableMask):
         self.mask2sensor = mask2sensor
         self.vertical_shift = vertical_shift
         self.horizontal_shift = horizontal_shift
+        self.min_val = min_val
         if downsample is not None and vertical_shift is not None:
             self.vertical_shift = vertical_shift // downsample
         if downsample is not None and horizontal_shift is not None:
@@ -162,6 +190,7 @@ class AdafruitLCD(TrainableMask):
             slm_param=self.slm_param,
             rotate=self.rotate,
             flipud=self.flipud,
+            color_filter=self.color_filter,
         )
 
         if self.vertical_shift is not None:
@@ -193,4 +222,11 @@ class AdafruitLCD(TrainableMask):
         return psf_in
 
     def project(self):
-        self._mask.data = torch.clamp(self._mask, 0, 1)
+        if self.train_mask_vals:
+            self._mask.data = torch.clamp(self._mask, self.min_val, 1)
+        if self.color_filter is not None:
+            self.color_filter.data = torch.clamp(self.color_filter, 0, 1)
+            # normalize each row to 1
+            self.color_filter.data = self.color_filter / self.color_filter.sum(
+                dim=[1, 2]
+            ).unsqueeze(-1).unsqueeze(-1)
