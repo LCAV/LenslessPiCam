@@ -28,6 +28,7 @@ Bugfix
 
 - Support for unrolled reconstruction with grayscale, needed to copy to three channels for LPIPS.
 - Fix bad train/test split for DiffuserCamMirflickr in unrolled training.
+- Resize utility.
 
 
 1.0.5 - (2023-09-05)
