@@ -5,6 +5,7 @@ hydra:
 
 
 seed: 0
+start_delay: null
 
 # Dataset
 files:
@@ -16,8 +17,15 @@ files:
   downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
   test_size: 0.15
 
+  vertical_shift: null
+  horizontal_shift: null
+  crop: null
+    # vertical: null
+    # horizontal: null
+
 torch: True
 torch_device: 'cuda'
+measure: null       # if measuring data on-the-fly
 
 # see some outputs of classical ADMM before training
 test_idx: [0, 1, 2, 3, 4]
@@ -37,6 +45,7 @@ save: True
 reconstruction:
   # Method: unrolled_admm, unrolled_fista
   method: unrolled_admm
+  skip_unrolled: False
 
   # Hyperparameters for each method
   unrolled_fista: # for unrolled_fista
@@ -56,10 +65,17 @@ reconstruction:
     network : null  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
     nc: null
+    delay: null    # add component after this may epochs
+    freeze: null
+    unfreeze: null
   post_process: 
     network : null  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
     nc: null
+    delay: null    # add component after this may epochs
+    freeze: null
+    unfreeze: null
+    train_last_layer: False
 
 #Trainable Mask
 trainable_mask:
@@ -108,11 +124,9 @@ training:
   save_every: null
   #In case of instable training
   skip_NAN: True
+  clip_grad: 1.0
 
   crop_preloss: True # crop region for computing loss
-  crop: null
-    # vertical: null
-    # horizontal: null
 
 optimizer:
   type: Adam

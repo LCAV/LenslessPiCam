@@ -41,11 +41,23 @@ admm:
 # for DigiCamCelebA
 files:
   test_size: 0.15
-  dataset: /scratch/bezzam/celeba_adafruit_random_2mm_20230720_10K
-  celeba_root: /scratch/bezzam
-  psf: data/psf/adafruit_random_2mm_20231907.png
-
   downsample: 1
+  celeba_root: /scratch/bezzam
+
+
+  # dataset: /scratch/bezzam/celeba_adafruit_random_2mm_20230720_10K
+  # psf: data/psf/adafruit_random_2mm_20231907.png
+  # vertical_shift: null
+  # horizontal_shift: null
+  # crop: null
+
+  dataset: /scratch/bezzam/celeba/celeba_adafruit_random_30cm_2mm_20231004_26K
+  psf: rpi_hq_adafruit_psf_2mm/raw_data_rgb.png
+  vertical_shift: -117
+  horizontal_shift: -25
+  crop:
+    vertical: [0, 525]
+    horizontal: [265, 695]
 
 # for prepping ground truth data
 #for simulated dataset

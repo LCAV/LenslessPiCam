@@ -17,6 +17,9 @@ from lensless.utils.simulation import FarFieldSimulator
 from lensless.utils.io import load_image, load_psf
 from lensless.utils.image import resize
 import re
+from lensless.hardware.utils import capture
+from lensless.hardware.utils import display
+from lensless.hardware.slm import set_programmable_mask, adafruit_sub2full
 
 
 def convert(text):
@@ -170,6 +173,10 @@ class SimulatedFarFieldDataset(DualDataset):
         pre_transform=None,
         dataset_is_CHW=False,
         flip=False,
+        vertical_shift=None,
+        horizontal_shift=None,
+        crop=None,
+        downsample=1,
         **kwargs,
     ):
         """
@@ -194,10 +201,24 @@ class SimulatedFarFieldDataset(DualDataset):
         assert isinstance(dataset, Dataset)
         self.dataset = dataset
         self.n_files = len(dataset)
-
         self.dataset_is_CHW = dataset_is_CHW
         self._pre_transform = pre_transform
         self.flip_pre_sim = flip
+
+        self.vertical_shift = vertical_shift
+        self.horizontal_shift = horizontal_shift
+        self.crop = crop
+        if downsample != 1:
+            if self.vertical_shift is not None:
+                self.vertical_shift = int(self.vertical_shift // downsample)
+            if self.horizontal_shift is not None:
+                self.horizontal_shift = int(self.horizontal_shift // downsample)
+
+            if crop is not None:
+                self.crop["vertical"][0] = int(self.crop["vertical"][0] // downsample)
+                self.crop["vertical"][1] = int(self.crop["vertical"][1] // downsample)
+                self.crop["horizontal"][0] = int(self.crop["horizontal"][0] // downsample)
+                self.crop["horizontal"][1] = int(self.crop["horizontal"][1] // downsample)
 
         # check simulator
         assert isinstance(simulator, FarFieldSimulator), "Simulator should be a FarFieldSimulator"
@@ -224,6 +245,11 @@ class SimulatedFarFieldDataset(DualDataset):
             img = self._pre_transform(img)
 
         lensless, lensed = self.sim.propagate_image(img, return_object_plane=True)
+
+        if self.vertical_shift is not None:
+            lensed = torch.roll(lensed, self.vertical_shift, dims=-3)
+        if self.horizontal_shift is not None:
+            lensed = torch.roll(lensed, self.horizontal_shift, dims=-2)
 
         if lensed.shape[-1] == 1 and lensless.shape[-1] == 3:
             # copy to 3 channels
@@ -514,9 +540,9 @@ class DigiCamCelebA(MeasuredDatasetSimulatedOriginal):
         with torch.no_grad():
             lensed = self.sim.propagate_image(original, return_object_plane=True)
 
-        if self.vertical_shift != 0:
+        if self.vertical_shift is not None:
             lensed = torch.roll(lensed, self.vertical_shift, dims=-3)
-        if self.horizontal_shift != 0:
+        if self.horizontal_shift is not None:
             lensed = torch.roll(lensed, self.horizontal_shift, dims=-2)
 
         return lensless, lensed
@@ -806,3 +832,93 @@ class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
 
         # return simulated images
         return super()._get_images_pair(index)
+
+
+class HITLDatasetTrainableMask(SimulatedDatasetTrainableMask):
+    """
+    Dataset of on-the-fly measurements and simulated ground-truth.
+    """
+
+    def __init__(
+        self,
+        rpi_username,
+        rpi_hostname,
+        celeba_root,
+        display_config,
+        capture_config,
+        mask_center,
+        **kwargs,
+    ):
+        self.rpi_username = rpi_username
+        self.rpi_hostname = rpi_hostname
+        self.celeba_root = celeba_root
+        assert os.path.isdir(self.celeba_root)
+
+        self.display_config = display_config
+        self.capture_config = capture_config
+        self.mask_center = mask_center
+
+        super(HITLDatasetTrainableMask, self).__init__(**kwargs)
+
+    def __getitem__(self, index):
+
+        # propagate through mask in digital model
+        _, lensed = super().__getitem__(index)
+
+        ## measure lensless image
+        # get image file path
+        idx = self.dataset.indices[index]
+
+        # twice nested as we do train-test split of subset of CelebA
+        fn = self.dataset.dataset.dataset.filename[idx]
+        fp = os.path.join(self.celeba_root, "celeba", "img_align_celeba", fn)
+
+        # display on screen
+        display(
+            fp=fp,
+            rpi_username=self.rpi_username,
+            rpi_hostname=self.rpi_hostname,
+            **self.display_config,
+        )
+
+        # set mask
+        with torch.no_grad():
+            subpattern = self._mask.get_vals()
+            subpattern_np = subpattern.detach().cpu().numpy().copy()
+            pattern = adafruit_sub2full(
+                subpattern_np,
+                center=self.mask_center,
+            )
+        set_programmable_mask(
+            pattern,
+            self._mask.device,
+            self.rpi_username,
+            self.rpi_hostname,
+        )
+
+        # take picture
+        _, img = capture(
+            rpi_username=self.rpi_username,
+            rpi_hostname=self.rpi_hostname,
+            verbose=False,
+            **self.capture_config,
+        )
+
+        # -- normalize
+        img = img.astype(np.float32) / img.max()
+
+        # prep
+        img = torch.from_numpy(img)
+        # -- if [H, W, C] -> [D, H, W, C]
+        if len(img.shape) == 3:
+            img = img.unsqueeze(0)
+
+        if self.background is not None:
+            img = img - self.background
+
+        # flip image x and y if needed
+        if self.capture_config.flip:
+            img = torch.rot90(img, dims=(-3, -2), k=2)
+
+        # return simulated images (replace simulated with measured)
+        return img, lensed

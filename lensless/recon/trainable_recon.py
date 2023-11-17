@@ -49,6 +49,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         n_iter=1,
         pre_process=None,
         post_process=None,
+        skip_unrolled=False,
         **kwargs,
     ):
         """
@@ -79,19 +80,13 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             psf, dtype=dtype, n_iter=n_iter, **kwargs
         )
 
-        # pre processing
-        (
-            self.pre_process,
-            self.pre_process_model,
-            self.pre_process_param,
-        ) = self._prepare_process_block(pre_process)
-
-        # post processing
-        (
-            self.post_process,
-            self.post_process_model,
-            self.post_process_param,
-        ) = self._prepare_process_block(post_process)
+        self.set_pre_process(pre_process)
+        self.set_post_process(post_process)
+        self.skip_unrolled = skip_unrolled
+        if self.skip_unrolled:
+            assert (
+                post_process is not None or pre_process is not None
+            ), "If skip_unrolled is True, pre_process or post_process must be defined."
 
     def _prepare_process_block(self, process):
         """
@@ -115,12 +110,67 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         else:
             process_function = None
             process_model = None
+
         if process_function is not None:
             process_param = torch.nn.Parameter(torch.tensor([1.0], device=self._psf.device))
         else:
             process_param = None
 
         return process_function, process_model, process_param
+
+    def set_pre_process(self, pre_process):
+        (
+            self.pre_process,
+            self.pre_process_model,
+            self.pre_process_param,
+        ) = self._prepare_process_block(pre_process)
+
+    def set_post_process(self, post_process):
+        (
+            self.post_process,
+            self.post_process_model,
+            self.post_process_param,
+        ) = self._prepare_process_block(post_process)
+
+    def freeze_pre_process(self):
+        """
+        Method for freezing the pre process block.
+        """
+        if self.pre_process_param is not None:
+            self.pre_process_param.requires_grad = False
+        if self.pre_process_model is not None:
+            for param in self.pre_process_model.parameters():
+                param.requires_grad = False
+
+    def freeze_post_process(self):
+        """
+        Method for freezing the post process block.
+        """
+        if self.post_process_param is not None:
+            self.post_process_param.requires_grad = False
+        if self.post_process_model is not None:
+            for param in self.post_process_model.parameters():
+                param.requires_grad = False
+
+    def unfreeze_pre_process(self):
+        """
+        Method for unfreezing the pre process block.
+        """
+        if self.pre_process_param is not None:
+            self.pre_process_param.requires_grad = True
+        if self.pre_process_model is not None:
+            for param in self.pre_process_model.parameters():
+                param.requires_grad = True
+
+    def unfreeze_post_process(self):
+        """
+        Method for unfreezing the post process block.
+        """
+        if self.post_process_param is not None:
+            self.post_process_param.requires_grad = True
+        if self.post_process_model is not None:
+            for param in self.post_process_model.parameters():
+                param.requires_grad = True
 
     def batch_call(self, batch):
         """
@@ -147,10 +197,14 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
         self.reset(batch_size=batch_size)
 
-        for i in range(self._n_iter):
-            self._update(i)
+        if not self.skip_unrolled:
+            for i in range(self._n_iter):
+                self._update(i)
+            image_est = self._form_image()
 
-        image_est = self._form_image()
+        else:
+            image_est = self._data
+
         if self.post_process is not None:
             image_est = self.post_process(image_est, self.post_process_param)
         return image_est
@@ -207,16 +261,19 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             if output_intermediate:
                 pre_processed_image = self._data[0, ...].clone()
 
-        im = super(TrainableReconstructionAlgorithm, self).apply(
-            n_iter=self._n_iter,
-            disp_iter=disp_iter,
-            plot_pause=plot_pause,
-            plot=plot,
-            save=save,
-            gamma=gamma,
-            ax=ax,
-            reset=reset,
-        )
+        if not self.skip_unrolled:
+            im = super(TrainableReconstructionAlgorithm, self).apply(
+                n_iter=self._n_iter,
+                disp_iter=disp_iter,
+                plot_pause=plot_pause,
+                plot=plot,
+                save=save,
+                gamma=gamma,
+                ax=ax,
+                reset=reset,
+            )
+        else:
+            im = self._data
 
         # remove plot if returned
         if plot:

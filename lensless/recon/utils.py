@@ -256,9 +256,7 @@ class Trainer:
         loss="l2",
         lpips=None,
         l1_mask=None,
-        optimizer="Adam",
-        optimizer_lr=1e-6,
-        slow_start=None,
+        optimizer=None,
         skip_NAN=False,
         algorithm_name="Unknown",
         metric_for_best_model=None,
@@ -266,6 +264,16 @@ class Trainer:
         gamma=None,
         logger=None,
         crop=None,
+        clip_grad=1.0,
+        # for adding components during training
+        pre_process=None,
+        pre_process_delay=None,
+        pre_process_freeze=None,
+        pre_process_unfreeze=None,
+        post_process=None,
+        post_process_delay=None,
+        post_process_freeze=None,
+        post_process_unfreeze=None,
     ):
         """
         Class to train a reconstruction algorithm. Inspired by Trainer from `HuggingFace <https://huggingface.co/docs/transformers/main_classes/trainer>`__.
@@ -298,12 +306,8 @@ class Trainer:
             the weight of the lpips(VGG) in the total loss. If None ignore. By default None.
         l1_mask : float, optional
             the weight of the l1 norm of the mask in the total loss. If None ignore. By default None.
-        optimizer : str, optional
-            Optimizer to use durring training. Available : "Adam". By default "Adam".
-        optimizer_lr : float, optional
-            Learning rate for the optimizer, by default 1e-6.
-        slow_start : float, optional
-            Multiplicative factor to reduce the learning rate during the first two epochs. If None, ignored. Default is None.
+        optimizer : dict
+            Optimizer configuration.
         skip_NAN : bool, optional
             Whether to skip update if any gradiant are NAN (True) or to throw an error(False), by default False
         algorithm_name : str, optional
@@ -318,12 +322,52 @@ class Trainer:
             Logger to use for logging. If None, just print to terminal. Default is None.
         crop : dict, optional
             Crop to apply to images before computing loss (by applying a mask). If None, no crop is applied. Default is None.
+        pre_process : :py:class:`torch.nn.Module`, optional
+            Pre process component to add during training. Default is None.
+        pre_process_delay : int, optional
+            Epoch at which to add pre process component. Default is None.
+        pre_process_freeze : int, optional
+            Epoch at which to freeze pre process component. Default is None.
+        pre_process_unfreeze : int, optional
+            Epoch at which to unfreeze pre process component. Default is None.
+        post_process : :py:class:`torch.nn.Module`, optional
+            Post process component to add during training. Default is None.
+        post_process_delay : int, optional
+            Epoch at which to add post process component. Default is None.
+        post_process_freeze : int, optional
+            Epoch at which to freeze post process component. Default is None.
+        post_process_unfreeze : int, optional
+            Epoch at which to unfreeze post process component. Default is None.
 
 
         """
+        global print
+
         self.device = recon._psf.device
         self.logger = logger
+        if self.logger is not None:
+            self.print = self.logger.info
+        else:
+            self.print = print
         self.recon = recon
+
+        self.pre_process = pre_process
+        self.pre_process_delay = pre_process_delay
+        self.pre_process_freeze = pre_process_freeze
+        self.pre_process_unfreeze = pre_process_unfreeze
+        if pre_process_delay is not None:
+            assert pre_process is not None
+        else:
+            self.pre_process_delay = -1
+
+        self.post_process = post_process
+        self.post_process_delay = post_process_delay
+        self.post_process_freeze = post_process_freeze
+        self.post_process_unfreeze = post_process_unfreeze
+        if post_process_delay is not None:
+            assert post_process is not None
+        else:
+            self.post_process_delay = -1
 
         assert train_dataset is not None
         if test_dataset is None:
@@ -334,10 +378,7 @@ class Trainer:
             train_dataset, test_dataset = torch.utils.data.random_split(
                 train_dataset, [train_size, test_size]
             )
-            if self.logger is not None:
-                self.logger.info(f"Train size : {train_size}, Test size : {test_size}")
-            else:
-                print(f"Train size : {train_size}, Test size : {test_size}")
+            self.print(f"Train size : {train_size}, Test size : {test_size}")
 
         self.train_dataloader = torch.utils.data.DataLoader(
             dataset=train_dataset,
@@ -350,9 +391,9 @@ class Trainer:
         self.skip_NAN = skip_NAN
         self.eval_batch_size = eval_batch_size
 
+        self.mask = mask
         if mask is not None:
             assert isinstance(mask, TrainableMask)
-            self.mask = mask
             self.use_mask = True
         else:
             self.use_mask = False
@@ -382,41 +423,9 @@ class Trainer:
         self.crop = crop
 
         # optimizer
-        if optimizer.type == "Adam":
-            # the parameters of the base model and non torch.Module process must be added separatly
-            parameters = [{"params": recon.parameters()}]
-            self.optimizer = torch.optim.Adam(parameters, lr=optimizer.lr)
-        else:
-            raise ValueError(f"Unsupported optimizer : {optimizer.type}")
-        # Scheduler
-        if optimizer.slow_start:
-
-            def learning_rate_function(epoch):
-                if epoch == 0:
-                    return optimizer.slow_start
-                elif epoch == 1:
-                    return math.sqrt(optimizer.slow_start)
-                else:
-                    return 1
-
-            self.scheduler = torch.optim.lr_scheduler.LambdaLR(
-                self.optimizer, lr_lambda=learning_rate_function
-            )
-
-        elif optimizer.step:
-
-            self.scheduler = torch.optim.lr_scheduler.StepLR(
-                self.optimizer, step_size=optimizer.step, gamma=optimizer.gamma, verbose=True
-            )
-
-        else:
-
-            def learning_rate_function(epoch):
-                return 1
-
-            self.scheduler = torch.optim.lr_scheduler.LambdaLR(
-                self.optimizer, lr_lambda=learning_rate_function
-            )
+        self.clip_grad_norm = clip_grad
+        self.optimizer_config = optimizer
+        self.set_optimizer()
 
         self.metrics = {
             "LOSS": [],  # train loss
@@ -450,10 +459,7 @@ class Trainer:
                         print(grad, flush=True)
                     for name, param in recon.named_parameters():
                         if param.requires_grad:
-                            if self.logger:
-                                self.logger.info(name, param)
-                            else:
-                                print(name, param)
+                            self.print(name, param)
                     raise ValueError("Gradient is NaN")
                 return grad
 
@@ -462,6 +468,48 @@ class Trainer:
                     param.register_hook(detect_nan)
                     if param.requires_grad:
                         param.register_hook(detect_nan)
+
+    def set_optimizer(self, last_epoch=-1):
+
+        if self.optimizer_config.type == "Adam":
+            parameters = [{"params": self.recon.parameters()}]
+            self.optimizer = torch.optim.Adam(parameters, lr=self.optimizer_config.lr)
+        else:
+            raise ValueError(f"Unsupported optimizer : {self.optimizer_config.type}")
+
+        # Scheduler
+        if self.optimizer_config.slow_start:
+
+            def learning_rate_function(epoch):
+                if epoch == 0:
+                    return self.optimizer_config.slow_start
+                elif epoch == 1:
+                    return math.sqrt(self.optimizer_config.slow_start)
+                else:
+                    return 1
+
+            self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+                self.optimizer, lr_lambda=learning_rate_function, last_epoch=last_epoch
+            )
+
+        elif self.optimizer_config.step:
+
+            self.scheduler = torch.optim.lr_scheduler.StepLR(
+                self.optimizer,
+                step_size=self.optimizer_config.step,
+                gamma=self.optimizer_config.gamma,
+                last_epoch=last_epoch,
+                verbose=True,
+            )
+
+        else:
+
+            def learning_rate_function(epoch):
+                return 1
+
+            self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+                self.optimizer, lr_lambda=learning_rate_function, last_epoch=last_epoch
+            )
 
     def train_epoch(self, data_loader):
         """
@@ -534,20 +582,18 @@ class Trainer:
                 loss_v = loss_v + self.l1_mask * torch.mean(torch.abs(self.mask._mask))
             loss_v.backward()
 
-            torch.nn.utils.clip_grad_norm_(self.recon.parameters(), 1.0)
+            if self.clip_grad_norm is not None:
+                torch.nn.utils.clip_grad_norm_(self.recon.parameters(), self.clip_grad_norm)
 
             # if any gradient is NaN, skip training step
             if self.skip_NAN:
                 is_NAN = False
                 for param in self.recon.parameters():
-                    if torch.isnan(param.grad).any():
+                    if param.grad is not None and torch.isnan(param.grad).any():
                         is_NAN = True
                         break
                 if is_NAN:
-                    if self.logger is not None:
-                        self.logger.info("NAN detected in gradiant, skipping training step")
-                    else:
-                        print("NAN detected in gradiant, skipping training step")
+                    self.print("NAN detected in gradiant, skipping training step")
                     i += 1
                     continue
             self.optimizer.step()
@@ -560,8 +606,7 @@ class Trainer:
             pbar.set_description(f"loss : {mean_loss}")
             i += 1
 
-        if self.logger is not None:
-            self.logger.info(f"loss : {mean_loss}")
+        self.print(f"loss : {mean_loss}")
 
         return mean_loss
 
@@ -581,6 +626,7 @@ class Trainer:
         if self.test_dataset is None:
             return
 
+        output_dir = None
         if disp is not None:
             output_dir = os.path.join("eval_recon")
             if not os.path.exists(output_dir):
@@ -678,19 +724,48 @@ class Trainer:
 
         self.evaluate(-1, save_pt, epoch=0, disp=disp)
         for epoch in range(n_epoch):
-            if self.logger is not None:
-                self.logger.info(f"Epoch {epoch} with learning rate {self.scheduler.get_last_lr()}")
-            else:
-                print(f"Epoch {epoch} with learning rate {self.scheduler.get_last_lr()}")
+
+            # add extra components (if specified)
+            changing_n_param = False
+            if epoch == self.pre_process_delay:
+                self.print("Adding pre process component")
+                self.recon.set_pre_process(self.pre_process)
+                changing_n_param = True
+            if epoch == self.post_process_delay:
+                self.print("Adding post process component")
+                self.recon.set_post_process(self.post_process)
+                changing_n_param = True
+            if epoch == self.pre_process_freeze:
+                self.print("Freezing pre process")
+                self.recon.freeze_pre_process()
+                changing_n_param = True
+            if epoch == self.post_process_freeze:
+                self.print("Freezing post process")
+                self.recon.freeze_post_process()
+                changing_n_param = True
+            if epoch == self.pre_process_unfreeze:
+                self.print("Unfreezing pre process")
+                self.recon.unfreeze_pre_process()
+                changing_n_param = True
+            if epoch == self.post_process_unfreeze:
+                self.print("Unfreezing post process")
+                self.recon.unfreeze_post_process()
+                changing_n_param = True
+
+            # count number of parameters with requires_grad = True
+            if changing_n_param:
+                n_param = sum(p.numel() for p in self.recon.parameters() if p.requires_grad)
+                if self.mask is not None:
+                    n_param += sum(p.numel() for p in self.mask.parameters() if p.requires_grad)
+                self.print(f"Training {n_param} parameters")
+
+            self.print(f"Epoch {epoch} with learning rate {self.scheduler.get_last_lr()}")
             mean_loss = self.train_epoch(self.train_dataloader)
             # offset because of evaluate before loop
             self.on_epoch_end(mean_loss, save_pt, epoch + 1, disp=disp)
             self.scheduler.step()
 
-        if self.logger is not None:
-            self.logger.info(f"Train time : {time.time() - start_time} s")
-        else:
-            print(f"Train time : {time.time() - start_time} s")
+        self.print(f"Train time : {time.time() - start_time} s")
 
     def save(self, epoch, path="recon", include_optimizer=False):
         # create directory if it does not exist
@@ -698,7 +773,22 @@ class Trainer:
             os.makedirs(path)
         # save mask
         if self.use_mask:
-            torch.save(self.mask._mask, os.path.join(path, f"mask_epoch{epoch}.pt"))
+            # torch.save(self.mask._mask, os.path.join(path, f"mask_epoch{epoch}.pt"))
+
+            # save mask as numpy array
+            if self.mask.train_mask_vals:
+                np.save(
+                    os.path.join(path, f"mask_epoch{epoch}.npy"),
+                    self.mask._mask.cpu().detach().numpy(),
+                )
+
+            if self.mask.color_filter is not None:
+                # save save numpy array
+                np.save(
+                    os.path.join(path, f"mask_color_filter_epoch{epoch}.npy"),
+                    self.mask.color_filter.cpu().detach().numpy(),
+                )
+
             torch.save(
                 self.mask._optimizer.state_dict(), os.path.join(path, f"mask_optim_epoch{epoch}.pt")
             )

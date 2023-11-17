@@ -65,10 +65,10 @@ def benchmark_recon(config):
             celeba_root=config.files.celeba_root,
             psf_path=os.path.join(get_original_cwd(), config.files.psf),
             downsample=config.files.downsample,
-            # vertical_shift=config.files.vertical_shift,
-            # horizontal_shift=config.files.horizontal_shift,
+            vertical_shift=config.files.vertical_shift,
+            horizontal_shift=config.files.horizontal_shift,
             simulation_config=config.simulation,
-            # crop=config.crop,
+            crop=config.files.crop,
         )
         dataset.psf = dataset.psf.to(device)
         psf = dataset.psf

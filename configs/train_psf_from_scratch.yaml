@@ -16,3 +16,7 @@ trainable_mask:
 
 simulation:
   grayscale: False
+
+
+training:
+  crop_preloss: False # crop region for computing loss

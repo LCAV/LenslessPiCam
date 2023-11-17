@@ -60,7 +60,7 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
         # torch resize expects an input of form [color, depth, width, height]
         tmp = np.moveaxis(img, -1, 0)
         tmp = torch.from_numpy(tmp.copy())
-        resized = tf.Resize(size=new_shape)(tmp).numpy()
+        resized = tf.Resize(size=new_shape, antialias=True)(tmp).numpy()
         resized = np.moveaxis(resized, 0, -1)
 
     else:

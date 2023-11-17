@@ -78,10 +78,24 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
             psf, n_iter=n_iter, dtype=dtype, pad=pad, norm=norm, reset=False, **kwargs
         )
 
-        self._mu1_p = torch.nn.Parameter(torch.ones(self._n_iter, device=self._psf.device) * mu1)
-        self._mu2_p = torch.nn.Parameter(torch.ones(self._n_iter, device=self._psf.device) * mu2)
-        self._mu3_p = torch.nn.Parameter(torch.ones(self._n_iter, device=self._psf.device) * mu3)
-        self._tau_p = torch.nn.Parameter(torch.ones(self._n_iter, device=self._psf.device) * tau)
+        if not self.skip_unrolled:
+            self._mu1_p = torch.nn.Parameter(
+                torch.ones(self._n_iter, device=self._psf.device) * mu1
+            )
+            self._mu2_p = torch.nn.Parameter(
+                torch.ones(self._n_iter, device=self._psf.device) * mu2
+            )
+            self._mu3_p = torch.nn.Parameter(
+                torch.ones(self._n_iter, device=self._psf.device) * mu3
+            )
+            self._tau_p = torch.nn.Parameter(
+                torch.ones(self._n_iter, device=self._psf.device) * tau
+            )
+        else:
+            self._mu1_p = torch.ones(self._n_iter, device=self._psf.device) * mu1
+            self._mu2_p = torch.ones(self._n_iter, device=self._psf.device) * mu2
+            self._mu3_p = torch.ones(self._n_iter, device=self._psf.device) * mu3
+            self._tau_p = torch.ones(self._n_iter, device=self._psf.device) * tau
 
         # set prior
         if psi is None:

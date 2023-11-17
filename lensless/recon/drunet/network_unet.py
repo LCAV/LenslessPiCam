@@ -112,6 +112,8 @@ class UNetRes(nn.Module):
     ):
         super(UNetRes, self).__init__()
 
+        assert len(nc) == 4, "nc's length should be 4."
+
         self.m_head = B.conv(in_nc, nc[0], bias=False, mode="C")
 
         # downsample

@@ -121,6 +121,7 @@ def benchmark(
 
         if save_idx is not None:
             batch_idx = np.arange(idx, idx + batchsize)
+
             for i, idx in enumerate(batch_idx):
                 if idx in save_idx:
                     prediction_np = prediction.cpu().numpy()[i].squeeze()

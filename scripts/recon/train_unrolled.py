@@ -44,9 +44,11 @@ from lensless.utils.dataset import (
     SimulatedFarFieldDataset,
     SimulatedDatasetTrainableMask,
     DigiCamCelebA,
+    HITLDatasetTrainableMask,
 )
 from torch.utils.data import Subset
 import lensless.hardware.trainable_mask
+from lensless.hardware.slm import full2subpattern
 from lensless.recon.utils import create_process_network
 from lensless.utils.image import rgb2gray, is_grayscale
 from lensless.utils.simulation import FarFieldSimulator
@@ -63,7 +65,7 @@ import matplotlib.pyplot as plt
 log = logging.getLogger(__name__)
 
 
-def simulate_dataset(config):
+def simulate_dataset(config, generator=None):
 
     if config.torch_device == "cuda" and torch.cuda.is_available():
         device = "cuda"
@@ -87,15 +89,18 @@ def simulate_dataset(config):
     psf = psf.to(device)
 
     # load dataset
+    pre_transform = None
     transforms_list = [transforms.ToTensor()]
     data_path = os.path.join(get_original_cwd(), "data")
     if config.simulation.grayscale:
         transforms_list.append(transforms.Grayscale())
-    transform = transforms.Compose(transforms_list)
+
     if config.files.dataset == "mnist":
+        transform = transforms.Compose(transforms_list)
         train_ds = datasets.MNIST(root=data_path, train=True, download=True, transform=transform)
         test_ds = datasets.MNIST(root=data_path, train=False, download=True, transform=transform)
     elif config.files.dataset == "fashion_mnist":
+        transform = transforms.Compose(transforms_list)
         train_ds = datasets.FashionMNIST(
             root=data_path, train=True, download=True, transform=transform
         )
@@ -103,6 +108,7 @@ def simulate_dataset(config):
             root=data_path, train=False, download=True, transform=transform
         )
     elif config.files.dataset == "cifar10":
+        transform = transforms.Compose(transforms_list)
         train_ds = datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform)
         test_ds = datasets.CIFAR10(root=data_path, train=False, download=True, transform=transform)
     elif config.files.dataset == "CelebA":
@@ -111,8 +117,25 @@ def simulate_dataset(config):
         assert os.path.isdir(
             data_path
         ), f"Data path {data_path} does not exist. Make sure you download the CelebA dataset and provide the parent directory as 'config.files.celeba_root'. Download link: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html"
-        train_ds = datasets.CelebA(root=root, split="train", download=False, transform=transform)
-        test_ds = datasets.CelebA(root=root, split="test", download=False, transform=transform)
+
+        # add rotate by 90 degrees to transform list
+        # pre_transform = transforms.RandomRotation(degrees=(-90, -90))
+        transform = transforms.Compose(transforms_list)
+        if config.files.n_files is None:
+            train_ds = datasets.CelebA(
+                root=root, split="train", download=False, transform=transform
+            )
+            test_ds = datasets.CelebA(root=root, split="test", download=False, transform=transform)
+        else:
+            ds = datasets.CelebA(root=root, split="all", download=False, transform=transform)
+
+            ds = Subset(ds, np.arange(config.files.n_files))
+
+            train_size = int((1 - config.files.test_size) * len(ds))
+            test_size = len(ds) - train_size
+            train_ds, test_ds = torch.utils.data.random_split(
+                ds, [train_size, test_size], generator=generator
+            )
     else:
         raise NotImplementedError(f"Dataset {config.files.dataset} not implemented.")
 
@@ -121,7 +144,9 @@ def simulate_dataset(config):
         psf = rgb2gray(psf)
 
     # prepare mask
-    mask = prep_trainable_mask(config, psf, grayscale=config.simulation.grayscale)
+    # mask = prep_trainable_mask(config, psf, grayscale=config.simulation.grayscale)
+    mask = prep_trainable_mask(config, psf, downsample=config.files.downsample)
+    psf = mask.get_psf().to(device)
 
     # check if gpu is available
     device_conv = config.torch_device
@@ -138,10 +163,7 @@ def simulate_dataset(config):
     )
 
     # create Pytorch dataset and dataloader
-    n_files = config.files.n_files
-    if n_files is not None:
-        train_ds = torch.utils.data.Subset(train_ds, np.arange(n_files))
-        test_ds = torch.utils.data.Subset(test_ds, np.arange(n_files))
+    crop = config.files.crop.copy() if config.files.crop is not None else None
     if mask is None:
         train_ds_prop = SimulatedFarFieldDataset(
             dataset=train_ds,
@@ -149,6 +171,11 @@ def simulate_dataset(config):
             dataset_is_CHW=True,
             device_conv=device_conv,
             flip=config.simulation.flip,
+            vertical_shift=config.files.vertical_shift,
+            horizontal_shift=config.files.horizontal_shift,
+            crop=crop,
+            downsample=config.files.downsample,
+            pre_transform=pre_transform,
         )
         test_ds_prop = SimulatedFarFieldDataset(
             dataset=test_ds,
@@ -156,30 +183,90 @@ def simulate_dataset(config):
             dataset_is_CHW=True,
             device_conv=device_conv,
             flip=config.simulation.flip,
+            vertical_shift=config.files.vertical_shift,
+            horizontal_shift=config.files.horizontal_shift,
+            crop=crop,
+            downsample=config.files.downsample,
+            pre_transform=pre_transform,
         )
     else:
-        train_ds_prop = SimulatedDatasetTrainableMask(
-            dataset=train_ds,
-            mask=mask,
-            simulator=simulator,
-            dataset_is_CHW=True,
-            device_conv=device_conv,
-            flip=config.simulation.flip,
-        )
-        test_ds_prop = SimulatedDatasetTrainableMask(
-            dataset=test_ds,
-            mask=mask,
-            simulator=simulator,
-            dataset_is_CHW=True,
-            device_conv=device_conv,
-            flip=config.simulation.flip,
-        )
+        if config.measure is not None:
+
+            train_ds_prop = HITLDatasetTrainableMask(
+                rpi_username=config.measure.rpi_username,
+                rpi_hostname=config.measure.rpi_hostname,
+                celeba_root=config.files.celeba_root,
+                display_config=config.measure.display,
+                capture_config=config.measure.capture,
+                mask_center=config.trainable_mask.ap_center,
+                dataset=train_ds,
+                mask=mask,
+                simulator=simulator,
+                dataset_is_CHW=True,
+                device_conv=device_conv,
+                flip=config.simulation.flip,
+                vertical_shift=config.files.vertical_shift,
+                horizontal_shift=config.files.horizontal_shift,
+                crop=crop,
+                downsample=config.files.downsample,
+                pre_transform=pre_transform,
+            )
+
+            test_ds_prop = HITLDatasetTrainableMask(
+                rpi_username=config.measure.rpi_username,
+                rpi_hostname=config.measure.rpi_hostname,
+                celeba_root=config.files.celeba_root,
+                display_config=config.measure.display,
+                capture_config=config.measure.capture,
+                mask_center=config.trainable_mask.ap_center,
+                dataset=test_ds,
+                mask=mask,
+                simulator=simulator,
+                dataset_is_CHW=True,
+                device_conv=device_conv,
+                flip=config.simulation.flip,
+                vertical_shift=config.files.vertical_shift,
+                horizontal_shift=config.files.horizontal_shift,
+                crop=crop,
+                downsample=config.files.downsample,
+                pre_transform=pre_transform,
+            )
+
+        else:
+
+            train_ds_prop = SimulatedDatasetTrainableMask(
+                dataset=train_ds,
+                mask=mask,
+                simulator=simulator,
+                dataset_is_CHW=True,
+                device_conv=device_conv,
+                flip=config.simulation.flip,
+                vertical_shift=config.files.vertical_shift,
+                horizontal_shift=config.files.horizontal_shift,
+                crop=crop,
+                downsample=config.files.downsample,
+                pre_transform=pre_transform,
+            )
+            test_ds_prop = SimulatedDatasetTrainableMask(
+                dataset=test_ds,
+                mask=mask,
+                simulator=simulator,
+                dataset_is_CHW=True,
+                device_conv=device_conv,
+                flip=config.simulation.flip,
+                vertical_shift=config.files.vertical_shift,
+                horizontal_shift=config.files.horizontal_shift,
+                crop=crop,
+                downsample=config.files.downsample,
+                pre_transform=pre_transform,
+            )
 
     return train_ds_prop, test_ds_prop, mask
 
 
 def prep_trainable_mask(config, psf, downsample=None):
     mask = None
+    color_filter = None
     if config.trainable_mask.mask_type is not None:
         mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
 
@@ -191,24 +278,28 @@ def prep_trainable_mask(config, psf, downsample=None):
         elif config.trainable_mask.initial_value.endswith("npy"):
             pattern = np.load(os.path.join(get_original_cwd(), config.trainable_mask.initial_value))
 
-            # -- apply aperture
-            ap_center = np.array(config.trainable_mask.ap_center)
-            ap_shape = np.array(config.trainable_mask.ap_shape)
-            # -- extract aperture region
-            idx_1 = ap_center[0] - ap_shape[0] // 2
-            idx_2 = ap_center[1] - ap_shape[1] // 2
-
-            initial_mask = pattern[
-                :,
-                idx_1 : idx_1 + ap_shape[0],
-                idx_2 : idx_2 + ap_shape[1],
-            ]
-            initial_mask = initial_mask / 255.0
-            if config.trainable_mask.slm == "adafruit":
-                # flatten color channel along rows
-                initial_mask = initial_mask.reshape((-1, initial_mask.shape[-1]), order="F")
-
+            initial_mask = full2subpattern(
+                pattern=pattern,
+                shape=config.trainable_mask.ap_shape,
+                center=config.trainable_mask.ap_center,
+                slm=config.trainable_mask.slm,
+            )
             initial_mask = torch.from_numpy(initial_mask.astype(np.float32))
+
+            # prepare color filter if needed
+            from waveprop.devices import slm_dict
+            from waveprop.devices import SLMParam as SLMParam_wp
+
+            slm_param = slm_dict[config.trainable_mask.slm]
+            if (
+                config.trainable_mask.train_color_filter
+                and SLMParam_wp.COLOR_FILTER in slm_param.keys()
+            ):
+                color_filter = slm_param[SLMParam_wp.COLOR_FILTER]
+                color_filter = torch.from_numpy(color_filter.copy()).to(dtype=torch.float32)
+
+                # add small random values
+                color_filter = color_filter + 0.1 * torch.rand_like(color_filter)
         else:
             raise ValueError(
                 f"Initial PSF value {config.trainable_mask.initial_value} not supported"
@@ -218,7 +309,11 @@ def prep_trainable_mask(config, psf, downsample=None):
             initial_mask = rgb2gray(initial_mask)
 
         mask = mask_class(
-            initial_mask, optimizer="Adam", downsample=downsample, **config.trainable_mask
+            initial_mask,
+            optimizer="Adam",
+            downsample=downsample,
+            color_filter=color_filter,
+            **config.trainable_mask,
         )
 
     return mask
@@ -232,6 +327,14 @@ def train_unrolled(config):
     torch.manual_seed(seed)
     np.random.seed(seed)
     generator = torch.Generator().manual_seed(seed)
+
+    if config.start_delay is not None:
+        # wait for this time before starting script
+        delay = config.start_delay * 60
+        start_time = time.time() + delay
+        start_time = time.strftime("%H:%M:%S", time.localtime(start_time))
+        print(f"\nScript will start at {start_time}")
+        time.sleep(delay)
 
     save = config.save
     if save:
@@ -248,6 +351,7 @@ def train_unrolled(config):
     train_set = None
     test_set = None
     psf = None
+    crop = None
     if "DiffuserCam" in config.files.dataset:
 
         original_path = os.path.join(get_original_cwd(), config.files.dataset)
@@ -290,11 +394,12 @@ def train_unrolled(config):
             celeba_root=config.files.celeba_root,
             psf_path=os.path.join(get_original_cwd(), config.files.psf),
             downsample=config.files.downsample,
-            # vertical_shift=config.files.vertical_shift,
-            # horizontal_shift=config.files.horizontal_shift,
+            vertical_shift=config.files.vertical_shift,
+            horizontal_shift=config.files.horizontal_shift,
             simulation_config=config.simulation,
-            crop=config.training.crop,
+            crop=config.files.crop,
         )
+        crop = dataset.crop
         dataset.psf = dataset.psf.to(device)
         log.info(f"Data shape :  {dataset[0][0].shape}")
 
@@ -342,28 +447,38 @@ def train_unrolled(config):
         log.info(f"PSF dtype : {psf.dtype}")
         log.info(f"PSF norm : {psf.norm()}")
 
-        # reconstruct lensless with ADMM
+    else:
+
+        train_set, test_set, mask = simulate_dataset(config, generator=generator)
+        psf = train_set.psf
+        crop = train_set.crop
+
+    assert train_set is not None
+    assert psf is not None
+
+    # reconstruct lensless with ADMM
+    with torch.no_grad():
         if config.test_idx is not None:
 
             log.info("Reconstruction a few images with ADMM...")
 
             for i, _idx in enumerate(config.test_idx):
 
-                lensless, lensed = dataset[_idx]
+                # lensless, lensed = dataset[_idx]
+                lensless, lensed = test_set[_idx]
                 recon = ADMM(psf)
                 recon.set_data(lensless.to(psf.device))
                 res = recon.apply(disp_iter=None, plot=False, n_iter=10)
                 res_np = res[0].cpu().numpy()
                 res_np = res_np / res_np.max()
-                save_image(res_np, f"lensless_recon_{_idx}.png")
+
                 lensed_np = lensed[0].cpu().numpy()
-                save_image(lensed_np, f"lensed_{_idx}.png")
+
                 lensless_np = lensless[0].cpu().numpy()
                 save_image(lensless_np, f"lensless_raw_{_idx}.png")
 
                 # -- plot lensed and res on top of each other
                 if config.training.crop_preloss:
-                    crop = dataset.crop
 
                     res_np = res_np[
                         crop["vertical"][0] : crop["vertical"][1],
@@ -375,18 +490,14 @@ def train_unrolled(config):
                     ]
                     if i == 0:
                         log.info(f"Cropped shape :  {res_np.shape}")
+
+                save_image(res_np, f"lensless_recon_{_idx}.png")
+                save_image(lensed_np, f"lensed_{_idx}.png")
+
                 plt.figure()
                 plt.imshow(lensed_np, alpha=0.4)
                 plt.imshow(res_np, alpha=0.7)
                 plt.savefig(f"overlay_lensed_recon_{_idx}.png")
-
-    else:
-
-        train_set, test_set, mask = simulate_dataset(config)
-        psf = train_set.psf
-
-    assert train_set is not None
-    assert psf is not None
 
     log.info(f"Train test size : {len(train_set)}")
     log.info(f"Test test size : {len(test_set)}")
@@ -400,6 +511,7 @@ def train_unrolled(config):
         nc=config.reconstruction.pre_process.nc,
         device=device,
     )
+    pre_proc_delay = config.reconstruction.pre_process.delay
     # Load post process model
     post_process, post_process_name = create_process_network(
         config.reconstruction.post_process.network,
@@ -407,6 +519,15 @@ def train_unrolled(config):
         nc=config.reconstruction.post_process.nc,
         device=device,
     )
+    post_proc_delay = config.reconstruction.post_process.delay
+
+    if config.reconstruction.post_process.train_last_layer:
+        for name, param in post_process.named_parameters():
+            if "m_tail" in name:
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
+            # print(name, param.requires_grad, param.numel())
 
     # create reconstruction algorithm
     if config.reconstruction.method == "unrolled_fista":
@@ -416,8 +537,9 @@ def train_unrolled(config):
             tk=config.reconstruction.unrolled_fista.tk,
             pad=True,
             learn_tk=config.reconstruction.unrolled_fista.learn_tk,
-            pre_process=pre_process,
-            post_process=post_process,
+            pre_process=pre_process if pre_proc_delay is None else None,
+            post_process=post_process if post_proc_delay is None else None,
+            skip_unrolled=config.reconstruction.skip_unrolled,
         ).to(device)
     elif config.reconstruction.method == "unrolled_admm":
         recon = UnrolledADMM(
@@ -427,8 +549,9 @@ def train_unrolled(config):
             mu2=config.reconstruction.unrolled_admm.mu2,
             mu3=config.reconstruction.unrolled_admm.mu3,
             tau=config.reconstruction.unrolled_admm.tau,
-            pre_process=pre_process,
-            post_process=post_process,
+            pre_process=pre_process if pre_proc_delay is None else None,
+            post_process=post_process if post_proc_delay is None else None,
+            skip_unrolled=config.reconstruction.skip_unrolled,
         ).to(device)
     else:
         raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
@@ -440,10 +563,10 @@ def train_unrolled(config):
     if config.reconstruction.post_process.network is not None:
         algorithm_name += "_" + post_process_name
 
-    # print number of parameters
-    n_param = sum(p.numel() for p in recon.parameters())
+    # print number of trainable parameters
+    n_param = sum(p.numel() for p in recon.parameters() if p.requires_grad)
     if mask is not None:
-        n_param += sum(p.numel() for p in mask.parameters())
+        n_param += sum(p.numel() for p in mask.parameters() if p.requires_grad)
     log.info(f"Training model with {n_param} parameters")
 
     log.info(f"Setup time : {time.time() - start_time} s")
@@ -466,7 +589,16 @@ def train_unrolled(config):
         save_every=config.training.save_every,
         gamma=config.display.gamma,
         logger=log,
-        crop=dataset.crop if config.training.crop_preloss else None,
+        crop=crop if config.training.crop_preloss else None,
+        pre_process=pre_process,
+        pre_process_delay=pre_proc_delay,
+        pre_process_freeze=config.reconstruction.pre_process.freeze,
+        pre_process_unfreeze=config.reconstruction.pre_process.unfreeze,
+        post_process=post_process,
+        post_process_delay=post_proc_delay,
+        post_process_freeze=config.reconstruction.post_process.freeze,
+        post_process_unfreeze=config.reconstruction.post_process.unfreeze,
+        clip_grad=config.training.clip_grad,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)
