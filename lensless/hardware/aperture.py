@@ -183,6 +183,7 @@ def rect_aperture(slm_shape, pixel_pitch, apert_dim, center=None):
     apert_dim = np.array(apert_dim)
     top_left = center - apert_dim / 2
     bottom_right = top_left + apert_dim
+
     if (
         top_left[0] < 0
         or top_left[1] < 0
@@ -329,7 +330,7 @@ def _m_to_cell_idx(val, cell_m):
     :return: The cell index.
     :rtype: int
     """
-    return int(val / cell_m)
+    return int(np.round(val / cell_m))
 
 
 def prepare_index_vals(key, pixel_pitch):
