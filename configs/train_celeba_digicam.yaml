@@ -5,9 +5,34 @@ defaults:
 
 # Train Dataset
 files:
-  dataset: /scratch/bezzam/celeba_adafruit_random_2mm_20230720_10K
+  # dataset: /scratch/bezzam/celeba_adafruit_random_2mm_20230720_10K
+  # psf: data/psf/adafruit_random_2mm_20231907.png
+  # vertical_shift: null
+  # horizontal_shift: null
+  # crop: null
+
+  downsample: 2
+  dataset: /scratch/bezzam/celeba/celeba_adafruit_random_30cm_2mm_20231004_26K
+  psf: rpi_hq_adafruit_psf_2mm/raw_data_rgb.png
+  
+  # ? - 25999
+  # vertical_shift: -95
+  # horizontal_shift: -30
+  # crop:
+  #   vertical: [22, 547]
+  #   horizontal: [260, 690]
+
+  # 0-3000?
+  vertical_shift: -117
+  horizontal_shift: -25
+  crop:
+    vertical: [0, 525]
+    horizontal: [265, 695]
+
   celeba_root: /scratch/bezzam
-  psf: data/psf/adafruit_random_2mm_20231907.png
+
+test_idx: [0, 1, 2, 3, 4]
+# test_idx: [1000, 2000, 3000, 4000]
 
 # for prepping ground truth data
 simulation:
@@ -15,6 +40,11 @@ simulation:
   mask2sensor: 0.002   # [m]
   object_height: 0.33   # [m]
   sensor: "rpi_hq"
+  snr_db: null
+  downsample: null
+  random_vflip: False
+  random_hflip: False
+  quantize: False
 
 
 reconstruction:
@@ -33,15 +63,10 @@ reconstruction:
     nc : [32, 64, 128, 256]
 
 
-# see some outputs of classical ADMM before training
-test_idx: [0, 1, 2, 3, 4]
-
 #Training
 training:
   batch_size: 2
-  epoch: 50
-  eval_batch_size: 15
-
-  # crop: null
+  epoch: 25
+  eval_batch_size: 16
   crop_preloss: True
 

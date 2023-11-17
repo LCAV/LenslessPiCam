@@ -5,15 +5,34 @@ defaults:
 
 # Train Dataset
 files:
-  dataset: /scratch/bezzam/celeba_adafruit_random_2mm_20230720_10K
+  # dataset: /scratch/bezzam/celeba_adafruit_random_2mm_20230720_10K
+  # psf: data/psf/adafruit_random_2mm_20231907.png
+  # vertical_shift: null
+  # horizontal_shift: null
+  # crop: null
+
+  downsample: 2
+  dataset: /scratch/bezzam/celeba/celeba_adafruit_random_30cm_2mm_20231004_26K
+  psf: rpi_hq_adafruit_psf_2mm/raw_data_rgb.png
+  vertical_shift: -117
+  horizontal_shift: -25
+  crop:
+    vertical: [0, 525]
+    horizontal: [265, 695]
+
   celeba_root: /scratch/bezzam
-  psf: data/psf/adafruit_random_2mm_20231907.png
+  
 
 # for prepping ground truth data
 simulation:
   scene2mask: 0.25   # [m]
   mask2sensor: 0.002   # [m]
   object_height: 0.33   # [m]
+  snr_db: null
+  downsample: null
+  random_vflip: False
+  random_hflip: False
+  quantize: False
 
 
 reconstruction:
@@ -32,32 +51,46 @@ reconstruction:
 #Training
 training:
   batch_size: 2
-  epoch: 50
+  epoch: 25
   eval_batch_size: 15
-
-  # crop: null
   crop_preloss: True
+
+  save_every: 5
 
 #Trainable Mask
 trainable_mask:
   mask_type: AdafruitLCD #Null or "TrainablePSF" or "AdafruitLCD"
-  # "random" (with shape of config.files.psf) or path to npy file
-  initial_value: data/psf/adafruit_random_pattern_20230719.npy
+  # "random" (with shape of config.files.psf) or path to npy file 
   grayscale: False
   mask_lr: 1e-3
   L1_strength: False
 
-  # only for AdafruitLCD
-  ap_center: [59, 76]
-  ap_shape: [19, 26]
-  rotate: -0.8   # rotation in degrees
+  # for fine-tuning mask values
+  train_mask_vals: True
+  train_color_filter: True
+
+  # -- only for AdafruitLCD
+  # initial_value: data/psf/adafruit_random_pattern_20230719.npy
+  # ap_center: [59, 76]
+  # ap_shape: [19, 26]
+  # rotate: -0.8   # rotation in degrees
+  # vertical_shift: -20 # [px]
+  # horizontal_shift: -100  # [px]
+
+
+  initial_value: adafruit_random_pattern_20231004_174047.npy  
+  ap_center: [58, 76]
+  ap_shape: [19, 25]
+  rotate: 0   # rotation in degrees
+  # to align with measured PSF (so reconstruction also aligned)
+  vertical_shift: -80 # [px]
+  horizontal_shift: -60  # [px]
+  
   slm: adafruit
   sensor: rpi_hq
   flipud: True
-  waveprop: True
-  # to align with measured PSF (so reconstruction also aligned)
-  vertical_shift: -20 # [px]
-  horizontal_shift: -100  # [px]
+  waveprop: False
+  
   # below are ignored if waveprop=False
   scene2mask: 0.3   # [m]
   mask2sensor: 0.002   # [m]
