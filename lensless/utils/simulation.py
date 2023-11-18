@@ -58,15 +58,16 @@ class FarFieldSimulator(FarFieldSimulator_wp):
             Whether to quantize image, by default True.
         """
 
-        assert len(psf.shape) == 4, "PSF must be of shape (depth, height, width, channels)"
+        if psf is not None:
+            assert len(psf.shape) == 4, "PSF must be of shape (depth, height, width, channels)"
 
-        if torch.is_tensor(psf):
-            # drop depth dimension, and convert HWC to CHW
-            psf = psf[0].movedim(-1, 0)
-            assert psf.shape[0] == 1 or psf.shape[0] == 3, "PSF must have 1 or 3 channels"
-        else:
-            psf = psf[0]
-            assert psf.shape[-1] == 1 or psf.shape[-1] == 3, "PSF must have 1 or 3 channels"
+            if torch.is_tensor(psf):
+                # drop depth dimension, and convert HWC to CHW
+                psf = psf[0].movedim(-1, 0)
+                assert psf.shape[0] == 1 or psf.shape[0] == 3, "PSF must have 1 or 3 channels"
+            else:
+                psf = psf[0]
+                assert psf.shape[-1] == 1 or psf.shape[-1] == 3, "PSF must have 1 or 3 channels"
 
         super().__init__(
             object_height,
@@ -84,12 +85,15 @@ class FarFieldSimulator(FarFieldSimulator_wp):
             **kwargs
         )
 
-        if self.is_torch:
-            assert self.psf.shape[0] == 1 or self.psf.shape[0] == 3, "PSF must have 1 or 3 channels"
-        else:
-            assert (
-                self.psf.shape[-1] == 1 or self.psf.shape[-1] == 3
-            ), "PSF must have 1 or 3 channels"
+        if psf is not None:
+            if self.is_torch:
+                assert (
+                    self.psf.shape[0] == 1 or self.psf.shape[0] == 3
+                ), "PSF must have 1 or 3 channels"
+            else:
+                assert (
+                    self.psf.shape[-1] == 1 or self.psf.shape[-1] == 3
+                ), "PSF must have 1 or 3 channels"
 
         # save all the parameters in a dict
         self.params = {

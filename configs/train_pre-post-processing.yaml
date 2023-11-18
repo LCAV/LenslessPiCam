@@ -18,6 +18,9 @@ reconstruction:
 
 training:
   epoch: 50
+  crop_preloss: False
+
+optimizer:
   slow_start: 0.01
 
 loss: l2

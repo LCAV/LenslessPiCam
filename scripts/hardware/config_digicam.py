@@ -60,6 +60,25 @@ def config_digicam(config):
     else:
         raise ValueError(f"Pattern {config.pattern} not supported")
 
+    # apply aperture
+    if config.aperture is not None:
+
+        # aperture = np.zeros(shape, dtype=np.uint8)
+        # top_left = np.array(config.aperture.center) - np.array(config.aperture.shape) // 2
+        # bottom_right = top_left + np.array(config.aperture.shape)
+        # aperture[:, top_left[0] : bottom_right[0], top_left[1] : bottom_right[1]] = 1
+
+        apert_dim = np.array(config.aperture.shape) * np.array(pixel_pitch)
+        ap = rect_aperture(
+            apert_dim=apert_dim,
+            slm_shape=slm_devices[device][SLMParam.SLM_SHAPE],
+            pixel_pitch=pixel_pitch,
+            center=np.array(config.aperture.center) * pixel_pitch,
+        )
+        aperture = ap.values
+        aperture[aperture > 0] = 1
+        pattern = pattern * aperture
+
     # save pattern
     if not config.pattern.endswith(".npy") and config.save:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -71,15 +90,6 @@ def config_digicam(config):
     print("Pattern dtype : ", pattern.dtype)
     print("Pattern min   : ", pattern.min())
     print("Pattern max   : ", pattern.max())
-
-    # apply aperture
-    if config.aperture is not None:
-
-        aperture = np.zeros(shape, dtype=np.uint8)
-        top_left = np.array(config.aperture.center) - np.array(config.aperture.shape) // 2
-        bottom_right = top_left + np.array(config.aperture.shape)
-        aperture[:, top_left[0] : bottom_right[0], top_left[1] : bottom_right[1]] = 1
-        pattern = pattern * aperture
 
     assert pattern is not None
 

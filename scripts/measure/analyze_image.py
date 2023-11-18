@@ -114,11 +114,11 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
     assert fp is not None, "Must pass file path."
 
     # initialize plotting axis
-    _, ax_rgb = plt.subplots(ncols=2, nrows=1, num="RGB", figsize=(15, 5))
+    fig_rgb, ax_rgb = plt.subplots(ncols=2, nrows=1, num="RGB", figsize=(15, 5))
     if lens:
-        _, ax_gray = plt.subplots(ncols=3, nrows=1, num="Grayscale", figsize=(15, 5))
+        fig_gray, ax_gray = plt.subplots(ncols=3, nrows=1, num="Grayscale", figsize=(15, 5))
     else:
-        _, ax_gray = plt.subplots(ncols=2, nrows=1, num="Grayscale", figsize=(15, 5))
+        fig_gray, ax_gray = plt.subplots(ncols=2, nrows=1, num="Grayscale", figsize=(15, 5))
 
     # load PSF/image
     img = load_image(
@@ -136,16 +136,16 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
     # plot RGB and grayscale
     ax = plot_image(img, gamma=gamma, normalize=True, ax=ax_rgb[0])
     ax.set_title("RGB")
+    ax = pixel_histogram(img, ax=ax_rgb[1], nbits=nbits)
+    ax.set_title("Histogram")
+    fig_rgb.savefig("rgb_analysis.png")
 
     img_grey = rgb2gray(img[None, ...])
     ax = plot_image(img_grey, gamma=gamma, normalize=True, ax=ax_gray[0])
     ax.set_title("Grayscale")
-
-    # plot histogram,
-    ax = pixel_histogram(img, ax=ax_rgb[1], nbits=nbits)
-    ax.set_title("Histogram")
     ax = pixel_histogram(img_grey, ax=ax_gray[1], nbits=nbits)
     ax.set_title("Histogram")
+    fig_gray.savefig("grey_analysis.png")
 
     if lens:
         # determine PSF width

@@ -83,13 +83,36 @@ def load_image(
         RGB image of dimension (height, width, 3).
     """
     assert os.path.isfile(fp)
+
+    nbits = None  # input bit depth
     if "dng" in fp:
         import rawpy
 
         assert bayer
         raw = rawpy.imread(fp)
         img = raw.raw_image
-        # TODO : use raw.postprocess?
+        # # # TODO : use raw.postprocess? to much unknown processing...
+        # img = raw.postprocess(
+        #     adjust_maximum_thr=0,  # default 0.75
+        #     no_auto_scale=False,
+        #     # no_auto_scale=True,
+        #     gamma=(1, 1),
+        #     bright=1,  # default 1
+        #     exp_shift=1,
+        #     no_auto_bright=True,
+        #     # use_camera_wb=True,
+        #     # use_auto_wb=False,
+        #     # -- gives better balance for PSF measurement
+        #     use_camera_wb=False,
+        #     use_auto_wb=True,  # default is False? f both use_camera_wb and use_auto_wb are True, then use_auto_wb has priority.
+        # )
+
+        # if red_gain is None or blue_gain is None:
+        #     camera_wb = raw.camera_whitebalance
+        #     red_gain = camera_wb[0]
+        #     blue_gain = camera_wb[1]
+
+        nbits = int(np.ceil(np.log2(raw.white_level)))
         ccm = raw.color_matrix[:, :3]
         black_level = np.array(raw.black_level_per_channel[:3]).astype(np.float32)
     elif "npy" in fp or "npz" in fp:
@@ -99,11 +122,12 @@ def load_image(
 
     if bayer:
         assert len(img.shape) == 2, img.shape
-        if img.max() > 255:
-            # HQ camera
-            n_bits = 12
-        else:
-            n_bits = 8
+        if nbits is None:
+            if img.max() > 255:
+                # HQ camera
+                nbits = 12
+            else:
+                nbits = 8
 
         if back:
             back_img = cv2.imread(back, cv2.IMREAD_UNCHANGED)
@@ -112,10 +136,11 @@ def load_image(
             img = np.clip(img, a_min=0, a_max=img.max())
             img = img.astype(dtype)
         if nbits_out is None:
-            nbits_out = n_bits
+            nbits_out = nbits
+
         img = bayer2rgb_cc(
             img,
-            nbits=n_bits,
+            nbits=nbits,
             blue_gain=blue_gain,
             red_gain=red_gain,
             black_level=black_level,
@@ -504,17 +529,19 @@ def load_data(
 def save_image(img, fp, max_val=255):
     """Save as uint8 image."""
 
-    if img.dtype == np.uint16:
-        img = img.astype(np.float32)
+    img_tmp = img.copy()
 
-    if img.dtype == np.float64 or img.dtype == np.float32:
-        img -= img.min()
-        img /= img.max()
-        img *= max_val
-        img = img.astype(np.uint8)
+    if img_tmp.dtype == np.uint16:
+        img_tmp = img_tmp.astype(np.float32)
 
-    img = Image.fromarray(img)
-    img.save(fp)
+    if img_tmp.dtype == np.float64 or img_tmp.dtype == np.float32:
+        img_tmp -= img_tmp.min()
+        img_tmp /= img_tmp.max()
+        img_tmp *= max_val
+        img_tmp = img_tmp.astype(np.uint8)
+
+    img_tmp = Image.fromarray(img_tmp)
+    img_tmp.save(fp)
 
 
 def get_dtype(dtype=None, is_torch=False):

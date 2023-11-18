@@ -16,6 +16,13 @@ Added
 - Trainable reconstruction can return intermediate outputs (between pre- and post-processing).
 - Auto-download for DRUNet model.
 - ``utils.dataset.DiffuserCamMirflickr`` helper class for Mirflickr dataset.
+- Option to crop section of image for computing loss when training unrolled.
+- Option to learn color filter of RGB mask.
+- Trainable mask for Adafruit LCD.
+- Utility for capture image.
+- Option to freeze/unfreeze/add pre- and post-processor components during training.
+- Option to skip unrolled training and just use U-Net.
+- Dataset objects for Adafruit LCD: measured CelebA and hardware-in-the-loop.
 
 Changed
 ~~~~~~~
@@ -29,6 +36,7 @@ Bugfix
 - Support for unrolled reconstruction with grayscale, needed to copy to three channels for LPIPS.
 - Fix bad train/test split for DiffuserCamMirflickr in unrolled training.
 - Resize utility.
+- Aperture, index to dimension conversion.
 
 
 1.0.5 - (2023-09-05)

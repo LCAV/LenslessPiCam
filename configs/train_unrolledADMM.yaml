@@ -3,22 +3,37 @@ hydra:
   job:
     chdir: True    # change to output folder
 
+
+seed: 0
+start_delay: null
+
 # Dataset
 files:
-  dataset: data/DiffuserCam   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  dataset: /scratch/bezzam/DiffuserCam_mirflickr/dataset  # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
   celeba_root: null   # path to parent directory of CelebA: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
-  psf: data/psf.tiff
+  psf: data/psf/diffusercam_psf.tiff
   diffusercam_psf: True
   n_files: null    # null to use all for both train/test
   downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
+  test_size: 0.15
+
+  vertical_shift: null
+  horizontal_shift: null
+  crop: null
+    # vertical: null
+    # horizontal: null
 
 torch: True
 torch_device: 'cuda'
+measure: null       # if measuring data on-the-fly
+
+# see some outputs of classical ADMM before training
+test_idx: [0, 1, 2, 3, 4]
+
+# test set example to visualize at the end of every epoch
+eval_disp_idx: [0, 1, 2, 3, 4]
 
 display:
-  # How many iterations to wait for intermediate plot. 
-  # Set to negative value for no intermediate plots.
-  disp: 500
   # Whether to plot results.
   plot: True
   # Gamma factor for plotting.
@@ -30,6 +45,7 @@ save: True
 reconstruction:
   # Method: unrolled_admm, unrolled_fista
   method: unrolled_admm
+  skip_unrolled: False
 
   # Hyperparameters for each method
   unrolled_fista: # for unrolled_fista
@@ -48,13 +64,22 @@ reconstruction:
   pre_process: 
     network : null  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
+    nc: null
+    delay: null    # add component after this may epochs
+    freeze: null
+    unfreeze: null
   post_process: 
     network : null  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
+    nc: null
+    delay: null    # add component after this may epochs
+    freeze: null
+    unfreeze: null
+    train_last_layer: False
 
 #Trainable Mask
 trainable_mask:
-  mask_type: Null #Null or "TrainablePSF"
+  mask_type: null #Null or "TrainablePSF" or "AdafruitLCD"
   # "random" (with shape of config.files.psf) or "psf" (using config.files.psf)
   initial_value: psf
   grayscale: False
@@ -66,6 +91,7 @@ target: "object_plane"    # "original" or "object_plane" or "label"
 #for simulated dataset
 simulation:
   grayscale: False
+  output_dim: null     # should be set if no PSF is used    
   # random variations
   object_height: 0.04   # range for random height or scalar
   flip: True # change the orientation of the object (from vertical to horizontal)
@@ -93,16 +119,23 @@ simulation:
 training:
   batch_size: 8
   epoch: 50
+  eval_batch_size: 10
   metric_for_best_model: null   # e.g. LPIPS_Vgg, null does test loss
   save_every: null
   #In case of instable training
   skip_NAN: True
-  slow_start: False  #float how much to reduce lr for first epoch
+  clip_grad: 1.0
 
+  crop_preloss: True # crop region for computing loss
 
 optimizer:
   type: Adam
   lr: 1e-4
+  slow_start: False  #float how much to reduce lr for first epoch
+  # Decay LR in step fashion: https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html
+  step: False     # int, period of learning rate decay. False to not apply
+  gamma: 0.1      # float, factor for learning rate decay 
+  
   
 loss: 'l2'
 # set lpips to false to deactivate. Otherwise, give the weigth for the loss (the main loss l2/l1 always having a weigth of 1)

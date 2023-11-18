@@ -8,7 +8,10 @@
 
 
 from lensless.utils.dataset import DiffuserCamTestDataset
+from lensless.utils.io import save_image
 from tqdm import tqdm
+import os
+import numpy as np
 
 try:
     import torch
@@ -22,7 +25,16 @@ except ImportError:
     )
 
 
-def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
+def benchmark(
+    model,
+    dataset,
+    batchsize=1,
+    metrics=None,
+    crop=None,
+    save_idx=None,
+    output_dir=None,
+    **kwargs,
+):
     """
     Compute multiple metrics for a reconstruction algorithm.
 
@@ -36,6 +48,12 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
         Batch size for processing. For maximum compatibility use 1 (batchsize above 1 are not supported on all algorithm), by default 1
     metrics : dict, optional
         Dictionary of metrics to compute. If None, MSE, MAE, SSIM, LPIPS and PSNR are computed.
+    save_idx : list of int, optional
+        List of indices to save the predictions, by default None (not to save any).
+    output_dir : str, optional
+        Directory to save the predictions, by default save in working directory if save_idx is provided.
+    crop : dict, optional
+        Dictionary of crop parameters (vertical: [start, end], horizontal: [start, end]), by default None (no crop).
 
     Returns
     -------
@@ -44,6 +62,13 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
     """
     assert isinstance(model._psf, torch.Tensor), "model need to be constructed with torch support"
     device = model._psf.device
+
+    if output_dir is None:
+        output_dir = os.getcwd()
+    else:
+        output_dir = str(output_dir)
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
 
     if metrics is None:
         metrics = {
@@ -64,6 +89,7 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
     # loop over batches
     dataloader = DataLoader(dataset, batch_size=batchsize, pin_memory=(device != "cpu"))
     model.reset()
+    idx = 0
     for lensless, lensed in tqdm(dataloader):
         lensless = lensless.to(device)
         lensed = lensed.to(device)
@@ -80,6 +106,29 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
         # Convert to [N*D, C, H, W] for torchmetrics
         prediction = prediction.reshape(-1, *prediction.shape[-3:]).movedim(-1, -3)
         lensed = lensed.reshape(-1, *lensed.shape[-3:]).movedim(-1, -3)
+
+        if crop is not None:
+            prediction = prediction[
+                ...,
+                crop["vertical"][0] : crop["vertical"][1],
+                crop["horizontal"][0] : crop["horizontal"][1],
+            ]
+            lensed = lensed[
+                ...,
+                crop["vertical"][0] : crop["vertical"][1],
+                crop["horizontal"][0] : crop["horizontal"][1],
+            ]
+
+        if save_idx is not None:
+            batch_idx = np.arange(idx, idx + batchsize)
+
+            for i, idx in enumerate(batch_idx):
+                if idx in save_idx:
+                    prediction_np = prediction.cpu().numpy()[i].squeeze()
+                    # switch to [H, W, C]
+                    prediction_np = np.moveaxis(prediction_np, 0, -1)
+                    save_image(prediction_np, fp=os.path.join(output_dir, f"{idx}.png"))
+
         # normalization
         prediction_max = torch.amax(prediction, dim=(-1, -2, -3), keepdim=True)
         if torch.all(prediction_max != 0):
@@ -109,6 +158,7 @@ def benchmark(model, dataset, batchsize=1, metrics=None, **kwargs):
                     metrics_values[metric] += metrics[metric](prediction, lensed).cpu().item()
 
         model.reset()
+        idx += batchsize
 
     # average metrics
     for metric in metrics:

@@ -88,7 +88,7 @@ sensor_dict = {
         SensorParam.RESOLUTION: np.array([1088, 1456]),
         SensorParam.DIAGONAL: 6.3e-3,
         SensorParam.COLOR: True,
-        SensorParam.BIT_DEPTH: [8, 12],
+        SensorParam.BIT_DEPTH: [8, 10],
         SensorParam.MAX_EXPOSURE: 15534385e-6,
         SensorParam.MIN_EXPOSURE: 29e-6,
     },
