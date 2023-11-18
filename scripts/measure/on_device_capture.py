@@ -73,6 +73,10 @@ def capture(config):
     res = config.res
     nbits_out = config.nbits_out
 
+    assert (
+        nbits_out in sensor_dict[sensor][SensorParam.BIT_DEPTH]
+    ), f"nbits_out must be one of {sensor_dict[sensor][SensorParam.BIT_DEPTH]} for sensor {sensor}"
+
     # https://www.raspberrypi.com/documentation/accessories/camera.html#hardware-specification
     sensor_param = sensor_dict[sensor]
     assert exp <= sensor_param[SensorParam.MAX_EXPOSURE]
@@ -96,6 +100,7 @@ def capture(config):
 
             assert down is None
 
+            # https://www.raspberrypi.com/documentation/computers/camera_software.html#raw-image-capture
             jpg_fn = fn + ".jpg"
             fn += ".dng"
             pic_command = [
@@ -107,6 +112,10 @@ def capture(config):
                 f"{int(exp * 1e6)}",
                 "-o",
                 f"{jpg_fn}",
+                # long exposure: https://www.raspberrypi.com/documentation/computers/camera_software.html#very-long-exposures
+                # -- setting awbgains caused issues
+                # "--awbgains 1,1",
+                # "--immediate"
             ]
 
             cmd = subprocess.Popen(

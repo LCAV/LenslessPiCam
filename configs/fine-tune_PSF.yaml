@@ -5,14 +5,32 @@ defaults:
 
 #Trainable Mask
 trainable_mask:
-  mask_type: TrainablePSF #Null or "TrainablePSF"
+  mask_type: TrainablePSF
   initial_value: psf
   mask_lr: 1e-3
   L1_strength: 1.0  #False or float
 
 #Training
 training:
-  save_every: 5
+  save_every: 10
+  epoch: 50
+  crop_preloss: False
 
 display:
   gamma: 2.2
+
+reconstruction:
+  method: unrolled_admm
+
+  pre_process:
+    network: UnetRes
+    depth: 2
+  post_process:
+    network: DruNet
+    depth: 4
+
+optimizer:
+  slow_start: 0.01
+
+loss: l2
+lpips: 1.0

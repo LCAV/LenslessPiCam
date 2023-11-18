@@ -1,3 +1,7 @@
+# -- setting mask-to-sensor distance and mask pattern
+# python scripts/hardware/config_digicam.py
+# -- just setting mask-to-sensor distance
+# python scripts/hardware/set_digicam_mask_distance.py 
 rpi:
   username: null
   hostname: null
@@ -17,7 +21,10 @@ center: [0, 0]
 
 
 aperture:
-  center: [59,76]
-  shape: [19,26]
+  center: null
+  shape: null
+# aperture:
+#   center: [59,76]
+#   shape: [19,26]
 
-z: 4   # mask to sensor distance
+z: 4   # mask to sensor distance (mm)

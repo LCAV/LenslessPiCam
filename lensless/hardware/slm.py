@@ -9,12 +9,12 @@
 import os
 import numpy as np
 from lensless.hardware.utils import check_username_hostname
-from lensless.utils.io import get_dtype, get_ctypes
+from lensless.utils.io import get_ctypes
 from slm_controller.hardware import SLMParam, slm_devices
 from waveprop.spherical import spherical_prop
 from waveprop.color import ColorSystem
 from waveprop.rs import angular_spectrum
-from waveprop.slm import get_centers, get_color_filter
+from waveprop.slm import get_centers
 from waveprop.devices import SLMParam as SLMParam_wp
 from scipy.ndimage import rotate as rotate_func
 
@@ -35,7 +35,7 @@ SUPPORTED_DEVICE = {
 }
 
 
-def set_programmable_mask(pattern, device, rpi_username, rpi_hostname):
+def set_programmable_mask(pattern, device, rpi_username, rpi_hostname, verbose=False):
     """
     Set LCD pattern on Raspberry Pi.
 
@@ -79,9 +79,12 @@ def set_programmable_mask(pattern, device, rpi_username, rpi_hostname):
 
     # copy pattern to Raspberry Pi
     remote_path = f"~/{pattern_fn}"
-    print(f"PUTTING {local_path} to {remote_path}")
+    if verbose:
+        print(f"PUTTING {local_path} to {remote_path}")
 
-    os.system('scp %s "%s@%s:%s" ' % (local_path, rpi_username, rpi_hostname, remote_path))
+    os.system(
+        'scp %s "%s@%s:%s" >/dev/null 2>&1' % (local_path, rpi_username, rpi_hostname, remote_path)
+    )
     # # -- not sure why this doesn't work... permission denied
     # sftp = client.open_sftp()
     # sftp.put(local_path, remote_path, confirm=True)
@@ -89,9 +92,11 @@ def set_programmable_mask(pattern, device, rpi_username, rpi_hostname):
 
     # run script on Raspberry Pi to set mask pattern
     command = f"{rpi_python} {script} --file_path {remote_path}"
-    print(f"COMMAND : {command}")
+    if verbose:
+        print(f"COMMAND : {command}")
     _stdin, _stdout, _stderr = client.exec_command(command)
-    print(_stdout.read().decode())
+    if verbose:
+        print(_stdout.read().decode())
     client.close()
 
     os.remove(local_path)
@@ -104,6 +109,7 @@ def get_programmable_mask(
     rotate=None,
     flipud=False,
     nbits=8,
+    color_filter=None,
 ):
     """
     Get mask as a numpy or torch array. Return same type.
@@ -136,22 +142,21 @@ def get_programmable_mask(
     pixel_pitch = slm_param[SLMParam_wp.PITCH]
     centers = get_centers(n_active_slm_pixels, pixel_pitch=pixel_pitch)
 
-    if SLMParam_wp.COLOR_FILTER in slm_param.keys():
+    if color_filter is None and SLMParam_wp.COLOR_FILTER in slm_param.keys():
         color_filter = slm_param[SLMParam_wp.COLOR_FILTER]
-        if flipud:
-            color_filter = np.flipud(color_filter)
+        if isinstance(vals, torch.Tensor):
+            color_filter = torch.tensor(color_filter).to(vals)
 
-        cf = get_color_filter(
-            slm_dim=n_active_slm_pixels,
-            color_filter=color_filter,
-            shift=0,
-            flat=True,
-        )
+    if color_filter is not None:
 
-    else:
-
-        # monochrome
-        cf = None
+        if isinstance(color_filter, np.ndarray):
+            if flipud:
+                color_filter = np.flipud(color_filter)
+        elif isinstance(color_filter, torch.Tensor):
+            if flipud:
+                color_filter = torch.flip(color_filter, dims=(0,))
+        else:
+            raise ValueError("color_filter must be numpy array or torch tensor")
 
     d1 = sensor.pitch
     _height_pixel, _width_pixel = (slm_param[SLMParam_wp.CELL_SIZE] / d1).astype(int)
@@ -171,29 +176,26 @@ def get_programmable_mask(
             _center_pixel[1] + 1 - np.floor(_width_pixel / 2).astype(int),
         )
 
-        if cf is not None:
-            _rect = np.tile(cf[i][:, np.newaxis, np.newaxis], (1, _height_pixel, _width_pixel))
-        else:
-            _rect = np.ones((1, _height_pixel, _width_pixel))
+        color_filter_idx = i // n_active_slm_pixels[1] % n_color_filter
 
-        if use_torch:
-            _rect = torch.tensor(_rect).to(slm_vals_flat)
-
+        mask_val = slm_vals_flat[i] * color_filter[color_filter_idx][0]
+        if isinstance(mask_val, np.ndarray):
+            mask_val = mask_val[:, np.newaxis, np.newaxis]
+        elif isinstance(mask_val, torch.Tensor):
+            mask_val = mask_val.unsqueeze(-1).unsqueeze(-1)
         mask[
             :,
             _center_top_left_pixel[0] : _center_top_left_pixel[0] + _height_pixel,
             _center_top_left_pixel[1] : _center_top_left_pixel[1] + _width_pixel,
-        ] = (
-            slm_vals_flat[i] * _rect
-        )
+        ] = mask_val
 
-    # quantize mask
-    if use_torch:
-        mask = mask / torch.max(mask)
-        mask = torch.round(mask * (2**nbits - 1)) / (2**nbits - 1)
-    else:
-        mask = mask / np.max(mask)
-        mask = np.round(mask * (2**nbits - 1)) / (2**nbits - 1)
+    # # quantize mask
+    # if use_torch:
+    #     mask = mask / torch.max(mask)
+    #     mask = torch.round(mask * (2**nbits - 1)) / (2**nbits - 1)
+    # else:
+    #     mask = mask / np.max(mask)
+    #     mask = np.round(mask * (2**nbits - 1)) / (2**nbits - 1)
 
     # rotate
     if rotate is not None:
@@ -203,6 +205,46 @@ def get_programmable_mask(
             mask = rotate_func(mask, axes=(2, 1), angle=rotate, reshape=False)
 
     return mask
+
+
+def adafruit_sub2full(
+    subpattern,
+    center,
+):
+    sub_shape = subpattern.shape
+    controllable_shape = (3, sub_shape[0] // 3, sub_shape[1])
+    subpattern_rgb = subpattern.reshape(controllable_shape, order="F")
+    subpattern_rgb *= 255
+
+    # pad to full pattern
+    pattern = np.zeros((3, 128, 160), dtype=np.uint8)
+    topleft = [center[0] - controllable_shape[1] // 2, center[1] - controllable_shape[2] // 2]
+    pattern[
+        :,
+        topleft[0] : topleft[0] + controllable_shape[1],
+        topleft[1] : topleft[1] + controllable_shape[2],
+    ] = subpattern_rgb.astype(np.uint8)
+    return pattern
+
+
+def full2subpattern(
+    pattern,
+    shape,
+    center,
+    slm=None,
+):
+    shape = np.array(shape)
+    center = np.array(center)
+
+    # extract region
+    idx_1 = center[0] - shape[0] // 2
+    idx_2 = center[1] - shape[1] // 2
+    subpattern = pattern[:, idx_1 : idx_1 + shape[0], idx_2 : idx_2 + shape[1]]
+    subpattern = subpattern / 255.0
+    if slm == "adafruit":
+        # flatten color channel along rows
+        subpattern = subpattern.reshape((-1, subpattern.shape[-1]), order="F")
+    return subpattern
 
 
 def get_intensity_psf(
@@ -239,8 +281,8 @@ def get_intensity_psf(
 
     is_torch = False
     device = None
-    if torch_available:
-        is_torch = isinstance(mask, torch.Tensor)
+    if torch_available and isinstance(mask, torch.Tensor):
+        is_torch = True
         device = mask.device
 
     dtype = mask.dtype
@@ -268,7 +310,7 @@ def get_intensity_psf(
             wv=color_system.wv,
             dz=scene2mask,
             return_psf=True,
-            is_torch=True,
+            is_torch=is_torch,
             device=device,
             dtype=dtype,
         )

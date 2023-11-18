@@ -3,12 +3,13 @@
 # =========
 # Authors :
 # Yohann PERRON
+# Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
 """
 Benchmark reconstruction algorithms
 ==============
-This script benchmarks reconstruction algorithms on the DiffuserCam dataset.
+This script benchmarks reconstruction algorithms on the DiffuserCam test dataset.
 The algorithm benchmarked and the number of iterations can be set in the config file : benchmark.yaml.
 For unrolled algorithms, the results of the unrolled training (json file) are loaded from the benchmark/results folder.
 """
@@ -16,6 +17,8 @@ For unrolled algorithms, the results of the unrolled training (json file) are lo
 import hydra
 from hydra.utils import get_original_cwd
 
+import time
+import numpy as np
 import glob
 import json
 import os
@@ -23,16 +26,21 @@ import pathlib as plib
 from lensless.eval.benchmark import benchmark
 import matplotlib.pyplot as plt
 from lensless import ADMM, FISTA, GradientDescent, NesterovGradientDescent
-from lensless.utils.dataset import DiffuserCamTestDataset
+from lensless.utils.dataset import DiffuserCamTestDataset, DigiCamCelebA
+from lensless.utils.io import save_image
 
-try:
-    import torch
-except ImportError:
-    raise ImportError("Torch and torchmetrics are needed to benchmark reconstruction algorithm")
+import torch
+from torch.utils.data import Subset
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="benchmark")
 def benchmark_recon(config):
+
+    # set seed
+    torch.manual_seed(config.seed)
+    np.random.seed(config.seed)
+    generator = torch.Generator().manual_seed(config.seed)
+
     downsample = config.downsample
     n_files = config.n_files
     n_iter_range = config.n_iter_range
@@ -44,8 +52,41 @@ def benchmark_recon(config):
         device = "cpu"
 
     # Benchmark dataset
-    benchmark_dataset = DiffuserCamTestDataset(n_files=n_files, downsample=downsample)
-    psf = benchmark_dataset.psf.to(device)
+    dataset = config.dataset
+    if dataset == "DiffuserCam":
+        benchmark_dataset = DiffuserCamTestDataset(n_files=n_files, downsample=downsample)
+        psf = benchmark_dataset.psf.to(device)
+        crop = None
+
+    elif dataset == "DigiCamCelebA":
+
+        dataset = DigiCamCelebA(
+            data_dir=os.path.join(get_original_cwd(), config.files.dataset),
+            celeba_root=config.files.celeba_root,
+            psf_path=os.path.join(get_original_cwd(), config.files.psf),
+            downsample=config.files.downsample,
+            vertical_shift=config.files.vertical_shift,
+            horizontal_shift=config.files.horizontal_shift,
+            simulation_config=config.simulation,
+            crop=config.files.crop,
+        )
+        dataset.psf = dataset.psf.to(device)
+        psf = dataset.psf
+        crop = dataset.crop
+
+        # train-test split
+        train_size = int((1 - config.files.test_size) * len(dataset))
+        test_size = len(dataset) - train_size
+        _, benchmark_dataset = torch.utils.data.random_split(
+            dataset, [train_size, test_size], generator=generator
+        )
+        if config.n_files is not None:
+            benchmark_dataset = Subset(benchmark_dataset, np.arange(config.n_files))
+    else:
+        raise ValueError(f"Dataset {dataset} not supported")
+
+    print(f"Number of files : {len(benchmark_dataset)}")
+    print(f"Data shape :  {dataset[0][0].shape}")
 
     model_list = []  # list of algoritms to benchmark
     if "ADMM" in config.algorithms:
@@ -81,14 +122,63 @@ def benchmark_recon(config):
     #     model_list.append(("APGD", APGD(psf)))
 
     results = {}
+    output_dir = None
+    if config.save_idx is not None:
+
+        assert np.max(config.save_idx) < len(
+            benchmark_dataset
+        ), "save_idx values must be smaller than dataset size"
+
+        os.mkdir("GROUND_TRUTH")
+        for idx in config.save_idx:
+            ground_truth = benchmark_dataset[idx][1]
+            ground_truth_np = ground_truth.cpu().numpy()[0]
+
+            if crop is not None:
+                ground_truth_np = ground_truth_np[
+                    crop["vertical"][0] : crop["vertical"][1],
+                    crop["horizontal"][0] : crop["horizontal"][1],
+                ]
+
+            save_image(
+                ground_truth_np,
+                fp=os.path.join("GROUND_TRUTH", f"{idx}.png"),
+            )
     # benchmark each model for different number of iteration and append result to results
+    # -- batchsize has to equal 1 as baseline models don't support batch processing
+    start_time = time.time()
     for model_name, model in model_list:
-        results[model_name] = []
-        print(f"Running benchmark for {model_name}")
+
+        if config.save_idx is not None:
+            # make directory for outputs
+            os.mkdir(model_name)
+
+        results[model_name] = dict()
         for n_iter in n_iter_range:
-            result = benchmark(model, benchmark_dataset, batchsize=1, n_iter=n_iter)
-            result["n_iter"] = n_iter
-            results[model_name].append(result)
+
+            print(f"Running benchmark for {model_name} with {n_iter} iterations")
+
+            if config.save_idx is not None:
+                output_dir = os.path.join(model_name, str(n_iter))
+                os.mkdir(output_dir)
+
+            result = benchmark(
+                model,
+                benchmark_dataset,
+                batchsize=1,
+                n_iter=n_iter,
+                save_idx=config.save_idx,
+                output_dir=output_dir,
+                crop=crop,
+            )
+            results[model_name][int(n_iter)] = result
+
+            # -- save results as easy to read JSON
+            results_path = "results.json"
+            with open(results_path, "w") as f:
+                json.dump(results, f, indent=4)
+    proc_time = (time.time() - start_time) / 60
+    print(f"Total processing time: {proc_time:.2f} min")
 
     # create folder to load results from trained algorithms
     result_dir = os.path.join(get_original_cwd(), "benchmark", "trained_results")
@@ -113,11 +203,40 @@ def benchmark_recon(config):
                     unrolled_results[model_name][metric] = result[metric]
 
     # Baseline results
-    baseline_results = {
-        "MSE": 0.0618,
-        "LPIPS_Alex": 0.4434,
-        "ReconstructionError": 13.70,
-    }
+    baseline_label = config.baseline
+    baseline_results = None
+    if dataset == "DiffuserCam":
+        # (Monakhova et al. 2019, https://arxiv.org/abs/1908.11502)
+        # -- ADMM (100)
+        if baseline_label == "MONAKHOVA 100iter":
+            baseline_results = {
+                "MSE": 0.0622,
+                "LPIPS_Alex": 0.5711,
+                "ReconstructionError": 13.62,
+            }
+        # -- ADMM (5)
+        elif baseline_label == "MONAKHOVA 5iter":
+            baseline_results = {
+                "MSE": 0.1041,
+                "LPIPS_Alex": 0.6309,
+                "ReconstructionError": 11.32,
+            }
+        # -- Le-ADMM (Unrolled 5)
+        elif baseline_label == "MONAKHOVA Unrolled 5iter":
+            baseline_results = {
+                "MSE": 0.0618,
+                "LPIPS_Alex": 0.4434,
+                "ReconstructionError": 13.70,
+            }
+        # -- Le-ADMM-U (Unrolled 5 + UNet post-denoiser)
+        elif baseline_label == "MONAKHOVA Unrolled 5iter + UNet":
+            baseline_results = {
+                "MSE": 0.0074,
+                "LPIPS_Alex": 0.1904,
+                "ReconstructionError": 22.14,
+            }
+        else:
+            raise ValueError(f"Baseline {baseline_label} not supported")
 
     # for each metrics plot the results comparing each model
     metrics_to_plot = ["SSIM", "PSNR", "MSE", "LPIPS_Vgg", "LPIPS_Alex", "ReconstructionError"]
@@ -126,20 +245,21 @@ def benchmark_recon(config):
         # plot benchmarked algorithm
         for model_name in results.keys():
             plt.plot(
-                [result["n_iter"] for result in results[model_name]],
-                [result[metric] for result in results[model_name]],
+                n_iter_range,
+                [results[model_name][n_iter][metric] for n_iter in n_iter_range],
                 label=model_name,
             )
         # plot baseline as horizontal dotted line
-        if metric in baseline_results.keys():
-            plt.hlines(
-                baseline_results[metric],
-                0,
-                max(n_iter_range),
-                linestyles="dashed",
-                label="Unrolled MONAKHOVA 5iter",
-                color="orange",
-            )
+        if baseline_results is not None:
+            if metric in baseline_results.keys():
+                plt.hlines(
+                    baseline_results[metric],
+                    0,
+                    max(n_iter_range),
+                    linestyles="dashed",
+                    label=baseline_label,
+                    color="orange",
+                )
 
         # plot unrolled algorithms results
         color_list = ["red", "green", "blue", "orange", "purple"]

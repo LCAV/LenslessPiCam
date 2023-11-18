@@ -71,14 +71,21 @@ install the library locally.
 
    # download from GitHub
    git clone git@github.com:LCAV/LenslessPiCam.git
-
-   # install in virtual environment
    cd LenslessPiCam
-   python3 -m venv lensless_env
+
+   # create virtual environment (as of Oct 4 2023, rawpy is not compatible with Python 3.12)
+   # -- using conda
+   conda create -n lensless python=3.11
+   conda activate lensless
+
+   # -- OR venv
+   python3.11 -m venv lensless_env
    source lensless_env/bin/activate
+
+   # install package
    pip install -e .
 
-   # -- extra dependencies for local machine for plotting/reconstruction
+   # extra dependencies for local machine for plotting/reconstruction
    pip install -r recon_requirements.txt
 
    # (optional) try reconstruction on local machine

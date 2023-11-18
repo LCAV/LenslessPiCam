@@ -61,17 +61,22 @@ class UnrolledFISTA(TrainableReconstructionAlgorithm):
         # learnable step size initialize as < 2 / lipschitz
         Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
         H_flat = self._convolver._H.reshape(-1, self._psf_shape[3])
-        self._alpha_p = torch.nn.Parameter(
-            torch.ones(self._n_iter, self._psf_shape[3]).to(psf.device)
-            * (1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values)
-        )
+        if not self.skip_unrolled:
+            self._alpha_p = torch.nn.Parameter(
+                torch.ones(self._n_iter, self._psf_shape[3]).to(psf.device)
+                * (1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values)
+            )
+        else:
+            self._alpha_p = torch.ones(self._n_iter, self._psf_shape[3]).to(psf.device) * (
+                1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values
+            )
 
         # set tk, can be learnt if learn_tk=True
         self._tk_p = [tk]
         for i in range(self._n_iter):
             self._tk_p.append((1 + np.sqrt(1 + 4 * self._tk_p[i] ** 2)) / 2)
         self._tk_p = torch.Tensor(self._tk_p)
-        if learn_tk:
+        if learn_tk and not self.skip_unrolled:
             self._tk_p = torch.nn.Parameter(self._tk_p).to(psf.device)
 
         self.reset()

@@ -24,14 +24,14 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.8.1",
+    python_requires=">=3.8.1, <=3.11.9",
     install_requires=[
         "opencv-python>=4.5.1.48",
-        "numpy>=1.22, <=1.23.5",
+        "numpy>=1.22",
         "scipy>=1.7.0",
         "image>=1.5.33",
         "matplotlib>=3.4.2",
-        "rawpy>=0.16.0",
+        "rawpy>=0.16.0",  # less than python 3.12
         "paramiko>=3.2.0",
         "hydra-core",
     ],
