@@ -79,7 +79,7 @@ reconstruction:
 
 #Trainable Mask
 trainable_mask:
-  mask_type: Null #Null or "TrainablePSF" or "AdafruitLCD"
+  mask_type: null #Null or "TrainablePSF" or "AdafruitLCD"
   # "random" (with shape of config.files.psf) or "psf" (using config.files.psf)
   initial_value: psf
   grayscale: False

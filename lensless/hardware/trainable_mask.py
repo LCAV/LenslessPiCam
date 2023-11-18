@@ -40,7 +40,7 @@ class TrainableMask(torch.nn.Module, metaclass=abc.ABCMeta):
         """
         super().__init__()
         self._mask = torch.nn.Parameter(initial_mask)
-        self._optimizer = getattr(torch.optim, optimizer)([self._mask], lr=lr)
+        self._optimizer = getattr(torch.optim, optimizer)([self._mask], lr=lr, **kwargs)
         self.train_mask_vals = True
         self._counter = 0
 

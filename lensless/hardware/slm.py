@@ -178,16 +178,6 @@ def get_programmable_mask(
 
         color_filter_idx = i // n_active_slm_pixels[1] % n_color_filter
 
-        # if color_filter is not None:
-        #     _rect = np.tile(color_filter[color_filter_idx][0][:, np.newaxis, np.newaxis], (1, _height_pixel, _width_pixel))
-        # else:
-        #     _rect = np.ones((1, _height_pixel, _width_pixel))
-
-        # if use_torch:
-        #     _rect = torch.tensor(_rect).to(slm_vals_flat)
-
-        # import pudb; pudb.set_trace()
-
         mask_val = slm_vals_flat[i] * color_filter[color_filter_idx][0]
         if isinstance(mask_val, np.ndarray):
             mask_val = mask_val[:, np.newaxis, np.newaxis]
@@ -198,14 +188,6 @@ def get_programmable_mask(
             _center_top_left_pixel[0] : _center_top_left_pixel[0] + _height_pixel,
             _center_top_left_pixel[1] : _center_top_left_pixel[1] + _width_pixel,
         ] = mask_val
-
-        # mask[
-        #     :,
-        #     _center_top_left_pixel[0] : _center_top_left_pixel[0] + _height_pixel,
-        #     _center_top_left_pixel[1] : _center_top_left_pixel[1] + _width_pixel,
-        # ] = (
-        #     slm_vals_flat[i] * _rect
-        # )
 
     # # quantize mask
     # if use_torch:

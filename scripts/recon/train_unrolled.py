@@ -49,6 +49,7 @@ from lensless.utils.dataset import (
 from torch.utils.data import Subset
 import lensless.hardware.trainable_mask
 from lensless.hardware.slm import full2subpattern
+from lensless.hardware.sensor import VirtualSensor
 from lensless.recon.utils import create_process_network
 from lensless.utils.image import rgb2gray, is_grayscale
 from lensless.utils.simulation import FarFieldSimulator
@@ -72,23 +73,31 @@ def simulate_dataset(config, generator=None):
     else:
         device = "cpu"
 
-    # prepare PSF
-    psf_fp = os.path.join(get_original_cwd(), config.files.psf)
-    psf, _ = load_psf(
-        psf_fp,
-        downsample=config.files.downsample,
-        return_float=True,
-        return_bg=True,
-        bg_pix=(0, 15),
-    )
-    if config.files.diffusercam_psf:
-        transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
-        psf = transform_BRG2RGB(torch.from_numpy(psf))
+    # -- prepare PSF
+    psf = None
+    if config.trainable_mask.mask_type is None or config.trainable_mask.initial_value == "psf":
+        psf_fp = os.path.join(get_original_cwd(), config.files.psf)
+        psf, _ = load_psf(
+            psf_fp,
+            downsample=config.files.downsample,
+            return_float=True,
+            return_bg=True,
+            bg_pix=(0, 15),
+        )
+        if config.files.diffusercam_psf:
+            transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
+            psf = transform_BRG2RGB(torch.from_numpy(psf))
 
-    # drop depth dimension
-    psf = psf.to(device)
+        # drop depth dimension
+        psf = psf.to(device)
 
-    # load dataset
+    else:
+        # training mask / PSF
+        # mask = prep_trainable_mask(config, psf, downsample=config.files.downsample)
+        mask = prep_trainable_mask(config, psf, downsample=config.simulation.downsample)
+        psf = mask.get_psf().to(device)
+
+    # -- load dataset
     pre_transform = None
     transforms_list = [transforms.ToTensor()]
     data_path = os.path.join(get_original_cwd(), "data")
@@ -117,9 +126,6 @@ def simulate_dataset(config, generator=None):
         assert os.path.isdir(
             data_path
         ), f"Data path {data_path} does not exist. Make sure you download the CelebA dataset and provide the parent directory as 'config.files.celeba_root'. Download link: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html"
-
-        # add rotate by 90 degrees to transform list
-        # pre_transform = transforms.RandomRotation(degrees=(-90, -90))
         transform = transforms.Compose(transforms_list)
         if config.files.n_files is None:
             train_ds = datasets.CelebA(
@@ -143,11 +149,6 @@ def simulate_dataset(config, generator=None):
     if config.simulation.grayscale and not is_grayscale(psf):
         psf = rgb2gray(psf)
 
-    # prepare mask
-    # mask = prep_trainable_mask(config, psf, grayscale=config.simulation.grayscale)
-    mask = prep_trainable_mask(config, psf, downsample=config.files.downsample)
-    psf = mask.get_psf().to(device)
-
     # check if gpu is available
     device_conv = config.torch_device
     if device_conv == "cuda" and torch.cuda.is_available():
@@ -161,6 +162,8 @@ def simulate_dataset(config, generator=None):
         is_torch=True,
         **config.simulation,
     )
+
+    # import pudb; pudb.set_trace()
 
     # create Pytorch dataset and dataloader
     crop = config.files.crop.copy() if config.files.crop is not None else None
@@ -264,14 +267,19 @@ def simulate_dataset(config, generator=None):
     return train_ds_prop, test_ds_prop, mask
 
 
-def prep_trainable_mask(config, psf, downsample=None):
+def prep_trainable_mask(config, psf=None, downsample=None):
     mask = None
     color_filter = None
     if config.trainable_mask.mask_type is not None:
         mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
 
         if config.trainable_mask.initial_value == "random":
-            initial_mask = torch.rand_like(psf)
+            if psf is not None:
+                initial_mask = torch.rand_like(psf)
+            else:
+                sensor = VirtualSensor.from_name(config.simulation.sensor, downsample=downsample)
+                resolution = sensor.resolution
+                initial_mask = torch.rand((1, *resolution, 3))
         elif config.trainable_mask.initial_value == "psf":
             initial_mask = psf.clone()
         # if file ending with "npy"

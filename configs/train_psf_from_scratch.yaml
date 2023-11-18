@@ -11,12 +11,21 @@ files:
 
 #Trainable Mask
 trainable_mask:
-  mask_type: TrainablePSF #Null or "TrainablePSF"
-  initial_value: "random"
+  mask_type: TrainablePSF
+  initial_value: random
 
 simulation:
   grayscale: False
-
+  flip: False
+  scene2mask: 40e-2
+  mask2sensor: 2e-3
+  sensor: "rpi_hq"
+  downsample: 16
+  object_height: 0.30
 
 training:
   crop_preloss: False # crop region for computing loss
+  batch_size: 8
+  epoch: 25
+  eval_batch_size: 16
+  save_every: 5
