@@ -207,7 +207,7 @@ class SimulatedFarFieldDataset(DualDataset):
 
         self.vertical_shift = vertical_shift
         self.horizontal_shift = horizontal_shift
-        self.crop = crop
+        self.crop = crop.copy() if crop is not None else None
         if downsample != 1:
             if self.vertical_shift is not None:
                 self.vertical_shift = int(self.vertical_shift // downsample)
