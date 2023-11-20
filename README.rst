@@ -11,6 +11,11 @@ LenslessPiCam
       :target: https://doi.org/10.21105/joss.04747
       :alt: DOI
 
+.. image:: https://static.pepy.tech/badge/lensless
+      :target: https://www.pepy.tech/projects/lensless
+      :alt: Downloads
+
+
 *A Hardware and Software Toolkit for Lensless Computational Imaging with a Raspberry Pi*
 -----------------------------------------------------------------------------------------
 
