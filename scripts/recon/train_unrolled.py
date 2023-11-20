@@ -93,8 +93,7 @@ def simulate_dataset(config, generator=None):
 
     else:
         # training mask / PSF
-        # mask = prep_trainable_mask(config, psf, downsample=config.files.downsample)
-        mask = prep_trainable_mask(config, psf, downsample=config.simulation.downsample)
+        mask = prep_trainable_mask(config, psf)
         psf = mask.get_psf().to(device)
 
     # -- load dataset
@@ -162,8 +161,6 @@ def simulate_dataset(config, generator=None):
         is_torch=True,
         **config.simulation,
     )
-
-    # import pudb; pudb.set_trace()
 
     # create Pytorch dataset and dataloader
     crop = config.files.crop.copy() if config.files.crop is not None else None
@@ -270,6 +267,7 @@ def simulate_dataset(config, generator=None):
 def prep_trainable_mask(config, psf=None, downsample=None):
     mask = None
     color_filter = None
+    downsample = config.files.downsample if downsample is None else downsample
     if config.trainable_mask.mask_type is not None:
         mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
 
@@ -475,6 +473,7 @@ def train_unrolled(config):
                 # lensless, lensed = dataset[_idx]
                 lensless, lensed = test_set[_idx]
                 recon = ADMM(psf)
+
                 recon.set_data(lensless.to(psf.device))
                 res = recon.apply(disp_iter=None, plot=False, n_iter=10)
                 res_np = res[0].cpu().numpy()
