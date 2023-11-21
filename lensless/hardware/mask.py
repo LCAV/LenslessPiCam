@@ -321,6 +321,11 @@ class CodedAperture(Mask):
 
         return meas
 
+class MicroLensArray(Mask):
+    def __init__(
+        self, resolution, distance_sensor, size=None, feature_size=None, psf_wavelength=[4.6e-7, 5.5e-7, 6.4e-7], **kwargs
+    ):
+        super().__init__(resolution, distance_sensor, size, feature_size, psf_wavelength, **kwargs)
 
 class PhaseContour(Mask):
     """
@@ -354,6 +359,7 @@ class PhaseContour(Mask):
         self.refractive_index = refractive_index
         self.n_iter = n_iter
         self.design_wv = design_wv
+        
 
         super().__init__(**kwargs)
 
@@ -361,33 +367,44 @@ class PhaseContour(Mask):
         """
         Creating phase contour from edges of Perlin noise.
         """
+        if not (torch_available and isinstance(self.mask, torch.Tensor)):
+            # Creating Perlin noise
+            proper_dim_1 = (self.resolution[0] // self.noise_period[0]) * self.noise_period[0]
+            proper_dim_2 = (self.resolution[1] // self.noise_period[1]) * self.noise_period[1]
+            noise = generate_perlin_noise_2d((proper_dim_1, proper_dim_2), self.noise_period)
 
-        # Creating Perlin noise
-        proper_dim_1 = (self.resolution[0] // self.noise_period[0]) * self.noise_period[0]
-        proper_dim_2 = (self.resolution[1] // self.noise_period[1]) * self.noise_period[1]
-        noise = generate_perlin_noise_2d((proper_dim_1, proper_dim_2), self.noise_period)
+            # Upscaling to correspond to sensor size
+            if np.any(self.resolution != noise.shape):
+                noise = resize(noise[:, :, np.newaxis], shape=tuple(self.resolution) + (1,)).squeeze()
 
-        # Upscaling to correspond to sensor size
-        if np.any(self.resolution != noise.shape):
-            noise = resize(noise[:, :, np.newaxis], shape=tuple(self.resolution) + (1,)).squeeze()
+            # Edge detection
+            binary = np.clip(np.round(np.interp(noise, (-1, 1), (0, 1))), a_min=0, a_max=1)
+            self.target_psf = cv.Canny(np.interp(binary, (-1, 1), (0, 255)).astype(np.uint8), 0, 255)
 
-        # Edge detection
-        binary = np.clip(np.round(np.interp(noise, (-1, 1), (0, 1))), a_min=0, a_max=1)
-        self.target_psf = cv.Canny(np.interp(binary, (-1, 1), (0, 255)).astype(np.uint8), 0, 255)
+            # Computing mask and height map
+            phase_mask, height_map = phase_retrieval(
+                target_psf=self.target_psf,
+                wv=self.design_wv,
+                d1=self.feature_size,
+                dz=self.distance_sensor,
+                n=self.refractive_index,
+                n_iter=self.n_iter,
+                height_map=True,
+            )
+            self.height_map = height_map
+            self.phase_pattern = phase_mask
+            self.mask = np.exp(1j * phase_mask)
 
-        # Computing mask and height map
-        phase_mask, height_map = phase_retrieval(
-            target_psf=self.target_psf,
-            wv=self.design_wv,
-            d1=self.feature_size,
-            dz=self.distance_sensor,
-            n=self.refractive_index,
-            n_iter=self.n_iter,
-            height_map=True,
-        )
-        self.height_map = height_map
-        self.phase_pattern = phase_mask
-        self.mask = np.exp(1j * phase_mask)
+        else:
+            #implement the same thing but using torch
+            proper_dim_1=(self.resolution[0]//self.noise_period[0])*self.noise_period[0]
+            proper_dim_2=(self.resolution[1]//self.noise_period[1])*self.noise_period[1]
+            noise=generate_perlin_noise_2d((proper_dim_1,proper_dim_2),self.noise_period)
+            
+            if torch.any(self.resolution != noise.shape):
+                noise=resize(noise[:,:,:,np.newaxis],shape=tuple(self.resolution)+(1,)).squeeze()
+
+
 
 
 def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):
