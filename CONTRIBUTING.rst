@@ -145,8 +145,8 @@ Building documentation
 .. code:: bash
 
    # create virtual environment
-   conda create --name lensless_docs python=3.9
-   conda activate lensless_docs
+   conda create --name lensless_docs39 python=3.9
+   conda activate lensless_docs39
 
    # install dependencies
    (lensless_docs) pip install -r docs/requirements.txt
