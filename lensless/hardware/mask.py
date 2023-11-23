@@ -470,3 +470,68 @@ class FresnelZoneAperture(Mask):
         radius_px = self.radius / self.feature_size[0]
         mask = 0.5 * (1 + np.cos(np.pi * (x**2 + y**2) / radius_px**2))
         self.mask = np.round(mask)
+
+
+class HeightVarying(Mask):
+
+    def __init__(
+            self, 
+            refractive_index = 1.2, 
+            wavelength = 532e-9, 
+            height_map = None,
+            height_range = (min, max), 
+            seed = 0):
+        
+        """
+    A class representing a height-varying mask for lensless imaging.
+
+    Parameters
+    ----------
+    refractive_index : float, optional
+        The refractive index of the material. Default is 1.2.
+    wavelength : float, optional
+        The wavelength of the light. Default is 532e-9.
+    height_map : ndarray or None, optional
+        An array representing the height map of the mask. If None, a random height map is generated.
+    height_range : tuple, optional
+        A tuple (min, max) specifying the range of heights when generating a random height map.
+        Default is (min, max), where min and max are placeholders for the actual values.
+    seed : int, optional
+        Seed for the random number generator when generating a random height map. Default is 0.
+
+    Example
+    -------
+    Creating an instance with a custom height map:
+
+    >>> custom_height_map = np.array([0.1, 0.2, 0.3])
+    >>> height_varying_instance = HeightVarying(
+    ...     refractive_index=1.2,
+    ...     wavelength=532e-9,
+    ...     height_map=custom_height_map,
+    ...     height_range=(0.0, 1.0),
+    ...     seed=42
+    ... )
+    """
+
+        super().__init__()
+        self.refractive_index = refractive_index
+        self.wavelength = wavelength
+
+        if self.height_map is not None:
+            self.height_map = height_map
+        else:
+            np.random.seed(self.seed)
+            self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], n)
+        
+        self.height_range = height_range
+        self.seed = seed
+    
+    def get_phi(self, n):
+        phi = self.height_map * (2*np.pi*(n-1) / self.wavelength)
+        phi = phi % (2*np.pi)
+        return phi
+    
+    def create_mask(self, n):
+        phase_mask = self.get_phi(n)
+        mask = np.exp(1j * self.get_phi(n))
+        return mask
