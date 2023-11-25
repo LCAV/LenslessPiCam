@@ -321,11 +321,31 @@ class CodedAperture(Mask):
 
         return meas
 
-class MicroLensArray(Mask):
+class MultiLensArray(Mask):
     def __init__(
-        self, resolution, distance_sensor, size=None, feature_size=None, psf_wavelength=[4.6e-7, 5.5e-7, 6.4e-7], **kwargs
+        self, N = None, radius = None, loc = None, refractive_index = 1.2, seed = 0, min_height=1e-3
     ):
-        super().__init__(resolution, distance_sensor, size, feature_size, psf_wavelength, **kwargs)
+        self.N = N
+        self.radius = radius
+        self.loc = loc
+        self.refractive_index = refractive_index
+        self.seed = seed
+        self.min_height = min_height
+
+        
+        if self.radius is not None:
+            assert self.loc is not None
+            assert len(self.radius) == len(self.loc)
+            self.N = len(self.radius)
+        else:
+            assert self.N is not None
+            radius = np.random.uniform(self.min_height, self.distance_sensor, self.N)
+            result = np.column_stack((np.random.uniform(0,self.size[0],self.N),np.random.uniform(0,self.size[1],self.N)))
+            loc = np.array([tuple(row) for row in result])
+            # call the does_circle_overlap method
+    
+        super().__init__()
+
 
 class PhaseContour(Mask):
     """
