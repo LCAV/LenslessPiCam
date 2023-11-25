@@ -321,6 +321,27 @@ class CodedAperture(Mask):
 
         return meas
 
+class MultiLensArray(Mask):
+    def create_mask(self):
+        height = self.create_height_map(self.radius, self.locs)
+        phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength) % (2 * np.pi)
+        self.mask = np.exp(1j * phi)
+
+    def create_height_map(self, radius, locs):
+        height = np.full((self.size[0], self.size[1]), self.min_height)
+        for x in height.shape[0]:
+            for y in height.shape[1]:
+                height[x, y] += self.lens_contribution(radius, locs, x, y)
+        return height
+    
+    def lens_contribution(self, radius, locs, x, y):
+        contribution = 0
+        for idx, loc in enumerate(locs):
+            if (x-loc[0])**2 + (y-loc[1])**2 < radius[idx]**2:
+                contribution = np.sqrt(radius[idx]**2 - (x-loc[0])**2 - (y-loc[1])**2)
+                return contribution
+        return contribution
+
 
 class PhaseContour(Mask):
     """
@@ -354,6 +375,7 @@ class PhaseContour(Mask):
         self.refractive_index = refractive_index
         self.n_iter = n_iter
         self.design_wv = design_wv
+        
 
         super().__init__(**kwargs)
 
@@ -361,36 +383,67 @@ class PhaseContour(Mask):
         """
         Creating phase contour from edges of Perlin noise.
         """
+        if not (torch_available and isinstance(self.mask, torch.Tensor)):
+            # Creating Perlin noise
+            proper_dim_1 = (self.resolution[0] // self.noise_period[0]) * self.noise_period[0]
+            proper_dim_2 = (self.resolution[1] // self.noise_period[1]) * self.noise_period[1]
+            noise = generate_perlin_noise_2d((proper_dim_1, proper_dim_2), self.noise_period)
 
-        # Creating Perlin noise
-        proper_dim_1 = (self.resolution[0] // self.noise_period[0]) * self.noise_period[0]
-        proper_dim_2 = (self.resolution[1] // self.noise_period[1]) * self.noise_period[1]
-        noise = generate_perlin_noise_2d((proper_dim_1, proper_dim_2), self.noise_period)
+            # Upscaling to correspond to sensor size
+            if np.any(self.resolution != noise.shape):
+                noise = resize(noise[:, :, np.newaxis], shape=tuple(self.resolution) + (1,)).squeeze()
 
-        # Upscaling to correspond to sensor size
-        if np.any(self.resolution != noise.shape):
-            noise = resize(noise[:, :, np.newaxis], shape=tuple(self.resolution) + (1,)).squeeze()
+            # Edge detection
+            binary = np.clip(np.round(np.interp(noise, (-1, 1), (0, 1))), a_min=0, a_max=1)
+            self.target_psf = cv.Canny(np.interp(binary, (-1, 1), (0, 255)).astype(np.uint8), 0, 255)
 
-        # Edge detection
-        binary = np.clip(np.round(np.interp(noise, (-1, 1), (0, 1))), a_min=0, a_max=1)
-        self.target_psf = cv.Canny(np.interp(binary, (-1, 1), (0, 255)).astype(np.uint8), 0, 255)
+            # Computing mask and height map
+            phase_mask, height_map = phase_retrieval(
+                target_psf=self.target_psf,
+                wv=self.design_wv,
+                d1=self.feature_size,
+                dz=self.distance_sensor,
+                n=self.refractive_index,
+                n_iter=self.n_iter,
+                height_map=True,
+                can_torch=True,
+            )
+            self.height_map = height_map
+            self.phase_pattern = phase_mask
+            self.mask = np.exp(1j * phase_mask)
 
-        # Computing mask and height map
-        phase_mask, height_map = phase_retrieval(
-            target_psf=self.target_psf,
-            wv=self.design_wv,
-            d1=self.feature_size,
-            dz=self.distance_sensor,
-            n=self.refractive_index,
-            n_iter=self.n_iter,
-            height_map=True,
-        )
-        self.height_map = height_map
-        self.phase_pattern = phase_mask
-        self.mask = np.exp(1j * phase_mask)
+        else:
+            #implement the same thing but using torch
+            proper_dim_1=(self.resolution[0]//self.noise_period[0])*self.noise_period[0]
+            proper_dim_2=(self.resolution[1]//self.noise_period[1])*self.noise_period[1]
+            #TODO to torch
+            noise=generate_perlin_noise_2d((proper_dim_1,proper_dim_2),self.noise_period)
+            n = noise.ndim
+            # n = noise.dim()
+            # end of todo
+            if torch.any(self.resolution != noise.shape):
+                noise=resize(noise.unsqueeze(n-1),shape=tuple(self.resolution)+(1,)).squeeze()
+            
+            binary = torch.clip(torch.round(torch.nn.functional.grid_sample(noise, (-1, 1), (0, 1))), a_min=0, a_max=1)
+            self.target_psf = cv.Canny(torch.nn.functional.grid_sample(binary, (-1, 1), (0, 255)).astype(np.uint8), 0, 255)
+
+            # Computing mask and height map
+            phase_mask, height_map = phase_retrieval(
+                target_psf=self.target_psf,
+                wv=self.design_wv,
+                d1=self.feature_size,
+                dz=self.distance_sensor,
+                n=self.refractive_index,
+                n_iter=self.n_iter,
+                height_map=True,
+                can_torch=False,
+            )
+            self.height_map = height_map
+            self.phase_pattern = phase_mask
+            self.mask = torch.exp(1j * phase_mask)
 
 
-def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):
+def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False, can_torch=False):
     """
     Iterative phase retrieval algorithm similar to `PhlatCam <https://ieeexplore.ieee.org/document/9076617>`_,
     using Fresnel propagation.
@@ -410,29 +463,54 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):
     n_iter: int
         Number of iterations. Default value is 10.
     """
-    M_p = np.sqrt(target_psf)
+    if can_torch:
+        M_p = torch.sqrt(target_psf)
 
-    if hasattr(d1, "__len__"):
-        if d1[0] != d1[1]:
-            warnings.warn("Non-square pixel, first dimension taken as feature size.")
-        d1 = d1[0]
+        if hasattr(d1, "__len__"):
+            if d1[0] != d1[1]:
+                warnings.warn("Non-square pixel, first dimension taken as feature size.")
+            d1 = d1[0]
 
-    for _ in range(n_iter):
-        # back propagate from sensor to mask
-        M_phi = fresnel_conv(M_p, wv, d1, -dz, dtype=np.float32)[0]
-        # constrain amplitude at mask to be unity, i.e. phase pattern
-        M_phi = np.exp(1j * np.angle(M_phi))
-        # forward propagate from mask to sensor
-        M_p = fresnel_conv(M_phi, wv, d1, dz, dtype=np.float32)[0]
-        # constrain amplitude to be sqrt(PSF)
-        M_p = np.sqrt(target_psf) * np.exp(1j * np.angle(M_p))
+        for _ in range(n_iter):
+            # back propagate from sensor to mask
+            M_phi = fresnel_conv(M_p, wv, d1, -dz, dtype=torch.float32)[0]
+            # constrain amplitude at mask to be unity, i.e. phase pattern
+            M_phi = torch.exp(1j * torch.angle(M_phi))
+            # forward propagate from mask to sensor
+            M_p = fresnel_conv(M_phi, wv, d1, dz, dtype=torch.float32)[0]
+            # constrain amplitude to be sqrt(PSF)
+            M_p = torch.sqrt(target_psf) * torch.exp(1j * torch.angle(M_p))
 
-    phi = (np.angle(M_phi) + 2 * np.pi) % (2 * np.pi)
+        phi = (torch.angle(M_phi) + 2 * torch.pi) % (2 * torch.pi)
 
-    if height_map:
-        return phi, wv * phi / (2 * np.pi * (n - 1))
+        if height_map:
+            return phi, wv * phi / (2 * torch.pi * (n - 1))
+        else:
+            return phi
     else:
-        return phi
+        M_p = np.sqrt(target_psf)
+
+        if hasattr(d1, "__len__"):
+            if d1[0] != d1[1]:
+                warnings.warn("Non-square pixel, first dimension taken as feature size.")
+            d1 = d1[0]
+
+        for _ in range(n_iter):
+            # back propagate from sensor to mask
+            M_phi = fresnel_conv(M_p, wv, d1, -dz, dtype=np.float32)[0]
+            # constrain amplitude at mask to be unity, i.e. phase pattern
+            M_phi = np.exp(1j * np.angle(M_phi))
+            # forward propagate from mask to sensor
+            M_p = fresnel_conv(M_phi, wv, d1, dz, dtype=np.float32)[0]
+            # constrain amplitude to be sqrt(PSF)
+            M_p = np.sqrt(target_psf) * np.exp(1j * np.angle(M_p))
+
+        phi = (np.angle(M_phi) + 2 * np.pi) % (2 * np.pi)
+
+        if height_map:
+            return phi, wv * phi / (2 * np.pi * (n - 1))
+        else:
+            return phi
 
 
 class FresnelZoneAperture(Mask):
