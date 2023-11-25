@@ -358,15 +358,59 @@ class MultiLensArray(Mask):
             assert self.loc is not None
             assert len(self.radius) == len(self.loc)
             self.N = len(self.radius)
+            circles = np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
+            assert MultiLensArray.no_circle_overlap(circles)
         else:
             assert self.N is not None
             np.random.seed(self.seed)
-            radius = np.random.uniform(self.min_height, self.distance_sensor, self.N)
-            result = np.column_stack((np.random.uniform(0,self.size[0],self.N),np.random.uniform(0,self.size[1],self.N)))
-            loc = np.array([tuple(row) for row in result])
+            radius = np.random.uniform(self.min_height, self.distance_sensor, self.N) #TODO: check if it is the right way to do it
+            self.loc, self.radius = MultiLensArray.place_spheres_on_plane(self.size[0], self.size[1], radius)
+            assert self.N == len(self.radius)
             # call the does_circle_overlap method
     
         super().__init__()
+
+    @staticmethod
+    def no_circle_overlap(circles):
+        """Check if any circle in the list overlaps with another."""
+        for i in range(len(circles)):
+            if MultiLensArray.does_circle_overlap(circles[i+1:], circles[i][0], circles[i][1], circles[i][2]):
+                return False
+        return True
+    
+    @staticmethod
+    def does_circle_overlap(circles, x, y, r):
+        """Check if a circle overlaps with any in the list."""
+        for (cx, cy, cr) in circles:
+            if np.sqrt((x - cx)**2 + (y - cy)**2) < r/2 + cr/2:
+                return True
+        return False
+
+    @staticmethod
+    def place_spheres_on_plane(width, height, radius, max_attempts=1000):
+        """Try to place circles on a 2D plane."""
+        placed_circles = []
+        radius_sorted = sorted(radius, reverse=True)  # Place larger circles first
+
+        for r in radius_sorted:
+            placed = False
+            for _ in range(max_attempts):
+                x = np.random.uniform(r, width - r)
+                y = np.random.uniform(r, height - r)
+            
+                if not MultiLensArray.does_circle_overlap(placed_circles, x, y, r):
+                    placed_circles.append((x, y, r))
+                    placed = True
+                    break
+        
+            if not placed:
+                print(f"Failed to place circle with rad {r}")
+                continue
+
+        placed_circles = np.array(placed_circles)
+        circles = placed_circles[:, :2]
+        radius = placed_circles[:, 2]
+        return circles, radius
 
 
 class PhaseContour(Mask):
