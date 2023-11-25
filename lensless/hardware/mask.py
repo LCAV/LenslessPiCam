@@ -322,9 +322,30 @@ class CodedAperture(Mask):
         return meas
 
 class MultiLensArray(Mask):
+    """
+    Multi-lens array mask.
+    """
     def __init__(
         self, N = None, radius = None, loc = None, refractive_index = 1.2, seed = 0, min_height=1e-3
     ):
+        """
+        Multi-lens array mask constructor.
+
+        Parameters
+        ----------
+        N: int
+            Number of lenses
+        radius: array_like
+            Radius of the lenses (m)
+        loc: array_like of tuples
+            Location of the lenses (m)
+        refractive_index: float
+            Refractive index of the mask substrate. Default is 1.2.
+        seed: int
+            Seed for the random number generator. Default is 0.
+        min_height: float
+            Minimum height of the lenses (m). Default is 1e-3.
+        """
         self.N = N
         self.radius = radius
         self.loc = loc
@@ -339,6 +360,7 @@ class MultiLensArray(Mask):
             self.N = len(self.radius)
         else:
             assert self.N is not None
+            np.random.seed(self.seed)
             radius = np.random.uniform(self.min_height, self.distance_sensor, self.N)
             result = np.column_stack((np.random.uniform(0,self.size[0],self.N),np.random.uniform(0,self.size[1],self.N)))
             loc = np.array([tuple(row) for row in result])
