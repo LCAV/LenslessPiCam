@@ -1,7 +1,8 @@
 import numpy as np
-from lensless.hardware.mask import CodedAperture, PhaseContour, FresnelZoneAperture
+from lensless.hardware.mask import CodedAperture, PhaseContour, FresnelZoneAperture, MultiLensArray
 from lensless.eval.metric import mse, psnr, ssim
 from waveprop.fresnel import fresnel_conv
+from matplotlib import pyplot as plt
 
 
 resolution = np.array([380, 507])
@@ -75,7 +76,6 @@ def test_classmethod():
     assert np.all(mask1.mask.shape == resolution)
     desired_psf_shape = np.array(tuple(resolution) + (len(mask1.psf_wavelength),))
     assert np.all(mask1.psf.shape == desired_psf_shape)
-
     mask2 = PhaseContour.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz
     )
@@ -90,6 +90,19 @@ def test_classmethod():
     desired_psf_shape = np.array(tuple(resolution) + (len(mask3.psf_wavelength),))
     assert np.all(mask3.psf.shape == desired_psf_shape)
 
+    mask4 = MultiLensArray.from_sensor(
+        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, N=10#radius=np.array([10, 25]), loc=np.array([[10.1, 11.3], [56.5, 89.2]])
+    )
+    assert np.all(mask4.mask.shape == resolution)
+    desired_psf_shape = np.array(tuple(resolution) + (len(mask4.psf_wavelength),))
+    assert np.all(mask3.psf.shape == desired_psf_shape)
+
+    z = np.abs(np.angle(mask4.mask))
+    assert np.all(z > 0) 
+    fig, ax = plt.subplots()
+    #im = ax.imshow(z, cmap="gray")
+    #fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
+    #plt.show()
 
 if __name__ == "__main__":
     test_flatcam()
