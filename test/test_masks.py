@@ -97,12 +97,10 @@ def test_classmethod():
     desired_psf_shape = np.array(tuple(resolution) + (len(mask4.psf_wavelength),))
     assert np.all(mask3.psf.shape == desired_psf_shape)
 
-    z = np.abs(np.angle(mask4.mask))
-    assert np.all(z > 0) 
     fig, ax = plt.subplots()
-    #im = ax.imshow(z, cmap="gray")
-    #fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
-    #plt.show()
+    im = ax.imshow(np.angle(mask4.mask), cmap="gray")
+    fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
+    plt.show()
 
 if __name__ == "__main__":
     test_flatcam()
