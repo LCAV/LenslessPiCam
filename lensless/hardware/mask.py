@@ -32,6 +32,7 @@ from waveprop.rs import angular_spectrum
 from waveprop.noise import add_shot_noise
 from lensless.hardware.sensor import VirtualSensor
 from lensless.utils.image import resize
+from matplotlib import pyplot as plt
 
 try:
     import torch
@@ -321,6 +322,125 @@ class CodedAperture(Mask):
 
         return meas
 
+class MultiLensArray(Mask):
+    """
+    Multi-lens array mask.
+    """
+    def __init__(
+        self, N = None, radius = None, loc = None, refractive_index = 1.2, design_wv=532e-9, seed = 0, min_height=1e-3, **kwargs
+    ):
+        """
+        Multi-lens array mask constructor.
+
+        Parameters
+        ----------
+        N: int
+            Number of lenses
+        radius: array_like
+            Radius of the lenses (m)
+        loc: array_like of tuples
+            Location of the lenses (m)
+        refractive_index: float
+            Refractive index of the mask substrate. Default is 1.2.
+        wavelength: float
+        seed: int
+            Seed for the random number generator. Default is 0.
+        min_height: float
+            Minimum height of the lenses (m). Default is 1e-3.
+        """
+        self.N = N
+        self.radius = radius
+        self.loc = loc
+        self.refractive_index = refractive_index
+        self.wavelength = design_wv
+        self.seed = seed
+        self.min_height = min_height
+        
+        if self.radius is not None:
+            assert self.loc is not None
+            assert len(self.radius) == len(self.loc)
+            self.N = len(self.radius)
+            circles = np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
+            assert MultiLensArray.no_circle_overlap(circles)
+        else:
+            assert self.N is not None
+            np.random.seed(self.seed)
+            self.radius = np.random.uniform(self.min_height, 20, self.N) #TODO: check if it is the right way to do it
+            assert self.N == len(self.radius)
+        super().__init__(**kwargs)
+    
+        
+
+    @staticmethod
+    def no_circle_overlap(circles):
+        """Check if any circle in the list overlaps with another."""
+        for i in range(len(circles)):
+            if MultiLensArray.does_circle_overlap(circles[i+1:], circles[i][0], circles[i][1], circles[i][2]):
+                return False
+        return True
+    
+    @staticmethod
+    def does_circle_overlap(circles, x, y, r):
+        """Check if a circle overlaps with any in the list."""
+        for (cx, cy, cr) in circles:
+            if np.sqrt((x - cx)**2 + (y - cy)**2) < r/2 + cr/2:
+                return True
+        return False
+
+    @staticmethod
+    def place_spheres_on_plane(width, height, radius, max_attempts=1000):
+        """Try to place circles on a 2D plane."""
+        placed_circles = []
+        radius_sorted = sorted(radius, reverse=True)  # Place larger circles first
+
+        for r in radius_sorted:
+            placed = False
+            for _ in range(max_attempts):
+                x = np.random.uniform(r, width - r)
+                y = np.random.uniform(r, height - r)
+            
+                if not MultiLensArray.does_circle_overlap(placed_circles, x, y, r):
+                    placed_circles.append((x, y, r))
+                    placed = True
+                    print(f"Placed circle with rad {r}, and center ({x}, {y})")
+                    break
+        
+            if not placed:
+                print(f"Failed to place circle with rad {r}")
+                continue
+
+        placed_circles = np.array(placed_circles)
+        circles = placed_circles[:, :2]
+        radius = placed_circles[:, 2]
+        return circles, radius
+
+    def create_mask(self):
+        self.loc, self.radius = MultiLensArray.place_spheres_on_plane(self.resolution[0], self.resolution[1], self.radius)
+        height = self.create_height_map(self.radius, self.loc)
+        phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength) #% (2 * np.pi) ? Makes it have some noisy values instead of a continuous sphere
+        fig, ax = plt.subplots()
+        im = ax.imshow(phi, cmap="gray")
+        fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
+        plt.show()
+        self.mask = np.exp(1j * phi)
+        print(np.angle(self.mask[51, 321]), " ", phi[51, 321] - 2*np.pi)
+
+    def create_height_map(self, radius, locs):
+        height = np.full((self.resolution[0], self.resolution[1]), self.min_height)
+        for x in range(height.shape[0]):
+            for y in range(height.shape[1]):
+                height[x, y] += self.lens_contribution(radius, locs, x + 0.5, y + 0.5)
+        assert np.all(height >= self.min_height)
+        return height
+    
+    def lens_contribution(self, radius, locs, x, y):
+        contribution = 0
+        for idx, loc in enumerate(locs):
+            if (x-loc[0])**2 + (y-loc[1])**2 < radius[idx]**2:
+                contribution = np.sqrt(radius[idx]**2 - (x-loc[0])**2 - (y-loc[1])**2)
+                return contribution
+        return contribution
+
 
 class PhaseContour(Mask):
     """
@@ -354,6 +474,7 @@ class PhaseContour(Mask):
         self.refractive_index = refractive_index
         self.n_iter = n_iter
         self.design_wv = design_wv
+        
 
         super().__init__(**kwargs)
 
@@ -410,6 +531,7 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):
     n_iter: int
         Number of iterations. Default value is 10.
     """
+
     M_p = np.sqrt(target_psf)
 
     if hasattr(d1, "__len__"):
