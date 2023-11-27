@@ -415,15 +415,11 @@ class MultiLensArray(Mask):
         return circles, radius
 
     def create_mask(self):
-        self.loc, self.radius = MultiLensArray.place_spheres_on_plane(self.resolution[0], self.resolution[1], self.radius)
+        if self.loc is None:
+            self.loc, self.radius = MultiLensArray.place_spheres_on_plane(self.resolution[0], self.resolution[1], self.radius)
         height = self.create_height_map(self.radius, self.loc)
         phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength) #% (2 * np.pi) ? Makes it have some noisy values instead of a continuous sphere
-        fig, ax = plt.subplots()
-        im = ax.imshow(phi, cmap="gray")
-        fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
-        plt.show()
         self.mask = np.exp(1j * phi)
-        print(np.angle(self.mask[51, 321]), " ", phi[51, 321] - 2*np.pi)
 
     def create_height_map(self, radius, locs):
         height = np.full((self.resolution[0], self.resolution[1]), self.min_height)
