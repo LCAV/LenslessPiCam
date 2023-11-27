@@ -623,6 +623,7 @@ class HeightVarying(Mask):
     """
     def __init__(
             self, 
+            is_torch=False,
             refractive_index = 1.2, 
             wavelength = 532e-9, 
             height_map = None,
@@ -630,7 +631,7 @@ class HeightVarying(Mask):
             seed = 0,
             **kwargs):
         
-        
+        self.is_torch = is_torch
         self.refractive_index = refractive_index
         self.wavelength = wavelength
         self.height_range = height_range
@@ -645,13 +646,28 @@ class HeightVarying(Mask):
         super().__init__(**kwargs)
 
     def get_phi(self):
-        phi = self.height_map * (2*np.pi*(self.refractive_index-1) / self.wavelength)
-        phi = phi % (2*np.pi)
-        return phi
+
+        if self.is_torch == False:
+            phi = self.height_map * (2*np.pi*(self.refractive_index-1) / self.wavelength)
+            phi = phi % (2*np.pi)
+            return phi
+        
+        else:
+            return torch.from_numpy((self.height_map * (2*np.pi*(self.refractive_index-1) / self.wavelength)) % (2*np.pi))
+        
     
     def create_mask(self):
-        if self.height_map is None:
-            self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], self.resolution)
-        assert self.height_map.shape == tuple(self.resolution)
-        phase_mask = self.get_phi()
-        self.mask = np.exp(1j * phase_mask)
+
+        if self.is_torch == False:
+            if self.height_map is None:
+                self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], self.resolution)
+            assert self.height_map.shape == tuple(self.resolution)
+            phase_mask = self.get_phi()
+            self.mask = np.exp(1j * phase_mask)
+        
+        else:
+            if self.height_map is None:
+                self.height_map = torch.from_numpy(np.random.uniform(self.height_range[0], self.height_range[1], self.resolution))
+            assert self.height_map.shape == tuple(self.resolution)
+            phase_mask = self.get_phi()
+            self.mask = torch.exp(1j * phase_mask)
