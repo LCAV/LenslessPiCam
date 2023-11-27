@@ -518,7 +518,7 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):
         Target PSF to optimize the phase mask for.
     wv: float
         Wavelength (m).
-    d1: float
+    d1: float=
         Sample period on the sensor i.e. pixel size (m).
     dz: float
         Propagation distance between the mask and the sensor.
@@ -588,3 +588,70 @@ class FresnelZoneAperture(Mask):
         radius_px = self.radius / self.feature_size[0]
         mask = 0.5 * (1 + np.cos(np.pi * (x**2 + y**2) / radius_px**2))
         self.mask = np.round(mask)
+
+
+class HeightVarying(Mask):
+    """
+    A class representing a height-varying mask for lensless imaging.
+
+    Parameters
+    ----------
+    refractive_index : float, optional
+        The refractive index of the material. Default is 1.2.
+    wavelength : float, optional
+        The wavelength of the light. Default is 532e-9.
+    height_map : ndarray or None, optional
+        An array representing the height map of the mask. If None, a random height map is generated.
+    height_range : tuple, optional
+        A tuple (min, max) specifying the range of heights when generating a random height map.
+        Default is (min, max), where min and max are placeholders for the actual values.
+    seed : int, optional
+        Seed for the random number generator when generating a random height map. Default is 0.
+
+    Example
+    -------
+    Creating an instance with a custom height map:
+
+    >>> custom_height_map = np.array([0.1, 0.2, 0.3])
+    >>> height_varying_instance = HeightVarying(
+    ...     refractive_index=1.2,
+    ...     wavelength=532e-9,
+    ...     height_map=custom_height_map,
+    ...     height_range=(0.0, 1.0),
+    ...     seed=42
+    ... )
+    """
+    def __init__(
+            self, 
+            refractive_index = 1.2, 
+            wavelength = 532e-9, 
+            height_map = None,
+            height_range = (1e-3, 1e-2), 
+            seed = 0,
+            **kwargs):
+        
+        
+        self.refractive_index = refractive_index
+        self.wavelength = wavelength
+        self.height_range = height_range
+        self.seed = seed
+
+        if height_map is not None:
+            self.height_map = height_map
+        else:
+            self.height_map = None
+            np.random.seed(self.seed)
+
+        super().__init__(**kwargs)
+
+    def get_phi(self):
+        phi = self.height_map * (2*np.pi*(self.refractive_index-1) / self.wavelength)
+        phi = phi % (2*np.pi)
+        return phi
+    
+    def create_mask(self):
+        if self.height_map is None:
+            self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], self.resolution)
+        assert self.height_map.shape == tuple(self.resolution)
+        phase_mask = self.get_phi()
+        self.mask = np.exp(1j * phase_mask)
