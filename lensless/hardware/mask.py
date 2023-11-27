@@ -401,7 +401,7 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):
         Target PSF to optimize the phase mask for.
     wv: float
         Wavelength (m).
-    d1: float
+    d1: float=
         Sample period on the sensor i.e. pixel size (m).
     dz: float
         Propagation distance between the mask and the sensor.
@@ -473,16 +473,7 @@ class FresnelZoneAperture(Mask):
 
 
 class HeightVarying(Mask):
-
-    def __init__(
-            self, 
-            refractive_index = 1.2, 
-            wavelength = 532e-9, 
-            height_map = None,
-            height_range = (min, max), 
-            seed = 0):
-        
-        """
+    """
     A class representing a height-varying mask for lensless imaging.
 
     Parameters
@@ -512,26 +503,37 @@ class HeightVarying(Mask):
     ...     seed=42
     ... )
     """
-
-        super().__init__()
+    def __init__(
+            self, 
+            refractive_index = 1.2, 
+            wavelength = 532e-9, 
+            height_map = None,
+            height_range = (1e-3, 1e-2), 
+            seed = 0,
+            **kwargs):
+        
+        
         self.refractive_index = refractive_index
         self.wavelength = wavelength
-
-        if self.height_map is not None:
-            self.height_map = height_map
-        else:
-            np.random.seed(self.seed)
-            self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], n)
-        
         self.height_range = height_range
         self.seed = seed
-    
-    def get_phi(self, n):
-        phi = self.height_map * (2*np.pi*(n-1) / self.wavelength)
+
+        if height_map is not None:
+            self.height_map = height_map
+        else:
+            self.height_map = None
+            np.random.seed(self.seed)
+
+        super().__init__(**kwargs)
+
+    def get_phi(self):
+        phi = self.height_map * (2*np.pi*(self.refractive_index-1) / self.wavelength)
         phi = phi % (2*np.pi)
         return phi
     
-    def create_mask(self, n):
-        phase_mask = self.get_phi(n)
-        mask = np.exp(1j * self.get_phi(n))
-        return mask
+    def create_mask(self):
+        if self.height_map is None:
+            self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], self.resolution)
+        assert self.height_map.shape == tuple(self.resolution)
+        phase_mask = self.get_phi()
+        self.mask = np.exp(1j * phase_mask)
