@@ -101,16 +101,28 @@ def test_classmethod():
     im = ax.imshow(np.angle(mask4.mask), cmap="gray")
     fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
     plt.show()
+
     mask5 = HeightVarying.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz
     )
-    assert np.all(mask5.mask.shape == resolution)
-    desired_psf_shape = np.array(tuple(resolution) + (len(mask5.psf_wavelength),))
-    assert np.all(mask5.psf.shape == desired_psf_shape)
-    fig, ax = plt.subplots()
-    im = ax.imshow(np.angle(mask5.mask), cmap="gray")
-    fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
-    plt.show()
+    if mask5.is_Torch == False:
+        assert np.all(mask5.mask.shape == resolution)
+        desired_psf_shape = np.array(tuple(resolution) + (len(mask5.psf_wavelength),))
+        assert np.all(mask5.psf.shape == desired_psf_shape)
+        fig, ax = plt.subplots()
+        im = ax.imshow(np.angle(mask5.mask), cmap="gray")
+        fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
+        plt.show()
+    else:
+        assert torch.all(mask5.mask.shape == torch.tensor(resolution))
+        desired_psf_shape = torch.tensor(resolution + (len(mask5.psf_wavelength),))
+        assert torch.all(mask5.psf.shape == desired_psf_shape)
+        fig, ax = plt.subplots()
+        im = ax.imshow(torch.angle(mask5.mask), cmap="gray")
+        fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
+        plt.show()
+
+
 
 if __name__ == "__main__":
     test_flatcam()
