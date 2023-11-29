@@ -1,19 +1,19 @@
 sensor: rpi_hq
-bayer: True
+legacy: True   # Legacy image capture software (raspistill) or new one (libcamera)
+bayer: True    # whether to capture Bayer data, otherwise directly capture RGB (demosaiced) data
+nbits_bayer: 16   # output bit depth for Bayer data (16 or 8), only used if legacy=True
 fn: test
 exp: 0.5
 config_pause: 2
-# {'off': 0, 'auto': 1, 'sunlight': 2, 'cloudy': 3,
-# 'shade': 4, 'tungsten': 5, 'fluorescent': 6, 
-# 'incandescent': 7, 'flash': 8, 'horizon': 9}
-sensor_mode: "0"
+sensor_mode: "0"   # {'off': 0, 'auto': 1, 'sunlight': 2, 'cloudy': 3, 'shade': 4, 'tungsten': 5, 'fluorescent': 6, 'incandescent': 7, 'flash': 8, 'horizon': 9}
+iso: 100
+awb_gains: null
+
+# -- only one of below should be set
+down: null  # downsample from maximum resolution
+res: null   # desired resolution
+
+# -- below only used if bayer=True, capture Bayer data but return as RGB or grayscale
 rgb: False
 gray: False
-iso: 100
-sixteen: True   # whether 16 bits or 8 (from Bayer data)
-legacy: True    
-down: null
-res: null
 nbits_out: 8
-awb_gains: null
-# awb_gains: [1.9, 1.2]   # red, blue

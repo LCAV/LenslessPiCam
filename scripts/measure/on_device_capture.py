@@ -57,9 +57,8 @@ SENSOR_MODES = [
 def capture(config):
 
     sensor = config.sensor
-    assert sensor in SensorOptions.values(), f"Sensor must be one of {SensorOptions.values()}"
-
     bayer = config.bayer
+    nbits_bayer = config.nbits_bayer
     fn = config.fn
     exp = config.exp
     config_pause = config.config_pause
@@ -67,15 +66,36 @@ def capture(config):
     rgb = config.rgb
     gray = config.gray
     iso = config.iso
-    sixteen = config.sixteen
     legacy = config.legacy
     down = config.down
     res = config.res
     nbits_out = config.nbits_out
 
+    assert sensor in SensorOptions.values(), f"Sensor must be one of {SensorOptions.values()}"
+
+    assert res is None or down is None, "Cannot specify both res and down"
+    assert rgb is False or gray is False, "Cannot set both rgb and gray"
+
+    supported_bit_depth = sensor_dict[sensor][SensorParam.BIT_DEPTH]
     assert (
-        nbits_out in sensor_dict[sensor][SensorParam.BIT_DEPTH]
-    ), f"nbits_out must be one of {sensor_dict[sensor][SensorParam.BIT_DEPTH]} for sensor {sensor}"
+        nbits_out in supported_bit_depth
+    ), f"nbits_out must be one of {supported_bit_depth} for sensor {sensor}"
+    assert nbits_bayer in [8, 16], "nbits_bayer must be 8 or 16"
+    if nbits_bayer == 16:
+        # TODO may not work if there are multiple bit depths above 8
+        nbits_measured = max(supported_bit_depth)
+        assert nbits_measured > 8
+    else:
+        nbits_measured = 8
+
+    if SensorParam.BLACK_LEVEL in sensor_dict[sensor]:
+        black_level = sensor_dict[sensor][SensorParam.BLACK_LEVEL] * (2**nbits_measured - 1)
+    else:
+        black_level = 0
+    if SensorParam.CCM_MATRIX in sensor_dict[sensor]:
+        ccm = sensor_dict[sensor][SensorParam.CCM_MATRIX]
+    else:
+        ccm = None
 
     # https://www.raspberrypi.com/documentation/accessories/camera.html#hardware-specification
     sensor_param = sensor_dict[sensor]
@@ -214,17 +234,16 @@ def capture(config):
             camera.capture(stream, "jpeg", bayer=True)
 
             # get bayer data
-            if sixteen:
-                output = np.sum(stream.array, axis=2).astype(np.uint16)
+            raw_data = np.sum(stream.array, axis=2)
+            if nbits_bayer == 16:
+                output = raw_data.astype(np.uint16)
             else:
-                output = (np.sum(stream.array, axis=2) >> 2).astype(np.uint8)
+                output = raw_data / (2 ** max(supported_bit_depth) - 1) * 255
+                output = output.astype(np.uint8)
+                # output = (np.sum(stream.array, axis=2) >> 2).astype(np.uint8)
 
             # returning non-bayer data
             if rgb or gray:
-                if sixteen:
-                    n_bits = 12  # assuming Raspberry Pi HQ
-                else:
-                    n_bits = 8
 
                 if config.awb_gains is not None:
                     red_gain = config.awb_gains[0]
@@ -232,11 +251,11 @@ def capture(config):
 
                 output_rgb = bayer2rgb_cc(
                     output,
-                    nbits=n_bits,
+                    nbits=nbits_measured,
                     blue_gain=blue_gain,
                     red_gain=red_gain,
-                    black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
-                    ccm=RPI_HQ_CAMERA_CCM_MATRIX,
+                    black_level=black_level,
+                    ccm=ccm,
                     nbits_out=nbits_out,
                 )
 
