@@ -10,7 +10,6 @@
 import cv2
 import scipy.signal
 import numpy as np
-from lensless.hardware.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
 
 try:
     import torch
@@ -223,8 +222,8 @@ def bayer2rgb_cc(
     nbits,
     blue_gain=None,
     red_gain=None,
-    black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
-    ccm=RPI_HQ_CAMERA_CCM_MATRIX,
+    black_level=0,
+    ccm=None,
     nbits_out=None,
 ):
     """
@@ -269,18 +268,27 @@ def bayer2rgb_cc(
         black_level < 2**nbits - 1
     ), f"Black level ({black_level}) too high for bit depth ({nbits})."
 
+    if ccm is None:
+        ccm = np.eye(3)
+    ccm = np.array(ccm).astype(np.float32)
+
     # demosaic Bayer data
     img = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
 
     # correction
     img = img - black_level
+    img = np.clip(img, 0, 2**nbits - 1).astype(np.float32)
+
     if red_gain:
         img[:, :, 0] *= red_gain
     if blue_gain:
         img[:, :, 2] *= blue_gain
     img = img / (2**nbits - 1 - black_level)
     img[img > 1] = 1
-    img = (img.reshape(-1, 3, order="F") @ ccm.T).reshape(img.shape, order="F")
+    img_re = img.reshape(-1, 3, order="F")
+    img_re = img_re @ ccm.T
+    img = img_re.reshape(img.shape, order="F")
+    # img = (img.reshape(-1, 3, order="F") @ ccm.T).reshape(img.shape, order="F")
     img[img < 0] = 0
     img[img > 1] = 1
     return (img * (2**nbits_out - 1)).astype(dtype)
