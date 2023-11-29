@@ -55,10 +55,10 @@ SENSOR_MODES = [
 @hydra.main(version_base=None, config_path="../../configs", config_name="capture")
 def capture(config):
 
-    black_level, ccm, supported_bit_depth, nbits_measured = check_capture_config(config)
+    black_level, ccm, supported_bit_depth = check_capture_config(config)
 
     bayer = config.bayer
-    nbits_bayer = config.nbits_bayer
+    nbits_capture = config.nbits_capture
     fn = config.fn
     exp = config.exp
     config_pause = config.config_pause
@@ -197,9 +197,10 @@ def capture(config):
 
             # get bayer data
             raw_data = np.sum(stream.array, axis=2)
-            if nbits_bayer == 16:
+            if nbits_capture > 8:
                 output = raw_data.astype(np.uint16)
             else:
+                # TODO may be wrong if multiple bit depths above 8 are supported
                 output = raw_data / (2 ** max(supported_bit_depth) - 1) * 255
                 output = output.astype(np.uint8)
                 # output = (np.sum(stream.array, axis=2) >> 2).astype(np.uint8)
@@ -213,7 +214,7 @@ def capture(config):
 
                 output_rgb = bayer2rgb_cc(
                     output,
-                    nbits=nbits_measured,
+                    nbits=nbits_capture,
                     blue_gain=blue_gain,
                     red_gain=red_gain,
                     black_level=black_level,

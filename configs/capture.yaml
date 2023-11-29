@@ -1,7 +1,7 @@
 sensor: rpi_hq
 legacy: True   # Legacy image capture software (raspistill) or new one (libcamera)
 bayer: True    # whether to capture Bayer data, otherwise directly capture RGB (demosaiced) data
-nbits_bayer: 16   # output bit depth for Bayer data (16 or 8), only used if legacy=True
+nbits_capture: 12   # (if legacy=True) output bit depth for Bayer data. should correspond to supported bit depths: lensless/hardware/sensor.py
 fn: test
 exp: 0.5
 config_pause: 2
