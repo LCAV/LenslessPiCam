@@ -270,25 +270,24 @@ def bayer2rgb_cc(
 
     if ccm is None:
         ccm = np.eye(3)
-    ccm = np.array(ccm).astype(np.float32)
+    ccm = ccm.copy().astype(np.float32)
 
     # demosaic Bayer data
-    img = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
+    img = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB).astype(np.float32)
 
     # correction
-    img = img - black_level
-    img = np.clip(img, 0, 2**nbits - 1).astype(np.float32)
-
+    img -= black_level
     if red_gain:
         img[:, :, 0] *= red_gain
     if blue_gain:
         img[:, :, 2] *= blue_gain
-    img = img / (2**nbits - 1 - black_level)
+    np.clip(img, 0, 2**nbits - 1, out=img)
+    img /= 2**nbits - 1 - black_level
     img[img > 1] = 1
-    img_re = img.reshape(-1, 3, order="F")
-    img_re = img_re @ ccm.T
-    img = img_re.reshape(img.shape, order="F")
-    # img = (img.reshape(-1, 3, order="F") @ ccm.T).reshape(img.shape, order="F")
+    # img_re = img.reshape(-1, 3, order="F")
+    # img_re = img_re @ ccm.T
+    # img = img_re.reshape(img.shape, order="F")
+    img = (img.reshape(-1, 3, order="F") @ ccm.T).reshape(img.shape, order="F")
     img[img < 0] = 0
     img[img > 1] = 1
     return (img * (2**nbits_out - 1)).astype(dtype)

@@ -6,7 +6,7 @@ import time
 import paramiko
 from pprint import pprint
 from paramiko.ssh_exception import AuthenticationException, BadHostKeyException, SSHException
-from lensless.hardware.sensor import SensorOptions
+from lensless.hardware.sensor import SensorOptions, sensor_dict, SensorParam
 import cv2
 from lensless.utils.image import print_image_info
 from lensless.utils.io import load_image
@@ -15,6 +15,63 @@ from lensless.utils.io import load_image
 import logging
 
 logging.getLogger("paramiko").setLevel(logging.WARNING)
+
+
+def check_capture_config(config):
+
+    sensor = config.sensor
+    nbits_bayer = config.nbits_bayer
+    exp = config.exp
+    rgb = config.rgb
+    gray = config.gray
+    legacy = config.legacy
+    down = config.down
+    res = config.res
+    nbits_out = config.nbits_out
+    awb_gains = config.awb_gains
+
+    assert sensor in SensorOptions.values(), f"Sensor must be one of {SensorOptions.values()}"
+
+    assert res is None or down is None, "Cannot specify both res and down"
+    if res is not None:
+        assert len(res) == 2, "res must be a tuple of length 2"
+
+    assert rgb is False or gray is False, "Cannot set both rgb and gray"
+
+    supported_bit_depth = sensor_dict[sensor][SensorParam.BIT_DEPTH]
+    assert (
+        nbits_out in supported_bit_depth
+    ), f"nbits_out must be one of {supported_bit_depth} for sensor {sensor}"
+    assert nbits_bayer in [8, 16], "nbits_bayer must be 8 or 16"
+    if nbits_bayer == 16:
+        # TODO may not work if there are multiple bit depths above 8
+        nbits_measured = max(supported_bit_depth)
+        assert nbits_measured > 8
+    else:
+        nbits_measured = 8
+
+    if SensorParam.BLACK_LEVEL in sensor_dict[sensor]:
+        black_level = sensor_dict[sensor][SensorParam.BLACK_LEVEL] * (2**nbits_measured - 1)
+    else:
+        black_level = 0
+    if SensorParam.CCM_MATRIX in sensor_dict[sensor]:
+        ccm = sensor_dict[sensor][SensorParam.CCM_MATRIX]
+    else:
+        ccm = None
+
+    # https://www.raspberrypi.com/documentation/accessories/camera.html#hardware-specification
+    sensor_param = sensor_dict[sensor]
+    assert exp <= sensor_param[SensorParam.MAX_EXPOSURE]
+    assert exp >= sensor_param[SensorParam.MIN_EXPOSURE]
+
+    if awb_gains is not None:
+        assert len(awb_gains) == 2, "awb_gains must be a tuple of length 2"
+
+    if sensor == SensorOptions.RPI_GS.value:
+        assert not legacy, "Legacy capture software not supported for Global Shutter sensor"
+
+    # return sensor parameters
+    return black_level, ccm, supported_bit_depth, nbits_measured
 
 
 def capture(

@@ -7,7 +7,8 @@ exp: 0.5
 config_pause: 2
 sensor_mode: "0"   # {'off': 0, 'auto': 1, 'sunlight': 2, 'cloudy': 3, 'shade': 4, 'tungsten': 5, 'fluorescent': 6, 'incandescent': 7, 'flash': 8, 'horizon': 9}
 iso: 100
-awb_gains: null
+# awb_gains: null   # to use gains estimte by system
+awb_gains: [1.9, 1.2]
 
 # -- only one of below should be set
 down: null  # downsample from maximum resolution
