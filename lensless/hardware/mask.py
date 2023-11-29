@@ -327,7 +327,7 @@ class MultiLensArray(Mask):
     Multi-lens array mask.
     """
     def __init__(
-        self, N = None, radius = None, loc = None, refractive_index = 1.2, design_wv=532e-9, seed = 0, min_height=1e-3, **kwargs
+        self, N = None, radius = None, loc = None, refractive_index = 1.2, design_wv=532e-9, seed = 0, min_height=1e-3, istorch=False, **kwargs
     ):
         """
         Multi-lens array mask constructor.
@@ -355,37 +355,59 @@ class MultiLensArray(Mask):
         self.wavelength = design_wv
         self.seed = seed
         self.min_height = min_height
+        self.istorch=istorch
         
-        if self.radius is not None:
-            assert self.loc is not None
-            assert len(self.radius) == len(self.loc)
-            self.N = len(self.radius)
-            circles = np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
-            assert MultiLensArray.no_circle_overlap(circles)
+        if not istorch :
+            if self.radius is not None:
+                assert self.loc is not None
+                assert len(self.radius) == len(self.loc)
+                self.N = len(self.radius)
+                circles = np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
+                assert MultiLensArray.no_circle_overlap(circles, self.istorch)
+            else:
+                assert self.N is not None
+                np.random.seed(self.seed)
+                self.radius = np.random.uniform(self.min_height, 20, self.N) #TODO: check if it is the right way to do it
+                assert self.N == len(self.radius)
+        elif self.radius is not None:
+                assert self.loc is not None
+                assert len(self.radius) == len(self.loc)
+                self.N = len(self.radius)
+                circles =  torch.tensor([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
+                assert MultiLensArray.no_circle_overlap(circles, self.istorch)
         else:
             assert self.N is not None
-            np.random.seed(self.seed)
-            self.radius = np.random.uniform(self.min_height, 20, self.N) #TODO: check if it is the right way to do it
+            torch.manual_seed(self.seed)
+            self.radius = torch.rand(self.N) * (20 - self.min_height) + self.min_height #TODO: check if it is the right way to do it
             assert self.N == len(self.radius)
+        
         super().__init__(**kwargs)
     
         
 
     @staticmethod
-    def no_circle_overlap(circles):
+    def no_circle_overlap(circles, istorch):
         """Check if any circle in the list overlaps with another."""
         for i in range(len(circles)):
-            if MultiLensArray.does_circle_overlap(circles[i+1:], circles[i][0], circles[i][1], circles[i][2]):
+            if MultiLensArray.does_circle_overlap(circles[i+1:], circles[i][0], circles[i][1], circles[i][2], istorch):
                 return False
         return True
     
     @staticmethod
-    def does_circle_overlap(circles, x, y, r):
+    def does_circle_overlap(circles, x, y, r, istorch):
         """Check if a circle overlaps with any in the list."""
-        for (cx, cy, cr) in circles:
-            if np.sqrt((x - cx)**2 + (y - cy)**2) < r/2 + cr/2:
-                return True
-        return False
+        if not istorch:
+            for (cx, cy, cr) in circles:
+                if np.sqrt((x - cx)**2 + (y - cy)**2) < r/2 + cr/2:
+                    return True
+            return False
+        else:
+            for circle in circles:
+                cx, cy, cr = circle.tolist()  # Convert the PyTorch tensor to a list
+                if torch.sqrt((x - cx)**2 + (y - cy)**2) < r/2 + cr/2:
+                    return True
+            return False
+
 
     @staticmethod
     def place_spheres_on_plane(width, height, radius, max_attempts=1000):
