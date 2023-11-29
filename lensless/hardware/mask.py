@@ -32,6 +32,7 @@ from waveprop.rs import angular_spectrum
 from waveprop.noise import add_shot_noise
 from lensless.hardware.sensor import VirtualSensor
 from lensless.utils.image import resize
+from matplotlib import pyplot as plt
 
 try:
     import torch
@@ -326,7 +327,7 @@ class MultiLensArray(Mask):
     Multi-lens array mask.
     """
     def __init__(
-        self, N = None, radius = None, loc = None, refractive_index = 1.2, seed = 0, min_height=1e-3
+        self, N = None, radius = None, loc = None, refractive_index = 1.2, design_wv=532e-9, seed = 0, min_height=1e-3, **kwargs
     ):
         """
         Multi-lens array mask constructor.
@@ -341,6 +342,7 @@ class MultiLensArray(Mask):
             Location of the lenses (m)
         refractive_index: float
             Refractive index of the mask substrate. Default is 1.2.
+        wavelength: float
         seed: int
             Seed for the random number generator. Default is 0.
         min_height: float
@@ -350,9 +352,9 @@ class MultiLensArray(Mask):
         self.radius = radius
         self.loc = loc
         self.refractive_index = refractive_index
+        self.wavelength = design_wv
         self.seed = seed
         self.min_height = min_height
-
         
         if self.radius is not None:
             assert self.loc is not None
@@ -363,12 +365,11 @@ class MultiLensArray(Mask):
         else:
             assert self.N is not None
             np.random.seed(self.seed)
-            radius = np.random.uniform(self.min_height, self.distance_sensor, self.N) #TODO: check if it is the right way to do it
-            self.loc, self.radius = MultiLensArray.place_spheres_on_plane(self.size[0], self.size[1], radius)
+            self.radius = np.random.uniform(self.min_height, 20, self.N) #TODO: check if it is the right way to do it
             assert self.N == len(self.radius)
-            # call the does_circle_overlap method
+        super().__init__(**kwargs)
     
-        super().__init__()
+        
 
     @staticmethod
     def no_circle_overlap(circles):
@@ -401,6 +402,7 @@ class MultiLensArray(Mask):
                 if not MultiLensArray.does_circle_overlap(placed_circles, x, y, r):
                     placed_circles.append((x, y, r))
                     placed = True
+                    print(f"Placed circle with rad {r}, and center ({x}, {y})")
                     break
         
             if not placed:
@@ -411,6 +413,29 @@ class MultiLensArray(Mask):
         circles = placed_circles[:, :2]
         radius = placed_circles[:, 2]
         return circles, radius
+
+    def create_mask(self):
+        if self.loc is None:
+            self.loc, self.radius = MultiLensArray.place_spheres_on_plane(self.resolution[0], self.resolution[1], self.radius)
+        height = self.create_height_map(self.radius, self.loc)
+        phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength) #% (2 * np.pi) ? Makes it have some noisy values instead of a continuous sphere
+        self.mask = np.exp(1j * phi)
+
+    def create_height_map(self, radius, locs):
+        height = np.full((self.resolution[0], self.resolution[1]), self.min_height)
+        for x in range(height.shape[0]):
+            for y in range(height.shape[1]):
+                height[x, y] += self.lens_contribution(radius, locs, x + 0.5, y + 0.5)
+        assert np.all(height >= self.min_height)
+        return height
+    
+    def lens_contribution(self, radius, locs, x, y):
+        contribution = 0
+        for idx, loc in enumerate(locs):
+            if (x-loc[0])**2 + (y-loc[1])**2 < radius[idx]**2:
+                contribution = np.sqrt(radius[idx]**2 - (x-loc[0])**2 - (y-loc[1])**2)
+                return contribution
+        return contribution
 
 
 class PhaseContour(Mask):
@@ -445,7 +470,6 @@ class PhaseContour(Mask):
         self.refractive_index = refractive_index
         self.n_iter = n_iter
         self.design_wv = design_wv
-        
 
         super().__init__(**kwargs)
 
@@ -524,7 +548,7 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False, 
         Target PSF to optimize the phase mask for.
     wv: float
         Wavelength (m).
-    d1: float
+    d1: float=
         Sample period on the sensor i.e. pixel size (m).
     dz: float
         Propagation distance between the mask and the sensor.
@@ -533,54 +557,30 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False, 
     n_iter: int
         Number of iterations. Default value is 10.
     """
-    if can_torch:
-        M_p = torch.sqrt(target_psf)
 
-        if hasattr(d1, "__len__"):
-            if d1[0] != d1[1]:
-                warnings.warn("Non-square pixel, first dimension taken as feature size.")
-            d1 = d1[0]
+    M_p = np.sqrt(target_psf)
 
-        for _ in range(n_iter):
-            # back propagate from sensor to mask
-            M_phi = fresnel_conv(M_p, wv, d1, -dz, dtype=torch.float32)[0]
-            # constrain amplitude at mask to be unity, i.e. phase pattern
-            M_phi = torch.exp(1j * torch.angle(M_phi))
-            # forward propagate from mask to sensor
-            M_p = fresnel_conv(M_phi, wv, d1, dz, dtype=torch.float32)[0]
-            # constrain amplitude to be sqrt(PSF)
-            M_p = torch.sqrt(target_psf) * torch.exp(1j * torch.angle(M_p))
+    if hasattr(d1, "__len__"):
+        if d1[0] != d1[1]:
+            warnings.warn("Non-square pixel, first dimension taken as feature size.")
+        d1 = d1[0]
 
-        phi = (torch.angle(M_phi) + 2 * torch.pi) % (2 * torch.pi)
+    for _ in range(n_iter):
+        # back propagate from sensor to mask
+        M_phi = fresnel_conv(M_p, wv, d1, -dz, dtype=torch.float32)[0]
+        # constrain amplitude at mask to be unity, i.e. phase pattern
+        M_phi = torch.exp(1j * torch.angle(M_phi))
+        # forward propagate from mask to sensor
+        M_p = fresnel_conv(M_phi, wv, d1, dz, dtype=torch.float32)[0]
+        # constrain amplitude to be sqrt(PSF)
+        M_p = torch.sqrt(target_psf) * torch.exp(1j * torch.angle(M_p))
 
-        if height_map:
-            return phi, wv * phi / (2 * torch.pi * (n - 1))
-        else:
-            return phi
+    phi = (torch.angle(M_phi) + 2 * torch.pi) % (2 * torch.pi)
+
+    if height_map:
+        return phi, wv * phi / (2 * torch.pi * (n - 1))
     else:
-        M_p = np.sqrt(target_psf)
-
-        if hasattr(d1, "__len__"):
-            if d1[0] != d1[1]:
-                warnings.warn("Non-square pixel, first dimension taken as feature size.")
-            d1 = d1[0]
-
-        for _ in range(n_iter):
-            # back propagate from sensor to mask
-            M_phi = fresnel_conv(M_p, wv, d1, -dz, dtype=np.float32)[0]
-            # constrain amplitude at mask to be unity, i.e. phase pattern
-            M_phi = np.exp(1j * np.angle(M_phi))
-            # forward propagate from mask to sensor
-            M_p = fresnel_conv(M_phi, wv, d1, dz, dtype=np.float32)[0]
-            # constrain amplitude to be sqrt(PSF)
-            M_p = np.sqrt(target_psf) * np.exp(1j * np.angle(M_p))
-
-        phi = (np.angle(M_phi) + 2 * np.pi) % (2 * np.pi)
-
-        if height_map:
-            return phi, wv * phi / (2 * np.pi * (n - 1))
-        else:
-            return phi
+        return phi
 
 
 class FresnelZoneAperture(Mask):
@@ -618,3 +618,70 @@ class FresnelZoneAperture(Mask):
         radius_px = self.radius / self.feature_size[0]
         mask = 0.5 * (1 + np.cos(np.pi * (x**2 + y**2) / radius_px**2))
         self.mask = np.round(mask)
+
+
+class HeightVarying(Mask):
+    """
+    A class representing a height-varying mask for lensless imaging.
+
+    Parameters
+    ----------
+    refractive_index : float, optional
+        The refractive index of the material. Default is 1.2.
+    wavelength : float, optional
+        The wavelength of the light. Default is 532e-9.
+    height_map : ndarray or None, optional
+        An array representing the height map of the mask. If None, a random height map is generated.
+    height_range : tuple, optional
+        A tuple (min, max) specifying the range of heights when generating a random height map.
+        Default is (min, max), where min and max are placeholders for the actual values.
+    seed : int, optional
+        Seed for the random number generator when generating a random height map. Default is 0.
+
+    Example
+    -------
+    Creating an instance with a custom height map:
+
+    >>> custom_height_map = np.array([0.1, 0.2, 0.3])
+    >>> height_varying_instance = HeightVarying(
+    ...     refractive_index=1.2,
+    ...     wavelength=532e-9,
+    ...     height_map=custom_height_map,
+    ...     height_range=(0.0, 1.0),
+    ...     seed=42
+    ... )
+    """
+    def __init__(
+            self, 
+            refractive_index = 1.2, 
+            wavelength = 532e-9, 
+            height_map = None,
+            height_range = (1e-3, 1e-2), 
+            seed = 0,
+            **kwargs):
+        
+        
+        self.refractive_index = refractive_index
+        self.wavelength = wavelength
+        self.height_range = height_range
+        self.seed = seed
+
+        if height_map is not None:
+            self.height_map = height_map
+        else:
+            self.height_map = None
+            np.random.seed(self.seed)
+
+        super().__init__(**kwargs)
+
+    def get_phi(self):
+        phi = self.height_map * (2*np.pi*(self.refractive_index-1) / self.wavelength)
+        phi = phi % (2*np.pi)
+        return phi
+    
+    def create_mask(self):
+        if self.height_map is None:
+            self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], self.resolution)
+        assert self.height_map.shape == tuple(self.resolution)
+        phase_mask = self.get_phi()
+        self.mask = np.exp(1j * phase_mask)
