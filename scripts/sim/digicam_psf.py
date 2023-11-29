@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 from slm_controller import slm
 from lensless.utils.io import save_image, get_dtype, load_psf
 from lensless.utils.plot import plot_image
-from lensless.utils.image import gamma_correction
 from lensless.hardware.sensor import VirtualSensor
 from lensless.hardware.slm import get_programmable_mask, get_intensity_psf
 from waveprop.devices import slm_dict
@@ -41,6 +40,9 @@ def digicam_psf(config):
     Load pattern
     """
     pattern = np.load(fp)
+    # - make random pattern like original
+    # pattern = np.random.rand(*pattern.shape) * 255
+    # pattern = pattern.astype(np.uint8)
 
     # -- apply aperture
     aperture = np.zeros(pattern.shape, dtype=np.uint8)
@@ -58,6 +60,7 @@ def digicam_psf(config):
         idx_1 : idx_1 + ap_shape[0],
         idx_2 : idx_2 + ap_shape[1],
     ]
+
     print("Controllable region shape: ", pattern_sub.shape)
     print("Total number of pixels: ", np.prod(pattern_sub.shape))
 

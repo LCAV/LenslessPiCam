@@ -409,15 +409,16 @@ def train_unrolled(config):
         dataset.psf = dataset.psf.to(device)
         log.info(f"Data shape :  {dataset[0][0].shape}")
 
+        if config.files.n_files is not None:
+            dataset = Subset(dataset, np.arange(config.files.n_files))
+            dataset.psf = dataset.dataset.psf
+
         # train-test split
         train_size = int((1 - config.files.test_size) * len(dataset))
         test_size = len(dataset) - train_size
         train_set, test_set = torch.utils.data.random_split(
             dataset, [train_size, test_size], generator=generator
         )
-        if config.files.n_files is not None:
-            train_set = Subset(train_set, np.arange(config.files.n_files))
-            test_set = Subset(test_set, np.arange(config.files.n_files))
 
         # -- if learning mask
         downsample = config.files.downsample * 4  # measured files are 4x downsampled
@@ -470,7 +471,6 @@ def train_unrolled(config):
 
             for i, _idx in enumerate(config.test_idx):
 
-                # lensless, lensed = dataset[_idx]
                 lensless, lensed = test_set[_idx]
                 recon = ADMM(psf)
 
