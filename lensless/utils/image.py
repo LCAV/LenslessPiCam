@@ -265,6 +265,9 @@ def bayer2rgb_cc(
         dtype = np.uint16
     else:
         dtype = np.uint8
+    assert (
+        black_level < 2**nbits - 1
+    ), f"Black level ({black_level}) too high for bit depth ({nbits})."
 
     # demosaic Bayer data
     img = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
