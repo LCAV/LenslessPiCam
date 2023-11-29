@@ -33,7 +33,6 @@ from time import sleep
 from PIL import Image
 from lensless.hardware.utils import get_distro, check_capture_config
 from lensless.utils.image import bayer2rgb_cc, rgb2gray, resize
-from lensless.hardware.sensor import SensorOptions, sensor_dict, SensorParam
 from fractions import Fraction
 import time
 

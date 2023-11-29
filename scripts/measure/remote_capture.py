@@ -33,8 +33,7 @@ import cv2
 from pprint import pprint
 import matplotlib.pyplot as plt
 import rawpy
-from lensless.hardware.utils import check_username_hostname
-from lensless.hardware.sensor import SensorOptions, sensor_dict, SensorParam
+from lensless.hardware.utils import check_username_hostname, check_capture_config
 from lensless.utils.image import rgb2gray, print_image_info
 from lensless.utils.plot import plot_image, pixel_histogram
 from lensless.utils.io import save_image
@@ -44,29 +43,20 @@ from lensless.utils.io import load_image
 @hydra.main(version_base=None, config_path="../../configs", config_name="demo")
 def liveview(config):
 
-    sensor = config.capture.sensor
-    assert sensor in SensorOptions.values(), f"Sensor must be one of {SensorOptions.values()}"
+    username = config.rpi.username
+    hostname = config.rpi.hostname
+    check_username_hostname(username, hostname)
 
+    black_level, ccm, _ = check_capture_config(config.capture)
+    sensor = config.capture.sensor
     bayer = config.capture.bayer
     rgb = config.capture.rgb
     gray = config.capture.gray
-
-    check_username_hostname(config.rpi.username, config.rpi.hostname)
-    username = config.rpi.username
-    hostname = config.rpi.hostname
     legacy = config.capture.legacy
     nbits_out = config.capture.nbits_out
     fn = config.capture.raw_data_fn
     gamma = config.capture.gamma
-    source = config.capture.source
     plot = config.plot
-
-    assert (
-        nbits_out in sensor_dict[sensor][SensorParam.BIT_DEPTH]
-    ), f"capture.nbits_out must be one of {sensor_dict[sensor][SensorParam.BIT_DEPTH]} for sensor {sensor}"
-    assert (
-        config.capture.nbits in sensor_dict[sensor][SensorParam.BIT_DEPTH]
-    ), f"capture.nbits must be one of {sensor_dict[sensor][SensorParam.BIT_DEPTH]} for sensor {sensor}"
 
     if config.save:
         if config.output is not None:
@@ -84,10 +74,8 @@ def liveview(config):
     pic_command = (
         f"{config.rpi.python} {config.capture.script} sensor={sensor} bayer={bayer} fn={remote_fn} exp={config.capture.exp} iso={config.capture.iso} "
         f"config_pause={config.capture.config_pause} sensor_mode={config.capture.sensor_mode} nbits_out={config.capture.nbits_out} "
-        f"legacy={config.capture.legacy} rgb={config.capture.rgb} gray={config.capture.gray} "
+        f"legacy={config.capture.legacy} rgb={config.capture.rgb} gray={config.capture.gray} nbits_capture={config.capture.nbits_capture} "
     )
-    if config.capture.nbits > 8:
-        pic_command += " sixteen=True"
     if config.capture.down:
         pic_command += f" down={config.capture.down}"
     if config.capture.awb_gains:
@@ -232,6 +220,8 @@ def liveview(config):
                 blue_gain=blue_gain,
                 red_gain=red_gain,
                 nbits_out=nbits_out,
+                black_level=black_level,
+                ccm=ccm,
             )
 
             # write RGB data
@@ -250,22 +240,12 @@ def liveview(config):
             if save:
                 plt.savefig(os.path.join(save, f"{fn}_plot.png"))
 
-            # plot red channel
-            if source == "red":
-                img_1chan = img[:, :, 0]
-            elif source == "green":
-                img_1chan = img[:, :, 1]
-            elif source == "blue":
-                img_1chan = img[:, :, 2]
-            else:
-                img_1chan = rgb2gray(img[None, :, :, :])
+            # plot grayscale
+            img_1chan = rgb2gray(img[None, :, :, :])
             ax = plot_image(img_1chan)
-            if source == "white":
-                ax.set_title("Gray scale")
-            else:
-                ax.set_title(f"{source} channel")
+            ax.set_title("Grayscale")
             if save:
-                plt.savefig(os.path.join(save, f"{fn}_1chan.png"))
+                plt.savefig(os.path.join(save, f"{fn}_gray.png"))
 
             # plot histogram, useful for checking clipping
             pixel_histogram(img)
@@ -273,7 +253,7 @@ def liveview(config):
                 plt.savefig(os.path.join(save, f"{fn}_hist.png"))
             pixel_histogram(img_1chan)
             if save:
-                plt.savefig(os.path.join(save, f"{fn}_1chan_hist.png"))
+                plt.savefig(os.path.join(save, f"{fn}_gray_hist.png"))
 
         else:
             ax = plot_image(img, gamma=gamma)

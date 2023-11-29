@@ -39,6 +39,10 @@ def load_image(
     """
     Load image as numpy array.
 
+    Note that for bayer data input, the image is converted to RGB using
+    color correction matrix (CCM) and black level subtraction parameters
+    for the Raspberry Pi HQ camera (12-bit).
+
     Parameters
     ----------
     fp : str
@@ -122,12 +126,16 @@ def load_image(
 
     if bayer:
         assert len(img.shape) == 2, img.shape
+
+        # assume RPi HQ camera
         if nbits is None:
             if img.max() > 255:
-                # HQ camera
                 nbits = 12
             else:
                 nbits = 8
+                # convert black level from 12 bit to 8 bit
+                if black_level > 255:
+                    black_level = black_level / (2**12 - 1) * 255
 
         if back:
             back_img = cv2.imread(back, cv2.IMREAD_UNCHANGED)

@@ -21,12 +21,13 @@ def check_capture_config(config):
 
     sensor = config.sensor
     nbits_capture = config.nbits_capture
+    nbits_out = config.nbits_out
     exp = config.exp
     rgb = config.rgb
     gray = config.gray
     legacy = config.legacy
     down = config.down
-    res = config.res
+    res = config.res if "res" in config.keys() else None
     awb_gains = config.awb_gains
 
     assert sensor in SensorOptions.values(), f"Sensor must be one of {SensorOptions.values()}"
@@ -41,6 +42,8 @@ def check_capture_config(config):
     assert (
         nbits_capture in supported_bit_depth
     ), f"nbits_capture must be one of {supported_bit_depth} for sensor {sensor}"
+
+    assert nbits_capture >= nbits_out, "nbits_capture must be greater than or equal to nbits_out"
 
     if SensorParam.BLACK_LEVEL in sensor_dict[sensor]:
         black_level = sensor_dict[sensor][SensorParam.BLACK_LEVEL] * (2**nbits_capture - 1)
