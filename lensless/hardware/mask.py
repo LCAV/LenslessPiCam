@@ -161,22 +161,37 @@ class Mask(abc.ABC):
         Compute the intensity PSF with bandlimited angular spectrum (BLAS) for each wavelength.
         Common to all types of masks.
         """
-        psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
-        for i, wv in enumerate(self.psf_wavelength):
-            psf[:, :, i] = angular_spectrum(
-                u_in=self.mask,
-                wv=wv,
-                d1=self.feature_size,
-                dz=self.distance_sensor,
-                dtype=np.float32,
-                bandlimit=True,
-            )[0]
+        if self.is_Torch == False:
+            psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
+            for i, wv in enumerate(self.psf_wavelength):
+                psf[:, :, i] = angular_spectrum(
+                    u_in=self.mask,
+                    wv=wv,
+                    d1=self.feature_size,
+                    dz=self.distance_sensor,
+                    dtype=np.float32,
+                    bandlimit=True,
+                )[0]
 
-        # intensity PSF
-        self.psf = np.abs(psf) ** 2
-        if self.is_Torch == True:
+            # intensity PSF
+            self.psf = np.abs(psf) ** 2
+        else:
+            psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
+            for i, wv in enumerate(self.psf_wavelength):
+                psf[:, :, i] = angular_spectrum(
+                    u_in=self.mask,
+                    wv=wv,
+                    d1=self.feature_size,
+                    dz=self.distance_sensor,
+                    dtype=np.float32,
+                    bandlimit=True,
+                    device = self.device
+                )[0]
+
+            # intensity PSF
+            self.psf = np.abs(psf) ** 2
             self.psf = torch.Tensor(self.psf).to(self.device)
-
+        
 
 class CodedAperture(Mask):
     """
@@ -674,8 +689,7 @@ class HeightVarying(Mask):
                 height_range_tensor = torch.tensor(self.height_range)
                 # Generate a random height map using PyTorch
                 resolution = torch.tensor(self.resolution)
-                self.height_map = torch.rand((resolution[0], resolution[1])) * (height_range_tensor[1] - height_range_tensor[0]) + height_range_tensor[0]
-                self.height_map.to(self.device)
+                self.height_map = torch.rand((resolution[0], resolution[1])).to(self.device) * (height_range_tensor[1] - height_range_tensor[0]) + height_range_tensor[0]
             #print("self.height_map.shape:", self.height_map.shape)
             #print("tuple(self.resolution):", tuple(self.resolution))
             assert self.height_map.shape == tuple(self.resolution)
