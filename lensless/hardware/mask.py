@@ -54,6 +54,8 @@ class Mask(abc.ABC):
         size=None,
         feature_size=None,
         psf_wavelength=[460e-9, 550e-9, 640e-9],
+        is_Torch=False,
+        device="cpu",
         **kwargs
     ):
         """
@@ -103,6 +105,8 @@ class Mask(abc.ABC):
         else:
             self.feature_size = feature_size
         self.distance_sensor = distance_sensor
+        self.is_Torch = is_Torch
+        self.device = device
 
         # create mask
         self.mask = None
@@ -170,6 +174,8 @@ class Mask(abc.ABC):
 
         # intensity PSF
         self.psf = np.abs(psf) ** 2
+        if self.is_Torch == True:
+            self.psf = torch.Tensor(self.psf).to(self.device)
 
 
 class CodedAperture(Mask):
@@ -653,7 +659,7 @@ class HeightVarying(Mask):
         if self.is_torch == False:
             return phi
         else:
-            return torch.tensor(phi)
+            return torch.tensor(phi).to(self.device)
         
     def create_mask(self):
         if self.is_torch == False:
@@ -669,10 +675,11 @@ class HeightVarying(Mask):
                 # Generate a random height map using PyTorch
                 resolution = torch.tensor(self.resolution)
                 self.height_map = torch.rand((resolution[0], resolution[1])) * (height_range_tensor[1] - height_range_tensor[0]) + height_range_tensor[0]
+                self.height_map.to(self.device)
             #print("self.height_map.shape:", self.height_map.shape)
             #print("tuple(self.resolution):", tuple(self.resolution))
             assert self.height_map.shape == tuple(self.resolution)
             phase_mask = self.get_phi()
-            self.mask = torch.exp(1j * phase_mask)
+            self.mask = torch.exp(1j * phase_mask).to(self.device)
 
 
