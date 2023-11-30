@@ -624,7 +624,6 @@ class HeightVarying(Mask):
     def __init__(
             self, 
             is_torch=True,
-            device = "cpu",
             refractive_index = 1.2, 
             wavelength = 532e-9, 
             height_map = None,
