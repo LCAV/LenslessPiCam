@@ -54,7 +54,7 @@ SENSOR_MODES = [
 @hydra.main(version_base=None, config_path="../../configs", config_name="capture")
 def capture(config):
 
-    black_level, ccm, supported_bit_depth = check_capture_config(config)
+    black_level, ccm, supported_bit_depth = check_capture_config(**config)
 
     bayer = config.bayer
     nbits_capture = config.nbits_capture
