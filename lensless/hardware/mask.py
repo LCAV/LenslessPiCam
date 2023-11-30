@@ -624,6 +624,7 @@ class HeightVarying(Mask):
     def __init__(
             self, 
             is_torch=True,
+            device = "cpu",
             refractive_index = 1.2, 
             wavelength = 532e-9, 
             height_map = None,
@@ -636,6 +637,7 @@ class HeightVarying(Mask):
         self.wavelength = wavelength
         self.height_range = height_range
         self.seed = seed
+        self.device = torch.device(device)
 
         if height_map is not None:
             self.height_map = height_map
@@ -646,18 +648,14 @@ class HeightVarying(Mask):
         super().__init__(**kwargs)
 
     def get_phi(self):
-
+        phi = self.height_map * (2*np.pi*(self.refractive_index-1) / self.wavelength)
+        phi = phi % (2*np.pi)
         if self.is_torch == False:
-            phi = self.height_map * (2*np.pi*(self.refractive_index-1) / self.wavelength)
-            phi = phi % (2*np.pi)
             return phi
-        
         else:
-            return torch.from_numpy((self.height_map * (2*np.pi*(self.refractive_index-1) / self.wavelength)) % (2*np.pi))
+            return torch.tensor(phi)
         
-    
     def create_mask(self):
-
         if self.is_torch == False:
             if self.height_map is None:
                 self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], self.resolution)
@@ -667,7 +665,14 @@ class HeightVarying(Mask):
         
         else:
             if self.height_map is None:
-                self.height_map = torch.from_numpy(np.random.uniform(self.height_range[0], self.height_range[1], self.resolution))
+                height_range_tensor = torch.tensor(self.height_range)
+                # Generate a random height map using PyTorch
+                resolution = torch.tensor(self.resolution)
+                self.height_map = torch.rand((resolution[0], resolution[1])) * (height_range_tensor[1] - height_range_tensor[0]) + height_range_tensor[0]
+            #print("self.height_map.shape:", self.height_map.shape)
+            #print("tuple(self.resolution):", tuple(self.resolution))
             assert self.height_map.shape == tuple(self.resolution)
             phase_mask = self.get_phi()
             self.mask = torch.exp(1j * phase_mask)
+
+
