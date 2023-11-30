@@ -17,24 +17,39 @@ import logging
 logging.getLogger("paramiko").setLevel(logging.WARNING)
 
 
-def check_capture_config(config):
+def check_capture_config(
+    sensor,
+    nbits_capture,
+    nbits_out,
+    exp,
+    rgb,
+    gray,
+    legacy,
+    down,
+    awb_gains,
+    res=None,
+    **kwargs,
+):
 
-    sensor = config.sensor
-    nbits_capture = config.nbits_capture
-    nbits_out = config.nbits_out
-    exp = config.exp
-    rgb = config.rgb
-    gray = config.gray
-    legacy = config.legacy
-    down = config.down
-    res = config.res if "res" in config.keys() else None
-    awb_gains = config.awb_gains
+    # sensor = config.sensor
+    # nbits_capture = config.nbits_capture
+    # nbits_out = config.nbits_out
+    # exp = config.exp
+    # rgb = config.rgb
+    # gray = config.gray
+    # legacy = config.legacy
+    # down = config.down
+    # res = config.res if "res" in config.keys() else None
+    # awb_gains = config.awb_gains
 
     assert sensor in SensorOptions.values(), f"Sensor must be one of {SensorOptions.values()}"
 
     assert res is None or down is None, "Cannot specify both res and down"
     if res is not None:
         assert len(res) == 2, "res must be a tuple of length 2"
+    # if down is not None or res is not None:
+    #     if rgb is False and gray is False:
+    #         warnings.warn("Bayer data will be returned in original dimension, i.e. 'down' and 'res' will be ignored.")
 
     assert rgb is False or gray is False, "Cannot set both rgb and gray"
 
@@ -80,16 +95,16 @@ def capture(
     config_pause=2,
     sensor_mode="0",
     nbits_out=12,
+    nbits_capture=12,
     legacy=True,
     rgb=False,
     gray=False,
-    nbits=12,
     down=None,
     awb_gains=None,
     rpi_python="~/LenslessPiCam/lensless_env/bin/python",
     capture_script="~/LenslessPiCam/scripts/measure/on_device_capture.py",
     verbose=False,
-    output_path=None,
+    output_dir=None,
     **kwargs,
 ):
     """
@@ -123,10 +138,10 @@ def capture(
         Whether to capture RGB image.
     gray : bool
         Whether to capture grayscale image.
-    nbits : int
-        Number of bits of image.
+    nbits_capture : int
+        Number of bits of image captured by sensor.
     down : int
-        Downsample factor.
+        Downsample factor. Only used if non-Bayer data is returned.
     awb_gains : list
         AWB gains (red, blue).
     rpi_python : str
@@ -140,6 +155,19 @@ def capture(
 
     """
 
+    black_level, ccm, supported_bit_depth = check_capture_config(
+        sensor=sensor,
+        nbits_capture=nbits_capture,
+        nbits_out=nbits_out,
+        exp=exp,
+        rgb=rgb,
+        gray=gray,
+        legacy=legacy,
+        down=down,
+        awb_gains=awb_gains,
+        **kwargs,
+    )
+
     # check_username_hostname(rpi_username, rpi_hostname)
     assert sensor in SensorOptions.values(), f"Sensor must be one of {SensorOptions.values()}"
 
@@ -148,10 +176,8 @@ def capture(
     pic_command = (
         f"{rpi_python} {capture_script} sensor={sensor} bayer={bayer} fn={remote_fn} exp={exp} iso={iso} "
         f"config_pause={config_pause} sensor_mode={sensor_mode} nbits_out={nbits_out} "
-        f"legacy={legacy} rgb={rgb} gray={gray} "
+        f"legacy={legacy} rgb={rgb} gray={gray} nbits_capture={nbits_capture} "
     )
-    if nbits > 8:
-        pic_command += " sixteen=True"
     if down:
         pic_command += f" down={down}"
     if awb_gains:
@@ -203,8 +229,8 @@ def capture(
             # copy over DNG file
             remotefile = f"~/{remote_fn}.dng"
             localfile = f"{fn}.dng"
-            if output_path is not None:
-                localfile = os.path.join(output_path, localfile)
+            if output_dir is not None:
+                localfile = os.path.join(output_dir, localfile)
             if verbose:
                 print(f"\nCopying over picture as {localfile}...")
             os.system(
@@ -212,7 +238,15 @@ def capture(
                 % (rpi_username, rpi_hostname, remotefile, localfile)
             )
 
-            img = load_image(localfile, verbose=True, bayer=bayer, nbits_out=nbits_out)
+            img = load_image(
+                localfile,
+                verbose=True,
+                bayer=bayer,
+                nbits_out=nbits_out,
+                black_level=black_level,
+                ccm=ccm,
+                downsample=down,
+            )
 
             # print image properties
             print_image_info(img)
@@ -226,8 +260,8 @@ def capture(
 
             remotefile = f"~/{remote_fn}.png"
             localfile = f"{fn}.png"
-            if output_path is not None:
-                localfile = os.path.join(output_path, localfile)
+            if output_dir is not None:
+                localfile = os.path.join(output_dir, localfile)
             if verbose:
                 print(f"\nCopying over picture as {localfile}...")
             os.system(
@@ -243,8 +277,8 @@ def capture(
         # more pythonic? https://stackoverflow.com/questions/250283/how-to-scp-in-python
         remotefile = f"~/{remote_fn}.png"
         localfile = f"{fn}.png"
-        if output_path is not None:
-            localfile = os.path.join(output_path, localfile)
+        if output_dir is not None:
+            localfile = os.path.join(output_dir, localfile)
         if verbose:
             print(f"\nCopying over picture as {localfile}...")
         os.system(
@@ -257,14 +291,16 @@ def capture(
 
         else:
 
-            if not bayer:
-                # red_gain = config.camera.red_gain
-                # blue_gain = config.camera.blue_gain
-                red_gain = awb_gains[0]
-                blue_gain = awb_gains[1]
-            else:
-                red_gain = None
-                blue_gain = None
+            red_gain = awb_gains[0]
+            blue_gain = awb_gains[1]
+            # if not bayer:
+            #     # red_gain = config.camera.red_gain
+            #     # blue_gain = config.camera.blue_gain
+            #     red_gain = awb_gains[0]
+            #     blue_gain = awb_gains[1]
+            # else:
+            #     red_gain = None
+            #     blue_gain = None
 
             # load image
             if verbose:
@@ -277,6 +313,9 @@ def capture(
                 blue_gain=blue_gain,
                 red_gain=red_gain,
                 nbits_out=nbits_out,
+                black_level=black_level,
+                ccm=ccm,
+                downsample=down,
             )
 
             # write RGB data

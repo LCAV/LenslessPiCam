@@ -270,6 +270,8 @@ def bayer2rgb_cc(
 
     if ccm is None:
         ccm = np.eye(3)
+    else:
+        assert ccm.shape == (3, 3)
     ccm = ccm.copy().astype(np.float32)
 
     # demosaic Bayer data

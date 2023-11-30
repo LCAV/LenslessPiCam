@@ -39,7 +39,7 @@ capture:
   legacy: True   # Legacy image capture software (raspistill) or new one (libcamera)
   bayer: True    # whether to capture Bayer data, otherwise directly capture RGB (demosaiced) data
   nbits_capture: 12   # bit-depth to capture, check support bit depth of sensor: lensless/hardware/sensor.py
-  raw_data_fn: raw_data    # output file name
+  fn: raw_data    # output file name
   exp: 0.02
   config_pause: 2
   sensor_mode: "0"   # {'off': 0, 'auto': 1, 'sunlight': 2, 'cloudy': 3, 'shade': 4, 'tungsten': 5, 'fluorescent': 6, 'incandescent': 7, 'flash': 8, 'horizon': 9}
