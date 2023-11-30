@@ -176,6 +176,7 @@ class Mask(abc.ABC):
             # intensity PSF
             self.psf = np.abs(psf) ** 2
         else:
+            print(self.device)
             psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
             for i, wv in enumerate(self.psf_wavelength):
                 psf[:, :, i] = angular_spectrum(
@@ -644,8 +645,7 @@ class HeightVarying(Mask):
     """
     def __init__(
             self, 
-            is_torch=True,
-            device = "cpu",
+
             refractive_index = 1.2, 
             wavelength = 532e-9, 
             height_map = None,
@@ -653,12 +653,12 @@ class HeightVarying(Mask):
             seed = 0,
             **kwargs):
         
-        self.is_torch = is_torch
+
         self.refractive_index = refractive_index
         self.wavelength = wavelength
         self.height_range = height_range
         self.seed = seed
-        self.device = torch.device(device)
+
 
         if height_map is not None:
             self.height_map = height_map
@@ -671,13 +671,13 @@ class HeightVarying(Mask):
     def get_phi(self):
         phi = self.height_map * (2*np.pi*(self.refractive_index-1) / self.wavelength)
         phi = phi % (2*np.pi)
-        if self.is_torch == False:
+        if self.is_Torch == False:
             return phi
         else:
             return torch.tensor(phi).to(self.device)
         
     def create_mask(self):
-        if self.is_torch == False:
+        if self.is_Torch == False:
             if self.height_map is None:
                 self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], self.resolution)
             assert self.height_map.shape == tuple(self.resolution)
