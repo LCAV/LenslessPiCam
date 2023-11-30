@@ -13,7 +13,6 @@ import numpy as np
 import os.path
 
 from lensless.utils.plot import plot_image
-from lensless.hardware.constants import RPI_HQ_CAMERA_BLACK_LEVEL, RPI_HQ_CAMERA_CCM_MATRIX
 from lensless.utils.image import bayer2rgb_cc, print_image_info, resize, rgb2gray, get_max_val
 
 
@@ -22,10 +21,10 @@ def load_image(
     verbose=False,
     flip=False,
     bayer=False,
-    black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
+    black_level=0,
     blue_gain=None,
     red_gain=None,
-    ccm=RPI_HQ_CAMERA_CCM_MATRIX,
+    ccm=None,
     back=None,
     nbits_out=None,
     as_4d=False,
@@ -38,6 +37,10 @@ def load_image(
 ):
     """
     Load image as numpy array.
+
+    Note that for bayer data input, the image is converted to RGB using
+    color correction matrix (CCM) and black level subtraction parameters
+    for the Raspberry Pi HQ camera (12-bit).
 
     Parameters
     ----------
@@ -54,9 +57,9 @@ def load_image(
     red_gain : float
         Red gain for color correction.
     black_level : float
-        Black level. Default is to use that of Raspberry Pi HQ camera.
+        Black level to remove.
     ccm : :py:class:`~numpy.ndarray`
-        Color correction matrix. Default is to use that of Raspberry Pi HQ camera.
+        Color correction matrix.
     back : array_like
         Background level to subtract.
     nbits_out : int
@@ -122,9 +125,10 @@ def load_image(
 
     if bayer:
         assert len(img.shape) == 2, img.shape
+
+        # assume RPi HQ camera
         if nbits is None:
             if img.max() > 255:
-                # HQ camera
                 nbits = 12
             else:
                 nbits = 8

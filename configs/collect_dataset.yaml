@@ -35,6 +35,9 @@ display:
   rot90: 3
 
 capture:
+  sensor: rpi_hq
+  nbits_capture: 12
+  nbits_out: 8
   delay: 2    # to allow picture to display
   config_pause: 2
   iso: 100

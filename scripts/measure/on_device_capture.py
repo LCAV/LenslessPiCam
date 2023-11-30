@@ -31,10 +31,8 @@ import cv2
 import numpy as np
 from time import sleep
 from PIL import Image
-from lensless.hardware.utils import get_distro
+from lensless.hardware.utils import get_distro, check_capture_config
 from lensless.utils.image import bayer2rgb_cc, rgb2gray, resize
-from lensless.hardware.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_BLACK_LEVEL
-from lensless.hardware.sensor import SensorOptions, sensor_dict, SensorParam
 from fractions import Fraction
 import time
 
@@ -56,38 +54,24 @@ SENSOR_MODES = [
 @hydra.main(version_base=None, config_path="../../configs", config_name="capture")
 def capture(config):
 
-    sensor = config.sensor
-    assert sensor in SensorOptions.values(), f"Sensor must be one of {SensorOptions.values()}"
+    black_level, ccm, supported_bit_depth = check_capture_config(**config)
 
     bayer = config.bayer
+    nbits_capture = config.nbits_capture
     fn = config.fn
     exp = config.exp
     config_pause = config.config_pause
-    sensor_mode = config.sensor_mode
+    sensor_mode = int(config.sensor_mode)
     rgb = config.rgb
     gray = config.gray
     iso = config.iso
-    sixteen = config.sixteen
     legacy = config.legacy
     down = config.down
     res = config.res
     nbits_out = config.nbits_out
 
-    assert (
-        nbits_out in sensor_dict[sensor][SensorParam.BIT_DEPTH]
-    ), f"nbits_out must be one of {sensor_dict[sensor][SensorParam.BIT_DEPTH]} for sensor {sensor}"
-
-    # https://www.raspberrypi.com/documentation/accessories/camera.html#hardware-specification
-    sensor_param = sensor_dict[sensor]
-    assert exp <= sensor_param[SensorParam.MAX_EXPOSURE]
-    assert exp >= sensor_param[SensorParam.MIN_EXPOSURE]
-    sensor_mode = int(sensor_mode)
-
     distro = get_distro()
     print("RPi distribution : {}".format(distro))
-
-    if sensor == SensorOptions.RPI_GS.value:
-        assert not legacy
 
     if "bullseye" in distro and not legacy:
         # TODO : grayscale and downsample
@@ -141,9 +125,7 @@ def capture(config):
             fn += ".png"
 
             max_res = picam2.camera_properties["PixelArraySize"]
-            if res:
-                assert len(res) == 2
-            else:
+            if res is None:
                 res = np.array(max_res)
                 if down is not None:
                     res = (np.array(res) / down).astype(int)
@@ -164,7 +146,6 @@ def capture(config):
                 "AnalogueGain": 1.0,
             }
             if config.awb_gains is not None:
-                assert len(config.awb_gains) == 2
                 new_controls["ColourGains"] = tuple(config.awb_gains)
             picam2.set_controls(new_controls)
 
@@ -214,17 +195,17 @@ def capture(config):
             camera.capture(stream, "jpeg", bayer=True)
 
             # get bayer data
-            if sixteen:
-                output = np.sum(stream.array, axis=2).astype(np.uint16)
+            raw_data = np.sum(stream.array, axis=2)
+            if nbits_capture > 8:
+                output = raw_data.astype(np.uint16)
             else:
-                output = (np.sum(stream.array, axis=2) >> 2).astype(np.uint8)
+                # TODO may be wrong if multiple bit depths above 8 are supported
+                output = raw_data / (2 ** max(supported_bit_depth) - 1) * 255
+                output = output.astype(np.uint8)
+                # output = (np.sum(stream.array, axis=2) >> 2).astype(np.uint8)
 
             # returning non-bayer data
             if rgb or gray:
-                if sixteen:
-                    n_bits = 12  # assuming Raspberry Pi HQ
-                else:
-                    n_bits = 8
 
                 if config.awb_gains is not None:
                     red_gain = config.awb_gains[0]
@@ -232,11 +213,11 @@ def capture(config):
 
                 output_rgb = bayer2rgb_cc(
                     output,
-                    nbits=n_bits,
+                    nbits=nbits_capture,
                     blue_gain=blue_gain,
                     red_gain=red_gain,
-                    black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
-                    ccm=RPI_HQ_CAMERA_CCM_MATRIX,
+                    black_level=black_level,
+                    ccm=ccm,
                     nbits_out=nbits_out,
                 )
 
@@ -262,9 +243,7 @@ def capture(config):
             from picamerax import PiCamera
 
             camera = PiCamera()
-            if res:
-                assert len(res) == 2
-            else:
+            if res is None:
                 res = np.array(camera.MAX_RESOLUTION)
                 if down is not None:
                     res = (np.array(res) / down).astype(int)
@@ -276,7 +255,6 @@ def capture(config):
             time.sleep(config.config_pause)
 
             if config.awb_gains is not None:
-                assert len(config.awb_gains) == 2
                 g = (Fraction(config.awb_gains[0]), Fraction(config.awb_gains[1]))
                 g = tuple(g)
                 camera.awb_mode = "off"

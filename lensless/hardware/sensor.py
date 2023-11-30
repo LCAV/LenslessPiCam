@@ -60,6 +60,8 @@ class SensorParam:
     BIT_DEPTH = "bit_depth"
     MAX_EXPOSURE = "max_exposure"  # in seconds
     MIN_EXPOSURE = "min_exposure"  # in seconds
+    BLACK_LEVEL = "black_level"  # normalized to [0,1]
+    CCM_MATRIX = "ccm_matrix"
 
 
 """
@@ -79,6 +81,15 @@ sensor_dict = {
         SensorParam.BIT_DEPTH: [8, 12],
         SensorParam.MAX_EXPOSURE: 670.74,
         SensorParam.MIN_EXPOSURE: 0.02,
+        # https://www.strollswithmydog.com/open-raspberry-pi-high-quality-camera-raw
+        SensorParam.BLACK_LEVEL: 256.3 / (2**12 - 1),
+        SensorParam.CCM_MATRIX: np.array(
+            [
+                [2.0659, -0.93119, -0.13421],
+                [-0.11615, 1.5593, -0.44314],
+                [0.073694, -0.4368, 1.3636],
+            ]
+        ),
     },
     # Raspberry Pi Global Shutter Camera
     # https://www.raspberrypi.com/products/raspberry-pi-global-shutter-camera/

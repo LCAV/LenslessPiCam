@@ -30,23 +30,26 @@ display:
   white: False
 
 capture:
-  sensor: rpi_hq
   gamma: null # for visualization
-  exp: 0.02
-  delay: 2
   script: ~/LenslessPiCam/scripts/measure/on_device_capture.py
-  iso: 100
+  delay: 2
+
+  # -- capture settings
+  sensor: rpi_hq
+  legacy: True   # Legacy image capture software (raspistill) or new one (libcamera)
+  bayer: True    # whether to capture Bayer data, otherwise directly capture RGB (demosaiced) data
+  nbits_capture: 12   # bit-depth to capture, check support bit depth of sensor: lensless/hardware/sensor.py
+  fn: raw_data    # output file name
+  exp: 0.02
   config_pause: 2
-  sensor_mode: "0"
-  # nbits_out: 12
-  nbits_out: 8    # light data transer, doesn't seem to worsen performance
-  nbits: 12
-  legacy: True
+  sensor_mode: "0"   # {'off': 0, 'auto': 1, 'sunlight': 2, 'cloudy': 3, 'shade': 4, 'tungsten': 5, 'fluorescent': 6, 'incandescent': 7, 'flash': 8, 'horizon': 9}
+  iso: 100
+
+  # -- if bayer=True, capture Bayer data but return as RGB or grayscale
   gray: False     # only for legacy=True, if bayer=True, remote script returns grayscale data
   # rgb: False   # only for legacy=True, if bayer=True, remote script return RGB data
-  raw_data_fn: raw_data
-  bayer: True
-  source: white
+  # nbits_out: 12
+  nbits_out: 8   # used if gray=True or rgb=True
 
   # remote script return Bayer data, full res
   # awb_gains: null
