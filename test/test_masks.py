@@ -3,7 +3,7 @@ from lensless.hardware.mask import CodedAperture, PhaseContour, FresnelZoneApert
 from lensless.eval.metric import mse, psnr, ssim
 from waveprop.fresnel import fresnel_conv
 from matplotlib import pyplot as plt
-
+import torch 
 
 resolution = np.array([380, 507])
 d1 = 3e-6
@@ -103,7 +103,7 @@ def test_classmethod():
     plt.show()
 
     mask5 = HeightVarying.from_sensor(
-        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz
+        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, is_Torch=True
     )
     if mask5.is_Torch == False:
         assert np.all(mask5.mask.shape == resolution)
