@@ -21,13 +21,8 @@ import shutil
 import tqdm
 from picamerax import PiCamera
 from fractions import Fraction
-from PIL import Image
 from lensless.utils.io import save_image
-
-from lensless.hardware.constants import (
-    RPI_HQ_CAMERA_CCM_MATRIX,
-    RPI_HQ_CAMERA_BLACK_LEVEL,
-)
+from lensless.hardware.sensor import SensorOptions, sensor_dict, SensorParam
 import picamerax.array
 from lensless.utils.image import bayer2rgb_cc, resize
 import cv2
@@ -45,6 +40,20 @@ def collect_dataset(config):
     MAX_TRIES = config.max_tries
     MIN_LEVEL = config.min_level
     MAX_LEVEL = config.max_level
+
+    # get sensor parameters
+    sensor = config.capture.sensor
+    nbits_capture = config.capture.nbits_capture
+    assert sensor in SensorOptions.values(), f"Sensor must be one of {SensorOptions.values()}"
+    if SensorParam.BLACK_LEVEL in sensor_dict[sensor]:
+        black_level = sensor_dict[sensor][SensorParam.BLACK_LEVEL] * (2**nbits_capture - 1)
+    else:
+        black_level = 0
+    if SensorParam.CCM_MATRIX in sensor_dict[sensor]:
+        ccm = sensor_dict[sensor][SensorParam.CCM_MATRIX]
+    else:
+        ccm = None
+    assert sensor == "rpi_hq", "Only RPi HQ camera supported for now!"
 
     # if output dir exists check how many files done
     print(f"Output directory : {output_dir}")
@@ -205,12 +214,12 @@ def collect_dataset(config):
                     # convert to RGB
                     output = bayer2rgb_cc(
                         output_bayer,
-                        nbits=12,
+                        nbits=nbits_capture,
                         blue_gain=float(g[1]),
                         red_gain=float(g[0]),
-                        black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
-                        ccm=RPI_HQ_CAMERA_CCM_MATRIX,
-                        nbits_out=8,
+                        black_level=black_level,
+                        ccm=ccm,
+                        nbits_out=config.capture.nbits_out,
                     )
 
                     if down:
