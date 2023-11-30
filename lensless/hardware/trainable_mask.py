@@ -71,6 +71,11 @@ class TrainableMask(torch.nn.Module, metaclass=abc.ABCMeta):
     def project(self):
         """Abstract method for projecting the mask parameters to a valid space (should be a subspace of [0,1])."""
         raise NotImplementedError
+    
+    @classmethod
+    def from_mask(cls, mask, **kwargs):
+        return cls(initial_mask=mask)
+
 
 
 class TrainablePSF(TrainableMask):

@@ -115,7 +115,7 @@ class Mask(abc.ABC):
         self.compute_psf()
 
     @classmethod
-    def from_sensor(cls, sensor_name, downsample=None, **kwargs):
+    def from_sensor(cls, sensor_name, downsample=None, istorch=False,**kwargs):
         """
         Constructor from an existing virtual sensor that copies over the sensor parameters
         (sensor resolution, sensor size, feature size).
@@ -522,44 +522,13 @@ class PhaseContour(Mask):
                 n=self.refractive_index,
                 n_iter=self.n_iter,
                 height_map=True,
-                can_torch=True,
             )
             self.height_map = height_map
             self.phase_pattern = phase_mask
             self.mask = np.exp(1j * phase_mask)
 
-        else:
-            #implement the same thing but using torch
-            proper_dim_1=(self.resolution[0]//self.noise_period[0])*self.noise_period[0]
-            proper_dim_2=(self.resolution[1]//self.noise_period[1])*self.noise_period[1]
-            #TODO to torch
-            noise=generate_perlin_noise_2d((proper_dim_1,proper_dim_2),self.noise_period)
-            n = noise.ndim
-            # n = noise.dim()
-            # end of todo
-            if torch.any(self.resolution != noise.shape):
-                noise=resize(noise.unsqueeze(n-1),shape=tuple(self.resolution)+(1,)).squeeze()
-            
-            binary = torch.clip(torch.round(torch.nn.functional.grid_sample(noise, (-1, 1), (0, 1))), a_min=0, a_max=1)
-            self.target_psf = cv.Canny(torch.nn.functional.grid_sample(binary, (-1, 1), (0, 255)).astype(np.uint8), 0, 255)
 
-            # Computing mask and height map
-            phase_mask, height_map = phase_retrieval(
-                target_psf=self.target_psf,
-                wv=self.design_wv,
-                d1=self.feature_size,
-                dz=self.distance_sensor,
-                n=self.refractive_index,
-                n_iter=self.n_iter,
-                height_map=True,
-                can_torch=False,
-            )
-            self.height_map = height_map
-            self.phase_pattern = phase_mask
-            self.mask = torch.exp(1j * phase_mask)
-
-
-def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False, can_torch=False):
+def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):
     """
     Iterative phase retrieval algorithm similar to `PhlatCam <https://ieeexplore.ieee.org/document/9076617>`_,
     using Fresnel propagation.
@@ -581,6 +550,7 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False, 
     """
 
     M_p = np.sqrt(target_psf)
+
 
     if hasattr(d1, "__len__"):
         if d1[0] != d1[1]:
