@@ -365,7 +365,7 @@ class MultiLensArray(Mask):
         else:
             assert self.N is not None
             np.random.seed(self.seed)
-            self.radius = np.random.uniform(self.min_height, 20, self.N) #TODO: check if it is the right way to do it
+            self.radius = np.random.uniform(self.min_height, 1e-5, self.N) #TODO: check if it is the right way to do it
             assert self.N == len(self.radius)
         super().__init__(**kwargs)
     
@@ -383,14 +383,14 @@ class MultiLensArray(Mask):
     def does_circle_overlap(circles, x, y, r):
         """Check if a circle overlaps with any in the list."""
         for (cx, cy, cr) in circles:
-            if np.sqrt((x - cx)**2 + (y - cy)**2) < r/2 + cr/2:
+            if np.sqrt((x - cx)**2 + (y - cy)**2) < r + cr:
                 return True
         return False
 
-    @staticmethod
-    def place_spheres_on_plane(width, height, radius, max_attempts=1000):
+    def place_spheres_on_plane(self, width, height, radius, max_attempts=1000):
         """Try to place circles on a 2D plane."""
         placed_circles = []
+        placed_circles_res = []
         radius_sorted = sorted(radius, reverse=True)  # Place larger circles first
 
         for r in radius_sorted:
@@ -399,8 +399,9 @@ class MultiLensArray(Mask):
                 x = np.random.uniform(r, width - r)
                 y = np.random.uniform(r, height - r)
             
-                if not MultiLensArray.does_circle_overlap(placed_circles, x, y, r):
+                if not MultiLensArray.does_circle_overlap(placed_circles, x , y , r):
                     placed_circles.append((x, y, r))
+                    placed_circles_res.append((x / self.feature_size[0], y / self.feature_size[1], r / self.feature_size[0]))
                     placed = True
                     print(f"Placed circle with rad {r}, and center ({x}, {y})")
                     break
@@ -416,16 +417,27 @@ class MultiLensArray(Mask):
 
     def create_mask(self):
         if self.loc is None:
-            self.loc, self.radius = MultiLensArray.place_spheres_on_plane(self.resolution[0], self.resolution[1], self.radius)
-        height = self.create_height_map(self.radius, self.loc)
-        phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength) #% (2 * np.pi) ? Makes it have some noisy values instead of a continuous sphere
+            self.loc, self.radius = self.place_spheres_on_plane(self.size[0], self.size[1], self.radius)
+        locs_res = self.loc * (1/self.feature_size)
+        radius_res = self.radius * (1/self.feature_size[0]) 
+        height = self.create_height_map(radius_res, locs_res)
+        
+        phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength) #? Makes it have some noisy values instead of a continuous sphere
+        max_val = np.max(phi)
+
+        phi = phi * (2 * np.pi / max_val)
+        min_val = np.min(phi)
+        fig, ax = plt.subplots()
+        im = ax.imshow(phi, cmap="gray")
+        fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
+        plt.show()
         self.mask = np.exp(1j * phi)
 
     def create_height_map(self, radius, locs):
         height = np.full((self.resolution[0], self.resolution[1]), self.min_height)
         for x in range(height.shape[0]):
             for y in range(height.shape[1]):
-                height[x, y] += self.lens_contribution(radius, locs, x + 0.5, y + 0.5)
+                height[x, y] += self.lens_contribution(radius, locs, (x + 0.5), (y + 0.5)) * self.feature_size[0]
         assert np.all(height >= self.min_height)
         return height
     
@@ -433,7 +445,7 @@ class MultiLensArray(Mask):
         contribution = 0
         for idx, loc in enumerate(locs):
             if (x-loc[0])**2 + (y-loc[1])**2 < radius[idx]**2:
-                contribution = np.sqrt(radius[idx]**2 - (x-loc[0])**2 - (y-loc[1])**2)
+                contribution = np.sqrt((radius[idx])**2 - ((x-loc[0]))**2 - ((y -loc[1]))**2)
                 return contribution
         return contribution
 
@@ -626,7 +638,7 @@ class HeightVarying(Mask):
             refractive_index = 1.2, 
             wavelength = 532e-9, 
             height_map = None,
-            height_range = (1e-3, 1e-2), 
+            height_range = (1e-5, 1e-3), 
             seed = 0,
             **kwargs):
         
