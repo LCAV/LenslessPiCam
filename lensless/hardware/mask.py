@@ -690,10 +690,17 @@ class HeightVarying(Mask):
                 # Generate a random height map using PyTorch
                 resolution = torch.tensor(self.resolution)
                 self.height_map = torch.rand((resolution[0], resolution[1])).to(self.device) * (height_range_tensor[1] - height_range_tensor[0]) + height_range_tensor[0]
-            #print("self.height_map.shape:", self.height_map.shape)
-            #print("tuple(self.resolution):", tuple(self.resolution))
             assert self.height_map.shape == tuple(self.resolution)
             phase_mask = self.get_phi()
             self.mask = torch.exp(1j * phase_mask).to(self.device)
+        
+        """if self.height_map is None:
+            self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], self.resolution)
+        assert self.height_map.shape == tuple(self.resolution)
+        phase_mask = self.get_phi()
+        self.mask = np.exp(1j * phase_mask)
+        if self.is_Torch == True:
+            self.mask = torch.tensor(self.mask).to(self.device)"""
+    
 
 
