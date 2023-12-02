@@ -176,7 +176,6 @@ class Mask(abc.ABC):
             # intensity PSF
             self.psf = np.abs(psf) ** 2
         else:
-            print(self.device)
             psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
             for i, wv in enumerate(self.psf_wavelength):
                 psf[:, :, i] = angular_spectrum(
@@ -689,7 +688,9 @@ class HeightVarying(Mask):
                 height_range_tensor = torch.tensor(self.height_range)
                 # Generate a random height map using PyTorch
                 resolution = torch.tensor(self.resolution)
+                print('resolution=', resolution)
                 self.height_map = torch.rand((resolution[0], resolution[1])).to(self.device) * (height_range_tensor[1] - height_range_tensor[0]) + height_range_tensor[0]
+                print('self.height_map.shape=', self.height_map.shape)
             assert self.height_map.shape == tuple(self.resolution)
             phase_mask = self.get_phi()
             self.mask = torch.exp(1j * phase_mask).to(self.device)
@@ -702,5 +703,3 @@ class HeightVarying(Mask):
         if self.is_Torch == True:
             self.mask = torch.tensor(self.mask).to(self.device)"""
     
-
-
