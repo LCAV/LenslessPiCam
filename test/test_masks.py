@@ -95,7 +95,7 @@ def test_classmethod():
     )
     assert np.all(mask4.mask.shape == resolution)
     desired_psf_shape = np.array(tuple(resolution) + (len(mask4.psf_wavelength),))
-    assert np.all(mask3.psf.shape == desired_psf_shape)
+    assert np.all(mask4.psf.shape == desired_psf_shape)
 
     fig, ax = plt.subplots()
     im = ax.imshow(np.angle(mask4.mask), cmap="gray")
