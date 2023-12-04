@@ -443,11 +443,17 @@ class MultiLensArray(Mask):
         radius_res = self.radius * (1/self.feature_size[0]) 
         height = self.create_height_map(radius_res, locs_res)
         
-        phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength) #% (2*np.pi)#? Makes it have some noisy values instead of a continuous sphere
-
+        # Kaleidoscope effect
+        phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength) % (2*np.pi)#? Makes it have some noisy values instead of a continuous sphere
+        # No kaleidoscope effect
+        #phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength)
+        #max_phi = np.max(phi)
+        #phi = phi * (2 * np.pi / max_phi)
+        
         fig, ax = plt.subplots()
-        im = ax.imshow(phi, cmap="gray")
+        im = ax.imshow(height, cmap="gray")
         fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
+        plt.title("Height map")
         plt.show()
         self.mask = np.exp(1j * phi)
 
