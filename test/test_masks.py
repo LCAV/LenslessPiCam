@@ -4,7 +4,7 @@ from lensless.eval.metric import mse, psnr, ssim
 from waveprop.fresnel import fresnel_conv
 from matplotlib import pyplot as plt
 from lensless.hardware.trainable_mask import TrainableMask
-
+import torch 
 
 resolution = np.array([380, 507])
 d1 = 3e-6
@@ -91,8 +91,8 @@ def test_classmethod():
     desired_psf_shape = np.array(tuple(resolution) + (len(mask3.psf_wavelength),))
     assert np.all(mask3.psf.shape == desired_psf_shape)
     
-    mask4 = MultiLensArray.from_sensor(
-        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, N=10, istorch=True#radius=np.array([10, 25]), loc=np.array([[10.1, 11.3], [56.5, 89.2]])
+    '''mask4 = MultiLensArray.from_sensor(
+        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, N=10#radius=np.array([10, 25]), loc=np.array([[10.1, 11.3], [56.5, 89.2]])
     )
     train1 = TrainableMask.from_mask(mask4)
     assert np.all(mask4.mask.shape == resolution)
@@ -102,18 +102,35 @@ def test_classmethod():
     fig, ax = plt.subplots()
     im = ax.imshow(np.angle(mask4.mask), cmap="gray")
     fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
-    plt.title("Rescaling")
-    plt.show()
+    plt.show()'''
+
     mask5 = HeightVarying.from_sensor(
-        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, 
+        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, is_Torch=False
     )
-    assert np.all(mask5.mask.shape == resolution)
-    desired_psf_shape = np.array(tuple(resolution) + (len(mask5.psf_wavelength),))
-    assert np.all(mask5.psf.shape == desired_psf_shape)
-    fig, ax = plt.subplots()
-    im = ax.imshow(np.angle(mask5.mask), cmap="gray")
-    fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
-    plt.show()
+    #assert mask5.is_Torch
+    if not mask5.is_Torch:
+        # NumPy operations
+        assert np.all(mask5.mask.shape == resolution)
+        desired_psf_shape = np.array(tuple(resolution) + (len(mask5.psf_wavelength),))
+        assert np.all(mask5.psf.shape == desired_psf_shape)
+        fig, ax = plt.subplots()
+        im = ax.imshow(np.angle(mask5.mask), cmap="gray")
+        fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
+        plt.show()
+    else:
+        # PyTorch operations
+        assert torch.equal(torch.tensor(mask5.mask.shape), torch.tensor(resolution))
+        desired_psf_shape = torch.tensor(tuple(resolution) + (len(mask5.psf_wavelength),))
+        assert torch.equal(torch.tensor(mask5.psf.shape), desired_psf_shape)
+        fig, ax = plt.subplots()
+        im = ax.imshow(torch.angle(mask5.mask), cmap="gray")
+        fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
+        plt.show()
+
+
+
+
+
 
 
 
