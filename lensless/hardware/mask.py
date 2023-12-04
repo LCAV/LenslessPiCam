@@ -348,7 +348,7 @@ class MultiLensArray(Mask):
     Multi-lens array mask.
     """
     def __init__(
-        self, N = None, radius = None, loc = None, refractive_index = 1.2, design_wv=532e-9, seed = 0, min_height=1e-3, istorch=False, **kwargs
+        self, N = None, radius = None, loc = None, refractive_index = 1.2, design_wv=532e-9, seed = 0, min_height=1e-3, **kwargs
     ):
         """
         Multi-lens array mask constructor.
@@ -376,7 +376,6 @@ class MultiLensArray(Mask):
         self.wavelength = design_wv
         self.seed = seed
         self.min_height = min_height
-        self.istorch=istorch
         
         if not istorch :
             if self.radius is not None:
@@ -388,7 +387,7 @@ class MultiLensArray(Mask):
             else:
                 assert self.N is not None
                 np.random.seed(self.seed)
-                self.radius = np.random.uniform(self.min_height, 1e-5, self.N) #TODO: check if it is the right way to do it
+                self.radius = None np.random.uniform(self.min_height, 1e-5, self.N) #TODO: check if it is the right way to do it
                 assert self.N == len(self.radius)
         elif self.radius is not None:
                 assert self.loc is not None
