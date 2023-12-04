@@ -91,18 +91,19 @@ def test_classmethod():
     assert np.all(mask3.psf.shape == desired_psf_shape)
     
     mask4 = MultiLensArray.from_sensor(
-        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, N=10#radius=np.array([10, 25]), loc=np.array([[10.1, 11.3], [56.5, 89.2]])
+        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, N=10, seed=569#radius=np.array([10, 25]), loc=np.array([[10.1, 11.3], [56.5, 89.2]])
     )
     assert np.all(mask4.mask.shape == resolution)
     desired_psf_shape = np.array(tuple(resolution) + (len(mask4.psf_wavelength),))
-    assert np.all(mask3.psf.shape == desired_psf_shape)
+    assert np.all(mask4.psf.shape == desired_psf_shape)
 
     fig, ax = plt.subplots()
     im = ax.imshow(np.angle(mask4.mask), cmap="gray")
     fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
+    plt.title("Rescaling")
     plt.show()
     mask5 = HeightVarying.from_sensor(
-        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz
+        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, 
     )
     assert np.all(mask5.mask.shape == resolution)
     desired_psf_shape = np.array(tuple(resolution) + (len(mask5.psf_wavelength),))
