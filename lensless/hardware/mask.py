@@ -54,6 +54,8 @@ class Mask(abc.ABC):
         size=None,
         feature_size=None,
         psf_wavelength=[460e-9, 550e-9, 640e-9],
+        is_Torch=False,
+        device="cpu",
         **kwargs
     ):
         """
@@ -103,6 +105,8 @@ class Mask(abc.ABC):
         else:
             self.feature_size = feature_size
         self.distance_sensor = distance_sensor
+        self.is_Torch = is_Torch
+        self.device = device
 
         # create mask
         self.mask = None
@@ -157,20 +161,37 @@ class Mask(abc.ABC):
         Compute the intensity PSF with bandlimited angular spectrum (BLAS) for each wavelength.
         Common to all types of masks.
         """
-        psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
-        for i, wv in enumerate(self.psf_wavelength):
-            psf[:, :, i] = angular_spectrum(
-                u_in=self.mask,
-                wv=wv,
-                d1=self.feature_size,
-                dz=self.distance_sensor,
-                dtype=np.float32,
-                bandlimit=True,
-            )[0]
+        if self.is_Torch == False:
+            psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
+            for i, wv in enumerate(self.psf_wavelength):
+                psf[:, :, i] = angular_spectrum(
+                    u_in=self.mask,
+                    wv=wv,
+                    d1=self.feature_size,
+                    dz=self.distance_sensor,
+                    dtype=np.float32,
+                    bandlimit=True,
+                )[0]
 
-        # intensity PSF
-        self.psf = np.abs(psf) ** 2
+            # intensity PSF
+            self.psf = np.abs(psf) ** 2
+        else:
+            psf = torch.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=torch.complex64)
+            for i, wv in enumerate(self.psf_wavelength):
+                psf[:, :, i] = angular_spectrum(
+                    u_in=self.mask,
+                    wv=wv,
+                    d1=self.feature_size,
+                    dz=self.distance_sensor,
+                    dtype=np.float32,
+                    bandlimit=True,
+                    device = self.device
+                )[0]
 
+            # intensity PSF
+            self.psf = torch.abs(psf) ** 2
+            self.psf = torch.Tensor(self.psf).to(self.device)
+        
 
 class CodedAperture(Mask):
     """
@@ -632,6 +653,7 @@ class HeightVarying(Mask):
     """
     def __init__(
             self, 
+
             refractive_index = 1.2, 
             wavelength = 532e-9, 
             height_map = None,
@@ -639,28 +661,48 @@ class HeightVarying(Mask):
             seed = 0,
             **kwargs):
         
-        
+
         self.refractive_index = refractive_index
         self.wavelength = wavelength
         self.height_range = height_range
         self.seed = seed
 
+
         if height_map is not None:
             self.height_map = height_map
         else:
             self.height_map = None
-            np.random.seed(self.seed)
+            
 
         super().__init__(**kwargs)
 
     def get_phi(self):
         phi = self.height_map * (2*np.pi*(self.refractive_index-1) / self.wavelength)
         phi = phi % (2*np.pi)
-        return phi
-    
+        if self.is_Torch == False:
+            return phi
+        else:
+            return torch.tensor(phi).to(self.device)
+        
     def create_mask(self):
-        if self.height_map is None:
-            self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], self.resolution)
-        assert self.height_map.shape == tuple(self.resolution)
-        phase_mask = self.get_phi()
-        self.mask = np.exp(1j * phase_mask)
+        if self.is_Torch is None or self.is_Torch == False:
+            if self.height_map is None:
+                np.random.seed(self.seed)
+                self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], self.resolution)
+            assert self.height_map.shape == tuple(self.resolution)
+            phase_mask = self.get_phi()
+            self.mask = np.exp(1j * phase_mask)
+        
+        else:
+            if self.height_map is None:
+                torch.manual_seed(self.seed)
+                height_range_tensor = torch.tensor(self.height_range)
+                # Generate a random height map using PyTorch
+                resolution = torch.tensor(self.resolution)
+                print('resolution=', resolution)
+                self.height_map = torch.rand((resolution[0], resolution[1])).to(self.device) * (height_range_tensor[1] - height_range_tensor[0]) + height_range_tensor[0]
+                print('self.height_map.shape=', self.height_map.shape)
+            assert self.height_map.shape == tuple(self.resolution)
+            phase_mask = self.get_phi()
+            self.mask = torch.exp(1j * phase_mask).to(self.device)
+    
