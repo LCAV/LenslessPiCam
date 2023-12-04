@@ -103,8 +103,9 @@ def test_classmethod():
     plt.show()'''
 
     mask5 = HeightVarying.from_sensor(
-        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, is_Torch=True
+        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, is_Torch=False
     )
+    #assert mask5.is_Torch
     if not mask5.is_Torch:
         # NumPy operations
         assert np.all(mask5.mask.shape == resolution)
@@ -117,7 +118,7 @@ def test_classmethod():
     else:
         # PyTorch operations
         assert torch.equal(torch.tensor(mask5.mask.shape), torch.tensor(resolution))
-        desired_psf_shape = torch.tensor(resolution + (len(mask5.psf_wavelength),))
+        desired_psf_shape = torch.tensor(tuple(resolution) + (len(mask5.psf_wavelength),))
         assert torch.equal(torch.tensor(mask5.psf.shape), desired_psf_shape)
         fig, ax = plt.subplots()
         im = ax.imshow(torch.angle(mask5.mask), cmap="gray")

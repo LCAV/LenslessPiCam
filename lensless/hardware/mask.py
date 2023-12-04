@@ -176,7 +176,7 @@ class Mask(abc.ABC):
             # intensity PSF
             self.psf = np.abs(psf) ** 2
         else:
-            psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
+            psf = torch.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=torch.complex64)
             for i, wv in enumerate(self.psf_wavelength):
                 psf[:, :, i] = angular_spectrum(
                     u_in=self.mask,
@@ -189,7 +189,7 @@ class Mask(abc.ABC):
                 )[0]
 
             # intensity PSF
-            self.psf = np.abs(psf) ** 2
+            self.psf = torch.abs(psf) ** 2
             self.psf = torch.Tensor(self.psf).to(self.device)
         
 
@@ -672,7 +672,7 @@ class HeightVarying(Mask):
             self.height_map = height_map
         else:
             self.height_map = None
-            np.random.seed(self.seed)
+            
 
         super().__init__(**kwargs)
 
@@ -685,8 +685,9 @@ class HeightVarying(Mask):
             return torch.tensor(phi).to(self.device)
         
     def create_mask(self):
-        if self.is_Torch == False:
+        if self.is_Torch is None or self.is_Torch == False:
             if self.height_map is None:
+                np.random.seed(self.seed)
                 self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], self.resolution)
             assert self.height_map.shape == tuple(self.resolution)
             phase_mask = self.get_phi()
@@ -694,6 +695,7 @@ class HeightVarying(Mask):
         
         else:
             if self.height_map is None:
+                torch.manual_seed(self.seed)
                 height_range_tensor = torch.tensor(self.height_range)
                 # Generate a random height map using PyTorch
                 resolution = torch.tensor(self.resolution)
@@ -703,12 +705,4 @@ class HeightVarying(Mask):
             assert self.height_map.shape == tuple(self.resolution)
             phase_mask = self.get_phi()
             self.mask = torch.exp(1j * phase_mask).to(self.device)
-        
-        """if self.height_map is None:
-            self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], self.resolution)
-        assert self.height_map.shape == tuple(self.resolution)
-        phase_mask = self.get_phi()
-        self.mask = np.exp(1j * phase_mask)
-        if self.is_Torch == True:
-            self.mask = torch.tensor(self.mask).to(self.device)"""
     
