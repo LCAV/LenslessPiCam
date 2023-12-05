@@ -102,7 +102,7 @@ def test_classmethod():
     fig, ax = plt.subplots()
     im = ax.imshow(np.angle(mask4.mask), cmap="gray")
     fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
-    plt.show()'''
+    plt.show()
 
     mask5 = HeightVarying.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, is_Torch=False
