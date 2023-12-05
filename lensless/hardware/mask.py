@@ -377,46 +377,38 @@ class MultiLensArray(Mask):
         self.seed = seed
         self.min_height = min_height
         
-        if not istorch :
-            if self.radius is not None:
-                assert self.loc is not None
-                assert len(self.radius) == len(self.loc)
-                self.N = len(self.radius)
-                circles = np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
-                assert MultiLensArray.no_circle_overlap(circles, self.istorch)
-            else:
-                assert self.N is not None
-                np.random.seed(self.seed)
-                self.radius = None np.random.uniform(self.min_height, 1e-5, self.N) #TODO: check if it is the right way to do it
-                assert self.N == len(self.radius)
-        elif self.radius is not None:
-                assert self.loc is not None
-                assert len(self.radius) == len(self.loc)
-                self.N = len(self.radius)
-                circles =  torch.tensor([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
-                assert MultiLensArray.no_circle_overlap(circles, self.istorch)
-        else:
-            assert self.N is not None
-            torch.manual_seed(self.seed)
-            self.radius = torch.rand(self.N) * (20 - self.min_height) + self.min_height #TODO: check if it is the right way to do it
-            assert self.N == len(self.radius)
-        
         super().__init__(**kwargs)
     
-        
+    def check_asserts(self):
+        if self.radius is not None:
+            assert np.all(self.radius > 0)
+            assert self.loc is not None, "Location of the lenses should be specified if their radius is specified"
+            assert len(self.radius) == len(self.loc), "Number of radius should be equal to the number of locations"
+            self.N = len(self.radius)
+            circles = np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)]) if not self.is_Torch else torch.tensor([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
+            assert MultiLensArray.no_circle_overlap(circles, self.is_Torch), "lenses should not overlap"
+        else:
+            assert self.N is not None, "If positions are not specified, the number of lenses should be specified"
+            if self.is_Torch:
+                torch.manual_seed(self.seed)
+                self.radius = torch.rand(self.N) * (1e-5 - self.min_height) + self.min_height
+            else:
+                np.random.seed(self.seed)
+                self.radius = np.random.uniform(self.min_height, 1e-5, self.N)
+            assert self.N == len(self.radius)
 
     @staticmethod
-    def no_circle_overlap(circles, istorch):
+    def no_circle_overlap(circles, is_Torch):
         """Check if any circle in the list overlaps with another."""
         for i in range(len(circles)):
-            if MultiLensArray.does_circle_overlap(circles[i+1:], circles[i][0], circles[i][1], circles[i][2], istorch):
+            if MultiLensArray.does_circle_overlap(circles[i+1:], circles[i][0], circles[i][1], circles[i][2], is_Torch):
                 return False
         return True
     
     @staticmethod
-    def does_circle_overlap(circles, x, y, r, istorch):
+    def does_circle_overlap(circles, x, y, r, is_Torch):
         """Check if a circle overlaps with any in the list."""
-        if not istorch:
+        if not is_Torch:
             for (cx, cy, cr) in circles:
                 if np.sqrt((x - cx)**2 + (y - cy)**2) < r/2 + cr/2:
                     return True
@@ -441,7 +433,7 @@ class MultiLensArray(Mask):
                 x = np.random.uniform(r, width - r)
                 y = np.random.uniform(r, height - r)
             
-                if not MultiLensArray.does_circle_overlap(placed_circles, x , y , r):
+                if not MultiLensArray.does_circle_overlap(placed_circles, x , y , r, self.is_Torch):
                     placed_circles.append((x, y, r))
                     placed_circles_res.append((x / self.feature_size[0], y / self.feature_size[1], r / self.feature_size[0]))
                     placed = True
@@ -458,6 +450,7 @@ class MultiLensArray(Mask):
         return circles, radius
 
     def create_mask(self):
+        self.check_asserts()
         if self.loc is None:
             self.loc, self.radius = self.place_spheres_on_plane(self.size[0], self.size[1], self.radius)
         locs_res = self.loc * (1/self.feature_size)
