@@ -92,18 +92,27 @@ def test_classmethod():
     assert np.all(mask3.psf.shape == desired_psf_shape)
     
     mask4 = MultiLensArray.from_sensor(
-        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, N=10#radius=np.array([10, 25]), loc=np.array([[10.1, 11.3], [56.5, 89.2]])
+        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, N=10, is_Torch=False#radius=np.array([10, 25]), loc=np.array([[10.1, 11.3], [56.5, 89.2]])
     )
-    train1 = TrainableMask.from_mask(mask4)
-    assert np.all(mask4.mask.shape == resolution)
-    desired_psf_shape = np.array(tuple(resolution) + (len(mask4.psf_wavelength),))
-    assert np.all(mask4.psf.shape == desired_psf_shape)
-    '''
+    train1 = TrainableMask.from_mask(mask4) # TODO: see why this is not working
+    mask4 = train1.get_vals()
+    phase = None
+    if not mask4.is_Torch:
+        assert np.all(mask4.mask.shape == resolution)
+        desired_psf_shape = np.array(tuple(resolution) + (len(mask4.psf_wavelength),))
+        assert np.all(mask4.psf.shape == desired_psf_shape)
+        phase = mask4.phi
+    else:
+        # PyTorch operations
+        assert torch.equal(torch.tensor(mask4.mask.shape), torch.tensor(resolution))
+        desired_psf_shape = torch.tensor(tuple(resolution) + (len(mask4.psf_wavelength),))
+        assert torch.equal(torch.tensor(mask4.psf.shape), desired_psf_shape)
+        angle=torch.angle(mask4.mask).cpu().detach().numpy()
     fig, ax = plt.subplots()
-    im = ax.imshow(np.angle(mask4.mask), cmap="gray")
+    im = ax.imshow(phase, cmap="gray")
     fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
     plt.show()
-
+    '''
     mask5 = HeightVarying.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, is_Torch=False
     )
@@ -126,12 +135,7 @@ def test_classmethod():
         im = ax.imshow(torch.angle(mask5.mask), cmap="gray")
         fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
         plt.show()
-
-
-
-
-
-
+    '''
 
 
 if __name__ == "__main__":

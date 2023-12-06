@@ -119,7 +119,7 @@ class Mask(abc.ABC):
         self.compute_psf()
 
     @classmethod
-    def from_sensor(cls, sensor_name, downsample=None, istorch=False,**kwargs):
+    def from_sensor(cls, sensor_name, downsample=None,**kwargs):
         """
         Constructor from an existing virtual sensor that copies over the sensor parameters
         (sensor resolution, sensor size, feature size).
@@ -348,7 +348,7 @@ class MultiLensArray(Mask):
     Multi-lens array mask.
     """
     def __init__(
-        self, N = None, radius = None, loc = None, refractive_index = 1.2, design_wv=532e-9, seed = 0, min_height=1e-3, **kwargs
+        self, N = None, radius = None, loc = None, refractive_index = 1.2, design_wv=532e-9, seed = 0, min_height=1e-5, **kwargs
     ):
         """
         Multi-lens array mask constructor.
@@ -386,56 +386,51 @@ class MultiLensArray(Mask):
             assert len(self.radius) == len(self.loc), "Number of radius should be equal to the number of locations"
             self.N = len(self.radius)
             circles = np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)]) if not self.is_Torch else torch.tensor([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
-            assert MultiLensArray.no_circle_overlap(circles, self.is_Torch), "lenses should not overlap"
+            assert self.no_circle_overlap(circles), "lenses should not overlap"
         else:
             assert self.N is not None, "If positions are not specified, the number of lenses should be specified"
             if self.is_Torch:
                 torch.manual_seed(self.seed)
-                self.radius = torch.rand(self.N) * (1e-5 - self.min_height) + self.min_height
+                self.radius = torch.rand(self.N) * (1e-3 - self.min_height) + self.min_height
             else:
                 np.random.seed(self.seed)
-                self.radius = np.random.uniform(self.min_height, 1e-5, self.N)
+                self.radius = np.random.uniform(self.min_height, 1e-3, self.N)
             assert self.N == len(self.radius)
 
-    @staticmethod
-    def no_circle_overlap(circles, is_Torch):
+    def no_circle_overlap(self, circles):
         """Check if any circle in the list overlaps with another."""
         for i in range(len(circles)):
-            if MultiLensArray.does_circle_overlap(circles[i+1:], circles[i][0], circles[i][1], circles[i][2], is_Torch):
+            if self.does_circle_overlap(circles[i+1:], circles[i][0], circles[i][1], circles[i][2]):
                 return False
         return True
     
-    @staticmethod
-    def does_circle_overlap(circles, x, y, r, is_Torch):
+    def does_circle_overlap(self, circles, x, y, r):
         """Check if a circle overlaps with any in the list."""
-        if not is_Torch:
+        if not self.is_Torch:
             for (cx, cy, cr) in circles:
-                if np.sqrt((x - cx)**2 + (y - cy)**2) < r/2 + cr/2:
-                    return True
+                if np.sqrt((x - cx)**2 + (y - cy)**2) <= r + cr:
+                    return True, (cx, cy, cr)
             return False
         else:
-            for circle in circles:
-                cx, cy, cr = circle.tolist()  # Convert the PyTorch tensor to a list
-                if torch.sqrt((x - cx)**2 + (y - cy)**2) < r/2 + cr/2:
-                    return True
-            return False
+            for (cx, cy, cr) in circles:
+                if torch.sqrt((x - cx)**2 + (y - cy)**2) <= r + cr:
+                    return True, (cx, cy, cr)
+            return False            
 
 
     def place_spheres_on_plane(self, width, height, radius, max_attempts=1000):
         """Try to place circles on a 2D plane."""
         placed_circles = []
-        placed_circles_res = []
         radius_sorted = sorted(radius, reverse=True)  # Place larger circles first
 
         for r in radius_sorted:
             placed = False
             for _ in range(max_attempts):
-                x = np.random.uniform(r, width - r)
-                y = np.random.uniform(r, height - r)
+                x = np.random.uniform(r, width - r) if self.is_Torch == False else torch.rand(1) * (width - 2*r) + r
+                y = np.random.uniform(r, height - r) if self.is_Torch == False else torch.rand(1) * (height - 2*r) + r
             
-                if not MultiLensArray.does_circle_overlap(placed_circles, x , y , r, self.is_Torch):
+                if not self.does_circle_overlap(placed_circles, x , y , r):
                     placed_circles.append((x, y, r))
-                    placed_circles_res.append((x / self.feature_size[0], y / self.feature_size[1], r / self.feature_size[0]))
                     placed = True
                     print(f"Placed circle with rad {r}, and center ({x}, {y})")
                     break
@@ -444,7 +439,8 @@ class MultiLensArray(Mask):
                 print(f"Failed to place circle with rad {r}")
                 continue
 
-        placed_circles = np.array(placed_circles)
+        placed_circles = np.array(placed_circles) if not self.is_Torch else torch.tensor(placed_circles)
+
         circles = placed_circles[:, :2]
         radius = placed_circles[:, 2]
         return circles, radius
@@ -453,37 +449,33 @@ class MultiLensArray(Mask):
         self.check_asserts()
         if self.loc is None:
             self.loc, self.radius = self.place_spheres_on_plane(self.size[0], self.size[1], self.radius)
-        locs_res = self.loc * (1/self.feature_size)
+        locs_res = self.loc * (1/self.feature_size[0])
         radius_res = self.radius * (1/self.feature_size[0]) 
         height = self.create_height_map(radius_res, locs_res)
         
-        # Kaleidoscope effect
-        phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength) % (2*np.pi)#? Makes it have some noisy values instead of a continuous sphere
-        # No kaleidoscope effect
-        #phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength)
-        #max_phi = np.max(phi)
-        #phi = phi * (2 * np.pi / max_phi)
+        self.phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength)
         
+
         fig, ax = plt.subplots()
-        im = ax.imshow(height, cmap="gray")
+        im = ax.imshow(height.cpu().detach().numpy() if self.is_Torch else height, cmap="gray")
         fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
         plt.title("Height map")
         plt.show()
-        self.mask = np.exp(1j * phi)
+        self.mask = np.exp(1j * self.phi) if not self.is_Torch else torch.exp(1j * self.phi)
 
     def create_height_map(self, radius, locs):
-        height = np.full((self.resolution[0], self.resolution[1]), self.min_height)
+        height = np.full((self.resolution[0], self.resolution[1]), self.min_height) if not self.is_Torch else torch.full((self.resolution[0], self.resolution[1]), self.min_height)
         for x in range(height.shape[0]):
             for y in range(height.shape[1]):
                 height[x, y] += self.lens_contribution(radius, locs, (x + 0.5), (y + 0.5)) * self.feature_size[0]
-        assert np.all(height >= self.min_height)
+        assert np.all(height >= self.min_height) if not self.is_Torch else torch.all(torch.ge(height, self.min_height))
         return height
     
     def lens_contribution(self, radius, locs, x, y):
         contribution = 0
         for idx, loc in enumerate(locs):
             if (x-loc[0])**2 + (y-loc[1])**2 < radius[idx]**2:
-                contribution = np.sqrt((radius[idx])**2 - ((x-loc[0]))**2 - ((y -loc[1]))**2)
+                contribution = np.sqrt((radius[idx])**2 - ((x-loc[0]))**2 - ((y -loc[1]))**2) if not self.is_Torch else torch.sqrt((radius[idx])**2 - ((x-loc[0]))**2 - ((y -loc[1]))**2)
                 return contribution
         return contribution
 
