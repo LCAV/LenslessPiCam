@@ -84,6 +84,7 @@ trainable_mask:
   initial_value: psf
   grayscale: False
   mask_lr: 1e-3
+  optimizer: Adam
   L1_strength: 1.0  #False or float
 
 target: "object_plane"    # "original" or "object_plane" or "label"

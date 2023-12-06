@@ -53,6 +53,8 @@ class Mask(abc.ABC):
         size=None,
         feature_size=None,
         psf_wavelength=[460e-9, 550e-9, 640e-9],
+        is_torch=False,
+        torch_device="cpu",
         **kwargs
     ):
         """
@@ -95,12 +97,16 @@ class Mask(abc.ABC):
         assert np.all(resolution * feature_size <= size)
 
         self.resolution = resolution
+        self.resolution = (int(self.resolution[0]), int(self.resolution[1]))
         self.size = size
         if feature_size is None:
             self.feature_size = self.size / self.resolution
         else:
             self.feature_size = feature_size
         self.distance_sensor = distance_sensor
+
+        self.is_torch = is_torch
+        self.torch_device = torch_device
 
         # create mask
         self.mask = None
@@ -155,19 +161,28 @@ class Mask(abc.ABC):
         Compute the intensity PSF with bandlimited angular spectrum (BLAS) for each wavelength.
         Common to all types of masks.
         """
-        psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
+        if self.is_torch:
+            psf = torch.zeros(
+                tuple(self.resolution) + (len(self.psf_wavelength),), dtype=torch.complex64
+            )
+        else:
+            psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
         for i, wv in enumerate(self.psf_wavelength):
             psf[:, :, i] = angular_spectrum(
                 u_in=self.mask,
                 wv=wv,
                 d1=self.feature_size,
                 dz=self.distance_sensor,
-                dtype=np.float32,
+                dtype=np.float32 if not self.is_torch else torch.float32,
                 bandlimit=True,
+                device=self.torch_device if self.is_torch else None,
             )[0]
 
         # intensity PSF
-        self.psf = np.abs(psf) ** 2
+        if self.is_torch:
+            self.psf = torch.abs(psf) ** 2
+        else:
+            self.psf = np.abs(psf) ** 2
 
 
 class CodedAperture(Mask):
@@ -196,33 +211,55 @@ class CodedAperture(Mask):
         self.method = method
         self.n_bits = n_bits
 
+        assert self.method.upper() in ["MURA", "MLS"], "Method should be either 'MLS' or 'MURA'"
+        # TODO? use: https://github.com/bpops/codedapertures
+
+        # initialize parameters
+        if self.method.upper() == "MURA":
+            mask = self.squarepattern(4 * self.n_bits + 1)[1:, 1:]
+            self.row = self.mask[0, :]
+            self.col = self.mask[:, 0]
+            outer = np.outer(self.row, self.col)
+            assert np.all(outer == mask)
+        else:
+            seq = max_len_seq(self.n_bits)[0]
+            self.row = seq
+            self.col = seq
+
+        if kwargs["is_torch"]:
+            self.row = torch.from_numpy(self.row).float()
+            self.col = torch.from_numpy(self.col).float()
+
         super().__init__(**kwargs)
 
     def create_mask(self):
         """
-        Creating coded aperture mask using either the MURA of MLS method.
+        Creating coded aperture mask.
         """
-        assert self.method.upper() in ["MURA", "MLS"], "Method should be either 'MLS' or 'MURA'"
 
-        # Generating pattern
-        if self.method.upper() == "MURA":
-            self.mask = self.squarepattern(4 * self.n_bits + 1)[1:, 1:]
-            self.row = 2 * self.mask[0, :] - 1
-            self.col = 2 * self.mask[:, 0] - 1
+        # outer product
+        if self.is_torch:
+            self.mask = torch.outer(self.row, self.col)
         else:
-            seq = max_len_seq(self.n_bits)[0] * 2 - 1
-            h_r = np.r_[seq, seq]
-            self.row = h_r
-            self.col = h_r
-            self.mask = (np.outer(h_r, h_r) + 1) / 2
+            self.mask = np.outer(self.row, self.col)
 
-        # Upscaling
+        # resize to sensor shape
         if np.any(self.resolution != self.mask.shape):
-            upscaled_mask = resize(
-                self.mask[:, :, np.newaxis], shape=tuple(self.resolution) + (1,)
-            ).squeeze()
-            upscaled_mask = np.clip(upscaled_mask, 0, 1)
-            self.mask = np.round(upscaled_mask).astype(int)
+
+            if self.is_torch:
+                self.mask = self.mask.unsqueeze(0).unsqueeze(0)
+                self.mask = torch.nn.functional.interpolate(
+                    self.mask, size=tuple(self.resolution), mode="nearest"
+                ).squeeze()
+            else:
+                # self.mask = resize(self.mask[:, :, np.newaxis], shape=tuple(self.resolution) + (1,))
+                self.mask = resize(
+                    self.mask[:, :, np.newaxis],
+                    shape=tuple(self.resolution) + (1,),
+                    interpolation=cv.INTER_NEAREST,
+                ).squeeze()
+
+        # assert np.all(np.unique(self.mask) == np.array([0, 1]))
 
     def is_prime(self, n):
         """
@@ -246,6 +283,7 @@ class CodedAperture(Mask):
         p: int
             Number of bits.
         """
+
         if not self.is_prime(p):
             raise ValueError("p is not a valid length. It must be prime.")
         A = np.zeros((p, p), dtype=int)
