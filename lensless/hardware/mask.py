@@ -119,7 +119,7 @@ class Mask(abc.ABC):
         self.compute_psf()
 
     @classmethod
-    def from_sensor(cls, sensor_name, downsample=None, **kwargs):
+    def from_sensor(cls, sensor_name, downsample=None,**kwargs):
         """
         Constructor from an existing virtual sensor that copies over the sensor parameters
         (sensor resolution, sensor size, feature size).
@@ -348,7 +348,7 @@ class MultiLensArray(Mask):
     Multi-lens array mask.
     """
     def __init__(
-        self, N = None, radius = None, loc = None, refractive_index = 1.2, design_wv=532e-9, seed = 0, min_height=1e-3, **kwargs
+        self, N = None, radius = None, loc = None, refractive_index = 1.2, design_wv=532e-9, seed = 0, min_height=1e-5, **kwargs
     ):
         """
         Multi-lens array mask constructor.
@@ -377,52 +377,60 @@ class MultiLensArray(Mask):
         self.seed = seed
         self.min_height = min_height
         
-        if self.radius is not None:
-            assert self.loc is not None
-            assert len(self.radius) == len(self.loc)
-            self.N = len(self.radius)
-            circles = np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
-            assert MultiLensArray.no_circle_overlap(circles)
-        else:
-            assert self.N is not None
-            np.random.seed(self.seed)
-            self.radius = np.random.uniform(self.min_height, 1e-5, self.N) #TODO: check if it is the right way to do it
-            assert self.N == len(self.radius)
         super().__init__(**kwargs)
     
-        
+    def check_asserts(self):
+        if self.radius is not None:
+            assert np.all(self.radius > 0)
+            assert self.loc is not None, "Location of the lenses should be specified if their radius is specified"
+            assert len(self.radius) == len(self.loc), "Number of radius should be equal to the number of locations"
+            self.N = len(self.radius)
+            circles = np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)]) if not self.is_Torch else torch.tensor([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
+            assert self.no_circle_overlap(circles), "lenses should not overlap"
+        else:
+            assert self.N is not None, "If positions are not specified, the number of lenses should be specified"
+            if self.is_Torch:
+                torch.manual_seed(self.seed)
+                self.radius = torch.rand(self.N) * (1e-3 - self.min_height) + self.min_height
+            else:
+                np.random.seed(self.seed)
+                self.radius = np.random.uniform(self.min_height, 1e-3, self.N)
+            assert self.N == len(self.radius)
 
-    @staticmethod
-    def no_circle_overlap(circles):
+    def no_circle_overlap(self, circles):
         """Check if any circle in the list overlaps with another."""
         for i in range(len(circles)):
-            if MultiLensArray.does_circle_overlap(circles[i+1:], circles[i][0], circles[i][1], circles[i][2]):
+            if self.does_circle_overlap(circles[i+1:], circles[i][0], circles[i][1], circles[i][2]):
                 return False
         return True
     
-    @staticmethod
-    def does_circle_overlap(circles, x, y, r):
+    def does_circle_overlap(self, circles, x, y, r):
         """Check if a circle overlaps with any in the list."""
-        for (cx, cy, cr) in circles:
-            if np.sqrt((x - cx)**2 + (y - cy)**2) < r + cr:
-                return True
-        return False
+        if not self.is_Torch:
+            for (cx, cy, cr) in circles:
+                if np.sqrt((x - cx)**2 + (y - cy)**2) <= r + cr:
+                    return True, (cx, cy, cr)
+            return False
+        else:
+            for (cx, cy, cr) in circles:
+                if torch.sqrt((x - cx)**2 + (y - cy)**2) <= r + cr:
+                    return True, (cx, cy, cr)
+            return False            
+
 
     def place_spheres_on_plane(self, width, height, radius, max_attempts=1000):
         """Try to place circles on a 2D plane."""
         placed_circles = []
-        placed_circles_res = []
         radius_sorted = sorted(radius, reverse=True)  # Place larger circles first
 
         for r in radius_sorted:
             placed = False
             for _ in range(max_attempts):
-                x = np.random.uniform(r, width - r)
-                y = np.random.uniform(r, height - r)
+                x = np.random.uniform(r, width - r) if self.is_Torch == False else torch.rand(1) * (width - 2*r) + r
+                y = np.random.uniform(r, height - r) if self.is_Torch == False else torch.rand(1) * (height - 2*r) + r
             
-                if not MultiLensArray.does_circle_overlap(placed_circles, x , y , r):
+                if not self.does_circle_overlap(placed_circles, x , y , r):
                     placed_circles.append((x, y, r))
-                    placed_circles_res.append((x / self.feature_size[0], y / self.feature_size[1], r / self.feature_size[0]))
                     placed = True
                     print(f"Placed circle with rad {r}, and center ({x}, {y})")
                     break
@@ -431,45 +439,43 @@ class MultiLensArray(Mask):
                 print(f"Failed to place circle with rad {r}")
                 continue
 
-        placed_circles = np.array(placed_circles)
+        placed_circles = np.array(placed_circles) if not self.is_Torch else torch.tensor(placed_circles)
+
         circles = placed_circles[:, :2]
         radius = placed_circles[:, 2]
         return circles, radius
 
     def create_mask(self):
+        self.check_asserts()
         if self.loc is None:
             self.loc, self.radius = self.place_spheres_on_plane(self.size[0], self.size[1], self.radius)
-        locs_res = self.loc * (1/self.feature_size)
+        locs_res = self.loc * (1/self.feature_size[0])
         radius_res = self.radius * (1/self.feature_size[0]) 
         height = self.create_height_map(radius_res, locs_res)
         
-        # Kaleidoscope effect
-        phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength) % (2*np.pi)#? Makes it have some noisy values instead of a continuous sphere
-        # No kaleidoscope effect
-        #phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength)
-        #max_phi = np.max(phi)
-        #phi = phi * (2 * np.pi / max_phi)
+        self.phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength)
         
+
         fig, ax = plt.subplots()
-        im = ax.imshow(height, cmap="gray")
+        im = ax.imshow(height.cpu().detach().numpy() if self.is_Torch else height, cmap="gray")
         fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
         plt.title("Height map")
         plt.show()
-        self.mask = np.exp(1j * phi)
+        self.mask = np.exp(1j * self.phi) if not self.is_Torch else torch.exp(1j * self.phi)
 
     def create_height_map(self, radius, locs):
-        height = np.full((self.resolution[0], self.resolution[1]), self.min_height)
+        height = np.full((self.resolution[0], self.resolution[1]), self.min_height) if not self.is_Torch else torch.full((self.resolution[0], self.resolution[1]), self.min_height)
         for x in range(height.shape[0]):
             for y in range(height.shape[1]):
                 height[x, y] += self.lens_contribution(radius, locs, (x + 0.5), (y + 0.5)) * self.feature_size[0]
-        assert np.all(height >= self.min_height)
+        assert np.all(height >= self.min_height) if not self.is_Torch else torch.all(torch.ge(height, self.min_height))
         return height
     
     def lens_contribution(self, radius, locs, x, y):
         contribution = 0
         for idx, loc in enumerate(locs):
             if (x-loc[0])**2 + (y-loc[1])**2 < radius[idx]**2:
-                contribution = np.sqrt((radius[idx])**2 - ((x-loc[0]))**2 - ((y -loc[1]))**2)
+                contribution = np.sqrt((radius[idx])**2 - ((x-loc[0]))**2 - ((y -loc[1]))**2) if not self.is_Torch else torch.sqrt((radius[idx])**2 - ((x-loc[0]))**2 - ((y -loc[1]))**2)
                 return contribution
         return contribution
 
@@ -506,7 +512,6 @@ class PhaseContour(Mask):
         self.refractive_index = refractive_index
         self.n_iter = n_iter
         self.design_wv = design_wv
-        
 
         super().__init__(**kwargs)
 
@@ -514,33 +519,33 @@ class PhaseContour(Mask):
         """
         Creating phase contour from edges of Perlin noise.
         """
+        if not (torch_available and isinstance(self.mask, torch.Tensor)):
+            # Creating Perlin noise
+            proper_dim_1 = (self.resolution[0] // self.noise_period[0]) * self.noise_period[0]
+            proper_dim_2 = (self.resolution[1] // self.noise_period[1]) * self.noise_period[1]
+            noise = generate_perlin_noise_2d((proper_dim_1, proper_dim_2), self.noise_period)
 
-        # Creating Perlin noise
-        proper_dim_1 = (self.resolution[0] // self.noise_period[0]) * self.noise_period[0]
-        proper_dim_2 = (self.resolution[1] // self.noise_period[1]) * self.noise_period[1]
-        noise = generate_perlin_noise_2d((proper_dim_1, proper_dim_2), self.noise_period)
+            # Upscaling to correspond to sensor size
+            if np.any(self.resolution != noise.shape):
+                noise = resize(noise[:, :, np.newaxis], shape=tuple(self.resolution) + (1,)).squeeze()
 
-        # Upscaling to correspond to sensor size
-        if np.any(self.resolution != noise.shape):
-            noise = resize(noise[:, :, np.newaxis], shape=tuple(self.resolution) + (1,)).squeeze()
+            # Edge detection
+            binary = np.clip(np.round(np.interp(noise, (-1, 1), (0, 1))), a_min=0, a_max=1)
+            self.target_psf = cv.Canny(np.interp(binary, (-1, 1), (0, 255)).astype(np.uint8), 0, 255)
 
-        # Edge detection
-        binary = np.clip(np.round(np.interp(noise, (-1, 1), (0, 1))), a_min=0, a_max=1)
-        self.target_psf = cv.Canny(np.interp(binary, (-1, 1), (0, 255)).astype(np.uint8), 0, 255)
-
-        # Computing mask and height map
-        phase_mask, height_map = phase_retrieval(
-            target_psf=self.target_psf,
-            wv=self.design_wv,
-            d1=self.feature_size,
-            dz=self.distance_sensor,
-            n=self.refractive_index,
-            n_iter=self.n_iter,
-            height_map=True,
-        )
-        self.height_map = height_map
-        self.phase_pattern = phase_mask
-        self.mask = np.exp(1j * phase_mask)
+            # Computing mask and height map
+            phase_mask, height_map = phase_retrieval(
+                target_psf=self.target_psf,
+                wv=self.design_wv,
+                d1=self.feature_size,
+                dz=self.distance_sensor,
+                n=self.refractive_index,
+                n_iter=self.n_iter,
+                height_map=True,
+            )
+            self.height_map = height_map
+            self.phase_pattern = phase_mask
+            self.mask = np.exp(1j * phase_mask)
 
 
 def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):
@@ -566,6 +571,7 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):
 
     M_p = np.sqrt(target_psf)
 
+
     if hasattr(d1, "__len__"):
         if d1[0] != d1[1]:
             warnings.warn("Non-square pixel, first dimension taken as feature size.")
@@ -573,18 +579,18 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):
 
     for _ in range(n_iter):
         # back propagate from sensor to mask
-        M_phi = fresnel_conv(M_p, wv, d1, -dz, dtype=np.float32)[0]
+        M_phi = fresnel_conv(M_p, wv, d1, -dz, dtype=torch.float32)[0]
         # constrain amplitude at mask to be unity, i.e. phase pattern
-        M_phi = np.exp(1j * np.angle(M_phi))
+        M_phi = torch.exp(1j * torch.angle(M_phi))
         # forward propagate from mask to sensor
-        M_p = fresnel_conv(M_phi, wv, d1, dz, dtype=np.float32)[0]
+        M_p = fresnel_conv(M_phi, wv, d1, dz, dtype=torch.float32)[0]
         # constrain amplitude to be sqrt(PSF)
-        M_p = np.sqrt(target_psf) * np.exp(1j * np.angle(M_p))
+        M_p = torch.sqrt(target_psf) * torch.exp(1j * torch.angle(M_p))
 
-    phi = (np.angle(M_phi) + 2 * np.pi) % (2 * np.pi)
+    phi = (torch.angle(M_phi) + 2 * torch.pi) % (2 * torch.pi)
 
     if height_map:
-        return phi, wv * phi / (2 * np.pi * (n - 1))
+        return phi, wv * phi / (2 * torch.pi * (n - 1))
     else:
         return phi
 

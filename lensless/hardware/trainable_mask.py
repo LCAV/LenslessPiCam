@@ -71,7 +71,50 @@ class TrainableMask(torch.nn.Module, metaclass=abc.ABCMeta):
     def project(self):
         """Abstract method for projecting the mask parameters to a valid space (should be a subspace of [0,1])."""
         raise NotImplementedError
+    
+    @classmethod
+    def from_mask(cls, mask, **kwargs):
+        return cls(initial_mask=mask, **kwargs)
 
+
+class TrainableMultiLensArray(TrainableMask):
+
+    def __init__(self, initial_mask, optimizer="Adam", lr=1e-3, **kwargs):
+        super().__init__(initial_mask, optimizer, lr, **kwargs)
+        self._loc = torch.nn.Parameter(self._mask.loc)
+        self._radius = torch.nn.Parameter(self._mask.radius)
+
+    
+    def get_psf(self):
+        self._mask.compute_psf()
+        return self._mask.psf
+    
+    def project(self):
+        # clamp back the radiuses
+        torch.clamp(self._radius, 0, self._mask.size[0] / 2)
+
+        # sort in descending order
+        self._radius, idx = torch.sort(self._radius, descending=True)
+        self._loc = self._loc[idx]
+
+        circles = torch.cat((self._loc, self._radius.unsqueeze(-1)), dim=-1)
+        for idx, r in enumerate(self._radius):
+            # clamp back the locations
+            torch.clamp(self._loc[idx, 0], r, self._mask.size[0] - r)
+            torch.clamp(self._loc[idx, 1], r, self._mask.size[1] - r)
+
+            # check for overlapping
+            for (cx, cy, cr) in circles[idx+1:]:
+                dist = torch.sqrt((self._loc[idx, 0] - cx)**2 + (self._loc[idx, 1] - cy)**2)
+                if dist <= r + cr:
+                    self._radius[idx] = dist - cr
+                if self._radius[idx] < 0:
+                    self._radius[idx] = 0
+                    break
+        
+                     
+
+            
 
 class TrainablePSF(TrainableMask):
     """
