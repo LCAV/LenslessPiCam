@@ -12,6 +12,7 @@ from lensless.utils.image import is_grayscale
 from lensless.hardware.slm import get_programmable_mask, get_intensity_psf
 from lensless.hardware.sensor import VirtualSensor
 from waveprop.devices import slm_dict
+from lensless.hardware.mask import CodedAperture
 
 
 class TrainableMask(torch.nn.Module, metaclass=abc.ABCMeta):
@@ -230,3 +231,18 @@ class AdafruitLCD(TrainableMask):
             self.color_filter.data = self.color_filter / self.color_filter.sum(
                 dim=[1, 2]
             ).unsqueeze(-1).unsqueeze(-1)
+
+
+class TrainableCodedAperture(CodedAperture):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.row = torch.nn.Parameter(self.row)
+        self.col = torch.nn.Parameter(self.col)
+
+    def get_psf(self):
+        return super().compute_psf()
+
+    def project(self):
+        self.row.data = torch.clamp(self.row, 0, 1)
+        self.col.data = torch.clamp(self.col, 0, 1)

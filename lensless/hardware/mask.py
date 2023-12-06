@@ -94,7 +94,6 @@ class Mask(abc.ABC):
             assert np.all(feature_size > 0), "Feature size should be positive"
         assert np.all(resolution * feature_size <= size)
 
-        self.phase_mask = None
         self.resolution = resolution
         self.size = size
         if feature_size is None:
