@@ -265,9 +265,17 @@ class TrainableCodedAperture(TrainableMask):
         self._mask = self._mask_obj.mask
 
         # 3) set learnable parameters (should be immediate attributes of the class)
-        self._row = torch.nn.Parameter(self._mask_obj.row)
-        self._col = torch.nn.Parameter(self._mask_obj.col)
-        initial_param = [self._row, self._col]
+        if self._mask_obj.row is not None:
+            # seperable
+            self.separable = True
+            self._row = torch.nn.Parameter(self._mask_obj.row)
+            self._col = torch.nn.Parameter(self._mask_obj.col)
+            initial_param = [self._row, self._col]
+        else:
+            # non-seperable
+            self.separable = False
+            self._vals = torch.nn.Parameter(self._mask_obj.mask)
+            initial_param = [self._vals]
         self.binary = binary
 
         # 4) set optimizer
@@ -279,8 +287,13 @@ class TrainableCodedAperture(TrainableMask):
         return self._mask_obj.psf.unsqueeze(0)
 
     def project(self):
-        self._row.data = torch.clamp(self._row, 0, 1)
-        self._col.data = torch.clamp(self._col, 0, 1)
-        if self.binary:
-            self._row.data = torch.round(self._row)
-            self._col.data = torch.round(self._col)
+        if self.separable:
+            self._row.data = torch.clamp(self._row, 0, 1)
+            self._col.data = torch.clamp(self._col, 0, 1)
+            if self.binary:
+                self._row.data = torch.round(self._row)
+                self._col.data = torch.round(self._col)
+        else:
+            self._vals.data = torch.clamp(self._vals, 0, 1)
+            if self.binary:
+                self._vals.data = torch.round(self._vals)

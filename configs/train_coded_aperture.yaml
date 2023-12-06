@@ -15,12 +15,12 @@ trainable_mask:
   optimizer: Adam
   mask_lr: 1e-3
   L1_strength: False
+  binary: False
   initial_value:
     method: MLS
-    n_bits: 8
-    # MURA not working...
+    n_bits: 8  # (2**n_bits-1, 2**n_bits-1)
     # method: MURA
-    # n_bits: 3
+    # n_bits: 25  # (4*nbits*1, 4*nbits*1)
 
 simulation:
   grayscale: False

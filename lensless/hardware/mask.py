@@ -109,7 +109,6 @@ class Mask(abc.ABC):
         self.torch_device = torch_device
 
         # create mask
-        self.mask = None
         self.create_mask()
         self.shape = self.mask.shape
 
@@ -216,19 +215,20 @@ class CodedAperture(Mask):
 
         # initialize parameters
         if self.method.upper() == "MURA":
-            mask = self.squarepattern(4 * self.n_bits + 1)[1:, 1:]
-            self.row = self.mask[0, :]
-            self.col = self.mask[:, 0]
-            outer = np.outer(self.row, self.col)
-            assert np.all(outer == mask)
+            self.mask = self.squarepattern(4 * self.n_bits + 1)
+            self.row = None
+            self.col = None
         else:
             seq = max_len_seq(self.n_bits)[0]
             self.row = seq
             self.col = seq
 
-        if kwargs["is_torch"]:
-            self.row = torch.from_numpy(self.row).float()
-            self.col = torch.from_numpy(self.col).float()
+        if "is_torch" in kwargs and kwargs["is_torch"]:
+            if self.row is not None and self.col is not None:
+                self.row = torch.from_numpy(self.row).float()
+                self.col = torch.from_numpy(self.col).float()
+            else:
+                self.mask = torch.from_numpy(self.mask).float()
 
         super().__init__(**kwargs)
 
@@ -238,10 +238,13 @@ class CodedAperture(Mask):
         """
 
         # outer product
-        if self.is_torch:
-            self.mask = torch.outer(self.row, self.col)
+        if self.row is not None and self.col is not None:
+            if self.is_torch:
+                self.mask = torch.outer(self.row, self.col)
+            else:
+                self.mask = np.outer(self.row, self.col)
         else:
-            self.mask = np.outer(self.row, self.col)
+            assert self.mask is not None
 
         # resize to sensor shape
         if np.any(self.resolution != self.mask.shape):

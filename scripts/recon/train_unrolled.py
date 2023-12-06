@@ -289,6 +289,7 @@ def prep_trainable_mask(config, psf=None, downsample=None):
                 distance_sensor=config.simulation.mask2sensor,
                 optimizer=config.trainable_mask.optimizer,
                 lr=config.trainable_mask.mask_lr,
+                binary=config.trainable_mask.binary,
                 **config.trainable_mask.initial_value,
             )
 
