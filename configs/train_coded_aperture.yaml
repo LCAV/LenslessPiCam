@@ -7,13 +7,14 @@ defaults:
 files:
   dataset: mnist   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
   celeba_root: /scratch/bezzam
-  downsample: 8
+  downsample: 16     # TODO use simulation instead?   
 
 #Trainable Mask
 trainable_mask:
   mask_type: TrainableCodedAperture
   optimizer: Adam
   mask_lr: 1e-3
+  L1_strength: False
   initial_value:
     method: MLS
     n_bits: 8
@@ -32,7 +33,7 @@ simulation:
 
 training:
   crop_preloss: False # crop region for computing loss
-  batch_size: 8
+  batch_size: 4
   epoch: 25
   eval_batch_size: 16
-  save_every: 5
+  save_every: 1

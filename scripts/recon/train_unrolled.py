@@ -108,6 +108,13 @@ def simulate_dataset(config, generator=None):
         transform = transforms.Compose(transforms_list)
         train_ds = datasets.MNIST(root=data_path, train=True, download=True, transform=transform)
         test_ds = datasets.MNIST(root=data_path, train=False, download=True, transform=transform)
+
+        if config.files.n_files is not None:
+            train_size = int((1 - config.files.test_size) * config.files.n_files)
+            test_size = config.files.n_files - train_size
+            train_ds = Subset(train_ds, np.arange(train_size))
+            test_ds = Subset(test_ds, np.arange(test_size))
+
     elif config.files.dataset == "fashion_mnist":
         transform = transforms.Compose(transforms_list)
         train_ds = datasets.FashionMNIST(
@@ -273,8 +280,6 @@ def prep_trainable_mask(config, psf=None, downsample=None):
         mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
 
         if isinstance(config.trainable_mask.initial_value, omegaconf.dictconfig.DictConfig):
-
-            from lensless.hardware.trainable_mask import TrainableCodedAperture
 
             # from mask config
             mask = mask_class(
