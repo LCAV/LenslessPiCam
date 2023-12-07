@@ -1,0 +1,39 @@
+# python scripts/recon/train_unrolled.py -cn train_coded_aperture
+defaults:
+  - train_unrolledADMM
+  - _self_
+
+# Train Dataset
+files:
+  dataset: mnist   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  celeba_root: /scratch/bezzam
+  downsample: 16     # TODO use simulation instead?   
+
+#Trainable Mask
+trainable_mask:
+  mask_type: TrainableCodedAperture
+  optimizer: Adam
+  mask_lr: 1e-3
+  L1_strength: False
+  binary: False
+  initial_value:
+    method: MLS
+    n_bits: 8  # (2**n_bits-1, 2**n_bits-1)
+    # method: MURA
+    # n_bits: 25  # (4*nbits*1, 4*nbits*1)
+
+simulation:
+  grayscale: False
+  flip: False
+  scene2mask: 40e-2
+  mask2sensor: 2e-3
+  sensor: "rpi_hq"
+  downsample: 16
+  object_height: 0.30
+
+training:
+  crop_preloss: False # crop region for computing loss
+  batch_size: 4
+  epoch: 25
+  eval_batch_size: 16
+  save_every: 1

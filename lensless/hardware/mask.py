@@ -54,8 +54,8 @@ class Mask(abc.ABC):
         size=None,
         feature_size=None,
         psf_wavelength=[460e-9, 550e-9, 640e-9],
-        is_Torch=False,
-        device="cpu",
+        is_torch=False,
+        torch_device="cpu",
         **kwargs
     ):
         """
@@ -97,19 +97,19 @@ class Mask(abc.ABC):
             assert np.all(feature_size > 0), "Feature size should be positive"
         assert np.all(resolution * feature_size <= size)
 
-        self.phase_mask = None
         self.resolution = resolution
+        self.resolution = (int(self.resolution[0]), int(self.resolution[1]))
         self.size = size
         if feature_size is None:
             self.feature_size = self.size / self.resolution
         else:
             self.feature_size = feature_size
         self.distance_sensor = distance_sensor
-        self.is_Torch = is_Torch
-        self.device = device
+
+        self.is_torch = is_torch
+        self.torch_device = torch_device
 
         # create mask
-        self.mask = None
         self.create_mask()
         self.shape = self.mask.shape
 
@@ -161,36 +161,32 @@ class Mask(abc.ABC):
         Compute the intensity PSF with bandlimited angular spectrum (BLAS) for each wavelength.
         Common to all types of masks.
         """
-        if self.is_Torch == False:
-            psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
-            for i, wv in enumerate(self.psf_wavelength):
-                psf[:, :, i] = angular_spectrum(
-                    u_in=self.mask,
-                    wv=wv,
-                    d1=self.feature_size,
-                    dz=self.distance_sensor,
-                    dtype=np.float32,
-                    bandlimit=True,
-                )[0]
-
-            # intensity PSF
-            self.psf = np.abs(psf) ** 2
+        if self.is_torch:
+            psf = torch.zeros(
+                tuple(self.resolution) + (len(self.psf_wavelength),), dtype=torch.complex64
+            )
         else:
-            psf = torch.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=torch.complex64)
-            for i, wv in enumerate(self.psf_wavelength):
-                psf[:, :, i] = angular_spectrum(
-                    u_in=self.mask,
-                    wv=wv,
-                    d1=self.feature_size,
-                    dz=self.distance_sensor,
-                    dtype=np.float32,
-                    bandlimit=True,
-                    device = self.device
-                )[0]
+            psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
+        for i, wv in enumerate(self.psf_wavelength):
+            psf[:, :, i] = angular_spectrum(
+                u_in=self.mask,
+                wv=wv,
+                d1=self.feature_size,
+                dz=self.distance_sensor,
+                dtype=np.float32 if not self.is_torch else torch.float32,
+                bandlimit=True,
+                torch_device=self.torch_device if self.is_torch else None,
+            )[0]
+
+        # intensity PSF
+        if self.is_torch:
+            self.psf = torch.abs(psf) ** 2
+        else:
+            self.psf = np.abs(psf) ** 2
 
             # intensity PSF
             self.psf = torch.abs(psf) ** 2
-            self.psf = torch.Tensor(self.psf).to(self.device)
+            self.psf = torch.Tensor(self.psf).to(self.torch_device)
         
 
 class CodedAperture(Mask):
@@ -219,33 +215,59 @@ class CodedAperture(Mask):
         self.method = method
         self.n_bits = n_bits
 
+        assert self.method.upper() in ["MURA", "MLS"], "Method should be either 'MLS' or 'MURA'"
+        # TODO? use: https://github.com/bpops/codedapertures
+
+        # initialize parameters
+        if self.method.upper() == "MURA":
+            self.mask = self.squarepattern(4 * self.n_bits + 1)
+            self.row = None
+            self.col = None
+        else:
+            seq = max_len_seq(self.n_bits)[0]
+            self.row = seq
+            self.col = seq
+
+        if "is_torch" in kwargs and kwargs["is_torch"]:
+            if self.row is not None and self.col is not None:
+                self.row = torch.from_numpy(self.row).float()
+                self.col = torch.from_numpy(self.col).float()
+            else:
+                self.mask = torch.from_numpy(self.mask).float()
+
         super().__init__(**kwargs)
 
     def create_mask(self):
         """
-        Creating coded aperture mask using either the MURA of MLS method.
+        Creating coded aperture mask.
         """
-        assert self.method.upper() in ["MURA", "MLS"], "Method should be either 'MLS' or 'MURA'"
 
-        # Generating pattern
-        if self.method.upper() == "MURA":
-            self.mask = self.squarepattern(4 * self.n_bits + 1)[1:, 1:]
-            self.row = 2 * self.mask[0, :] - 1
-            self.col = 2 * self.mask[:, 0] - 1
+        # outer product
+        if self.row is not None and self.col is not None:
+            if self.is_torch:
+                self.mask = torch.outer(self.row, self.col)
+            else:
+                self.mask = np.outer(self.row, self.col)
         else:
-            seq = max_len_seq(self.n_bits)[0] * 2 - 1
-            h_r = np.r_[seq, seq]
-            self.row = h_r
-            self.col = h_r
-            self.mask = (np.outer(h_r, h_r) + 1) / 2
+            assert self.mask is not None
 
-        # Upscaling
+        # resize to sensor shape
         if np.any(self.resolution != self.mask.shape):
-            upscaled_mask = resize(
-                self.mask[:, :, np.newaxis], shape=tuple(self.resolution) + (1,)
-            ).squeeze()
-            upscaled_mask = np.clip(upscaled_mask, 0, 1)
-            self.mask = np.round(upscaled_mask).astype(int)
+
+            if self.is_torch:
+                self.mask = self.mask.unsqueeze(0).unsqueeze(0)
+                self.mask = torch.nn.functional.interpolate(
+                    self.mask, size=tuple(self.resolution), mode="nearest"
+                ).squeeze()
+            else:
+                # self.mask = resize(self.mask[:, :, np.newaxis], shape=tuple(self.resolution) + (1,))
+                self.mask = resize(
+                    self.mask[:, :, np.newaxis],
+                    shape=tuple(self.resolution) + (1,),
+                    interpolation=cv.INTER_NEAREST,
+                ).squeeze()
+
+        # assert np.all(np.unique(self.mask) == np.array([0, 1]))
 
     def is_prime(self, n):
         """
@@ -269,6 +291,7 @@ class CodedAperture(Mask):
         p: int
             Number of bits.
         """
+
         if not self.is_prime(p):
             raise ValueError("p is not a valid length. It must be prime.")
         A = np.zeros((p, p), dtype=int)
@@ -385,11 +408,11 @@ class MultiLensArray(Mask):
             assert self.loc is not None, "Location of the lenses should be specified if their radius is specified"
             assert len(self.radius) == len(self.loc), "Number of radius should be equal to the number of locations"
             self.N = len(self.radius)
-            circles = np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)]) if not self.is_Torch else torch.tensor([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
+            circles = np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)]) if not self.is_torch else torch.tensor([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
             assert self.no_circle_overlap(circles), "lenses should not overlap"
         else:
             assert self.N is not None, "If positions are not specified, the number of lenses should be specified"
-            if self.is_Torch:
+            if self.is_torch:
                 torch.manual_seed(self.seed)
                 self.radius = torch.rand(self.N) * (1e-3 - self.min_height) + self.min_height
             else:
@@ -406,7 +429,7 @@ class MultiLensArray(Mask):
     
     def does_circle_overlap(self, circles, x, y, r):
         """Check if a circle overlaps with any in the list."""
-        if not self.is_Torch:
+        if not self.is_torch:
             for (cx, cy, cr) in circles:
                 if np.sqrt((x - cx)**2 + (y - cy)**2) <= r + cr:
                     return True, (cx, cy, cr)
@@ -426,8 +449,8 @@ class MultiLensArray(Mask):
         for r in radius_sorted:
             placed = False
             for _ in range(max_attempts):
-                x = np.random.uniform(r, width - r) if self.is_Torch == False else torch.rand(1) * (width - 2*r) + r
-                y = np.random.uniform(r, height - r) if self.is_Torch == False else torch.rand(1) * (height - 2*r) + r
+                x = np.random.uniform(r, width - r) if self.is_torch == False else torch.rand(1) * (width - 2*r) + r
+                y = np.random.uniform(r, height - r) if self.is_torch == False else torch.rand(1) * (height - 2*r) + r
             
                 if not self.does_circle_overlap(placed_circles, x , y , r):
                     placed_circles.append((x, y, r))
@@ -439,7 +462,7 @@ class MultiLensArray(Mask):
                 print(f"Failed to place circle with rad {r}")
                 continue
 
-        placed_circles = np.array(placed_circles) if not self.is_Torch else torch.tensor(placed_circles)
+        placed_circles = np.array(placed_circles) if not self.is_torch else torch.tensor(placed_circles)
 
         circles = placed_circles[:, :2]
         radius = placed_circles[:, 2]
@@ -457,25 +480,25 @@ class MultiLensArray(Mask):
         
 
         fig, ax = plt.subplots()
-        im = ax.imshow(height.cpu().detach().numpy() if self.is_Torch else height, cmap="gray")
+        im = ax.imshow(height.cpu().detach().numpy() if self.is_torch else height, cmap="gray")
         fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
         plt.title("Height map")
         plt.show()
-        self.mask = np.exp(1j * self.phi) if not self.is_Torch else torch.exp(1j * self.phi)
+        self.mask = np.exp(1j * self.phi) if not self.is_torch else torch.exp(1j * self.phi)
 
     def create_height_map(self, radius, locs):
-        height = np.full((self.resolution[0], self.resolution[1]), self.min_height) if not self.is_Torch else torch.full((self.resolution[0], self.resolution[1]), self.min_height)
+        height = np.full((self.resolution[0], self.resolution[1]), self.min_height) if not self.is_torch else torch.full((self.resolution[0], self.resolution[1]), self.min_height)
         for x in range(height.shape[0]):
             for y in range(height.shape[1]):
                 height[x, y] += self.lens_contribution(radius, locs, (x + 0.5), (y + 0.5)) * self.feature_size[0]
-        assert np.all(height >= self.min_height) if not self.is_Torch else torch.all(torch.ge(height, self.min_height))
+        assert np.all(height >= self.min_height) if not self.is_torch else torch.all(torch.ge(height, self.min_height))
         return height
     
     def lens_contribution(self, radius, locs, x, y):
         contribution = 0
         for idx, loc in enumerate(locs):
             if (x-loc[0])**2 + (y-loc[1])**2 < radius[idx]**2:
-                contribution = np.sqrt((radius[idx])**2 - ((x-loc[0]))**2 - ((y -loc[1]))**2) if not self.is_Torch else torch.sqrt((radius[idx])**2 - ((x-loc[0]))**2 - ((y -loc[1]))**2)
+                contribution = np.sqrt((radius[idx])**2 - ((x-loc[0]))**2 - ((y -loc[1]))**2) if not self.is_torch else torch.sqrt((radius[idx])**2 - ((x-loc[0]))**2 - ((y -loc[1]))**2)
                 return contribution
         return contribution
 
@@ -691,13 +714,13 @@ class HeightVarying(Mask):
     def get_phi(self):
         phi = self.height_map * (2*np.pi*(self.refractive_index-1) / self.wavelength)
         phi = phi % (2*np.pi)
-        if self.is_Torch == False:
+        if self.is_torch == False:
             return phi
         else:
-            return torch.tensor(phi).to(self.device)
+            return torch.tensor(phi).to(self.torch_device)
         
     def create_mask(self):
-        if self.is_Torch is None or self.is_Torch == False:
+        if self.is_torch is None or self.is_torch == False:
             if self.height_map is None:
                 np.random.seed(self.seed)
                 self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], self.resolution)
@@ -712,9 +735,9 @@ class HeightVarying(Mask):
                 # Generate a random height map using PyTorch
                 resolution = torch.tensor(self.resolution)
                 print('resolution=', resolution)
-                self.height_map = torch.rand((resolution[0], resolution[1])).to(self.device) * (height_range_tensor[1] - height_range_tensor[0]) + height_range_tensor[0]
+                self.height_map = torch.rand((resolution[0], resolution[1])).to(self.torch_device) * (height_range_tensor[1] - height_range_tensor[0]) + height_range_tensor[0]
                 print('self.height_map.shape=', self.height_map.shape)
             assert self.height_map.shape == tuple(self.resolution)
             phase_mask = self.get_phi()
-            self.mask = torch.exp(1j * phase_mask).to(self.device)
+            self.mask = torch.exp(1j * phase_mask).to(self.torch_device)
     
