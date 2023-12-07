@@ -115,6 +115,22 @@ class TrainableMultiLensArray(TrainableMask):
                     break
         
                      
+class TrainableHeightVarying(TrainableMask):
+
+    def __init__(self, initial_mask, optimizer="Adam", lr=1e-3, **kwargs):
+        super().__init__(initial_mask, optimizer, lr, **kwargs)
+        self._height_map = torch.nn.Parameter(self._mask.height_map)
+        
+
+    def get_psf(self):
+        self._mask.compute_psf()
+        return self._mask.psf
+
+    def project(self):
+        # clamp back the heights between min_height, and max_height
+        torch.clamp(self._height_map, torch.min(self._height_map), torch.max(self._height_map))
+
+        
 
             
 
