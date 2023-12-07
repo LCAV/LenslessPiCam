@@ -579,7 +579,9 @@ class Trainer:
                     self.Loss_lpips(2 * y_pred - 1, 2 * y - 1)
                 )
             if self.use_mask and self.l1_mask:
-                loss_v = loss_v + self.l1_mask * torch.mean(torch.abs(self.mask._mask))
+                for p in self.mask.parameters():
+                    if p.requires_grad:
+                        loss_v = loss_v + self.l1_mask * torch.mean(torch.abs(p))
             loss_v.backward()
 
             if self.clip_grad_norm is not None:
@@ -659,7 +661,10 @@ class Trainer:
             if self.lpips is not None:
                 eval_loss += self.lpips * current_metrics["LPIPS_Vgg"]
             if self.use_mask and self.l1_mask:
-                eval_loss += self.l1_mask * np.mean(np.abs(self.mask._mask.cpu().detach().numpy()))
+                for p in self.mask.parameters():
+                    if p.requires_grad:
+                        eval_loss += self.l1_mask * np.mean(np.abs(p.cpu().detach().numpy()))
+                # eval_loss += self.l1_mask * np.mean(np.abs(self.mask._mask.cpu().detach().numpy()))
             return eval_loss
         else:
             return current_metrics[self.metrics["metric_for_best_model"]]
@@ -771,23 +776,18 @@ class Trainer:
         # create directory if it does not exist
         if not os.path.exists(path):
             os.makedirs(path)
-        # save mask
+
+        # save mask parameters
         if self.use_mask:
-            # torch.save(self.mask._mask, os.path.join(path, f"mask_epoch{epoch}.pt"))
 
-            # save mask as numpy array
-            if self.mask.train_mask_vals:
-                np.save(
-                    os.path.join(path, f"mask_epoch{epoch}.npy"),
-                    self.mask._mask.cpu().detach().numpy(),
-                )
+            for name, param in self.mask.named_parameters():
 
-            if self.mask.color_filter is not None:
-                # save save numpy array
-                np.save(
-                    os.path.join(path, f"mask_color_filter_epoch{epoch}.npy"),
-                    self.mask.color_filter.cpu().detach().numpy(),
-                )
+                # save as numpy array
+                if param.requires_grad:
+                    np.save(
+                        os.path.join(path, f"mask{name}_epoch{epoch}.npy"),
+                        param.cpu().detach().numpy(),
+                    )
 
             torch.save(
                 self.mask._optimizer.state_dict(), os.path.join(path, f"mask_optim_epoch{epoch}.pt")
@@ -802,5 +802,6 @@ class Trainer:
         # save optimizer
         if include_optimizer:
             torch.save(self.optimizer.state_dict(), os.path.join(path, f"optim_epoch{epoch}.pt"))
+
         # save recon
         torch.save(self.recon.state_dict(), os.path.join(path, f"recon_epoch{epoch}"))

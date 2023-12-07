@@ -33,6 +33,7 @@ python scripts/recon/train_unrolled.py -cn train_psf_from_scratch
 """
 
 import logging
+import omegaconf
 import hydra
 from hydra.utils import get_original_cwd
 import os
@@ -107,6 +108,13 @@ def simulate_dataset(config, generator=None):
         transform = transforms.Compose(transforms_list)
         train_ds = datasets.MNIST(root=data_path, train=True, download=True, transform=transform)
         test_ds = datasets.MNIST(root=data_path, train=False, download=True, transform=transform)
+
+        if config.files.n_files is not None:
+            train_size = int((1 - config.files.test_size) * config.files.n_files)
+            test_size = config.files.n_files - train_size
+            train_ds = Subset(train_ds, np.arange(train_size))
+            test_ds = Subset(test_ds, np.arange(test_size))
+
     elif config.files.dataset == "fashion_mnist":
         transform = transforms.Compose(transforms_list)
         train_ds = datasets.FashionMNIST(
@@ -271,56 +279,76 @@ def prep_trainable_mask(config, psf=None, downsample=None):
     if config.trainable_mask.mask_type is not None:
         mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
 
-        if config.trainable_mask.initial_value == "random":
-            if psf is not None:
-                initial_mask = torch.rand_like(psf)
-            else:
-                sensor = VirtualSensor.from_name(config.simulation.sensor, downsample=downsample)
-                resolution = sensor.resolution
-                initial_mask = torch.rand((1, *resolution, 3))
-        elif config.trainable_mask.initial_value == "psf":
-            initial_mask = psf.clone()
-        # if file ending with "npy"
-        elif config.trainable_mask.initial_value.endswith("npy"):
-            pattern = np.load(os.path.join(get_original_cwd(), config.trainable_mask.initial_value))
+        if isinstance(config.trainable_mask.initial_value, omegaconf.dictconfig.DictConfig):
 
-            initial_mask = full2subpattern(
-                pattern=pattern,
-                shape=config.trainable_mask.ap_shape,
-                center=config.trainable_mask.ap_center,
-                slm=config.trainable_mask.slm,
+            # from mask config
+            mask = mask_class(
+                # mask = TrainableCodedAperture(
+                sensor_name=config.simulation.sensor,
+                downsample=downsample,
+                distance_sensor=config.simulation.mask2sensor,
+                optimizer=config.trainable_mask.optimizer,
+                lr=config.trainable_mask.mask_lr,
+                binary=config.trainable_mask.binary,
+                **config.trainable_mask.initial_value,
             )
-            initial_mask = torch.from_numpy(initial_mask.astype(np.float32))
 
-            # prepare color filter if needed
-            from waveprop.devices import slm_dict
-            from waveprop.devices import SLMParam as SLMParam_wp
-
-            slm_param = slm_dict[config.trainable_mask.slm]
-            if (
-                config.trainable_mask.train_color_filter
-                and SLMParam_wp.COLOR_FILTER in slm_param.keys()
-            ):
-                color_filter = slm_param[SLMParam_wp.COLOR_FILTER]
-                color_filter = torch.from_numpy(color_filter.copy()).to(dtype=torch.float32)
-
-                # add small random values
-                color_filter = color_filter + 0.1 * torch.rand_like(color_filter)
         else:
-            raise ValueError(
-                f"Initial PSF value {config.trainable_mask.initial_value} not supported"
+
+            if config.trainable_mask.initial_value == "random":
+                if psf is not None:
+                    initial_mask = torch.rand_like(psf)
+                else:
+                    sensor = VirtualSensor.from_name(
+                        config.simulation.sensor, downsample=downsample
+                    )
+                    resolution = sensor.resolution
+                    initial_mask = torch.rand((1, *resolution, 3))
+            elif config.trainable_mask.initial_value == "psf":
+                initial_mask = psf.clone()
+            # if file ending with "npy"
+            elif config.trainable_mask.initial_value.endswith("npy"):
+                pattern = np.load(
+                    os.path.join(get_original_cwd(), config.trainable_mask.initial_value)
+                )
+
+                initial_mask = full2subpattern(
+                    pattern=pattern,
+                    shape=config.trainable_mask.ap_shape,
+                    center=config.trainable_mask.ap_center,
+                    slm=config.trainable_mask.slm,
+                )
+                initial_mask = torch.from_numpy(initial_mask.astype(np.float32))
+
+                # prepare color filter if needed
+                from waveprop.devices import slm_dict
+                from waveprop.devices import SLMParam as SLMParam_wp
+
+                slm_param = slm_dict[config.trainable_mask.slm]
+                if (
+                    config.trainable_mask.train_color_filter
+                    and SLMParam_wp.COLOR_FILTER in slm_param.keys()
+                ):
+                    color_filter = slm_param[SLMParam_wp.COLOR_FILTER]
+                    color_filter = torch.from_numpy(color_filter.copy()).to(dtype=torch.float32)
+
+                    # add small random values
+                    color_filter = color_filter + 0.1 * torch.rand_like(color_filter)
+
+            else:
+                raise ValueError(
+                    f"Initial PSF value {config.trainable_mask.initial_value} not supported"
+                )
+
+            if config.trainable_mask.grayscale and not is_grayscale(initial_mask):
+                initial_mask = rgb2gray(initial_mask)
+
+            mask = mask_class(
+                initial_mask,
+                downsample=downsample,
+                color_filter=color_filter,
+                **config.trainable_mask,
             )
-
-        if config.trainable_mask.grayscale and not is_grayscale(initial_mask):
-            initial_mask = rgb2gray(initial_mask)
-
-        mask = mask_class(
-            initial_mask,
-            optimizer="Adam",
-            downsample=downsample,
-            color_filter=color_filter,
-            **config.trainable_mask,
-        )
 
     return mask
 
@@ -409,15 +437,16 @@ def train_unrolled(config):
         dataset.psf = dataset.psf.to(device)
         log.info(f"Data shape :  {dataset[0][0].shape}")
 
+        if config.files.n_files is not None:
+            dataset = Subset(dataset, np.arange(config.files.n_files))
+            dataset.psf = dataset.dataset.psf
+
         # train-test split
         train_size = int((1 - config.files.test_size) * len(dataset))
         test_size = len(dataset) - train_size
         train_set, test_set = torch.utils.data.random_split(
             dataset, [train_size, test_size], generator=generator
         )
-        if config.files.n_files is not None:
-            train_set = Subset(train_set, np.arange(config.files.n_files))
-            test_set = Subset(test_set, np.arange(config.files.n_files))
 
         # -- if learning mask
         downsample = config.files.downsample * 4  # measured files are 4x downsampled
@@ -470,7 +499,6 @@ def train_unrolled(config):
 
             for i, _idx in enumerate(config.test_idx):
 
-                # lensless, lensed = dataset[_idx]
                 lensless, lensed = test_set[_idx]
                 recon = ADMM(psf)
 
