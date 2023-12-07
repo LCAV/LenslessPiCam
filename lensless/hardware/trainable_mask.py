@@ -113,26 +113,31 @@ class TrainableMultiLensArray(TrainableMask):
     def project(self):
         # clamp back the radiuses
         min_dim = min(self._mask_obj.size[0],self._mask_obj.size[1])
-        torch.clamp(self._radius, 0, min_dim/ 2)
-
+        rad = self._radius.data
+        loca = self._loc.data
+        torch.clamp(rad, 0, min_dim/ 2)
+    
         # sort in descending order
-        self._radius, idx = torch.sort(self._radius, descending=True)
-        self._loc = self._loc[idx]
+        rad, idx = torch.sort(rad, descending=True)
+        loca = loca[idx]
 
-        circles = torch.cat((self._loc, self._radius.unsqueeze(-1)), dim=-1)
-        for idx, r in enumerate(self._radius):
+        circles = torch.cat((loca, rad.unsqueeze(-1)), dim=-1)
+        for idx, r in enumerate(rad):
             # clamp back the locations
-            torch.clamp(self._loc[idx, 0], r, self._mask_obj.size[0] - r)
-            torch.clamp(self._loc[idx, 1], r, self._mask_obj.size[1] - r)
+            torch.clamp(loca[idx, 0], r, self._mask_obj.size[0] - r)
+            torch.clamp(loca[idx, 1], r, self._mask_obj.size[1] - r)
 
             # check for overlapping
             for (cx, cy, cr) in circles[idx+1:]:
-                dist = torch.sqrt((self._loc[idx, 0] - cx)**2 + (self._loc[idx, 1] - cy)**2)
+                dist = torch.sqrt((loca[idx, 0] - cx)**2 + (loca[idx, 1] - cy)**2)
                 if dist <= r + cr:
-                    self._radius[idx] = dist - cr
-                if self._radius[idx] < 0:
-                    self._radius[idx] = 0
+                    rad[idx] = dist - cr
+                if rad[idx] < 0:
+                    rad[idx] = 0
                     break
+        # update the parameters
+        self._radius.data = rad
+        self._loc.data = loca
         
                      
 
