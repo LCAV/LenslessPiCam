@@ -97,18 +97,9 @@ class TrainableMultiLensArray(TrainableMask):
         self._mask = self._mask_obj.mask
 
         # 3) set learnable parameters (should be immediate attributes of the class)
-        if self._mask_obj.row is not None:
-            # seperable
-            self.separable = True
-            self._row = torch.nn.Parameter(self._mask_obj.row)
-            self._col = torch.nn.Parameter(self._mask_obj.col)
-            initial_param = [self._row, self._col]
-        else:
-            # non-seperable
-            self.separable = False
-            self._vals = torch.nn.Parameter(self._mask_obj.mask)
-            initial_param = [self._vals]
-        self.binary = binary
+        self._radius = torch.nn.Parameter(self._mask_obj.radius)
+        self._loc = torch.nn.Parameter(self._mask_obj.loc)
+        initial_param = [self._radius, self._loc]
 
         # 4) set optimizer
         self._set_optimizer(initial_param)
@@ -119,13 +110,10 @@ class TrainableMultiLensArray(TrainableMask):
         return self._mask_obj.psf.unsqueeze(0)
 
     
-    def get_psf(self):
-        self._mask.compute_psf()
-        return self._mask.psf
-    
     def project(self):
         # clamp back the radiuses
-        torch.clamp(self._radius, 0, self._mask.size[0] / 2)
+        min_dim = min(self._mask_obj.size[0],self._mask_obj.size[1])
+        torch.clamp(self._radius, 0, min_dim/ 2)
 
         # sort in descending order
         self._radius, idx = torch.sort(self._radius, descending=True)
@@ -134,8 +122,8 @@ class TrainableMultiLensArray(TrainableMask):
         circles = torch.cat((self._loc, self._radius.unsqueeze(-1)), dim=-1)
         for idx, r in enumerate(self._radius):
             # clamp back the locations
-            torch.clamp(self._loc[idx, 0], r, self._mask.size[0] - r)
-            torch.clamp(self._loc[idx, 1], r, self._mask.size[1] - r)
+            torch.clamp(self._loc[idx, 0], r, self._mask_obj.size[0] - r)
+            torch.clamp(self._loc[idx, 1], r, self._mask_obj.size[1] - r)
 
             # check for overlapping
             for (cx, cy, cr) in circles[idx+1:]:
