@@ -12,7 +12,7 @@ from lensless.utils.image import is_grayscale
 from lensless.hardware.slm import get_programmable_mask, get_intensity_psf
 from lensless.hardware.sensor import VirtualSensor
 from waveprop.devices import slm_dict
-from lensless.hardware.mask import CodedAperture
+from lensless.hardware.mask import CodedAperture, MultiLensArray
 
 
 class TrainableMask(torch.nn.Module, metaclass=abc.ABCMeta):
@@ -81,10 +81,42 @@ class TrainableMask(torch.nn.Module, metaclass=abc.ABCMeta):
 
 class TrainableMultiLensArray(TrainableMask):
 
-    def __init__(self, initial_mask, optimizer="Adam", lr=1e-3, **kwargs):
-        super().__init__(initial_mask, optimizer, lr, **kwargs)
-        self._loc = torch.nn.Parameter(self._mask.loc)
-        self._radius = torch.nn.Parameter(self._mask.radius)
+    def __init__(
+        self, sensor_name, downsample=None, binary=True, optimizer="Adam", lr=1e-3, **kwargs
+    ):
+
+        # 1) call base constructor so parameters can be set
+        super().__init__(optimizer, lr, **kwargs)
+
+        ## TODO: CHANGE FOR MULTILENSARRAY
+        # 2) initialize mask
+        assert "distance_sensor" in kwargs, "Distance to sensor must be specified"
+        assert "method" in kwargs, "Method must be specified."
+        assert "n_bits" in kwargs, "Number of bits must be specified."
+        self._mask_obj = MultiLensArray.from_sensor(sensor_name, downsample, is_torch=True, **kwargs)
+        self._mask = self._mask_obj.mask
+
+        # 3) set learnable parameters (should be immediate attributes of the class)
+        if self._mask_obj.row is not None:
+            # seperable
+            self.separable = True
+            self._row = torch.nn.Parameter(self._mask_obj.row)
+            self._col = torch.nn.Parameter(self._mask_obj.col)
+            initial_param = [self._row, self._col]
+        else:
+            # non-seperable
+            self.separable = False
+            self._vals = torch.nn.Parameter(self._mask_obj.mask)
+            initial_param = [self._vals]
+        self.binary = binary
+
+        # 4) set optimizer
+        self._set_optimizer(initial_param)
+
+    def get_psf(self):
+        self._mask_obj.create_mask()
+        self._mask_obj.compute_psf()
+        return self._mask_obj.psf.unsqueeze(0)
 
     
     def get_psf(self):
