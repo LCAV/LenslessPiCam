@@ -152,12 +152,12 @@ class TrainableHeightVarying(TrainableMask):
         self._mask_obj = HeightVarying.from_sensor(sensor_name, downsample, is_Torch=True, **kwargs)
         self._mask = self._mask_obj.mask
 
-
         #3)
         self._height_map = torch.nn.Parameter(self._mask_obj.height_map)
-
+        initial_param = self.height_map
+        
         #4)
-        self._
+        self._set_optimizer(initial_param)
         
 
     def get_psf(self):
