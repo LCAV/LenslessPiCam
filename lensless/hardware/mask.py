@@ -404,7 +404,10 @@ class MultiLensArray(Mask):
     
     def check_asserts(self):
         if self.radius is not None:
-            assert np.all(self.radius > 0)
+            if self.is_torch:
+                assert torch.all(self.radius > 0)
+            else:
+                assert np.all(self.radius > 0)
             assert self.loc is not None, "Location of the lenses should be specified if their radius is specified"
             assert len(self.radius) == len(self.loc), "Number of radius should be equal to the number of locations"
             self.N = len(self.radius)
@@ -477,8 +480,6 @@ class MultiLensArray(Mask):
         height = self.create_height_map(radius_res, locs_res)
         
         self.phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength)
-        
-
         fig, ax = plt.subplots()
         im = ax.imshow(height.cpu().detach().numpy() if self.is_torch else height, cmap="gray")
         fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
