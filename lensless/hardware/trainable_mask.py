@@ -142,7 +142,7 @@ class TrainableMultiLensArray(TrainableMask):
                      
 class TrainableHeightVarying(TrainableMask):
 
-    def __init__(self, initial_mask, optimizer="Adam", lr=1e-3, **kwargs):
+    def __init__(self, initial_mask, optimizer, lr=1e-3, **kwargs):
         super().__init__(initial_mask, optimizer, lr, **kwargs)
         self._height_map = torch.nn.Parameter(self._mask.height_map)
         
