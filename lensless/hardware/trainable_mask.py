@@ -100,7 +100,6 @@ class TrainableMultiLensArray(TrainableMask):
         self._set_optimizer(initial_param)
 
     def get_psf(self):
-        self._mask_obj.create_mask()
         self._mask_obj.compute_psf()
         return self._mask_obj.psf.unsqueeze(0)
 
@@ -134,8 +133,10 @@ class TrainableMultiLensArray(TrainableMask):
         print(rad, loca)
         self._mask_obj.radius = rad
         self._mask_obj.loc = loca
+        self._mask_obj.create_mask()
         self._radius.data = rad
         self._loc.data = loca
+
         
                      
 
