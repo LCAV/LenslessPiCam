@@ -94,8 +94,7 @@ def test_classmethod():
     mask4 = MultiLensArray.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, N=10, is_Torch=False#radius=np.array([10, 25]), loc=np.array([[10.1, 11.3], [56.5, 89.2]])
     )
-    train1 = TrainableMask.from_mask(mask4) # TODO: see why this is not working
-    mask4 = train1.get_vals()
+
     phase = None
     if not mask4.is_Torch:
         assert np.all(mask4.mask.shape == resolution)
