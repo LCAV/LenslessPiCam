@@ -15,7 +15,6 @@ trainable_mask:
   optimizer: Adam
   mask_lr: 1e-3
   L1_strength: False
-  binary: False
   initial_value:
     N : 10 #TODO: check this value ? 
 
