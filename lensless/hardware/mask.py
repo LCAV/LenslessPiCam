@@ -478,7 +478,8 @@ class MultiLensArray(Mask):
         locs_res = self.loc * (1/self.feature_size[0])
         radius_res = self.radius * (1/self.feature_size[0]) 
         height = self.create_height_map(radius_res, locs_res)
-        
+        print(self.radius)
+        print(self.loc)
         self.phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength)
         fig, ax = plt.subplots()
         im = ax.imshow(height.cpu().detach().numpy() if self.is_torch else height, cmap="gray")
