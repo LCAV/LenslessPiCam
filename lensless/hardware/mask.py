@@ -175,7 +175,7 @@ class Mask(abc.ABC):
                 dz=self.distance_sensor,
                 dtype=np.float32 if not self.is_torch else torch.float32,
                 bandlimit=True,
-                torch_device=self.torch_device if self.is_torch else None,
+                device=self.torch_device if self.is_torch else None,
             )[0]
 
         # intensity PSF
