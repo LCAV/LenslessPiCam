@@ -11,7 +11,7 @@ files:
 
 #Trainable Mask
 trainable_mask:
-  mask_type: TrainableMultilensArray
+  mask_type: TrainableMultiLensArray
   optimizer: Adam
   mask_lr: 1e-3
   L1_strength: False
