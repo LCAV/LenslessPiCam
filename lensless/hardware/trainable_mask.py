@@ -131,6 +131,8 @@ class TrainableMultiLensArray(TrainableMask):
                     rad[idx] = 0
                     break
         # update the parameters
+        self._mask_obj.radius = rad
+        self._mask_obj.loc = loca
         self._radius.data = rad
         self._loc.data = loca
         
