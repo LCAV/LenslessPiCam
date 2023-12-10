@@ -415,6 +415,7 @@ class Trainer:
                 import lpips
 
                 self.Loss_lpips = lpips.LPIPS(net="vgg").to(self.device)
+                
             except ImportError:
                 return ImportError(
                     "lpips package is need for LPIPS loss. Install using : pip install lpips"
@@ -426,7 +427,7 @@ class Trainer:
         self.clip_grad_norm = clip_grad
         self.optimizer_config = optimizer
         self.set_optimizer()
-
+        
         self.metrics = {
             "LOSS": [],  # train loss
             "MSE": [],
@@ -447,10 +448,10 @@ class Trainer:
         if metric_for_best_model is not None:
             assert metric_for_best_model in self.metrics.keys()
         self.save_every = save_every
-
+        
         # Backward hook that detect NAN in the gradient and print the layer weights
         if not self.skip_NAN:
-
+        
             def detect_nan(grad):
                 if torch.isnan(grad).any():
                     if self.logger:
@@ -644,7 +645,7 @@ class Trainer:
             output_dir=output_dir,
             crop=self.crop,
         )
-
+        
         # update metrics with current metrics
         self.metrics["LOSS"].append(mean_loss)
         for key in current_metrics:
@@ -726,8 +727,8 @@ class Trainer:
         """
 
         start_time = time.time()
-
         self.evaluate(-1, save_pt, epoch=0, disp=disp)
+        
         for epoch in range(n_epoch):
 
             # add extra components (if specified)
