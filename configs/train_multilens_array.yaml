@@ -15,7 +15,7 @@ trainable_mask:
   mask_type: TrainableMultiLensArray
   optimizer: Adam
   mask_lr: 1e-3
-  L1_strength: False
+  L1_strength: 1e-5
   binary: False
   initial_value:
     N : 10 #TODO: check this value ? 

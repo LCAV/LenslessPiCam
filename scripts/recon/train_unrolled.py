@@ -67,6 +67,7 @@ import matplotlib.pyplot as plt
 log = logging.getLogger(__name__)
 
 
+
 def simulate_dataset(config, generator=None):
 
     if config.torch_device == "cuda" and torch.cuda.is_available():

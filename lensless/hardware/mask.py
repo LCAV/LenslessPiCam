@@ -405,9 +405,9 @@ class MultiLensArray(Mask):
     def check_asserts(self):
         if self.radius is not None:
             if self.is_torch:
-                assert torch.all(self.radius > 0)
+                assert torch.all(self.radius >= 0)
             else:
-                assert np.all(self.radius > 0)
+                assert np.all(self.radius >= 0)
             assert self.loc is not None, "Location of the lenses should be specified if their radius is specified"
             assert len(self.radius) == len(self.loc), "Number of radius should be equal to the number of locations"
             self.N = len(self.radius)

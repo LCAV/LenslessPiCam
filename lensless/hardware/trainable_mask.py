@@ -109,8 +109,9 @@ class TrainableMultiLensArray(TrainableMask):
         min_dim = min(self._mask_obj.size[0],self._mask_obj.size[1])
         rad = self._radius.data
         loca = self._loc.data
-        torch.clamp(rad, 0, min_dim/ 2)
-    
+        print(rad, loca)
+        rad = torch.clamp(rad, 0, min_dim/ 2)
+        print(rad)
         # sort in descending order
         rad, idx = torch.sort(rad, descending=True)
         loca = loca[idx]
@@ -118,8 +119,8 @@ class TrainableMultiLensArray(TrainableMask):
         circles = torch.cat((loca, rad.unsqueeze(-1)), dim=-1)
         for idx, r in enumerate(rad):
             # clamp back the locations
-            torch.clamp(loca[idx, 0], r, self._mask_obj.size[0] - r)
-            torch.clamp(loca[idx, 1], r, self._mask_obj.size[1] - r)
+            loca[idx, 0] = torch.clamp(loca[idx, 0], r, self._mask_obj.size[0] - r)
+            loca[idx, 1] = torch.clamp(loca[idx, 1], r, self._mask_obj.size[1] - r)
 
             # check for overlapping
             for (cx, cy, cr) in circles[idx+1:]:
@@ -130,7 +131,7 @@ class TrainableMultiLensArray(TrainableMask):
                     rad[idx] = 0
                     break
         # update the parameters
-        print(rad, loca)
+        print("AFTER", rad, loca)
         self._mask_obj.radius = rad
         self._mask_obj.loc = loca
         self._mask_obj.create_mask()
