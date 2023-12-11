@@ -12,7 +12,7 @@ from lensless.utils.image import is_grayscale
 from lensless.hardware.slm import get_programmable_mask, get_intensity_psf
 from lensless.hardware.sensor import VirtualSensor
 from waveprop.devices import slm_dict
-from lensless.hardware.mask import CodedAperture, MultiLensArray
+from lensless.hardware.mask import CodedAperture, MultiLensArray, HeightVarying
 
 
 class TrainableMask(torch.nn.Module, metaclass=abc.ABCMeta):
@@ -84,7 +84,6 @@ class TrainableMultiLensArray(TrainableMask):
         # 1) call base constructor so parameters can be set
         super().__init__(optimizer, lr, **kwargs)
 
-        ## TODO: CHANGE FOR MULTILENSARRAY
         # 2) initialize mask
         assert "distance_sensor" in kwargs, "Distance to sensor must be specified"
         assert "N" in kwargs, "Number of Lenses must be specified"
@@ -109,9 +108,7 @@ class TrainableMultiLensArray(TrainableMask):
         min_dim = min(self._mask_obj.size[0],self._mask_obj.size[1])
         rad = self._radius.data
         loca = self._loc.data
-        print(rad, loca)
         rad = torch.clamp(rad, 0, min_dim/ 2)
-        print(rad)
         # sort in descending order
         rad, idx = torch.sort(rad, descending=True)
         loca = loca[idx]
@@ -131,7 +128,6 @@ class TrainableMultiLensArray(TrainableMask):
                     rad[idx] = 0
                     break
         # update the parameters
-        print("AFTER", rad, loca)
         self._mask_obj.radius = rad
         self._mask_obj.loc = loca
         self._mask_obj.create_mask()
@@ -140,6 +136,36 @@ class TrainableMultiLensArray(TrainableMask):
 
         
                      
+class TrainableHeightVarying(TrainableMask):
+
+    def __init__(
+            self, sensor_name, downsample = None, optimizer="Adam", lr=1e-3, **kwargs
+    ):
+        #1)
+        super().__init__(optimizer, lr, **kwargs)
+
+        #2)
+        assert "distance_sensor" in kwargs, "Distance to sensor must be specified"
+        self._mask_obj = HeightVarying.from_sensor(sensor_name, downsample, is_torch=True, **kwargs)
+        self._mask = self._mask_obj.mask
+
+        #3)
+        self._height_map = torch.nn.Parameter(self._mask_obj.height_map)
+        initial_param = self._height_map
+        
+        #4)
+        self._set_optimizer(initial_param)
+        
+    def get_psf(self):
+        self._mask_obj.compute_psf()
+        return self._mask_obj.psf.unsqueeze(0)
+
+    def project(self):
+        # clamp back the heights between min_height, and max_height
+        self._height_map.data = torch.clamp(self._height_map.data, self._mask_obj.height_range[0], self._mask_obj.height_range[1])
+        self._mask_obj.create_mask()
+
+        
 
             
 
