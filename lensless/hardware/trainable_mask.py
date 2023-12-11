@@ -149,7 +149,7 @@ class TrainableHeightVarying(TrainableMask):
         super().__init__(optimizer, lr, **kwargs)
 
         #2)
-        self._mask_obj = HeightVarying.from_sensor(sensor_name, downsample, is_Torch=True, **kwargs)
+        self._mask_obj = HeightVarying.from_sensor(sensor_name, downsample, is_torch=True, **kwargs)
         self._mask = self._mask_obj.mask
 
         #3)
