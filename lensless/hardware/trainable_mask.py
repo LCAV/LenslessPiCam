@@ -74,15 +74,11 @@ class TrainableMask(torch.nn.Module, metaclass=abc.ABCMeta):
         """Abstract method for projecting the mask parameters to a valid space (should be a subspace of [0,1])."""
         raise NotImplementedError
     
-    @classmethod
-    def from_mask(cls, mask, **kwargs):
-        return cls(initial_mask=mask, **kwargs)
-
 
 class TrainableMultiLensArray(TrainableMask):
 
     def __init__(
-        self, sensor_name, downsample=None, binary=True, optimizer="Adam", lr=1e-3, **kwargs
+        self, sensor_name, downsample=None, optimizer="Adam", lr=1e-3, **kwargs
     ):
 
         # 1) call base constructor so parameters can be set
@@ -91,8 +87,7 @@ class TrainableMultiLensArray(TrainableMask):
         ## TODO: CHANGE FOR MULTILENSARRAY
         # 2) initialize mask
         assert "distance_sensor" in kwargs, "Distance to sensor must be specified"
-        assert "method" in kwargs, "Method must be specified."
-        assert "n_bits" in kwargs, "Number of bits must be specified."
+        assert "N" in kwargs, "Number of Lenses must be specified"
         self._mask_obj = MultiLensArray.from_sensor(sensor_name, downsample, is_torch=True, **kwargs)
         self._mask = self._mask_obj.mask
 
@@ -105,7 +100,6 @@ class TrainableMultiLensArray(TrainableMask):
         self._set_optimizer(initial_param)
 
     def get_psf(self):
-        self._mask_obj.create_mask()
         self._mask_obj.compute_psf()
         return self._mask_obj.psf.unsqueeze(0)
 
@@ -115,8 +109,9 @@ class TrainableMultiLensArray(TrainableMask):
         min_dim = min(self._mask_obj.size[0],self._mask_obj.size[1])
         rad = self._radius.data
         loca = self._loc.data
-        torch.clamp(rad, 0, min_dim/ 2)
-    
+        print(rad, loca)
+        rad = torch.clamp(rad, 0, min_dim/ 2)
+        print(rad)
         # sort in descending order
         rad, idx = torch.sort(rad, descending=True)
         loca = loca[idx]
@@ -124,8 +119,8 @@ class TrainableMultiLensArray(TrainableMask):
         circles = torch.cat((loca, rad.unsqueeze(-1)), dim=-1)
         for idx, r in enumerate(rad):
             # clamp back the locations
-            torch.clamp(loca[idx, 0], r, self._mask_obj.size[0] - r)
-            torch.clamp(loca[idx, 1], r, self._mask_obj.size[1] - r)
+            loca[idx, 0] = torch.clamp(loca[idx, 0], r, self._mask_obj.size[0] - r)
+            loca[idx, 1] = torch.clamp(loca[idx, 1], r, self._mask_obj.size[1] - r)
 
             # check for overlapping
             for (cx, cy, cr) in circles[idx+1:]:
@@ -136,8 +131,13 @@ class TrainableMultiLensArray(TrainableMask):
                     rad[idx] = 0
                     break
         # update the parameters
+        print("AFTER", rad, loca)
+        self._mask_obj.radius = rad
+        self._mask_obj.loc = loca
+        self._mask_obj.create_mask()
         self._radius.data = rad
         self._loc.data = loca
+
         
                      
 class TrainableHeightVarying(TrainableMask):
