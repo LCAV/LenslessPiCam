@@ -5,9 +5,15 @@ defaults:
 
 # Train Dataset
 files:
-  dataset: mnist   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  dataset: fashion_mnist   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
   celeba_root: /scratch/bezzam
-  downsample: 16     # TODO use simulation instead?   
+  downsample: 16     # TODO use downsample simulation instead? 
+  n_files: 100
+  crop:
+    vertical: [810, 2240]
+    horizontal: [1310, 2750]
+
+torch_device: "cuda:1" 
 
 #Trainable Mask
 trainable_mask:
@@ -28,11 +34,10 @@ simulation:
   scene2mask: 40e-2
   mask2sensor: 2e-3
   sensor: "rpi_hq"
-  downsample: 16
   object_height: 0.30
 
 training:
-  crop_preloss: False # crop region for computing loss
+  crop_preloss: True # crop region for computing loss
   batch_size: 4
   epoch: 25
   eval_batch_size: 16

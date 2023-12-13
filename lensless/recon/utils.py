@@ -535,7 +535,8 @@ class Trainer:
 
             # update psf according to mask
             if self.use_mask:
-                self.recon._set_psf(self.mask.get_psf().to(self.device))
+                new_psf = self.mask.get_psf().to(self.device)
+                self.recon._set_psf(new_psf)
 
             # forward pass
             y_pred = self.recon.batch_call(X.to(self.device))
@@ -583,6 +584,11 @@ class Trainer:
                     if p.requires_grad:
                         loss_v = loss_v + self.l1_mask * torch.mean(torch.abs(p))
             loss_v.backward()
+
+            # check mask parameters are learning
+            if self.use_mask:
+                for p in self.mask.parameters():
+                    assert p.grad is not None
 
             if self.clip_grad_norm is not None:
                 torch.nn.utils.clip_grad_norm_(self.recon.parameters(), self.clip_grad_norm)
