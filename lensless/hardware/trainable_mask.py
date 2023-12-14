@@ -170,6 +170,7 @@ class TrainableHeightVarying(TrainableMask):
             
 
 class TrainablePSF(TrainableMask):
+    # class TrainablePSF(torch.nn.Module, TrainableMask):
     """
     Class for defining an object that directly optimizes the PSF, without any constraints on what can be realized physically.
 
@@ -182,14 +183,17 @@ class TrainablePSF(TrainableMask):
 
     def __init__(self, initial_psf, optimizer="Adam", lr=1e-3, grayscale=False, **kwargs):
 
+        # BEFORE
         super().__init__(optimizer, lr, **kwargs)
-
-        # cast as learnable parameters
         self._psf = torch.nn.Parameter(initial_psf)
-
-        # set optimizer
         initial_param = [self._psf]
         self._set_optimizer(initial_param)
+
+        # # cast as learnable parameters
+        # super().__init__()
+        # self._psf = torch.nn.Parameter(initial_psf)
+        # self._optimizer = getattr(torch.optim, optimizer)([self._psf], lr=lr)
+        # self._counter = 0
 
         # checks
         assert len(initial_psf.shape) == 4, "Mask must be of shape (depth, height, width, channels)"
@@ -215,6 +219,7 @@ class TrainablePSF(TrainableMask):
 
 
 class AdafruitLCD(TrainableMask):
+    # class AdafruitLCD(torch.nn.Module, TrainableMask):
     def __init__(
         self,
         initial_vals,
@@ -250,7 +255,9 @@ class AdafruitLCD(TrainableMask):
             Whether to flip the mask vertically, by default False
         """
 
-        super().__init__(optimizer, lr, **kwargs)
+        super().__init__(optimizer, lr, **kwargs)  # when using TrainableMask init
+        # super().__init__()  # when using torch.nn.Module
+
         self.train_mask_vals = train_mask_vals
         if train_mask_vals:
             self._vals = torch.nn.Parameter(initial_vals)
@@ -269,6 +276,8 @@ class AdafruitLCD(TrainableMask):
             ), "If color filter is not trainable, mask values must be trainable"
 
         # set optimizer
+        # self._optimizer = getattr(torch.optim, optimizer)(initial_param, lr=lr)
+        # self._counter = 0
         self._set_optimizer(initial_param)
 
         self.slm_param = slm_dict[slm]
@@ -376,9 +385,14 @@ class TrainableCodedAperture(TrainableMask):
         self._set_optimizer(initial_param)
 
     def get_psf(self):
-        self._mask_obj.create_mask()
+        self._mask_obj.create_mask(self._row, self._col)
         self._mask_obj.compute_psf()
-        return self._mask_obj.psf.unsqueeze(0)
+        psf = self._mask_obj.psf.unsqueeze(0)
+
+        # # need normalize the PSF? would think so but NAN comes up if included
+        # psf = psf / psf.norm()
+
+        return psf
 
     def project(self):
         if self.separable:

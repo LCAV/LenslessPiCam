@@ -235,17 +235,25 @@ class CodedAperture(Mask):
 
         super().__init__(**kwargs)
 
-    def create_mask(self):
+    def create_mask(self, row=None, col=None, mask=None):
         """
         Creating coded aperture mask.
         """
 
+        if mask is not None:
+            raise NotImplementedError("Mask loading not implemented yet.")
+
+        # if row and col are provided, use them
+        if row is None and col is None:
+            row = self.row
+            col = self.col
+
         # outer product
-        if self.row is not None and self.col is not None:
+        if row is not None and col is not None:
             if self.is_torch:
-                self.mask = torch.outer(self.row, self.col)
+                self.mask = torch.outer(row, col)
             else:
-                self.mask = np.outer(self.row, self.col)
+                self.mask = np.outer(row, col)
         else:
             assert self.mask is not None
 

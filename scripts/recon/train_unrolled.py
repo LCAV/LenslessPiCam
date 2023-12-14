@@ -110,12 +110,6 @@ def simulate_dataset(config, generator=None):
         train_ds = datasets.MNIST(root=data_path, train=True, download=True, transform=transform)
         test_ds = datasets.MNIST(root=data_path, train=False, download=True, transform=transform)
 
-        if config.files.n_files is not None:
-            train_size = int((1 - config.files.test_size) * config.files.n_files)
-            test_size = config.files.n_files - train_size
-            train_ds = Subset(train_ds, np.arange(train_size))
-            test_ds = Subset(test_ds, np.arange(test_size))
-
     elif config.files.dataset == "fashion_mnist":
         transform = transforms.Compose(transforms_list)
         train_ds = datasets.FashionMNIST(
@@ -128,6 +122,7 @@ def simulate_dataset(config, generator=None):
         transform = transforms.Compose(transforms_list)
         train_ds = datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform)
         test_ds = datasets.CIFAR10(root=data_path, train=False, download=True, transform=transform)
+
     elif config.files.dataset == "CelebA":
         root = config.files.celeba_root
         data_path = os.path.join(root, "celeba")
@@ -152,6 +147,13 @@ def simulate_dataset(config, generator=None):
             )
     else:
         raise NotImplementedError(f"Dataset {config.files.dataset} not implemented.")
+
+    if config.files.dataset != "CelebA":
+        if config.files.n_files is not None:
+            train_size = int((1 - config.files.test_size) * config.files.n_files)
+            test_size = config.files.n_files - train_size
+            train_ds = Subset(train_ds, np.arange(train_size))
+            test_ds = Subset(test_ds, np.arange(test_size))
 
     # convert PSF
     if config.simulation.grayscale and not is_grayscale(psf):
