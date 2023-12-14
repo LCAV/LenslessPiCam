@@ -15,9 +15,10 @@ trainable_mask:
   mask_type: TrainableHeightVarying
   optimizer: Adam
   mask_lr: 1e-3
-  L1_strength: 1e-5
+  L1_strength: False
   binary: False
-  initial_value:
+  initial_value: 
+    dumb_fill: ""
 
 simulation:
   grayscale: False

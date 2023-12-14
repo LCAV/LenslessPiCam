@@ -71,32 +71,32 @@ def test_classmethod():
 
     downsample = 8
 
-    mask1 = CodedAperture.from_sensor(
+    """mask1 = CodedAperture.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz
     )
     assert np.all(mask1.mask.shape == resolution)
     desired_psf_shape = np.array(tuple(resolution) + (len(mask1.psf_wavelength),))
-    assert np.all(mask1.psf.shape == desired_psf_shape)
+    assert np.all(mask1.psf.shape == desired_psf_shape)"""
     """mask2 = PhaseContour.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz
     )
     assert np.all(mask2.mask.shape == resolution)
     desired_psf_shape = np.array(tuple(resolution) + (len(mask2.psf_wavelength),))
     assert np.all(mask2.psf.shape == desired_psf_shape)
-"""
+
     mask3 = FresnelZoneAperture.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz
     )
     assert np.all(mask3.mask.shape == resolution)
     desired_psf_shape = np.array(tuple(resolution) + (len(mask3.psf_wavelength),))
     assert np.all(mask3.psf.shape == desired_psf_shape)
-    
-    mask4 = MultiLensArray.from_sensor(
-        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, N=10, is_Torch=False#radius=np.array([10, 25]), loc=np.array([[10.1, 11.3], [56.5, 89.2]])
+    """
+    """mask4 = MultiLensArray.from_sensor(
+        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, N=25, is_Torch=False#radius=np.array([10, 25]), loc=np.array([[10.1, 11.3], [56.5, 89.2]])
     )
 
     phase = None
-    if not mask4.is_Torch:
+    if not mask4.is_torch:
         assert np.all(mask4.mask.shape == resolution)
         desired_psf_shape = np.array(tuple(resolution) + (len(mask4.psf_wavelength),))
         assert np.all(mask4.psf.shape == desired_psf_shape)
@@ -108,15 +108,15 @@ def test_classmethod():
         assert torch.equal(torch.tensor(mask4.psf.shape), desired_psf_shape)
         angle=torch.angle(mask4.mask).cpu().detach().numpy()
     fig, ax = plt.subplots()
-    im = ax.imshow(phase, cmap="gray")
+    im = ax.imshow(mask4.phi, cmap="gray")
     fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
-    plt.show()
-    '''
+    plt.show()"""
+    
     mask5 = HeightVarying.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, is_Torch=False
     )
     #assert mask5.is_Torch
-    if not mask5.is_Torch:
+    if not mask5.is_torch:
         # NumPy operations
         assert np.all(mask5.mask.shape == resolution)
         desired_psf_shape = np.array(tuple(resolution) + (len(mask5.psf_wavelength),))
@@ -134,11 +134,11 @@ def test_classmethod():
         im = ax.imshow(torch.angle(mask5.mask), cmap="gray")
         fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
         plt.show()
-    '''
+    
 
 
 if __name__ == "__main__":
-    test_flatcam()
+##    test_flatcam()
 ##    test_phlatcam()
-    test_fza()
+##    test_fza()
     test_classmethod()

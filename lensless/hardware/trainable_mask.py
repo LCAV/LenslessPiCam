@@ -99,16 +99,16 @@ class TrainableMultiLensArray(TrainableMask):
         self._set_optimizer(initial_param)
 
     def get_psf(self):
+        self._mask_obj.create_mask()
         self._mask_obj.compute_psf()
         return self._mask_obj.psf.unsqueeze(0)
 
     
     def project(self):
         # clamp back the radiuses
-        min_dim = min(self._mask_obj.size[0],self._mask_obj.size[1])
         rad = self._radius.data
         loca = self._loc.data
-        rad = torch.clamp(rad, 0, min_dim/ 2)
+        rad = torch.clamp(rad, self._mask_obj.radius_range[0], self._mask_obj.radius_range[1])
         # sort in descending order
         rad, idx = torch.sort(rad, descending=True)
         loca = loca[idx]
@@ -130,7 +130,6 @@ class TrainableMultiLensArray(TrainableMask):
         # update the parameters
         self._mask_obj.radius = rad
         self._mask_obj.loc = loca
-        self._mask_obj.create_mask()
         self._radius.data = rad
         self._loc.data = loca
 
@@ -151,19 +150,20 @@ class TrainableHeightVarying(TrainableMask):
 
         #3)
         self._height_map = torch.nn.Parameter(self._mask_obj.height_map)
-        initial_param = self._height_map
+        initial_param = [self._height_map]
         
         #4)
         self._set_optimizer(initial_param)
         
     def get_psf(self):
+        self._mask_obj.create_mask()
         self._mask_obj.compute_psf()
         return self._mask_obj.psf.unsqueeze(0)
 
     def project(self):
         # clamp back the heights between min_height, and max_height
         self._height_map.data = torch.clamp(self._height_map.data, self._mask_obj.height_range[0], self._mask_obj.height_range[1])
-        self._mask_obj.create_mask()
+        self._mask_obj.height_map = self._height_map.data
 
         
 

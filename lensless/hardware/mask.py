@@ -181,12 +181,10 @@ class Mask(abc.ABC):
         # intensity PSF
         if self.is_torch:
             self.psf = torch.abs(psf) ** 2
+            self.psf.to(self.torch_device)
         else:
             self.psf = np.abs(psf) ** 2
-
-            # intensity PSF
-            self.psf = torch.abs(psf) ** 2
-            self.psf = torch.Tensor(self.psf).to(self.torch_device)
+            
         
 
 class CodedAperture(Mask):
@@ -371,7 +369,7 @@ class MultiLensArray(Mask):
     Multi-lens array mask.
     """
     def __init__(
-        self, N = None, radius = None, loc = None, refractive_index = 1.2, design_wv=532e-9, seed = 0, min_height=1e-5, **kwargs
+        self, N = None, radius = None, loc = None, refractive_index = 1.2, design_wv=532e-9, seed = 0, min_height=1e-5, radius_range=(1e-5, 1e-3), **kwargs
     ):
         """
         Multi-lens array mask constructor.
@@ -399,17 +397,20 @@ class MultiLensArray(Mask):
         self.wavelength = design_wv
         self.seed = seed
         self.min_height = min_height
+        self.radius_range = radius_range
         
         super().__init__(**kwargs)
     
     def check_asserts(self):
+        assert self.radius_range[0] < self.radius_range[1], "Minimum radius should be smaller than maximum radius"
         if self.radius is not None:
             if self.is_torch:
-                assert torch.all(self.radius >= 0)
+                assert torch.all(self.radius > 0)
             else:
-                assert np.all(self.radius >= 0)
+                assert np.all(self.radius > 0)
             assert self.loc is not None, "Location of the lenses should be specified if their radius is specified"
             assert len(self.radius) == len(self.loc), "Number of radius should be equal to the number of locations"
+            self.radius = torch.clamp(self.radius, min=self.radius_range[0], max=self.radius_range[1]) if self.is_torch else np.clip(self.radius, self.radius_range[0], self.radius_range[1])
             self.N = len(self.radius)
             circles = np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)]) if not self.is_torch else torch.tensor([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
             assert self.no_circle_overlap(circles), "lenses should not overlap"
@@ -417,10 +418,10 @@ class MultiLensArray(Mask):
             assert self.N is not None, "If positions are not specified, the number of lenses should be specified"
             if self.is_torch:
                 torch.manual_seed(self.seed)
-                self.radius = torch.rand(self.N) * (1e-3 - self.min_height) + self.min_height
+                self.radius = torch.rand(self.N) * (self.radius_range[1] - self.radius_range[0]) + self.radius_range[0]
             else:
                 np.random.seed(self.seed)
-                self.radius = np.random.uniform(self.min_height, 1e-3, self.N)
+                self.radius = np.random.uniform(self.radius_range[0], self.radius_range[1], self.N)
             assert self.N == len(self.radius)
 
     def no_circle_overlap(self, circles):
