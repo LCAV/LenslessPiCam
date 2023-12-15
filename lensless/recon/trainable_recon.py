@@ -199,6 +199,8 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
         if not self.skip_unrolled:
             for i in range(self._n_iter):
+                if i == 4:
+                    print('pause')
                 self._update(i)
             image_est = self._form_image()
 

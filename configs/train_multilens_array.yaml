@@ -23,7 +23,7 @@ trainable_mask:
     N : 10 #TODO: check this value ? 
 
 simulation:
-  grayscale: False
+  grayscale: True
   flip: False
   scene2mask: 40e-2
   mask2sensor: 2e-3

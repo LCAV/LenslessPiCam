@@ -356,7 +356,7 @@ def prep_trainable_mask(config, psf=None, downsample=None):
     return mask
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
+@hydra.main(version_base=None, config_path="../../configs", config_name="train_heightvarying")
 def train_unrolled(config):
 
     # set seed

@@ -87,7 +87,7 @@ class TrainableMultiLensArray(TrainableMask):
         # 2) initialize mask
         assert "distance_sensor" in kwargs, "Distance to sensor must be specified"
         assert "N" in kwargs, "Number of Lenses must be specified"
-        self._mask_obj = MultiLensArray.from_sensor(sensor_name, downsample, is_torch=True, **kwargs)
+        self._mask_obj = MultiLensArray.from_sensor(sensor_name, downsample, is_torch=True, psf_wavelength=[460e-9], **kwargs)
         self._mask = self._mask_obj.mask
 
         # 3) set learnable parameters (should be immediate attributes of the class)
@@ -96,11 +96,17 @@ class TrainableMultiLensArray(TrainableMask):
 
         # 4) set optimizer
         self._set_optimizer(initial_param)
+        
+        # 5) compute PSF
+        self._psf = self.get_psf()
 
     def get_psf(self):
         self._mask_obj.create_mask(self._radius)
         self._mask_obj.compute_psf()
-        return self._mask_obj.psf.unsqueeze(0)
+
+        psf = self._mask_obj.psf.unsqueeze(0)
+        self._psf = psf / psf.norm()
+        return self._psf
 
     
     def project(self):
@@ -131,6 +137,11 @@ class TrainableMultiLensArray(TrainableMask):
         print(rad)
         self._radius.data = rad
         print(self._radius)
+        # recompute PSF
+        self._mask_obj.create_mask(self._radius)
+        self._mask_obj.compute_psf()
+        self._psf = self._mask_obj.psf.unsqueeze(0)
+        self._psf = self._psf / self._psf.norm()
 
         
                      
@@ -144,7 +155,7 @@ class TrainableHeightVarying(TrainableMask):
 
         #2)
         assert "distance_sensor" in kwargs, "Distance to sensor must be specified"
-        self._mask_obj = HeightVarying.from_sensor(sensor_name, downsample, is_torch=True, **kwargs)
+        self._mask_obj = HeightVarying.from_sensor(sensor_name, downsample, is_torch=True, psf_wavelength=[460e-9], **kwargs)
         self._mask = self._mask_obj.mask
 
         #3)
@@ -153,25 +164,22 @@ class TrainableHeightVarying(TrainableMask):
         
         #4)
         self._set_optimizer(initial_param)
-        self.psf = None
-        #self.project()
+        
+         # 5) compute PSF
+        self._psf = self.get_psf()
         
     def get_psf(self):
         self._mask_obj.create_mask(self._height_map)
         self._mask_obj.compute_psf()
 
         psf = self._mask_obj.psf.unsqueeze(0)
-        self.psf = psf / psf.norm()
-        return self.psf
+        self._psf = psf / psf.norm()
+        return self._psf
 
     def project(self):
         # clamp back the heights between min_height, and max_height
         self._height_map.data = torch.clamp(self._height_map.data, self._mask_obj.height_range[0], self._mask_obj.height_range[1])
-        #self._mask_obj.create_mask(self._height_map)
-        #self._mask_obj.compute_psf()
-
-        #psf = self._mask_obj.psf.unsqueeze(0)
-        #self.psf = psf / psf.norm()
+        
         
 
             
