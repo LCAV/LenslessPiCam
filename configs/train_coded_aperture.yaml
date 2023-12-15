@@ -5,7 +5,7 @@ defaults:
 
 # Train Dataset
 files:
-  dataset: fashion_mnist   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  dataset: mnist   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
   celeba_root: /scratch/bezzam
   downsample: 16     # TODO use downsample simulation instead? 
   n_files: 100
@@ -29,7 +29,7 @@ trainable_mask:
     # n_bits: 25  # (4*nbits*1, 4*nbits*1)
 
 simulation:
-  grayscale: False
+  grayscale: True
   flip: False
   scene2mask: 40e-2
   mask2sensor: 2e-3

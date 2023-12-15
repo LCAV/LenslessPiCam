@@ -124,8 +124,8 @@ def benchmark(
 
             for i, idx in enumerate(batch_idx):
                 if idx in save_idx:
-                    prediction_np = prediction.cpu().numpy()[i].squeeze()
-                    # switch to [H, W, C]
+                    prediction_np = prediction.cpu().numpy()[i]
+                    # switch to [H, W, C] for saving
                     prediction_np = np.moveaxis(prediction_np, 0, -1)
                     save_image(prediction_np, fp=os.path.join(output_dir, f"{idx}.png"))
 

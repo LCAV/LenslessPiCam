@@ -534,10 +534,11 @@ class Trainer:
             X = X.to(self.device)
             y = y.to(self.device)
 
-            # update psf according to mask
-            if self.use_mask:
-                new_psf = self.mask.get_psf().to(self.device)
-                self.recon._set_psf(new_psf)
+            # BEFORE
+            # # update psf according to mask
+            # if self.use_mask:
+            #     new_psf = self.mask.get_psf().to(self.device)
+            #     self.recon._set_psf(new_psf)
 
             # forward pass
             y_pred = self.recon.batch_call(X.to(self.device))
@@ -550,7 +551,9 @@ class Trainer:
             y_max = torch.amax(y, dim=(-1, -2, -3), keepdim=True) + eps
             y = y / y_max
 
-            self.optimizer.zero_grad(set_to_none=True)
+            # BEFORE
+            # self.optimizer.zero_grad(set_to_none=True)
+
             # convert to CHW for loss and remove depth
             y_pred = y_pred.reshape(-1, *y_pred.shape[-3:]).movedim(-1, -3)
             y = y.reshape(-1, *y.shape[-3:]).movedim(-1, -3)
@@ -592,24 +595,42 @@ class Trainer:
                     assert p.grad is not None
 
             if self.clip_grad_norm is not None:
+                torch.nn.utils.clip_grad_norm_(self.mask.parameters(), self.clip_grad_norm)
                 torch.nn.utils.clip_grad_norm_(self.recon.parameters(), self.clip_grad_norm)
 
             # if any gradient is NaN, skip training step
             if self.skip_NAN:
-                is_NAN = False
+                recon_is_NAN = False
+                mask_is_NAN = False
                 for param in self.recon.parameters():
                     if param.grad is not None and torch.isnan(param.grad).any():
-                        is_NAN = True
+                        recon_is_NAN = True
                         break
-                if is_NAN:
-                    self.print("NAN detected in gradiant, skipping training step")
+                for param in self.mask.parameters():
+                    if param.grad is not None and torch.isnan(param.grad).any():
+                        mask_is_NAN = True
+                        break
+                if recon_is_NAN or mask_is_NAN:
+                    if recon_is_NAN:
+                        self.print(
+                            "NAN detected in reconstruction gradient, skipping training step"
+                        )
+                    if mask_is_NAN:
+                        self.print("NAN detected in mask gradient, skipping training step")
                     i += 1
                     continue
+
             self.optimizer.step()
+
+            # NEW
+            self.optimizer.zero_grad(set_to_none=True)
 
             # update mask
             if self.use_mask:
                 self.mask.update_mask()
+                # NEW
+                self.train_dataloader.dataset.set_psf()
+                self.recon._set_psf(self.mask._psf)
 
             mean_loss += (loss_v.item() - mean_loss) * (1 / i)
             pbar.set_description(f"loss : {mean_loss}")
@@ -634,6 +655,11 @@ class Trainer:
         """
         if self.test_dataset is None:
             return
+
+        # NEW
+        if self.use_mask:
+            with torch.no_grad():
+                self.test_dataset.set_psf()
 
         output_dir = None
         if disp is not None:

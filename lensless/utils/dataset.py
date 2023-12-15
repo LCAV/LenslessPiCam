@@ -825,13 +825,26 @@ class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
 
         super(SimulatedDatasetTrainableMask, self).__init__(dataset, simulator, **kwargs)
 
-    def _get_images_pair(self, index):
-        # update psf
-        psf = self._mask.get_psf()
+    def set_psf(self, psf=None):
+        """
+        Set the PSF of the simulator.
+
+        Parameters
+        ----------
+        psf : :py:class:`torch.Tensor`, optional
+            PSF to use for the simulation. If ``None``, the PSF of the mask is used.
+        """
+        if psf is None:
+            psf = self._mask.get_psf()
         self.sim.set_point_spread_function(psf)
 
-        # return simulated images
-        return super()._get_images_pair(index)
+    # def _get_images_pair(self, index):
+    #     # update psf
+    #     psf = self._mask.get_psf()
+    #     self.sim.set_point_spread_function(psf)
+
+    #     # return simulated images
+    #     return super()._get_images_pair(index)
 
 
 class HITLDatasetTrainableMask(SimulatedDatasetTrainableMask):
