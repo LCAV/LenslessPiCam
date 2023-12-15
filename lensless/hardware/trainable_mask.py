@@ -98,45 +98,42 @@ class TrainableMultiLensArray(TrainableMask):
         self._set_optimizer(initial_param)
         
         # 5) compute PSF
-        self._psf = self.get_psf()
+        self._psf = None
+        self.project()
 
     def get_psf(self):
-        self._mask_obj.create_mask(self._radius)
-        self._mask_obj.compute_psf()
-
-        psf = self._mask_obj.psf.unsqueeze(0)
-        self._psf = psf / psf.norm()
         return self._psf
 
     
     def project(self):
-        # clamp back the radiuses
-        rad = self._radius.data
-        rad = torch.clamp(rad, self._mask_obj.radius_range[0], self._mask_obj.radius_range[1])
-        print(rad)
-        # sort in descending order
-        rad, idx = torch.sort(rad, descending=True)
-        loca = self._mask_obj.loc[idx]
-        self._mask_obj.loc = loca
+        with torch.no_grad():
+            # clamp back the radiuses
+            rad = self._radius.data
+            rad = torch.clamp(rad, self._mask_obj.radius_range[0], self._mask_obj.radius_range[1])
+            print(rad)
+            # sort in descending order
+            rad, idx = torch.sort(rad, descending=True)
+            loca = self._mask_obj.loc[idx]
+            self._mask_obj.loc = loca
 
-        circles = torch.cat((loca, rad.unsqueeze(-1)), dim=-1)
-        for idx, r in enumerate(rad):
-            min_loc = torch.min(loca[idx, 0], loca[idx, 1])
-            rad[idx] = torch.clamp(r, 0, min_loc)
-            # check for overlapping
-            for (cx, cy, cr) in circles[idx+1:]:
-                dist = torch.sqrt((loca[idx, 0] - cx)**2 + (loca[idx, 1] - cy)**2)
-                if dist <= r + cr:
-                    rad[idx] = dist - cr
-                    circles[idx, 2] = rad[idx]
-                if rad[idx] < 0:
-                    rad[idx] = 0
-                    circles[idx, 2] = rad[idx]
-                    break
-        # update the parameters
-        print(rad)
-        self._radius.data = rad
-        print(self._radius)
+            circles = torch.cat((loca, rad.unsqueeze(-1)), dim=-1)
+            for idx, r in enumerate(rad):
+                min_loc = torch.min(loca[idx, 0], loca[idx, 1])
+                rad[idx] = torch.clamp(r, 0, min_loc)
+                # check for overlapping
+                for (cx, cy, cr) in circles[idx+1:]:
+                    dist = torch.sqrt((loca[idx, 0] - cx)**2 + (loca[idx, 1] - cy)**2)
+                    if dist <= r + cr:
+                        rad[idx] = dist - cr
+                        circles[idx, 2] = rad[idx]
+                    if rad[idx] < 0:
+                        rad[idx] = 0
+                        circles[idx, 2] = rad[idx]
+                        break
+            # update the parameters
+            print(rad)
+            self._radius.data = rad
+            print(self._radius)
         # recompute PSF
         self._mask_obj.create_mask(self._radius)
         self._mask_obj.compute_psf()
@@ -166,20 +163,21 @@ class TrainableHeightVarying(TrainableMask):
         self._set_optimizer(initial_param)
         
          # 5) compute PSF
-        self._psf = self.get_psf()
+        self._psf = None
+        self.project()
         
     def get_psf(self):
+        return self._psf
+
+    def project(self):
+        with torch.no_grad():
+            # clamp back the heights between min_height, and max_height
+            self._height_map.data = torch.clamp(self._height_map.data, self._mask_obj.height_range[0], self._mask_obj.height_range[1])
         self._mask_obj.create_mask(self._height_map)
         self._mask_obj.compute_psf()
 
         psf = self._mask_obj.psf.unsqueeze(0)
         self._psf = psf / psf.norm()
-        return self._psf
-
-    def project(self):
-        # clamp back the heights between min_height, and max_height
-        self._height_map.data = torch.clamp(self._height_map.data, self._mask_obj.height_range[0], self._mask_obj.height_range[1])
-        
         
 
             
