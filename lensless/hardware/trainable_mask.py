@@ -270,10 +270,16 @@ class TrainableCodedAperture(TrainableMask):
         assert "distance_sensor" in kwargs, "Distance to sensor must be specified"
         assert "method" in kwargs, "Method must be specified."
         assert "n_bits" in kwargs, "Number of bits must be specified."
-        self._mask_obj = CodedAperture.from_sensor(sensor_name, downsample, is_torch=True, **kwargs)
+        # self._mask_obj = CodedAperture.from_sensor(sensor_name, downsample, is_torch=True, **kwargs)
+        self._mask_obj = CodedAperture.from_sensor(
+            sensor_name, downsample, psf_wavelength=[460e-9], is_torch=True, **kwargs
+        )
         self._mask = self._mask_obj.mask
 
         # 3) set learnable parameters (should be immediate attributes of the class)
+        self._row = None
+        self._col = None
+        self._vals = None
         if self._mask_obj.row is not None:
             # seperable
             self.separable = True
@@ -290,24 +296,37 @@ class TrainableCodedAperture(TrainableMask):
         # 4) set optimizer
         self._set_optimizer(initial_param)
 
+        # 5) compute PSF
+        self._psf = None
+        self.project()
+
     def get_psf(self):
-        self._mask_obj.create_mask(self._row, self._col)
-        self._mask_obj.compute_psf()
-        psf = self._mask_obj.psf.unsqueeze(0)
+        # self._mask_obj.create_mask(self._row, self._col)
+        # self._mask_obj.compute_psf()
+        # psf = self._mask_obj.psf.unsqueeze(0)
 
-        # # need normalize the PSF? would think so but NAN comes up if included
-        # psf = psf / psf.norm()
+        # # # need normalize the PSF? would think so but NAN comes up if included
+        # # psf = psf / psf.norm()
 
-        return psf
+        # return psf
+
+        return self._psf
 
     def project(self):
-        if self.separable:
-            self._row.data = torch.clamp(self._row, 0, 1)
-            self._col.data = torch.clamp(self._col, 0, 1)
-            if self.binary:
-                self._row.data = torch.round(self._row)
-                self._col.data = torch.round(self._col)
-        else:
-            self._vals.data = torch.clamp(self._vals, 0, 1)
-            if self.binary:
-                self._vals.data = torch.round(self._vals)
+        with torch.no_grad():
+            if self.separable:
+                self._row.data = torch.clamp(self._row, 0, 1)
+                self._col.data = torch.clamp(self._col, 0, 1)
+                if self.binary:
+                    self._row.data = torch.round(self._row)
+                    self._col.data = torch.round(self._col)
+            else:
+                self._vals.data = torch.clamp(self._vals, 0, 1)
+                if self.binary:
+                    self._vals.data = torch.round(self._vals)
+
+        # recompute PSF
+        self._mask_obj.create_mask(self._row, self._col, mask=self._vals)
+        self._mask_obj.compute_psf()
+        self._psf = self._mask_obj.psf.unsqueeze(0)
+        self._psf = self._psf / self._psf.norm()
