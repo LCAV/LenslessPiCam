@@ -592,6 +592,8 @@ class Trainer:
                     assert p.grad is not None
 
             if self.clip_grad_norm is not None:
+                if self.use_mask:
+                    torch.nn.utils.clip_grad_norm_(self.mask.parameters(), self.clip_grad_norm)
                 torch.nn.utils.clip_grad_norm_(self.recon.parameters(), self.clip_grad_norm)
 
             # if any gradient is NaN, skip training step

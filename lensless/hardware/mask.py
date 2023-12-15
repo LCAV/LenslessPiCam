@@ -413,9 +413,9 @@ class MultiLensArray(Mask):
         assert self.radius_range[0] < self.radius_range[1], "Minimum radius should be smaller than maximum radius"
         if self.radius is not None:
             if self.is_torch:
-                assert torch.all(self.radius > 0)
+                assert torch.all(self.radius >= 0)
             else:
-                assert np.all(self.radius > 0)
+                assert np.all(self.radius >= 0)
             assert self.loc is not None, "Location of the lenses should be specified if their radius is specified"
             assert len(self.radius) == len(self.loc), "Number of radius should be equal to the number of locations"
             self.radius = torch.clamp(self.radius, min=self.radius_range[0], max=self.radius_range[1]) if self.is_torch else np.clip(self.radius, self.radius_range[0], self.radius_range[1])
@@ -480,7 +480,9 @@ class MultiLensArray(Mask):
         radius = placed_circles[:, 2]
         return circles, radius
 
-    def create_mask(self):
+    def create_mask(self, radius = None):
+        if radius is not None:
+            self.radius = radius
         self.check_asserts()
         if self.loc is None:
             self.loc, self.radius = self.place_spheres_on_plane(self.size[0], self.size[1], self.radius)
@@ -489,6 +491,7 @@ class MultiLensArray(Mask):
         height = self.create_height_map(radius_res, locs_res)
 
         self.phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength)
+        
 
         self.mask = np.exp(1j * self.phi) if not self.is_torch else torch.exp(1j * self.phi)
 
@@ -718,15 +721,18 @@ class HeightVarying(Mask):
         super().__init__(**kwargs)
 
     def get_phi(self):
-        phi = self.height_map * (2*np.pi*(self.refractive_index-1) / self.wavelength)
-        phi = phi % (2*np.pi)
         if self.is_torch == False:
+            phi = self.height_map * (2*np.pi*(self.refractive_index-1) / self.wavelength)
+            #phi = phi % (2*np.pi)
             return phi
         else:
-            return torch.tensor(phi).to(self.torch_device)
+            phi = self.height_map * (2 * torch.pi * (self.refractive_index - 1) / self.wavelength)
+            return phi
         
-    def create_mask(self):
-        if self.is_torch is None or self.is_torch == False:
+    def create_mask(self, height_map=None):
+        if height_map is not None:
+            self.height_map = height_map
+        if not self.is_torch:
             if self.height_map is None:
                 np.random.seed(self.seed)
                 self.height_map = np.random.uniform(self.height_range[0], self.height_range[1], self.resolution)
@@ -745,5 +751,5 @@ class HeightVarying(Mask):
                 print('self.height_map.shape=', self.height_map.shape)
             assert self.height_map.shape == tuple(self.resolution)
             phase_mask = self.get_phi()
-            self.mask = torch.exp(1j * phase_mask).to(self.torch_device)
+            self.mask = torch.exp(1j * phase_mask)
     

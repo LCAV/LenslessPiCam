@@ -5,10 +5,12 @@ defaults:
 
 # Train Dataset
 files:
-  dataset: mnist   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  dataset: fashion_mnist   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
   celeba_root: /scratch/bezzam
   downsample: 16     # TODO use simulation instead?   
   n_files: 50
+
+torch_device: "cuda:1" 
 
 #Trainable Mask
 trainable_mask:
@@ -31,7 +33,7 @@ simulation:
 
 training:
   crop_preloss: False # crop region for computing loss
-  batch_size: 1
+  batch_size: 2
   epoch: 25
   eval_batch_size: 16
   save_every: 1

@@ -92,14 +92,13 @@ class TrainableMultiLensArray(TrainableMask):
 
         # 3) set learnable parameters (should be immediate attributes of the class)
         self._radius = torch.nn.Parameter(self._mask_obj.radius)
-        self._loc = torch.nn.Parameter(self._mask_obj.loc)
-        initial_param = [self._radius, self._loc]
+        initial_param = [self._radius]
 
         # 4) set optimizer
         self._set_optimizer(initial_param)
 
     def get_psf(self):
-        self._mask_obj.create_mask()
+        self._mask_obj.create_mask(self._radius)
         self._mask_obj.compute_psf()
         return self._mask_obj.psf.unsqueeze(0)
 
@@ -107,31 +106,31 @@ class TrainableMultiLensArray(TrainableMask):
     def project(self):
         # clamp back the radiuses
         rad = self._radius.data
-        loca = self._loc.data
         rad = torch.clamp(rad, self._mask_obj.radius_range[0], self._mask_obj.radius_range[1])
+        print(rad)
         # sort in descending order
         rad, idx = torch.sort(rad, descending=True)
-        loca = loca[idx]
+        loca = self._mask_obj.loc[idx]
+        self._mask_obj.loc = loca
 
         circles = torch.cat((loca, rad.unsqueeze(-1)), dim=-1)
         for idx, r in enumerate(rad):
-            # clamp back the locations
-            loca[idx, 0] = torch.clamp(loca[idx, 0], r, self._mask_obj.size[0] - r)
-            loca[idx, 1] = torch.clamp(loca[idx, 1], r, self._mask_obj.size[1] - r)
-
+            min_loc = torch.min(loca[idx, 0], loca[idx, 1])
+            rad[idx] = torch.clamp(r, 0, min_loc)
             # check for overlapping
             for (cx, cy, cr) in circles[idx+1:]:
                 dist = torch.sqrt((loca[idx, 0] - cx)**2 + (loca[idx, 1] - cy)**2)
                 if dist <= r + cr:
                     rad[idx] = dist - cr
+                    circles[idx, 2] = rad[idx]
                 if rad[idx] < 0:
                     rad[idx] = 0
+                    circles[idx, 2] = rad[idx]
                     break
         # update the parameters
-        self._mask_obj.radius = rad
-        self._mask_obj.loc = loca
+        print(rad)
         self._radius.data = rad
-        self._loc.data = loca
+        print(self._radius)
 
         
                      
@@ -154,17 +153,25 @@ class TrainableHeightVarying(TrainableMask):
         
         #4)
         self._set_optimizer(initial_param)
+        self.psf = None
+        #self.project()
         
     def get_psf(self):
-        self._mask_obj.create_mask()
+        self._mask_obj.create_mask(self._height_map)
         self._mask_obj.compute_psf()
-        return self._mask_obj.psf.unsqueeze(0)
+
+        psf = self._mask_obj.psf.unsqueeze(0)
+        self.psf = psf / psf.norm()
+        return self.psf
 
     def project(self):
         # clamp back the heights between min_height, and max_height
         self._height_map.data = torch.clamp(self._height_map.data, self._mask_obj.height_range[0], self._mask_obj.height_range[1])
-        self._mask_obj.height_map = self._height_map.data
+        #self._mask_obj.create_mask(self._height_map)
+        #self._mask_obj.compute_psf()
 
+        #psf = self._mask_obj.psf.unsqueeze(0)
+        #self.psf = psf / psf.norm()
         
 
             
