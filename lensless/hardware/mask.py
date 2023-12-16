@@ -499,11 +499,9 @@ class MultiLensArray(Mask):
         x = np.arange(self.resolution[0]) if not self.is_torch else torch.arange(self.resolution[0])
         y = np.arange(self.resolution[1]) if not self.is_torch else torch.arange(self.resolution[1])
         X, Y = np.meshgrid(x, y) if not self.is_torch else torch.meshgrid(x, y)
-        print(X.shape, Y.shape)
         for idx, rad in enumerate(radius):
             contribution = self.lens_contribution(X, Y, rad, locs[idx]) * self.feature_size[0]
             contribution[(X - locs[idx][1])**2 + (Y - locs[idx][0])**2 > rad**2] = 0
-            print(contribution.shape, height.shape)
             height += contribution
         assert np.all(height >= self.min_height) if not self.is_torch else torch.all(torch.ge(height, self.min_height))
         return height
@@ -746,9 +744,7 @@ class HeightVarying(Mask):
                 height_range_tensor = torch.tensor(self.height_range)
                 # Generate a random height map using PyTorch
                 resolution = torch.tensor(self.resolution)
-                print('resolution=', resolution)
                 self.height_map = torch.rand((resolution[0], resolution[1])).to(self.torch_device) * (height_range_tensor[1] - height_range_tensor[0]) + height_range_tensor[0]
-                print('self.height_map.shape=', self.height_map.shape)
             assert self.height_map.shape == tuple(self.resolution)
             phase_mask = self.get_phi()
             self.mask = torch.exp(1j * phase_mask)
