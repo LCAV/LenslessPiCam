@@ -5,7 +5,7 @@ defaults:
 
 # Train Dataset
 files:
-  dataset: mnist   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  dataset: fashion_mnist   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
   celeba_root: /scratch/bezzam
   downsample: 16     # TODO use downsample simulation instead? 
   n_files: 100

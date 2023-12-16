@@ -91,8 +91,8 @@ def test_classmethod():
     desired_psf_shape = np.array(tuple(resolution) + (len(mask3.psf_wavelength),))
     assert np.all(mask3.psf.shape == desired_psf_shape)
     """
-    """mask4 = MultiLensArray.from_sensor(
-        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, N=25, is_Torch=False#radius=np.array([10, 25]), loc=np.array([[10.1, 11.3], [56.5, 89.2]])
+    mask4 = MultiLensArray.from_sensor(
+        sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, N=10, is_Torch=True#radius=np.array([10, 25]), loc=np.array([[10.1, 11.3], [56.5, 89.2]])
     )
 
     phase = None
@@ -110,7 +110,8 @@ def test_classmethod():
     fig, ax = plt.subplots()
     im = ax.imshow(mask4.phi, cmap="gray")
     fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
-    plt.show()"""
+    plt.show()
+    """
     
     mask5 = HeightVarying.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz, is_Torch=False
@@ -133,7 +134,7 @@ def test_classmethod():
         fig, ax = plt.subplots()
         im = ax.imshow(torch.angle(mask5.mask), cmap="gray")
         fig.colorbar(im, ax=ax, shrink=0.5, aspect=5)
-        plt.show()
+        plt.show()"""
     
 
 

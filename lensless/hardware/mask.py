@@ -74,7 +74,6 @@ class Mask(abc.ABC):
         psf_wavelength: list, optional
             List of wavelengths to simulate PSF (m). Default is [460e-9, 550e-9, 640e-9] nm (blue, green, red).
         """
-
         resolution = np.array(resolution)
         assert len(resolution) == 2, "Sensor resolution should be of length 2"
 
@@ -491,25 +490,26 @@ class MultiLensArray(Mask):
         height = self.create_height_map(radius_res, locs_res)
 
         self.phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength)
-        
 
         self.mask = np.exp(1j * self.phi) if not self.is_torch else torch.exp(1j * self.phi)
 
     def create_height_map(self, radius, locs):
         height = np.full((self.resolution[0], self.resolution[1]), self.min_height) if not self.is_torch else torch.full((self.resolution[0], self.resolution[1]), self.min_height)
-        for x in range(height.shape[0]):
-            for y in range(height.shape[1]):
-                height[x, y] += self.lens_contribution(radius, locs, (x + 0.5), (y + 0.5)) * self.feature_size[0]
+
+        x = np.arange(self.resolution[0]) if not self.is_torch else torch.arange(self.resolution[0])
+        y = np.arange(self.resolution[1]) if not self.is_torch else torch.arange(self.resolution[1])
+        X, Y = np.meshgrid(x, y) if not self.is_torch else torch.meshgrid(x, y)
+        print(X.shape, Y.shape)
+        for idx, rad in enumerate(radius):
+            contribution = self.lens_contribution(X, Y, rad, locs[idx]) * self.feature_size[0]
+            contribution[(X - locs[idx][1])**2 + (Y - locs[idx][0])**2 > rad**2] = 0
+            print(contribution.shape, height.shape)
+            height += contribution
         assert np.all(height >= self.min_height) if not self.is_torch else torch.all(torch.ge(height, self.min_height))
         return height
     
-    def lens_contribution(self, radius, locs, x, y):
-        contribution = 0
-        for idx, loc in enumerate(locs):
-            if (x-loc[0])**2 + (y-loc[1])**2 < radius[idx]**2:
-                contribution = np.sqrt((radius[idx])**2 - ((x-loc[0]))**2 - ((y -loc[1]))**2) if not self.is_torch else torch.sqrt((radius[idx])**2 - ((x-loc[0]))**2 - ((y -loc[1]))**2)
-                return contribution
-        return contribution
+    def lens_contribution(self, x, y, radius, loc):
+        return np.sqrt(radius**2 - (x - loc[1])**2 - (y - loc[0])**2) if not self.is_torch else torch.sqrt(radius**2 - (x - loc[1])**2 - (y - loc[0])**2)
 
 
 class PhaseContour(Mask):
