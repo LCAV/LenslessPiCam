@@ -10,7 +10,7 @@ files:
   downsample: 16     # TODO use simulation instead?   
   n_files: 50
 
-torch_device: "cuda:1" 
+torch_device: "cuda" 
 
 #Trainable Mask
 trainable_mask:

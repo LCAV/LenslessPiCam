@@ -96,12 +96,14 @@ class TrainableMultiLensArray(TrainableMask):
 
         # 4) set optimizer
         self._set_optimizer(initial_param)
+        
+        # 5) compute PSF
+        self._psf = None
+        self.project()
 
     def get_psf(self):
-        self._mask_obj.create_mask(self._radius)
-        self._mask_obj.compute_psf()
-        psf = self._mask_obj.psf.unsqueeze(0)
-        return psf / psf.norm()
+        return self._psf
+
     
     def project(self):
         with torch.no_grad():
@@ -131,7 +133,10 @@ class TrainableMultiLensArray(TrainableMask):
             self._radius.data = rad
 
         # recompute PSF
-  
+        self._mask_obj.create_mask(self._radius)
+        self._mask_obj.compute_psf()
+        self._psf = self._mask_obj.psf.unsqueeze(0)
+        self._psf = self._psf / self._psf.norm()
 
         
                      
