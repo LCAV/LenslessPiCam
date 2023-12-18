@@ -91,7 +91,7 @@ class TrainableMultiLensArray(TrainableMask):
         # 2) initialize mask
         assert "distance_sensor" in kwargs, "Distance to sensor must be specified"
         assert "N" in kwargs, "Number of Lenses must be specified"
-        self._mask_obj = MultiLensArray.from_sensor(sensor_name, downsample, is_torch=True, psf_wavelength=[460e-9], torch_device=torch_device, **kwargs)
+        self._mask_obj = MultiLensArray.from_sensor(sensor_name, downsample, is_torch=True, torch_device=torch_device, **kwargs)
         self._mask = self._mask_obj.mask
 
         # 3) set learnable parameters (should be immediate attributes of the class)
@@ -154,7 +154,7 @@ class TrainableHeightVarying(TrainableMask):
 
         #2)
         assert "distance_sensor" in kwargs, "Distance to sensor must be specified"
-        self._mask_obj = HeightVarying.from_sensor(sensor_name, downsample, is_torch=True, psf_wavelength=[460e-9], torch_device=torch_device, **kwargs)
+        self._mask_obj = HeightVarying.from_sensor(sensor_name, downsample, is_torch=True, torch_device=torch_device, **kwargs)
         self._mask = self._mask_obj.mask
 
         #3)
