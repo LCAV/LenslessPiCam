@@ -175,11 +175,11 @@ class TrainableHeightVarying(TrainableMask):
         with torch.no_grad():
             # clamp back the heights between min_height, and max_height
             self._height_map.data = torch.clamp(self._height_map.data, self._mask_obj.height_range[0], self._mask_obj.height_range[1])
-        self._mask_obj.create_mask(self._height_map)
+        
+        self._mask_obj.create_mask(self._radius)
         self._mask_obj.compute_psf()
-
-        psf = self._mask_obj.psf.unsqueeze(0)
-        self._psf = psf / psf.norm()
+        self._psf = self._mask_obj.psf.unsqueeze(0)
+        self._psf = self._psf / self._psf.norm()
         
 
             
