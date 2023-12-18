@@ -23,7 +23,8 @@ trainable_mask:
   L1_strength: False
   binary: False
   initial_value: 
-    dumb_fill: ""
+    psf_wavelength: [550e-9]
+    design_wv: 550e-9
 
 simulation:
   grayscale: True
