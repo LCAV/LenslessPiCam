@@ -21,6 +21,8 @@ trainable_mask:
   binary: False
   initial_value:
     N : 10 #TODO: check this value ? 
+    psf_wavelength: [550e-9]
+    design_wv: 550e-9
 
 simulation:
   grayscale: True
