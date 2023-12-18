@@ -113,14 +113,14 @@ class TrainableMultiLensArray(TrainableMask):
     def project(self):
         with torch.no_grad():
             # clamp back the radiuses
-            rad = torch.clamp(self._radius.data, self._mask_obj.radius_range[0], self._mask_obj.radius_range[1]).to(self.device)
+            rad = torch.clamp(self._radius.data, self._mask_obj.radius_range[0], self._mask_obj.radius_range[1])
 
             # sort in descending order
             rad, idx = torch.sort(rad, descending=True)
             loca = self._mask_obj.loc[idx]
             self._mask_obj.loc = loca
 
-            circles = torch.cat((loca, rad.unsqueeze(-1)), dim=-1).to(self.device)
+            circles = torch.cat((loca, rad.unsqueeze(-1)), dim=-1)
             for idx, r in enumerate(rad):
                 min_loc = torch.min(loca[idx, 0], loca[idx, 1])
                 rad[idx] = torch.clamp(r, 0, min_loc)
@@ -137,7 +137,7 @@ class TrainableMultiLensArray(TrainableMask):
             # update the parameters
             self._radius.data = rad
         # recompute PSF
-        self._mask_obj.create_mask(self._radius.to(self.device))
+        self._mask_obj.create_mask(self._radius)
         self._mask_obj.compute_psf()
         self._psf = self._mask_obj.psf.unsqueeze(0)
         self._psf = self._psf / self._psf.norm()
