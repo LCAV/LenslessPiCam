@@ -114,6 +114,7 @@ class Mask(abc.ABC):
         self.shape = self.mask.shape
 
         # PSF
+        assert hasattr(psf_wavelength, "__len__"), "psf_wavelength should be a list"
         self.psf_wavelength = psf_wavelength
         self.psf = None
         self.compute_psf()
@@ -163,7 +164,9 @@ class Mask(abc.ABC):
         """
         if self.is_torch:
             psf = torch.zeros(
-                tuple(self.resolution) + (len(self.psf_wavelength),), dtype=torch.complex64
+                tuple(self.resolution) + (len(self.psf_wavelength),),
+                dtype=torch.complex64,
+                device=self.torch_device,
             )
         else:
             psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
@@ -229,25 +232,35 @@ class CodedAperture(Mask):
             self.col = seq
 
         if "is_torch" in kwargs and kwargs["is_torch"]:
+            torch_device = kwargs["torch_device"] if "torch_device" in kwargs else "cpu"
             if self.row is not None and self.col is not None:
-                self.row = torch.from_numpy(self.row).float()
-                self.col = torch.from_numpy(self.col).float()
+                self.row = torch.from_numpy(self.row).float().to(torch_device)
+                self.col = torch.from_numpy(self.col).float().to(torch_device)
             else:
-                self.mask = torch.from_numpy(self.mask).float()
+                self.mask = torch.from_numpy(self.mask).float().to(torch_device)
 
+        # needs to be done at the end as it calls create_mask
         super().__init__(**kwargs)
 
-    def create_mask(self):
+    def create_mask(self, row=None, col=None, mask=None):
         """
         Creating coded aperture mask.
         """
 
+        if mask is not None:
+            raise NotImplementedError("Mask loading not implemented yet.")
+
+        # if row and col are provided, use them
+        if row is None and col is None:
+            row = self.row
+            col = self.col
+
         # outer product
-        if self.row is not None and self.col is not None:
+        if row is not None and col is not None:
             if self.is_torch:
-                self.mask = torch.outer(self.row, self.col)
+                self.mask = torch.outer(row, col)
             else:
-                self.mask = np.outer(self.row, self.col)
+                self.mask = np.outer(row, col)
         else:
             assert self.mask is not None
 

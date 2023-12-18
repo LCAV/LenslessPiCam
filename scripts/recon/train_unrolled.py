@@ -33,13 +33,13 @@ python scripts/recon/train_unrolled.py -cn train_psf_from_scratch
 """
 
 import logging
-import omegaconf
 import hydra
 from hydra.utils import get_original_cwd
 import os
 import numpy as np
 import time
 from lensless import UnrolledFISTA, UnrolledADMM
+from lensless.hardware.trainable_mask import prep_trainable_mask
 from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     SimulatedFarFieldDataset,
@@ -48,9 +48,6 @@ from lensless.utils.dataset import (
     HITLDatasetTrainableMask,
 )
 from torch.utils.data import Subset
-import lensless.hardware.trainable_mask
-from lensless.hardware.slm import full2subpattern
-from lensless.hardware.sensor import VirtualSensor
 from lensless.recon.utils import create_process_network
 from lensless.utils.image import rgb2gray, is_grayscale
 from lensless.utils.simulation import FarFieldSimulator
@@ -69,9 +66,12 @@ log = logging.getLogger(__name__)
 
 def simulate_dataset(config, generator=None):
 
-    if config.torch_device == "cuda" and torch.cuda.is_available():
-        device = "cuda"
+    if "cuda" in config.torch_device and torch.cuda.is_available():
+        # if config.torch_device == "cuda" and torch.cuda.is_available():
+        log.info("Using GPU for training.")
+        device = config.torch_device
     else:
+        log.info("Using CPU for training.")
         device = "cpu"
 
     # -- prepare PSF
@@ -109,12 +109,6 @@ def simulate_dataset(config, generator=None):
         train_ds = datasets.MNIST(root=data_path, train=True, download=True, transform=transform)
         test_ds = datasets.MNIST(root=data_path, train=False, download=True, transform=transform)
 
-        if config.files.n_files is not None:
-            train_size = int((1 - config.files.test_size) * config.files.n_files)
-            test_size = config.files.n_files - train_size
-            train_ds = Subset(train_ds, np.arange(train_size))
-            test_ds = Subset(test_ds, np.arange(test_size))
-
     elif config.files.dataset == "fashion_mnist":
         transform = transforms.Compose(transforms_list)
         train_ds = datasets.FashionMNIST(
@@ -127,6 +121,7 @@ def simulate_dataset(config, generator=None):
         transform = transforms.Compose(transforms_list)
         train_ds = datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform)
         test_ds = datasets.CIFAR10(root=data_path, train=False, download=True, transform=transform)
+
     elif config.files.dataset == "CelebA":
         root = config.files.celeba_root
         data_path = os.path.join(root, "celeba")
@@ -151,6 +146,13 @@ def simulate_dataset(config, generator=None):
             )
     else:
         raise NotImplementedError(f"Dataset {config.files.dataset} not implemented.")
+
+    if config.files.dataset != "CelebA":
+        if config.files.n_files is not None:
+            train_size = int((1 - config.files.test_size) * config.files.n_files)
+            test_size = config.files.n_files - train_size
+            train_ds = Subset(train_ds, np.arange(train_size))
+            test_ds = Subset(test_ds, np.arange(test_size))
 
     # convert PSF
     if config.simulation.grayscale and not is_grayscale(psf):
@@ -272,87 +274,6 @@ def simulate_dataset(config, generator=None):
     return train_ds_prop, test_ds_prop, mask
 
 
-def prep_trainable_mask(config, psf=None, downsample=None):
-    mask = None
-    color_filter = None
-    downsample = config.files.downsample if downsample is None else downsample
-    if config.trainable_mask.mask_type is not None:
-        mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
-
-        if isinstance(config.trainable_mask.initial_value, omegaconf.dictconfig.DictConfig):
-
-            # from mask config
-            mask = mask_class(
-                # mask = TrainableCodedAperture(
-                sensor_name=config.simulation.sensor,
-                downsample=downsample,
-                distance_sensor=config.simulation.mask2sensor,
-                optimizer=config.trainable_mask.optimizer,
-                lr=config.trainable_mask.mask_lr,
-                binary=config.trainable_mask.binary,
-                **config.trainable_mask.initial_value,
-            )
-
-        else:
-
-            if config.trainable_mask.initial_value == "random":
-                if psf is not None:
-                    initial_mask = torch.rand_like(psf)
-                else:
-                    sensor = VirtualSensor.from_name(
-                        config.simulation.sensor, downsample=downsample
-                    )
-                    resolution = sensor.resolution
-                    initial_mask = torch.rand((1, *resolution, 3))
-            elif config.trainable_mask.initial_value == "psf":
-                initial_mask = psf.clone()
-            # if file ending with "npy"
-            elif config.trainable_mask.initial_value.endswith("npy"):
-                pattern = np.load(
-                    os.path.join(get_original_cwd(), config.trainable_mask.initial_value)
-                )
-
-                initial_mask = full2subpattern(
-                    pattern=pattern,
-                    shape=config.trainable_mask.ap_shape,
-                    center=config.trainable_mask.ap_center,
-                    slm=config.trainable_mask.slm,
-                )
-                initial_mask = torch.from_numpy(initial_mask.astype(np.float32))
-
-                # prepare color filter if needed
-                from waveprop.devices import slm_dict
-                from waveprop.devices import SLMParam as SLMParam_wp
-
-                slm_param = slm_dict[config.trainable_mask.slm]
-                if (
-                    config.trainable_mask.train_color_filter
-                    and SLMParam_wp.COLOR_FILTER in slm_param.keys()
-                ):
-                    color_filter = slm_param[SLMParam_wp.COLOR_FILTER]
-                    color_filter = torch.from_numpy(color_filter.copy()).to(dtype=torch.float32)
-
-                    # add small random values
-                    color_filter = color_filter + 0.1 * torch.rand_like(color_filter)
-
-            else:
-                raise ValueError(
-                    f"Initial PSF value {config.trainable_mask.initial_value} not supported"
-                )
-
-            if config.trainable_mask.grayscale and not is_grayscale(initial_mask):
-                initial_mask = rgb2gray(initial_mask)
-
-            mask = mask_class(
-                initial_mask,
-                downsample=downsample,
-                color_filter=color_filter,
-                **config.trainable_mask,
-            )
-
-    return mask
-
-
 @hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
 def train_unrolled(config):
 
@@ -374,9 +295,10 @@ def train_unrolled(config):
     if save:
         save = os.getcwd()
 
-    if config.torch_device == "cuda" and torch.cuda.is_available():
+    if "cuda" in config.torch_device and torch.cuda.is_available():
+        # if config.torch_device == "cuda" and torch.cuda.is_available():
         log.info("Using GPU for training.")
-        device = "cuda"
+        device = config.torch_device
     else:
         log.info("Using CPU for training.")
         device = "cpu"
