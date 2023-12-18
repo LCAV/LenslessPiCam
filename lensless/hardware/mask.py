@@ -422,7 +422,7 @@ class MultiLensArray(Mask):
                 assert np.all(self.radius >= 0)
             assert self.loc is not None, "Location of the lenses should be specified if their radius is specified"
             assert len(self.radius) == len(self.loc), "Number of radius should be equal to the number of locations"
-            self.radius = torch.clamp(self.radius, min=self.radius_range[0], max=self.radius_range[1]).to(self.torch_device) if self.is_torch else np.clip(self.radius, self.radius_range[0], self.radius_range[1])
+            self.radius = torch.clamp(self.radius, min=self.radius_range[0], max=self.radius_range[1]).to(self.torch_device) if self.is_torch else np.clip(self.radius, self.radius_range[0], self.radius_range[1]) 
             self.N = len(self.radius)
             circles = np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)]) if not self.is_torch else torch.tensor([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)]).to(self.torch_device)
             assert self.no_circle_overlap(circles), "lenses should not overlap"
@@ -494,7 +494,7 @@ class MultiLensArray(Mask):
         radius_res = self.radius.to(self.torch_device) * (1/self.feature_size[0]) 
         height = self.create_height_map(radius_res, locs_res).to(self.torch_device)
 
-        self.phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength) if not self.is_torch else (height * (self.refractive_index - 1) * 2 * torch.pi / self.wavelength) .to(self.torch_device)
+        self.phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength) if not self.is_torch else (height * (self.refractive_index - 1) * 2 * torch.pi / self.wavelength).to(self.torch_device)
 
         self.mask = np.exp(1j * self.phi) if not self.is_torch else torch.exp(1j * self.phi).to(self.torch_device)
 
@@ -505,8 +505,8 @@ class MultiLensArray(Mask):
         y = np.arange(self.resolution[1]) if not self.is_torch else torch.arange(self.resolution[1]).to(self.torch_device)
         X, Y = np.meshgrid(x, y) if not self.is_torch else torch.meshgrid(x, y)
         if self.is_torch:
-            X.to(self.torch_device)
-            Y.to(self.torch_device)
+            X = X.to(self.torch_device)
+            Y = Y.to(self.torch_device)
         for idx, rad in enumerate(radius):
             contribution = self.lens_contribution(X, Y, rad, locs[idx]).to(self.torch_device) * self.feature_size[0]
             contribution[(X - locs[idx][1])**2 + (Y - locs[idx][0])**2 > rad**2] = 0
