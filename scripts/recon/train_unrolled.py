@@ -69,9 +69,12 @@ log = logging.getLogger(__name__)
 
 def simulate_dataset(config, generator=None):
 
-    if config.torch_device == "cuda" and torch.cuda.is_available():
-        device = "cuda"
+    if "cuda" in config.torch_device and torch.cuda.is_available():
+        # if config.torch_device == "cuda" and torch.cuda.is_available():
+        log.info("Using GPU for training.")
+        device = config.torch_device
     else:
+        log.info("Using CPU for training.")
         device = "cpu"
 
     # -- prepare PSF
@@ -292,6 +295,7 @@ def prep_trainable_mask(config, psf=None, downsample=None):
                 optimizer=config.trainable_mask.optimizer,
                 lr=config.trainable_mask.mask_lr,
                 binary=config.trainable_mask.binary,
+                torch_device=config.torch_device,
                 **config.trainable_mask.initial_value,
             )
 
@@ -376,9 +380,10 @@ def train_unrolled(config):
     if save:
         save = os.getcwd()
 
-    if config.torch_device == "cuda" and torch.cuda.is_available():
+    if "cuda" in config.torch_device and torch.cuda.is_available():
+        # if config.torch_device == "cuda" and torch.cuda.is_available():
         log.info("Using GPU for training.")
-        device = "cuda"
+        device = config.torch_device
     else:
         log.info("Using CPU for training.")
         device = "cpu"

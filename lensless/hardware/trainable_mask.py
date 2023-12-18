@@ -257,7 +257,14 @@ class AdafruitLCD(TrainableMask):
 
 class TrainableCodedAperture(TrainableMask):
     def __init__(
-        self, sensor_name, downsample=None, binary=True, optimizer="Adam", lr=1e-3, **kwargs
+        self,
+        sensor_name,
+        downsample=None,
+        binary=True,
+        torch_device="cuda",
+        optimizer="Adam",
+        lr=1e-3,
+        **kwargs
     ):
         """
         TODO: Distinguish between separable and non-separable.
@@ -272,7 +279,12 @@ class TrainableCodedAperture(TrainableMask):
         assert "n_bits" in kwargs, "Number of bits must be specified."
         # self._mask_obj = CodedAperture.from_sensor(sensor_name, downsample, is_torch=True, **kwargs)
         self._mask_obj = CodedAperture.from_sensor(
-            sensor_name, downsample, psf_wavelength=[460e-9], is_torch=True, **kwargs
+            sensor_name,
+            downsample,
+            psf_wavelength=[460e-9],
+            is_torch=True,
+            torch_device=torch_device,
+            **kwargs
         )
         self._mask = self._mask_obj.mask
 
@@ -309,7 +321,6 @@ class TrainableCodedAperture(TrainableMask):
         # # psf = psf / psf.norm()
 
         # return psf
-
         return self._psf
 
     def project(self):
