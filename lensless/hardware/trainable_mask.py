@@ -82,7 +82,7 @@ class TrainableMask(torch.nn.Module, metaclass=abc.ABCMeta):
 class TrainableMultiLensArray(TrainableMask):
 
     def __init__(
-        self, sensor_name, downsample=None, optimizer="Adam", lr=1e-3, **kwargs
+        self, sensor_name, downsample=None, optimizer="Adam", lr=1e-3, torch_device="cuda", **kwargs
     ):
 
         # 1) call base constructor so parameters can be set
@@ -91,7 +91,7 @@ class TrainableMultiLensArray(TrainableMask):
         # 2) initialize mask
         assert "distance_sensor" in kwargs, "Distance to sensor must be specified"
         assert "N" in kwargs, "Number of Lenses must be specified"
-        self._mask_obj = MultiLensArray.from_sensor(sensor_name, downsample, is_torch=True, psf_wavelength=[460e-9], **kwargs)
+        self._mask_obj = MultiLensArray.from_sensor(sensor_name, downsample, is_torch=True, psf_wavelength=[460e-9], torch_device=torch_device, **kwargs)
         self._mask = self._mask_obj.mask
 
         # 3) set learnable parameters (should be immediate attributes of the class)
@@ -147,14 +147,14 @@ class TrainableMultiLensArray(TrainableMask):
 class TrainableHeightVarying(TrainableMask):
 
     def __init__(
-            self, sensor_name, downsample = None, optimizer="Adam", lr=1e-3, **kwargs
+            self, sensor_name, downsample = None, optimizer="Adam", lr=1e-3, torch_device="cuda", **kwargs
     ):
         #1)
         super().__init__(optimizer, lr, **kwargs)
 
         #2)
         assert "distance_sensor" in kwargs, "Distance to sensor must be specified"
-        self._mask_obj = HeightVarying.from_sensor(sensor_name, downsample, is_torch=True, psf_wavelength=[460e-9], **kwargs)
+        self._mask_obj = HeightVarying.from_sensor(sensor_name, downsample, is_torch=True, psf_wavelength=[460e-9], torch_device=torch_device, **kwargs)
         self._mask = self._mask_obj.mask
 
         #3)
@@ -459,8 +459,8 @@ trainable_mask_dict = {
     "AdafruitLCD": AdafruitLCD,
     "TrainablePSF": TrainablePSF,
     "TrainableCodedAperture": TrainableCodedAperture,
-    "TrainableHeightVarying": None,
-    "TrainableMultiLensArray": None,
+    "TrainableHeightVarying": TrainableHeightVarying,
+    "TrainableMultiLensArray": TrainableMultiLensArray,
 }
 
 
@@ -507,7 +507,7 @@ def prep_trainable_mask(config, psf=None, downsample=None):
             # if file ending with "npy"
             elif config.trainable_mask.initial_value.endswith("npy"):
                 pattern = np.load(
-                    os.path.join(get_original_cwd(), config.trainable_mask.initial_value)
+                    os.path.join(config.trainable_mask.initial_value) #TODO: get_original_cwd(), 
                 )
 
                 initial_mask = full2subpattern(

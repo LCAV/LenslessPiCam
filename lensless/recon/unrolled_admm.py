@@ -160,9 +160,6 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         self._rho = torch.zeros_like(self._X)
 
         # precompute_R_divmat
-        print(self._PsiTPsi.device)
-        print(self._convolver._H.device)
-        print(self._convolver._Hadj.device)
         self._R_divmat = 1.0 / (
             self._mu1[:, None, None, None, None]
             * (torch.abs(self._convolver._Hadj * self._convolver._H))
