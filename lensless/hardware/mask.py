@@ -480,8 +480,8 @@ class MultiLensArray(Mask):
 
         placed_circles = np.array(placed_circles) if not self.is_torch else torch.tensor(placed_circles).to(self.torch_device)
 
-        circles = placed_circles[:, :2].to(self.device)
-        radius = placed_circles[:, 2].to(self.device)
+        circles = placed_circles[:, :2].to(self.torch_device)
+        radius = placed_circles[:, 2].to(self.torch_device)
         return circles, radius
 
     def create_mask(self, radius = None):
