@@ -460,7 +460,7 @@ class MultiLensArray(Mask):
     def place_spheres_on_plane(self, width, height, radius, max_attempts=1000):
         """Try to place circles on a 2D plane."""
         placed_circles = []
-        radius_sorted = sorted(radius, reverse=True)  # Place larger circles first
+        radius_sorted = torch.tensor(sorted(radius, reverse=True)).to(self.torch_device)  # Place larger circles first
 
         for r in radius_sorted:
             placed = False
@@ -480,8 +480,8 @@ class MultiLensArray(Mask):
 
         placed_circles = np.array(placed_circles) if not self.is_torch else torch.tensor(placed_circles).to(self.torch_device)
 
-        circles = placed_circles[:, :2]
-        radius = placed_circles[:, 2]
+        circles = placed_circles[:, :2].to(self.device)
+        radius = placed_circles[:, 2].to(self.device)
         return circles, radius
 
     def create_mask(self, radius = None):
