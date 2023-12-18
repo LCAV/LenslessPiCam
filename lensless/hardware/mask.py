@@ -486,13 +486,13 @@ class MultiLensArray(Mask):
 
     def create_mask(self, radius = None):
         if radius is not None:
-            self.radius = radius
+            self.radius = radius.to(self.torch_device)
         self.check_asserts()
         if self.loc is None:
             self.loc, self.radius = self.place_spheres_on_plane(self.size[0], self.size[1], self.radius)
-        locs_res = self.loc * (1/self.feature_size[0])
-        radius_res = self.radius * (1/self.feature_size[0]) 
-        height = self.create_height_map(radius_res, locs_res)
+        locs_res = self.loc.to(self.torch_device) * (1/self.feature_size[0])
+        radius_res = self.radius.to(self.torch_device) * (1/self.feature_size[0]) 
+        height = self.create_height_map(radius_res, locs_res).to(self.torch_device)
 
         self.phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength)
 
