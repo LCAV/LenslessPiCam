@@ -15,18 +15,29 @@ files:
 
 torch_device: "cuda:1" 
 
+optimizer:
+  # type: Adam   # Adam, SGD...
+  # lr: 1e-4
+  type: SGD
+  lr: 0.01
+
 #Trainable Mask
 trainable_mask:
   mask_type: TrainableCodedAperture
-  optimizer: Adam
-  mask_lr: 1e-3
+  # optimizer: Adam
+  # mask_lr: 1e-3
+  optimizer: SGD
+  mask_lr: 0.01
   L1_strength: False
   binary: False
   initial_value:
+    psf_wavelength: [550e-9]
     method: MLS
     n_bits: 8  # (2**n_bits-1, 2**n_bits-1)
     # method: MURA
     # n_bits: 25  # (4*nbits*1, 4*nbits*1)
+    # # -- applicable for phase masks
+    # design_wv: 550e-9   
 
 simulation:
   grayscale: True

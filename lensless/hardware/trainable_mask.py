@@ -285,7 +285,6 @@ class TrainableCodedAperture(TrainableMask):
         self._mask_obj = CodedAperture.from_sensor(
             sensor_name,
             downsample,
-            psf_wavelength=[460e-9],
             is_torch=True,
             torch_device=torch_device,
             **kwargs,

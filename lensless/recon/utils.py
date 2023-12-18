@@ -471,11 +471,15 @@ class Trainer:
 
     def set_optimizer(self, last_epoch=-1):
 
-        if self.optimizer_config.type == "Adam":
-            parameters = [{"params": self.recon.parameters()}]
-            self.optimizer = torch.optim.Adam(parameters, lr=self.optimizer_config.lr)
-        else:
-            raise ValueError(f"Unsupported optimizer : {self.optimizer_config.type}")
+        # if self.optimizer_config.type == "Adam":
+        #     parameters = [{"params": self.recon.parameters()}]
+        #     self.optimizer = torch.optim.Adam(parameters, lr=self.optimizer_config.lr)
+        # else:
+        #     raise ValueError(f"Unsupported optimizer : {self.optimizer_config.type}")
+        parameters = [{"params": self.recon.parameters()}]
+        self.optimizer = getattr(torch.optim, self.optimizer_config.type)(
+            parameters, lr=self.optimizer_config.lr
+        )
 
         # Scheduler
         if self.optimizer_config.slow_start:

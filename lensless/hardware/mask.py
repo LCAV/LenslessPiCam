@@ -113,6 +113,7 @@ class Mask(abc.ABC):
         self.shape = self.mask.shape
 
         # PSF
+        assert hasattr(psf_wavelength, "__len__"), "psf_wavelength should be a list"
         self.psf_wavelength = psf_wavelength
         self.psf = None
         self.compute_psf()
