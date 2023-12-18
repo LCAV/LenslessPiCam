@@ -494,7 +494,7 @@ class MultiLensArray(Mask):
         radius_res = self.radius.to(self.torch_device) * (1/self.feature_size[0]) 
         height = self.create_height_map(radius_res, locs_res).to(self.torch_device)
 
-        self.phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength)
+        self.phi = (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength) if not self.is_torch else (height * (self.refractive_index - 1) * 2 * torch.pi / self.wavelength) .to(self.torch_device)
 
         self.mask = np.exp(1j * self.phi) if not self.is_torch else torch.exp(1j * self.phi).to(self.torch_device)
 
@@ -504,17 +504,18 @@ class MultiLensArray(Mask):
         x = np.arange(self.resolution[0]) if not self.is_torch else torch.arange(self.resolution[0]).to(self.torch_device)
         y = np.arange(self.resolution[1]) if not self.is_torch else torch.arange(self.resolution[1]).to(self.torch_device)
         X, Y = np.meshgrid(x, y) if not self.is_torch else torch.meshgrid(x, y)
-        X.to(self.torch_device)
-        Y.to(self.torch_device)
+        if self.is_torch:
+            X.to(self.torch_device)
+            Y.to(self.torch_device)
         for idx, rad in enumerate(radius):
-            contribution = self.lens_contribution(X, Y, rad, locs[idx]) * self.feature_size[0]
+            contribution = self.lens_contribution(X, Y, rad, locs[idx]).to(self.torch_device) * self.feature_size[0]
             contribution[(X - locs[idx][1])**2 + (Y - locs[idx][0])**2 > rad**2] = 0
             height += contribution
         assert np.all(height >= self.min_height) if not self.is_torch else torch.all(torch.ge(height, self.min_height))
         return height
     
     def lens_contribution(self, x, y, radius, loc):
-        return np.sqrt(radius**2 - (x - loc[1])**2 - (y - loc[0])**2) if not self.is_torch else torch.sqrt(radius**2 - (x - loc[1])**2 - (y - loc[0])**2).to(self.torch_device)
+        return np.sqrt(radius**2 - (x - loc[1])**2 - (y - loc[0])**2) if not self.is_torch else torch.sqrt(radius**2 - (x - loc[1])**2 - (y - loc[0])**2)
 
 
 class PhaseContour(Mask):
