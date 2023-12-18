@@ -9,7 +9,7 @@ files:
   celeba_root: /scratch/bezzam
   downsample: 16     # TODO use simulation instead?   
   n_files: 50
-    crop:
+  crop:
     vertical: [810, 2240]
     horizontal: [1310, 2750]
 
