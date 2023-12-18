@@ -12,16 +12,10 @@ files:
 
 torch_device: "cuda" 
 
-optimizer:
-  # type: Adam   # Adam, SGD...
-  # lr: 1e-4
-  type: SGD
-  lr: 0.01
-
 #Trainable Mask
 trainable_mask:
   mask_type: TrainableMultiLensArray
-  optimizer: SGD
+  optimizer: Adam
   mask_lr: 1e-3
   L1_strength: False
   binary: False
