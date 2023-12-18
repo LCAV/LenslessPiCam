@@ -486,7 +486,7 @@ class MultiLensArray(Mask):
 
     def create_mask(self, radius = None):
         if radius is not None:
-            self.radius = radius.to(self.torch_device)
+            self.radius = radius
         self.check_asserts()
         if self.loc is None:
             self.loc, self.radius = self.place_spheres_on_plane(self.size[0], self.size[1], self.radius)
@@ -504,6 +504,8 @@ class MultiLensArray(Mask):
         x = np.arange(self.resolution[0]) if not self.is_torch else torch.arange(self.resolution[0]).to(self.torch_device)
         y = np.arange(self.resolution[1]) if not self.is_torch else torch.arange(self.resolution[1]).to(self.torch_device)
         X, Y = np.meshgrid(x, y) if not self.is_torch else torch.meshgrid(x, y)
+        X.to(self.torch_device)
+        Y.to(self.torch_device)
         for idx, rad in enumerate(radius):
             contribution = self.lens_contribution(X, Y, rad, locs[idx]) * self.feature_size[0]
             contribution[(X - locs[idx][1])**2 + (Y - locs[idx][0])**2 > rad**2] = 0

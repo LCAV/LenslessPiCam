@@ -88,7 +88,7 @@ class TrainableMultiLensArray(TrainableMask):
         # 1) call base constructor so parameters can be set
         super().__init__(optimizer, lr, **kwargs)
         self.device = torch_device
-        
+
         # 2) initialize mask
         assert "distance_sensor" in kwargs, "Distance to sensor must be specified"
         assert "N" in kwargs, "Number of Lenses must be specified"
@@ -113,14 +113,14 @@ class TrainableMultiLensArray(TrainableMask):
     def project(self):
         with torch.no_grad():
             # clamp back the radiuses
-            rad = self._radius.data
-            rad = torch.clamp(rad, self._mask_obj.radius_range[0], self._mask_obj.radius_range[1])
+            rad = torch.clamp(self._radius.data, self._mask_obj.radius_range[0], self._mask_obj.radius_range[1]).to(self.device)
+
             # sort in descending order
             rad, idx = torch.sort(rad, descending=True)
             loca = self._mask_obj.loc[idx]
             self._mask_obj.loc = loca
 
-            circles = torch.cat((loca, rad.unsqueeze(-1)), dim=-1)
+            circles = torch.cat((loca, rad.unsqueeze(-1)), dim=-1).to(self.device)
             for idx, r in enumerate(rad):
                 min_loc = torch.min(loca[idx, 0], loca[idx, 1])
                 rad[idx] = torch.clamp(r, 0, min_loc)
@@ -135,10 +135,9 @@ class TrainableMultiLensArray(TrainableMask):
                         circles[idx, 2] = rad[idx]
                         break
             # update the parameters
-            self._radius.data = rad.to(self.device)
-
+            self._radius.data = rad
         # recompute PSF
-        self._mask_obj.create_mask(self._radius)
+        self._mask_obj.create_mask(self._radius.to(self.device))
         self._mask_obj.compute_psf()
         self._psf = self._mask_obj.psf.unsqueeze(0)
         self._psf = self._psf / self._psf.norm()
