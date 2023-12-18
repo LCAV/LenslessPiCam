@@ -34,7 +34,7 @@ simulation:
   object_height: 0.30
 
 training:
-  crop_preloss: False # crop region for computing loss
+  crop_preloss: True # crop region for computing loss
   batch_size: 2
   epoch: 25
   eval_batch_size: 16
