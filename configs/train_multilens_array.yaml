@@ -8,7 +8,7 @@ files:
   dataset: fashion_mnist   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
   celeba_root: /scratch/bezzam
   downsample: 16     # TODO use simulation instead?   
-  n_files: 50
+  n_files: 100
   crop:
     vertical: [810, 2240]
     horizontal: [1310, 2750]
