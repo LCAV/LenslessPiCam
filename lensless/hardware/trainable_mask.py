@@ -87,7 +87,8 @@ class TrainableMultiLensArray(TrainableMask):
 
         # 1) call base constructor so parameters can be set
         super().__init__(optimizer, lr, **kwargs)
-
+        self.device = torch_device
+        
         # 2) initialize mask
         assert "distance_sensor" in kwargs, "Distance to sensor must be specified"
         assert "N" in kwargs, "Number of Lenses must be specified"
@@ -134,7 +135,7 @@ class TrainableMultiLensArray(TrainableMask):
                         circles[idx, 2] = rad[idx]
                         break
             # update the parameters
-            self._radius.data = rad
+            self._radius.data = rad.to(self.device)
 
         # recompute PSF
         self._mask_obj.create_mask(self._radius)
