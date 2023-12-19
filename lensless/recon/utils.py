@@ -763,7 +763,7 @@ class Trainer:
         """
 
         start_time = time.time()
-        self.evaluate(-1, save_pt, epoch=0, disp=disp)
+        #self.evaluate(-1, save_pt, epoch=0, disp=disp)
         
         for epoch in range(n_epoch):
 

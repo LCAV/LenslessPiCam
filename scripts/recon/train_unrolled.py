@@ -276,7 +276,7 @@ def simulate_dataset(config, generator=None):
 
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
+@hydra.main(version_base=None, config_path="../../configs", config_name="train_multilens_array")
 def train_unrolled(config):
     # set seed
     seed = config.seed

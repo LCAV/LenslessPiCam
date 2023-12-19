@@ -410,6 +410,10 @@ class MultiLensArray(Mask):
         self.seed = seed
         self.min_height = min_height
         self.radius_range = radius_range
+
+        self.torch_device = kwargs["torch_device"] if "torch_device" in kwargs else "cpu"
+        self.is_torch = kwargs["is_torch"] if "is_torch" in kwargs else False
+        self.size = kwargs["size"] if "size" in kwargs else None
         
         super().__init__(**kwargs)
     
@@ -422,7 +426,7 @@ class MultiLensArray(Mask):
                 assert np.all(self.radius >= 0)
             assert self.loc is not None, "Location of the lenses should be specified if their radius is specified"
             assert len(self.radius) == len(self.loc), "Number of radius should be equal to the number of locations"
-            self.radius = torch.clamp(self.radius, min=self.radius_range[0], max=self.radius_range[1]).to(self.torch_device) if self.is_torch else np.clip(self.radius, self.radius_range[0], self.radius_range[1]) 
+            #self.radius = torch.clamp(self.radius, min=self.radius_range[0], max=self.radius_range[1]).to(self.torch_device) if self.is_torch else np.clip(self.radius, self.radius_range[0], self.radius_range[1]) 
             self.N = len(self.radius)
             circles = np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)]) if not self.is_torch else torch.tensor([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)]).to(self.torch_device)
             assert self.no_circle_overlap(circles), "lenses should not overlap"
@@ -430,7 +434,9 @@ class MultiLensArray(Mask):
             assert self.N is not None, "If positions are not specified, the number of lenses should be specified"
             if self.is_torch:
                 torch.manual_seed(self.seed)
-                self.radius = torch.rand(self.N).to(self.torch_device) * (self.radius_range[1] - self.radius_range[0]) + self.radius_range[0]
+                radius = torch.rand(self.N).to(self.torch_device) * (self.radius_range[1] - self.radius_range[0]) + self.radius_range[0]
+                self.radius = torch.sort(radius, descending=True)[0].to(self.torch_device)
+                self.loc, _ = self.place_spheres_on_plane(self.size[0], self.size[1], self.radius)
             else:
                 np.random.seed(self.seed)
                 self.radius = np.random.uniform(self.radius_range[0], self.radius_range[1], self.N)
@@ -460,9 +466,8 @@ class MultiLensArray(Mask):
     def place_spheres_on_plane(self, width, height, radius, max_attempts=1000):
         """Try to place circles on a 2D plane."""
         placed_circles = []
-        radius_sorted = torch.tensor(sorted(radius, reverse=True)).to(self.torch_device)  # Place larger circles first
 
-        for r in radius_sorted:
+        for r in radius:
             placed = False
             for _ in range(max_attempts):
                 x = np.random.uniform(r, width - r) if self.is_torch == False else torch.rand(1).to(self.torch_device) * (width - 2*r) + r
@@ -487,9 +492,7 @@ class MultiLensArray(Mask):
     def create_mask(self, radius = None):
         if radius is not None:
             self.radius = radius
-        self.check_asserts()
-        if self.loc is None:
-            self.loc, self.radius = self.place_spheres_on_plane(self.size[0], self.size[1], self.radius)
+        self.check_asserts()                
         locs_res = self.loc.to(self.torch_device) * (1/self.feature_size[0])
         radius_res = self.radius.to(self.torch_device) * (1/self.feature_size[0]) 
         height = self.create_height_map(radius_res, locs_res).to(self.torch_device)
@@ -510,7 +513,7 @@ class MultiLensArray(Mask):
         for idx, rad in enumerate(radius):
             contribution = self.lens_contribution(X, Y, rad, locs[idx]).to(self.torch_device) * self.feature_size[0]
             contribution[(X - locs[idx][1])**2 + (Y - locs[idx][0])**2 > rad**2] = 0
-            height += contribution
+            height = height + contribution
         assert np.all(height >= self.min_height) if not self.is_torch else torch.all(torch.ge(height, self.min_height))
         return height
     
