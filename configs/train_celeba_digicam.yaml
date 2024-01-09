@@ -32,7 +32,6 @@ files:
   celeba_root: /scratch/bezzam
 
 test_idx: [0, 1, 2, 3, 4]
-# test_idx: [1000, 2000, 3000, 4000]
 
 # for prepping ground truth data
 simulation:
