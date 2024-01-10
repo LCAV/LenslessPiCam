@@ -1,0 +1,11 @@
+# python scripts/recon/digicam_celeba.py
+defaults:
+  - defaults_recon
+  - _self_
+
+
+model: pre4M_unrolled_admm10_post4M  # see "lensless/recon/model_dict.py" (digicam/celeba_26k)
+device: cuda:1
+n_trials: 1   # more if you want to get average inference time
+idx: 4    # index from test set to reconstruct
+save: True
