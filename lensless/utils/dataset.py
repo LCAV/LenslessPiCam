@@ -10,6 +10,7 @@ import numpy as np
 import glob
 import os
 import torch
+import warnings
 from abc import abstractmethod
 from torch.utils.data import Dataset
 from torchvision import transforms
@@ -496,10 +497,13 @@ class DigiCamCelebA(MeasuredDatasetSimulatedOriginal):
 
         # create simulator
         simulation_config["output_dim"] = tuple(self.psf.shape[-3:-1])
-        simulator = FarFieldSimulator(
-            is_torch=True,
-            **simulation_config,
-        )
+        # -- ignore warning about no PSF
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            simulator = FarFieldSimulator(
+                is_torch=True,
+                **simulation_config,
+            )
 
         super().__init__(
             measured_dir=data_dir,

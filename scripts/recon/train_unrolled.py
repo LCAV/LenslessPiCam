@@ -47,9 +47,7 @@ from lensless.utils.dataset import (
     HITLDatasetTrainableMask,
 )
 from torch.utils.data import Subset
-import lensless.hardware.trainable_mask
-from lensless.hardware.slm import full2subpattern
-from lensless.hardware.sensor import VirtualSensor
+from lensless.hardware.trainable_mask import prep_trainable_mask
 from lensless.recon.utils import create_process_network
 from lensless.utils.image import rgb2gray, is_grayscale
 from lensless.utils.simulation import FarFieldSimulator
@@ -262,67 +260,6 @@ def simulate_dataset(config, generator=None):
             )
 
     return train_ds_prop, test_ds_prop, mask
-
-
-def prep_trainable_mask(config, psf=None, downsample=None):
-    mask = None
-    color_filter = None
-    downsample = config.files.downsample if downsample is None else downsample
-    if config.trainable_mask.mask_type is not None:
-        mask_class = getattr(lensless.hardware.trainable_mask, config.trainable_mask.mask_type)
-
-        if config.trainable_mask.initial_value == "random":
-            if psf is not None:
-                initial_mask = torch.rand_like(psf)
-            else:
-                sensor = VirtualSensor.from_name(config.simulation.sensor, downsample=downsample)
-                resolution = sensor.resolution
-                initial_mask = torch.rand((1, *resolution, 3))
-        elif config.trainable_mask.initial_value == "psf":
-            initial_mask = psf.clone()
-        # if file ending with "npy"
-        elif config.trainable_mask.initial_value.endswith("npy"):
-            pattern = np.load(os.path.join(get_original_cwd(), config.trainable_mask.initial_value))
-
-            initial_mask = full2subpattern(
-                pattern=pattern,
-                shape=config.trainable_mask.ap_shape,
-                center=config.trainable_mask.ap_center,
-                slm=config.trainable_mask.slm,
-            )
-            initial_mask = torch.from_numpy(initial_mask.astype(np.float32))
-
-            # prepare color filter if needed
-            from waveprop.devices import slm_dict
-            from waveprop.devices import SLMParam as SLMParam_wp
-
-            slm_param = slm_dict[config.trainable_mask.slm]
-            if (
-                config.trainable_mask.train_color_filter
-                and SLMParam_wp.COLOR_FILTER in slm_param.keys()
-            ):
-                color_filter = slm_param[SLMParam_wp.COLOR_FILTER]
-                color_filter = torch.from_numpy(color_filter.copy()).to(dtype=torch.float32)
-
-                # add small random values
-                color_filter = color_filter + 0.1 * torch.rand_like(color_filter)
-        else:
-            raise ValueError(
-                f"Initial PSF value {config.trainable_mask.initial_value} not supported"
-            )
-
-        if config.trainable_mask.grayscale and not is_grayscale(initial_mask):
-            initial_mask = rgb2gray(initial_mask)
-
-        mask = mask_class(
-            initial_mask,
-            optimizer="Adam",
-            downsample=downsample,
-            color_filter=color_filter,
-            **config.trainable_mask,
-        )
-
-    return mask
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")

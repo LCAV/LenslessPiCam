@@ -191,6 +191,21 @@ def digicam_psf(config):
         plt.imshow(psf_meas_norm, alpha=0.7)
         plt.savefig(fp)
 
+        # plot measured and simulated side by side
+        fp = os.path.join(output_folder, "psf_sidebyside.png")
+        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+        plot_image(psf_meas, gamma=config.digicam.gamma, normalize=True, ax=ax[0])
+        ax[0].set_title("Measured")
+        ax[0].set_xticks([])
+        ax[0].set_yticks([])
+        ax[0].axis("off")
+        ax[1].imshow(psf_in_np)
+        ax[1].set_title("Simulated")
+        ax[1].set_xticks([])
+        ax[1].set_yticks([])
+        ax[1].axis("off")
+        plt.savefig(fp)
+
     # save PSF as png
     fp = os.path.join(output_folder, f"{bn}_SIM_psf.png")
     save_image(psf_in_np, fp)
