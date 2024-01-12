@@ -3,9 +3,6 @@ defaults:
   - train_unrolledADMM
   - _self_
 
-display:
-  disp: 400
-
 reconstruction:
   method: unrolled_admm
 

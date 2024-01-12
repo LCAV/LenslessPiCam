@@ -85,7 +85,13 @@ def benchmark(
             "SSIM": StructuralSimilarityIndexMeasure().to(device),
             "ReconstructionError": None,
         }
+
     metrics_values = {key: 0.0 for key in metrics}
+    if unrolled_output_factor:
+        output_metrics = metrics.keys()
+        for key in output_metrics:
+            if key != "ReconstructionError":
+                metrics_values[key + "_unrolled"] = 0.0
 
     # loop over batches
     dataloader = DataLoader(dataset, batch_size=batchsize, pin_memory=(device != "cpu"))

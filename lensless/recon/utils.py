@@ -358,19 +358,17 @@ class Trainer:
         self.pre_process_delay = pre_process_delay
         self.pre_process_freeze = pre_process_freeze
         self.pre_process_unfreeze = pre_process_unfreeze
+        self.pre_process_delay = pre_process_delay
         if pre_process_delay is not None:
             assert pre_process is not None
-        else:
-            self.pre_process_delay = -1
 
         self.post_process = post_process
         self.post_process_delay = post_process_delay
         self.post_process_freeze = post_process_freeze
         self.post_process_unfreeze = post_process_unfreeze
+        self.post_process_delay = post_process_delay
         if post_process_delay is not None:
             assert post_process is not None
-        else:
-            self.post_process_delay = -1
 
         assert train_dataset is not None
         if test_dataset is None:
@@ -430,9 +428,9 @@ class Trainer:
         if self.unrolled_output_factor:
             assert self.unrolled_output_factor > 0
             assert self.post_process is not None
-            assert self.post_process_delay is not None
-            assert self.post_process_unfreeze is not None
-            assert self.post_process_freeze is not None
+            assert self.post_process_delay is None
+            assert self.post_process_unfreeze is None
+            assert self.post_process_freeze is None
 
         # optimizer
         self.clip_grad_norm = clip_grad
@@ -457,6 +455,10 @@ class Trainer:
             if metric_for_best_model == "PSNR" or metric_for_best_model == "SSIM"
             else np.inf,
         }
+        if self.unrolled_output_factor:
+            # -- add unrolled metrics
+            for key in ["MSE", "MAE", "LPIPS_Vgg", "LPIPS_Alex", "PSNR", "SSIM"]:
+                self.metrics[key + "_unrolled"] = []
         if metric_for_best_model is not None:
             assert metric_for_best_model in self.metrics.keys()
         self.save_every = save_every
