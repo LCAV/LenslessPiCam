@@ -50,6 +50,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         pre_process=None,
         post_process=None,
         skip_unrolled=False,
+        return_unrolled_output=False,
         **kwargs,
     ):
         """
@@ -74,6 +75,10 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             post_process : :py:class:`function` or :py:class:`~torch.nn.Module`, optional
                 If :py:class:`function` : Function to apply to the image estimate after the whole algorithm. Its input most be (image to process, noise_level), where noise_level is a learnable parameter. If it include aditional learnable parameters, they will not be added to the parameter list of the algorithm. To allow for traning, the function must be autograd compatible.
                 If :py:class:`~torch.nn.Module` : A DruNet compatible network to apply to the image estimate after the whole algorithm. See ``utils.image.apply_denoiser`` for more details. The network will be included as a submodule of the algorithm and its parameters will be added to the parameter list of the algorithm. If this isn't intended behavior, set requires_grad=False.
+            skip_unrolled : bool, optional
+                Whether to skip the unrolled algorithm and only apply the pre- or post-processor block (e.g. to just use a U-Net for reconstruction).
+            return_unrolled_output : bool, optional
+                Whether to return the output of the unrolled algorithm if also using a post-processor block.
         """
         assert isinstance(psf, torch.Tensor), "PSF must be a torch.Tensor"
         super(TrainableReconstructionAlgorithm, self).__init__(
@@ -83,6 +88,11 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         self.set_pre_process(pre_process)
         self.set_post_process(post_process)
         self.skip_unrolled = skip_unrolled
+        self.return_unrolled_output = return_unrolled_output
+        if self.return_unrolled_output:
+            assert (
+                post_process is not None
+            ), "If return_unrolled_output is True, post_process must be defined."
         if self.skip_unrolled:
             assert (
                 post_process is not None or pre_process is not None
@@ -197,17 +207,24 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
         self.reset(batch_size=batch_size)
 
+        # unrolled algorithm
         if not self.skip_unrolled:
             for i in range(self._n_iter):
                 self._update(i)
             image_est = self._form_image()
-
         else:
             image_est = self._data
 
+        # post process data
         if self.post_process is not None:
-            image_est = self.post_process(image_est, self.post_process_param)
-        return image_est
+            final_est = self.post_process(image_est, self.post_process_param)
+        else:
+            final_est = image_est
+
+        if self.return_unrolled_output:
+            return final_est, image_est
+        else:
+            return final_est
 
     def apply(
         self,

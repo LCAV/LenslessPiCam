@@ -547,6 +547,7 @@ def train_unrolled(config):
             pre_process=pre_process if pre_proc_delay is None else None,
             post_process=post_process if post_proc_delay is None else None,
             skip_unrolled=config.reconstruction.skip_unrolled,
+            return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
         ).to(device)
     elif config.reconstruction.method == "unrolled_admm":
         recon = UnrolledADMM(
@@ -559,6 +560,7 @@ def train_unrolled(config):
             pre_process=pre_process if pre_proc_delay is None else None,
             post_process=post_process if post_proc_delay is None else None,
             skip_unrolled=config.reconstruction.skip_unrolled,
+            return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
         ).to(device)
     else:
         raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
@@ -606,6 +608,7 @@ def train_unrolled(config):
         post_process_freeze=config.reconstruction.post_process.freeze,
         post_process_unfreeze=config.reconstruction.post_process.unfreeze,
         clip_grad=config.training.clip_grad,
+        unrolled_output_factor=config.unrolled_output_factor,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)

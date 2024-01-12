@@ -140,3 +140,4 @@ optimizer:
 loss: 'l2'
 # set lpips to false to deactivate. Otherwise, give the weigth for the loss (the main loss l2/l1 always having a weigth of 1)
 lpips: 1.0
+unrolled_output_factor: False   # whether to account for unrolled output in loss (there must post-processor)

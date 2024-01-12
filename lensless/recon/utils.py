@@ -265,6 +265,7 @@ class Trainer:
         logger=None,
         crop=None,
         clip_grad=1.0,
+        unrolled_output_factor=False,
         # for adding components during training
         pre_process=None,
         pre_process_delay=None,
@@ -322,6 +323,8 @@ class Trainer:
             Logger to use for logging. If None, just print to terminal. Default is None.
         crop : dict, optional
             Crop to apply to images before computing loss (by applying a mask). If None, no crop is applied. Default is None.
+        unrolled_output_factor : float, optional
+            How much of the unrolled loss to add to the total loss. If False, no unrolled loss is added. Default is False. Only applicable if a post-processor is used.
         pre_process : :py:class:`torch.nn.Module`, optional
             Pre process component to add during training. Default is None.
         pre_process_delay : int, optional
@@ -409,7 +412,7 @@ class Trainer:
         else:
             raise ValueError(f"Unsuported loss : {loss}")
 
-        # Lpips loss
+        # -- Lpips loss
         if lpips:
             try:
                 import lpips
@@ -422,6 +425,15 @@ class Trainer:
 
         self.crop = crop
 
+        # -- adding unrolled loss
+        self.unrolled_output_factor = unrolled_output_factor
+        if self.unrolled_output_factor:
+            assert self.unrolled_output_factor > 0
+            assert self.post_process is not None
+            assert self.post_process_delay is not None
+            assert self.post_process_unfreeze is not None
+            assert self.post_process_freeze is not None
+
         # optimizer
         self.clip_grad_norm = clip_grad
         self.optimizer_config = optimizer
@@ -429,6 +441,7 @@ class Trainer:
 
         self.metrics = {
             "LOSS": [],  # train loss
+            "LOSS_TEST": [],  # test loss
             "MSE": [],
             "MAE": [],
             "LPIPS_Vgg": [],
@@ -539,6 +552,10 @@ class Trainer:
 
             # forward pass
             y_pred = self.recon.batch_call(X.to(self.device))
+            if self.unrolled_output_factor:
+                unrolled_out = y_pred[1]
+                y_pred = y_pred[0]
+
             # normalizing each output
             eps = 1e-12
             y_pred_max = torch.amax(y_pred, dim=(-1, -2, -3), keepdim=True) + eps
@@ -553,7 +570,7 @@ class Trainer:
             y_pred = y_pred.reshape(-1, *y_pred.shape[-3:]).movedim(-1, -3)
             y = y.reshape(-1, *y.shape[-3:]).movedim(-1, -3)
 
-            # crop
+            # extraction region of interest for loss
             if self.crop is not None:
                 y_pred = y_pred[
                     ...,
@@ -567,6 +584,8 @@ class Trainer:
                 ]
 
             loss_v = self.Loss(y_pred, y)
+
+            # add LPIPS loss
             if self.lpips:
 
                 if y_pred.shape[1] == 1:
@@ -580,6 +599,41 @@ class Trainer:
                 )
             if self.use_mask and self.l1_mask:
                 loss_v = loss_v + self.l1_mask * torch.mean(torch.abs(self.mask._mask))
+
+            if self.unrolled_output_factor:
+                # -- normalize
+                unrolled_out_max = torch.amax(unrolled_out, dim=(-1, -2, -3), keepdim=True) + eps
+                unrolled_out = unrolled_out / unrolled_out_max
+
+                # -- convert to CHW for loss and remove depth
+                unrolled_out = unrolled_out.reshape(-1, *unrolled_out.shape[-3:]).movedim(-1, -3)
+
+                # -- extraction region of interest for loss
+                if self.crop is not None:
+                    unrolled_out = unrolled_out[
+                        ...,
+                        self.crop["vertical"][0] : self.crop["vertical"][1],
+                        self.crop["horizontal"][0] : self.crop["horizontal"][1],
+                    ]
+
+                # -- compute unrolled output loss
+                loss_unrolled = self.Loss(unrolled_out, y)
+
+                # -- add LPIPS loss
+                if self.lpips:
+                    if unrolled_out.shape[1] == 1:
+                        # if only one channel, repeat for LPIPS
+                        unrolled_out = unrolled_out.repeat(1, 3, 1, 1)
+
+                    # value for LPIPS needs to be in range [-1, 1]
+                    loss_unrolled = loss_unrolled + self.lpips * torch.mean(
+                        self.Loss_lpips(2 * unrolled_out - 1, 2 * y - 1)
+                    )
+
+                # -- add unrolled loss to total loss
+                loss_v = loss_v + self.unrolled_output_factor * loss_unrolled
+
+            # backward pass
             loss_v.backward()
 
             if self.clip_grad_norm is not None:
@@ -641,6 +695,7 @@ class Trainer:
             save_idx=disp,
             output_dir=output_dir,
             crop=self.crop,
+            unrolled_output_factor=self.unrolled_output_factor,
         )
 
         # update metrics with current metrics
@@ -660,9 +715,16 @@ class Trainer:
                 eval_loss += self.lpips * current_metrics["LPIPS_Vgg"]
             if self.use_mask and self.l1_mask:
                 eval_loss += self.l1_mask * np.mean(np.abs(self.mask._mask.cpu().detach().numpy()))
-            return eval_loss
+            if self.unrolled_output_factor:
+                unrolled_loss = current_metrics["MSE_unrolled"]
+                if self.lpips is not None:
+                    unrolled_loss += self.lpips * current_metrics["LPIPS_Vgg_unrolled"]
+                eval_loss += self.unrolled_output_factor * unrolled_loss
         else:
-            return current_metrics[self.metrics["metric_for_best_model"]]
+            eval_loss = current_metrics[self.metrics["metric_for_best_model"]]
+
+        self.metrics["LOSS_TEST"].append(eval_loss)
+        return eval_loss
 
     def on_epoch_end(self, mean_loss, save_pt, epoch, disp=None):
         """

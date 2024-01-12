@@ -462,6 +462,7 @@ class ReconstructionAlgorithm(abc.ABC):
         gamma=None,
         ax=None,
         reset=True,
+        **kwargs,
     ):
         """
         Method for performing iterative reconstruction. Note that `set_data`

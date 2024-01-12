@@ -33,6 +33,7 @@ def benchmark(
     crop=None,
     save_idx=None,
     output_dir=None,
+    unrolled_output_factor=False,
     **kwargs,
 ):
     """
@@ -98,10 +99,16 @@ def benchmark(
         with torch.no_grad():
             if batchsize == 1:
                 model.set_data(lensless)
-                prediction = model.apply(plot=False, save=False, **kwargs)
+                prediction = model.apply(
+                    plot=False, save=False, output_intermediate=unrolled_output_factor, **kwargs
+                )
 
             else:
                 prediction = model.batch_call(lensless, **kwargs)
+
+        if unrolled_output_factor:
+            unrolled_out = prediction[-1]
+            prediction = prediction[0]
 
         # Convert to [N*D, C, H, W] for torchmetrics
         prediction = prediction.reshape(-1, *prediction.shape[-3:]).movedim(-1, -3)
@@ -137,6 +144,7 @@ def benchmark(
             print("Warning: prediction is zero")
         lensed_max = torch.amax(lensed, dim=(1, 2, 3), keepdim=True)
         lensed = lensed / lensed_max
+
         # compute metrics
         for metric in metrics:
             if metric == "ReconstructionError":
@@ -156,6 +164,50 @@ def benchmark(
                         metrics_values[metric] += metrics[metric](prediction, lensed).cpu().item()
                 else:
                     metrics_values[metric] += metrics[metric](prediction, lensed).cpu().item()
+
+        # compute metrics for unrolled output
+        if unrolled_output_factor:
+
+            # -- convert to CHW and remove depth
+            unrolled_out = unrolled_out.reshape(-1, *unrolled_out.shape[-3:]).movedim(-1, -3)
+
+            # -- extraction region of interest
+            if crop is not None:
+                unrolled_out = unrolled_out[
+                    ...,
+                    crop["vertical"][0] : crop["vertical"][1],
+                    crop["horizontal"][0] : crop["horizontal"][1],
+                ]
+
+            # -- normalization
+            unrolled_out_max = torch.amax(unrolled_out, dim=(-1, -2, -3), keepdim=True)
+            if torch.all(unrolled_out_max != 0):
+                unrolled_out = unrolled_out / unrolled_out_max
+
+            # -- compute metrics
+            for metric in metrics:
+                if metric == "ReconstructionError":
+                    # only have this for final output
+                    continue
+                else:
+                    if "LPIPS" in metric:
+                        if unrolled_out.shape[1] == 1:
+                            # LPIPS needs 3 channels
+                            metrics_values[metric] += (
+                                metrics[metric](
+                                    unrolled_out.repeat(1, 3, 1, 1), lensed.repeat(1, 3, 1, 1)
+                                )
+                                .cpu()
+                                .item()
+                            )
+                        else:
+                            metrics_values[metric + "_unrolled"] += (
+                                metrics[metric](unrolled_out, lensed).cpu().item()
+                            )
+                    else:
+                        metrics_values[metric + "_unrolled"] += (
+                            metrics[metric](unrolled_out, lensed).cpu().item()
+                        )
 
         model.reset()
         idx += batchsize
