@@ -1,15 +1,13 @@
 import hydra
 import yaml
 import torch
-from lensless.recon.utils import create_process_network
-from lensless.recon.unrolled_admm import UnrolledADMM
 from lensless.utils.plot import plot_image
 from lensless.utils.dataset import DigiCamCelebA
 import numpy as np
 import os
 from lensless.utils.io import save_image
 import time
-from lensless.recon.model_dict import download_model
+from lensless.recon.model_dict import download_model, load_model
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="recon_digicam_celeba")
@@ -24,10 +22,10 @@ def apply_unrolled(config):
     model_path = download_model(camera="digicam", dataset="celeba_26k", model=model_name)
     config_path = os.path.join(model_path, ".hydra", "config.yaml")
     with open(config_path, "r") as stream:
-        config = yaml.safe_load(stream)
+        model_config = yaml.safe_load(stream)
 
     # -- set seed
-    seed = config["seed"]
+    seed = model_config["seed"]
     torch.manual_seed(seed)
     np.random.seed(seed)
     generator = torch.Generator().manual_seed(seed)
@@ -42,66 +40,27 @@ def apply_unrolled(config):
 
     # load dataset
     dataset = DigiCamCelebA(
-        data_dir=config["files"]["dataset"],
-        celeba_root=config["files"]["celeba_root"],
+        data_dir=model_config["files"]["dataset"],
+        celeba_root=model_config["files"]["celeba_root"],
         psf_path=psf_path,
-        downsample=config["files"]["downsample"],
-        simulation_config=config["simulation"],
-        crop=config["files"]["crop"],
+        downsample=model_config["files"]["downsample"],
+        simulation_config=model_config["simulation"],
+        crop=model_config["files"]["crop"],
     )
+
     dataset.psf = dataset.psf.to(device)
     print(f"Data shape :  {dataset[0][0].shape}")
 
     # -- train-test split
-    train_size = int((1 - config["files"]["test_size"]) * len(dataset))
+    train_size = int((1 - model_config["files"]["test_size"]) * len(dataset))
     test_size = len(dataset) - train_size
     _, test_set = torch.utils.data.random_split(
         dataset, [train_size, test_size], generator=generator
     )
     print("Test set size: ", len(test_set))
 
-    if "skip_unrolled" not in config["reconstruction"].keys():
-        config["reconstruction"]["skip_unrolled"] = False
-
     # load best model
-    model_checkpoint = os.path.join(model_path, "recon_epochBEST")
-    model_state_dict = torch.load(model_checkpoint, map_location=device)
-
-    pre_process = None
-    post_process = None
-
-    if config["reconstruction"]["pre_process"]["network"] is not None:
-
-        pre_process, _ = create_process_network(
-            network=config["reconstruction"]["pre_process"]["network"],
-            depth=config["reconstruction"]["pre_process"]["depth"],
-            nc=config["reconstruction"]["pre_process"]["nc"]
-            if "nc" in config["reconstruction"]["pre_process"].keys()
-            else None,
-            device=device,
-        )
-
-    if config["reconstruction"]["post_process"]["network"] is not None:
-
-        post_process, _ = create_process_network(
-            network=config["reconstruction"]["post_process"]["network"],
-            depth=config["reconstruction"]["post_process"]["depth"],
-            nc=config["reconstruction"]["post_process"]["nc"]
-            if "nc" in config["reconstruction"]["post_process"].keys()
-            else None,
-            device=device,
-        )
-
-    if config["reconstruction"]["method"] == "unrolled_admm":
-        recon = UnrolledADMM(
-            dataset.psf,
-            pre_process=pre_process,
-            post_process=post_process,
-            n_iter=config["reconstruction"]["unrolled_admm"]["n_iter"],
-            skip_unrolled=config["reconstruction"]["skip_unrolled"],
-        )
-
-        recon.load_state_dict(model_state_dict)
+    recon = load_model(model_path, dataset.psf, device)
 
     # apply reconstruction
     lensless, lensed = test_set[idx]
