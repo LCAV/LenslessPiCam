@@ -213,6 +213,7 @@ class VirtualSensor(object):
             Sensor.
 
         """
+
         if name not in SensorOptions.values():
             raise ValueError(f"Sensor {name} not supported.")
         sensor_specs = sensor_dict[name].copy()

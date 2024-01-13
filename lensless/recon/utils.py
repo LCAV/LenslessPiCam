@@ -415,6 +415,7 @@ class Trainer:
                 import lpips
 
                 self.Loss_lpips = lpips.LPIPS(net="vgg").to(self.device)
+                
             except ImportError:
                 return ImportError(
                     "lpips package is need for LPIPS loss. Install using : pip install lpips"
@@ -426,7 +427,7 @@ class Trainer:
         self.clip_grad_norm = clip_grad
         self.optimizer_config = optimizer
         self.set_optimizer()
-
+        
         self.metrics = {
             "LOSS": [],  # train loss
             "MSE": [],
@@ -447,10 +448,10 @@ class Trainer:
         if metric_for_best_model is not None:
             assert metric_for_best_model in self.metrics.keys()
         self.save_every = save_every
-
+        
         # Backward hook that detect NAN in the gradient and print the layer weights
         if not self.skip_NAN:
-
+        
             def detect_nan(grad):
                 if torch.isnan(grad).any():
                     if self.logger:
@@ -471,11 +472,15 @@ class Trainer:
 
     def set_optimizer(self, last_epoch=-1):
 
-        if self.optimizer_config.type == "Adam":
-            parameters = [{"params": self.recon.parameters()}]
-            self.optimizer = torch.optim.Adam(parameters, lr=self.optimizer_config.lr)
-        else:
-            raise ValueError(f"Unsupported optimizer : {self.optimizer_config.type}")
+        # if self.optimizer_config.type == "Adam":
+        #     parameters = [{"params": self.recon.parameters()}]
+        #     self.optimizer = torch.optim.Adam(parameters, lr=self.optimizer_config.lr)
+        # else:
+        #     raise ValueError(f"Unsupported optimizer : {self.optimizer_config.type}")
+        parameters = [{"params": self.recon.parameters()}]
+        self.optimizer = getattr(torch.optim, self.optimizer_config.type)(
+            parameters, lr=self.optimizer_config.lr
+        )
 
         # Scheduler
         if self.optimizer_config.slow_start:
@@ -533,9 +538,11 @@ class Trainer:
             X = X.to(self.device)
             y = y.to(self.device)
 
-            # update psf according to mask
-            if self.use_mask:
-                self.recon._set_psf(self.mask.get_psf().to(self.device))
+            # BEFORE
+            # # update psf according to mask
+            # if self.use_mask:
+            #     new_psf = self.mask.get_psf().to(self.device)
+            #     self.recon._set_psf(new_psf)
 
             # forward pass
             y_pred = self.recon.batch_call(X.to(self.device))
@@ -548,7 +555,9 @@ class Trainer:
             y_max = torch.amax(y, dim=(-1, -2, -3), keepdim=True) + eps
             y = y / y_max
 
-            self.optimizer.zero_grad(set_to_none=True)
+            # BEFORE
+            # self.optimizer.zero_grad(set_to_none=True)
+
             # convert to CHW for loss and remove depth
             y_pred = y_pred.reshape(-1, *y_pred.shape[-3:]).movedim(-1, -3)
             y = y.reshape(-1, *y.shape[-3:]).movedim(-1, -3)
@@ -579,28 +588,53 @@ class Trainer:
                     self.Loss_lpips(2 * y_pred - 1, 2 * y - 1)
                 )
             if self.use_mask and self.l1_mask:
-                loss_v = loss_v + self.l1_mask * torch.mean(torch.abs(self.mask._mask))
+                for p in self.mask.parameters():
+                    if p.requires_grad:
+                        loss_v = loss_v + self.l1_mask * torch.mean(torch.abs(p))
             loss_v.backward()
 
+            # check mask parameters are learning
+            if self.use_mask:
+                for p in self.mask.parameters():
+                    assert p.grad is not None
+
             if self.clip_grad_norm is not None:
+                torch.nn.utils.clip_grad_norm_(self.mask.parameters(), self.clip_grad_norm)
                 torch.nn.utils.clip_grad_norm_(self.recon.parameters(), self.clip_grad_norm)
 
             # if any gradient is NaN, skip training step
             if self.skip_NAN:
-                is_NAN = False
+                recon_is_NAN = False
+                mask_is_NAN = False
                 for param in self.recon.parameters():
                     if param.grad is not None and torch.isnan(param.grad).any():
-                        is_NAN = True
+                        recon_is_NAN = True
                         break
-                if is_NAN:
-                    self.print("NAN detected in gradiant, skipping training step")
+                for param in self.mask.parameters():
+                    if param.grad is not None and torch.isnan(param.grad).any():
+                        mask_is_NAN = True
+                        break
+                if recon_is_NAN or mask_is_NAN:
+                    if recon_is_NAN:
+                        self.print(
+                            "NAN detected in reconstruction gradient, skipping training step"
+                        )
+                    if mask_is_NAN:
+                        self.print("NAN detected in mask gradient, skipping training step")
                     i += 1
                     continue
+
             self.optimizer.step()
+
+            # NEW
+            self.optimizer.zero_grad(set_to_none=True)
 
             # update mask
             if self.use_mask:
                 self.mask.update_mask()
+                # NEW
+                self.train_dataloader.dataset.set_psf()
+                self.recon._set_psf(self.mask._psf)
 
             mean_loss += (loss_v.item() - mean_loss) * (1 / i)
             pbar.set_description(f"loss : {mean_loss}")
@@ -626,6 +660,11 @@ class Trainer:
         if self.test_dataset is None:
             return
 
+        # NEW
+        if self.use_mask:
+            with torch.no_grad():
+                self.test_dataset.set_psf()
+
         output_dir = None
         if disp is not None:
             output_dir = os.path.join("eval_recon")
@@ -642,7 +681,7 @@ class Trainer:
             output_dir=output_dir,
             crop=self.crop,
         )
-
+        
         # update metrics with current metrics
         self.metrics["LOSS"].append(mean_loss)
         for key in current_metrics:
@@ -659,7 +698,10 @@ class Trainer:
             if self.lpips is not None:
                 eval_loss += self.lpips * current_metrics["LPIPS_Vgg"]
             if self.use_mask and self.l1_mask:
-                eval_loss += self.l1_mask * np.mean(np.abs(self.mask._mask.cpu().detach().numpy()))
+                for p in self.mask.parameters():
+                    if p.requires_grad:
+                        eval_loss += self.l1_mask * np.mean(np.abs(p.cpu().detach().numpy()))
+                # eval_loss += self.l1_mask * np.mean(np.abs(self.mask._mask.cpu().detach().numpy()))
             return eval_loss
         else:
             return current_metrics[self.metrics["metric_for_best_model"]]
@@ -721,8 +763,8 @@ class Trainer:
         """
 
         start_time = time.time()
-
-        self.evaluate(-1, save_pt, epoch=0, disp=disp)
+        #self.evaluate(-1, save_pt, epoch=0, disp=disp)
+        
         for epoch in range(n_epoch):
 
             # add extra components (if specified)
@@ -771,23 +813,18 @@ class Trainer:
         # create directory if it does not exist
         if not os.path.exists(path):
             os.makedirs(path)
-        # save mask
+
+        # save mask parameters
         if self.use_mask:
-            # torch.save(self.mask._mask, os.path.join(path, f"mask_epoch{epoch}.pt"))
 
-            # save mask as numpy array
-            if self.mask.train_mask_vals:
-                np.save(
-                    os.path.join(path, f"mask_epoch{epoch}.npy"),
-                    self.mask._mask.cpu().detach().numpy(),
-                )
+            for name, param in self.mask.named_parameters():
 
-            if self.mask.color_filter is not None:
-                # save save numpy array
-                np.save(
-                    os.path.join(path, f"mask_color_filter_epoch{epoch}.npy"),
-                    self.mask.color_filter.cpu().detach().numpy(),
-                )
+                # save as numpy array
+                if param.requires_grad:
+                    np.save(
+                        os.path.join(path, f"mask{name}_epoch{epoch}.npy"),
+                        param.cpu().detach().numpy(),
+                    )
 
             torch.save(
                 self.mask._optimizer.state_dict(), os.path.join(path, f"mask_optim_epoch{epoch}.pt")
@@ -802,5 +839,6 @@ class Trainer:
         # save optimizer
         if include_optimizer:
             torch.save(self.optimizer.state_dict(), os.path.join(path, f"optim_epoch{epoch}.pt"))
+
         # save recon
         torch.save(self.recon.state_dict(), os.path.join(path, f"recon_epoch{epoch}"))

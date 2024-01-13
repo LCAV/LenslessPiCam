@@ -84,6 +84,7 @@ trainable_mask:
   initial_value: psf
   grayscale: False
   mask_lr: 1e-3
+  optimizer: Adam  # Adam, SGD... (Pytorch class)
   L1_strength: 1.0  #False or float
 
 target: "object_plane"    # "original" or "object_plane" or "label"
@@ -129,7 +130,7 @@ training:
   crop_preloss: True # crop region for computing loss
 
 optimizer:
-  type: Adam
+  type: Adam  # Adam, SGD... (Pytorch class)
   lr: 1e-4
   slow_start: False  #float how much to reduce lr for first epoch
   # Decay LR in step fashion: https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html
