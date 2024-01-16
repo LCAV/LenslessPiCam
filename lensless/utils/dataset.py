@@ -49,6 +49,7 @@ class DualDataset(Dataset):
         flip=False,
         transform_lensless=None,
         transform_lensed=None,
+        input_snr=None,
         **kwargs,
     ):
         """
@@ -72,11 +73,14 @@ class DualDataset(Dataset):
             Transform to apply to the lensless images, by default ``None``. Note that this transform is applied on HWC images (different from torchvision).
         transform_lensed : PyTorch Transform or None, optional
             Transform to apply to the lensed images, by default ``None``. Note that this transform is applied on HWC images (different from torchvision).
+        input_snr : float, optional
+            If not ``None``, Poisson noise is added to the lensless images to match the given SNR.
         """
         if isinstance(indices, int):
             indices = range(indices)
         self.indices = indices
         self.background = background
+        self.input_snr = input_snr
         self.downsample = downsample
         self.flip = flip
         self.transform_lensless = transform_lensless
@@ -146,6 +150,12 @@ class DualDataset(Dataset):
 
         if self.background is not None:
             lensless = lensless - self.background
+
+        # add noise
+        if self.input_snr is not None:
+            from waveprop.noise import add_shot_noise
+
+            lensless = add_shot_noise(lensless, self.input_snr)
 
         # flip image x and y if needed
         if self.flip:
