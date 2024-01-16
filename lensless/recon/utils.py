@@ -43,7 +43,8 @@ def load_drunet(model_path=None, n_channels=3, requires_grad=False):
     """
 
     if model_path is None:
-        model_path = os.path.join(get_original_cwd(), "models", "drunet_color.pth")
+        this_file_path = os.path.dirname(os.path.realpath(__file__))
+        model_path = os.path.join(this_file_path, "..", "..", "models", "drunet_color.pth")
         if not os.path.exists(model_path):
             try:
                 from torchvision.datasets.utils import download_url
@@ -829,7 +830,7 @@ class Trainer:
             self.on_epoch_end(mean_loss, save_pt, epoch + 1, disp=disp)
             self.scheduler.step()
 
-        self.print(f"Train time : {time.time() - start_time} s")
+        self.print(f"Train time [hour] : {(time.time() - start_time) / 3600} h")
 
     def save(self, epoch, path="recon", include_optimizer=False):
         # create directory if it does not exist
