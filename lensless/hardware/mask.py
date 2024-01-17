@@ -55,7 +55,7 @@ class Mask(abc.ABC):
         psf_wavelength=[460e-9, 550e-9, 640e-9],
         is_torch=False,
         torch_device="cpu",
-        **kwargs
+        **kwargs,
     ):
         """
         Constructor from parameters of the user's choice.
@@ -146,7 +146,7 @@ class Mask(abc.ABC):
             resolution=tuple(sensor.resolution.copy()),
             size=tuple(sensor.size.copy()),
             feature_size=sensor.pixel_size.copy(),
-            **kwargs
+            **kwargs,
         )
 
     @abc.abstractmethod
@@ -373,6 +373,227 @@ class CodedAperture(Mask):
             meas = meas.to(obj)
 
         return meas
+
+
+class MultiLensArray(Mask):
+    """
+    Multi-lens array mask.
+    """
+
+    def __init__(
+        self,
+        N=None,
+        radius=None,
+        loc=None,
+        refractive_index=1.2,
+        design_wv=532e-9,
+        seed=0,
+        min_height=1e-5,
+        radius_range=(1e-5, 1e-3),
+        **kwargs,
+    ):
+        """
+        Multi-lens array mask constructor.
+
+        Parameters
+        ----------
+        N: int
+            Number of lenses
+        radius: array_like
+            Radius of the lenses (m)
+        loc: array_like of tuples
+            Location of the lenses (m)
+        refractive_index: float
+            Refractive index of the mask substrate. Default is 1.2.
+        wavelength: float
+        seed: int
+            Seed for the random number generator. Default is 0.
+        min_height: float
+            Minimum height of the lenses (m). Default is 1e-3.
+        """
+        self.N = N
+        self.radius = radius
+        self.loc = loc
+        self.refractive_index = refractive_index
+        self.wavelength = design_wv
+        self.seed = seed
+        self.min_height = min_height
+        self.radius_range = radius_range
+
+        self.torch_device = kwargs["torch_device"] if "torch_device" in kwargs else "cpu"
+        self.is_torch = kwargs["is_torch"] if "is_torch" in kwargs else False
+        self.size = kwargs["size"] if "size" in kwargs else None
+
+        super().__init__(**kwargs)
+
+    def check_asserts(self):
+        assert (
+            self.radius_range[0] < self.radius_range[1]
+        ), "Minimum radius should be smaller than maximum radius"
+        if self.radius is not None:
+            if self.is_torch:
+                assert torch.all(self.radius >= 0)
+            else:
+                assert np.all(self.radius >= 0)
+            assert (
+                self.loc is not None
+            ), "Location of the lenses should be specified if their radius is specified"
+            assert len(self.radius) == len(
+                self.loc
+            ), "Number of radius should be equal to the number of locations"
+            # self.radius = torch.clamp(self.radius, min=self.radius_range[0], max=self.radius_range[1]).to(self.torch_device) if self.is_torch else np.clip(self.radius, self.radius_range[0], self.radius_range[1])
+            self.N = len(self.radius)
+            circles = (
+                np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
+                if not self.is_torch
+                else torch.tensor(
+                    [(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)]
+                ).to(self.torch_device)
+            )
+            assert self.no_circle_overlap(circles), "lenses should not overlap"
+        else:
+            assert (
+                self.N is not None
+            ), "If positions are not specified, the number of lenses should be specified"
+            if self.is_torch:
+                torch.manual_seed(self.seed)
+                radius = (
+                    torch.rand(self.N).to(self.torch_device)
+                    * (self.radius_range[1] - self.radius_range[0])
+                    + self.radius_range[0]
+                )
+                self.radius = torch.sort(radius, descending=True)[0].to(self.torch_device)
+                self.loc, _ = self.place_spheres_on_plane(self.size[0], self.size[1], self.radius)
+            else:
+                np.random.seed(self.seed)
+                self.radius = np.random.uniform(self.radius_range[0], self.radius_range[1], self.N)
+            assert self.N == len(self.radius)
+
+    def no_circle_overlap(self, circles):
+        """Check if any circle in the list overlaps with another."""
+        for i in range(len(circles)):
+            if self.does_circle_overlap(
+                circles[i + 1 :], circles[i][0], circles[i][1], circles[i][2]
+            ):
+                return False
+        return True
+
+    def does_circle_overlap(self, circles, x, y, r):
+        """Check if a circle overlaps with any in the list."""
+        if not self.is_torch:
+            for (cx, cy, cr) in circles:
+                if np.sqrt((x - cx) ** 2 + (y - cy) ** 2) <= r + cr:
+                    return True, (cx, cy, cr)
+            return False
+        else:
+            for (cx, cy, cr) in circles:
+                if torch.sqrt((x - cx) ** 2 + (y - cy) ** 2) <= r + cr:
+                    return True, (cx, cy, cr)
+            return False
+
+    def place_spheres_on_plane(self, width, height, radius, max_attempts=1000):
+        """Try to place circles on a 2D plane."""
+        placed_circles = []
+
+        for r in radius:
+            placed = False
+            for _ in range(max_attempts):
+                x = (
+                    np.random.uniform(r, width - r)
+                    if not self.is_torch
+                    else torch.rand(1).to(self.torch_device) * (width - 2 * r) + r
+                )
+                y = (
+                    np.random.uniform(r, height - r)
+                    if not self.is_torch
+                    else torch.rand(1).to(self.torch_device) * (height - 2 * r) + r
+                )
+
+                if not self.does_circle_overlap(placed_circles, x, y, r):
+                    placed_circles.append((x, y, r))
+                    placed = True
+                    print(f"Placed circle with rad {r}, and center ({x}, {y})")
+                    break
+
+            if not placed:
+                print(f"Failed to place circle with rad {r}")
+                continue
+
+        placed_circles = (
+            np.array(placed_circles)
+            if not self.is_torch
+            else torch.tensor(placed_circles).to(self.torch_device)
+        )
+
+        circles = placed_circles[:, :2].to(self.torch_device)
+        radius = placed_circles[:, 2].to(self.torch_device)
+        return circles, radius
+
+    def create_mask(self, radius=None):
+        if radius is not None:
+            self.radius = radius
+        self.check_asserts()
+        locs_res = self.loc.to(self.torch_device) * (1 / self.feature_size[0])
+        radius_res = self.radius.to(self.torch_device) * (1 / self.feature_size[0])
+        height = self.create_height_map(radius_res, locs_res).to(self.torch_device)
+
+        self.phi = (
+            (height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength)
+            if not self.is_torch
+            else (height * (self.refractive_index - 1) * 2 * torch.pi / self.wavelength).to(
+                self.torch_device
+            )
+        )
+
+        self.mask = (
+            np.exp(1j * self.phi)
+            if not self.is_torch
+            else torch.exp(1j * self.phi).to(self.torch_device)
+        )
+
+    def create_height_map(self, radius, locs):
+        height = (
+            np.full((self.resolution[0], self.resolution[1]), self.min_height)
+            if not self.is_torch
+            else torch.full((self.resolution[0], self.resolution[1]), self.min_height).to(
+                self.torch_device
+            )
+        )
+
+        x = (
+            np.arange(self.resolution[0])
+            if not self.is_torch
+            else torch.arange(self.resolution[0]).to(self.torch_device)
+        )
+        y = (
+            np.arange(self.resolution[1])
+            if not self.is_torch
+            else torch.arange(self.resolution[1]).to(self.torch_device)
+        )
+        X, Y = np.meshgrid(x, y) if not self.is_torch else torch.meshgrid(x, y)
+        if self.is_torch:
+            X = X.to(self.torch_device)
+            Y = Y.to(self.torch_device)
+        for idx, rad in enumerate(radius):
+            contribution = (
+                self.lens_contribution(X, Y, rad, locs[idx]).to(self.torch_device)
+                * self.feature_size[0]
+            )
+            contribution[(X - locs[idx][1]) ** 2 + (Y - locs[idx][0]) ** 2 > rad**2] = 0
+            height = height + contribution
+        assert (
+            np.all(height >= self.min_height)
+            if not self.is_torch
+            else torch.all(torch.ge(height, self.min_height))
+        )
+        return height
+
+    def lens_contribution(self, x, y, radius, loc):
+        return (
+            np.sqrt(radius**2 - (x - loc[1]) ** 2 - (y - loc[0]) ** 2)
+            if not self.is_torch
+            else torch.sqrt(radius**2 - (x - loc[1]) ** 2 - (y - loc[0]) ** 2)
+        )
 
 
 class PhaseContour(Mask):
