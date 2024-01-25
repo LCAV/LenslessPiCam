@@ -102,6 +102,9 @@ def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference")
     image : :py:class:`torch.Tensor`
         Reconstructed image.
     """
+    assert noise_level > 0
+    assert noise_level <= 255
+
     # convert from NDHWC to NCHW
     depth = image.shape[-4]
     image = image.movedim(-1, -3)
@@ -118,6 +121,7 @@ def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference")
         noise_level = noise_level / 255.0
     else:
         noise_level = torch.tensor([noise_level / 255.0]).to(device)
+
     image = torch.cat(
         (
             image,
@@ -194,7 +198,7 @@ def measure_gradient(model):
     return total_norm
 
 
-def create_process_network(network, depth, device="cpu", nc=None):
+def create_process_network(network, depth=4, device="cpu", nc=None):
     """
     Helper function to create a process network.
 
@@ -847,7 +851,8 @@ class Trainer:
                     self.mask._mask.cpu().detach().numpy(),
                 )
 
-            if self.mask.color_filter is not None:
+            # if color_filter is an attribute
+            if hasattr(self.mask, "color_filter") and self.mask.color_filter is not None:
                 # save save numpy array
                 np.save(
                     os.path.join(path, f"mask_color_filter_epoch{epoch}.npy"),
@@ -860,6 +865,7 @@ class Trainer:
 
             psf_np = self.mask.get_psf().detach().cpu().numpy()[0, ...]
             psf_np = psf_np.squeeze()  # remove (potential) singleton color channel
+            np.save(os.path.join(path, f"psf_epoch{epoch}.npy"), psf_np)
             save_image(psf_np, os.path.join(path, f"psf_epoch{epoch}.png"))
             plot_image(psf_np, gamma=self.gamma)
             plt.savefig(os.path.join(path, f"psf_epoch{epoch}_plot.png"))

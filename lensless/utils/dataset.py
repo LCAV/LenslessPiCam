@@ -47,6 +47,8 @@ class DualDataset(Dataset):
         # background_pix=(0, 15),
         downsample=1,
         flip=False,
+        flip_ud=False,
+        flip_lr=False,
         transform_lensless=None,
         transform_lensed=None,
         input_snr=None,
@@ -83,6 +85,8 @@ class DualDataset(Dataset):
         self.input_snr = input_snr
         self.downsample = downsample
         self.flip = flip
+        self.flip_ud = flip_ud
+        self.flip_lr = flip_lr
         self.transform_lensless = transform_lensless
         self.transform_lensed = transform_lensed
 
@@ -161,6 +165,12 @@ class DualDataset(Dataset):
         if self.flip:
             lensless = torch.rot90(lensless, dims=(-3, -2), k=2)
             lensed = torch.rot90(lensed, dims=(-3, -2), k=2)
+        if self.flip_ud:
+            lensless = torch.flip(lensless, dims=(-4, -3))
+            lensed = torch.flip(lensed, dims=(-4, -3))
+        if self.flip_lr:
+            lensless = torch.flip(lensless, dims=(-4, -2))
+            lensed = torch.flip(lensed, dims=(-4, -2))
         if self.transform_lensless:
             lensless = self.transform_lensless(lensless)
         if self.transform_lensed:
@@ -769,6 +779,8 @@ class DiffuserCamTestDataset(MeasuredDataset):
             return_float=True,
             return_bg=True,
             bg_pix=(0, 15),
+            flip_ud=True,
+            flip_lr=False,
         )
 
         # transform from BGR to RGB
@@ -787,6 +799,8 @@ class DiffuserCamTestDataset(MeasuredDataset):
             background=background,
             downsample=downsample,
             flip=False,
+            flip_ud=True,
+            flip_lr=False,
             transform_lensless=transform_BRG2RGB,
             transform_lensed=transform_BRG2RGB,
             lensless_fn="diffuser",

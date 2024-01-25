@@ -43,6 +43,8 @@ class ADMM(ReconstructionAlgorithm):
         psi_gram=None,
         pad=False,
         norm="backward",
+        # for PnP
+        denoiser=None,
         **kwargs
     ):
         """
@@ -92,6 +94,7 @@ class ADMM(ReconstructionAlgorithm):
             )
 
         # call reset() to initialize matrices
+        self._proj = self._Psi
         super(ADMM, self).__init__(psf, dtype, pad=pad, norm=norm, **kwargs)
 
         # set prior
@@ -109,6 +112,10 @@ class ADMM(ReconstructionAlgorithm):
             self._PsiT = psi_adj
             self._PsiTPsi = psi_gram(self._padded_shape)
 
+            # - need to reset with new projector
+            self._proj = self._Psi
+            self.reset()
+
         # precompute_R_divmat (self._H computed by constructor with reset())
         if self.is_torch:
             self._PsiTPsi = self._PsiTPsi.to(self._psf.device)
@@ -123,6 +130,43 @@ class ADMM(ReconstructionAlgorithm):
                 + self._mu2 * np.abs(self._PsiTPsi)
                 + self._mu3
             ).astype(self._complex_dtype)
+
+        # check denoiser for PnP
+        self._denoiser = denoiser
+        if denoiser is not None:
+            assert self.is_torch
+
+            import lensless.recon.utils
+
+            denoiser_model, _ = lensless.recon.utils.create_process_network(
+                network=denoiser["network"], device=self._psf.device
+            )
+
+            def denoiser_func(x, normalize_image=True):
+                torch.clip(x, min=0.0, out=x)
+
+                x_max = torch.amax(x, dim=(-2, -3), keepdim=True) + 1e-6
+                denoised = lensless.recon.utils.apply_denoiser(
+                    model=denoiser_model,
+                    # image=x / x_max,
+                    image=x / x_max if normalize_image else x,
+                    noise_level=denoiser["noise_level"],
+                    device=self._psf.device,
+                )
+                # denoised = torch.clip(denoised, min=0.0) * x_max.to(self._psf.device)
+                denoised = torch.clip(denoised, min=0.0)
+                if normalize_image:
+                    denoised = denoised * x_max.to(self._psf.device)
+                return denoised
+
+            self._denoiser = denoiser_func
+            self._denoiser_use_dual = denoiser["use_dual"]
+
+            # - need to reset with new projector
+            self._proj = self._denoiser
+            # identify function
+            self._PsiT = lambda x: x
+            self.reset()
 
     def _Psi(self, x):
         """
@@ -150,7 +194,8 @@ class ADMM(ReconstructionAlgorithm):
 
             # self._image_est = torch.zeros_like(self._psf)
             self._X = torch.zeros_like(self._image_est)
-            self._U = torch.zeros_like(self._Psi(self._image_est))
+            # self._U = torch.zeros_like(self._Psi(self._image_est))
+            self._U = torch.zeros_like(self._proj(self._image_est))
             self._W = torch.zeros_like(self._X)
             if self._image_est.max():
                 # if non-zero
@@ -177,7 +222,8 @@ class ADMM(ReconstructionAlgorithm):
 
             # self._U = np.zeros(np.r_[self._padded_shape, [2]], dtype=self._dtype)
             self._X = np.zeros_like(self._image_est)
-            self._U = np.zeros_like(self._Psi(self._image_est))
+            # self._U = np.zeros_like(self._Psi(self._image_est))
+            self._U = np.zeros_like(self._proj(self._image_est))
             self._W = np.zeros_like(self._X)
             if self._image_est.max():
                 # if non-zero
@@ -200,7 +246,18 @@ class ADMM(ReconstructionAlgorithm):
     def _U_update(self):
         """Total variation update."""
         # to avoid computing sparse operator twice
-        self._U = soft_thresh(self._Psi_out + self._eta / self._mu2, self._tau / self._mu2)
+        if self._denoiser is not None:
+            # PnP
+            if self._denoiser_use_dual:
+                self._U = self._denoiser(
+                    self._U + self._eta / self._mu2,
+                )
+            else:
+                self._U = self._denoiser(self._image_est)
+        else:
+            self._U = soft_thresh(
+                self._Psi_out + self._eta / self._mu2, thresh=self._tau / self._mu2
+            )
 
     def _X_update(self):
         # to avoid computing forward model twice
@@ -219,11 +276,22 @@ class ADMM(ReconstructionAlgorithm):
             self._W = np.maximum(self._rho / self._mu3 + self._image_est, 0)
 
     def _image_update(self):
-        rk = (
-            (self._mu3 * self._W - self._rho)
-            + self._PsiT(self._mu2 * self._U - self._eta)
-            + self._convolver.deconvolve(self._mu1 * self._X - self._xi)
-        )
+        if self._denoiser is not None:
+            # PnP
+            rk = (
+                (self._mu3 * self._W - self._rho)
+                # + self._mu2 * self._U
+                + self._mu2 * self._U - self._eta
+                if self._denoiser_use_dual
+                else self._mu2 * self._U
+                + self._convolver.deconvolve(self._mu1 * self._X - self._xi)
+            )
+        else:
+            rk = (
+                (self._mu3 * self._W - self._rho)
+                + self._PsiT(self._mu2 * self._U - self._eta)
+                + self._convolver.deconvolve(self._mu1 * self._X - self._xi)
+            )
 
         # rk = self._convolver._pad(rk)
 
@@ -242,7 +310,11 @@ class ADMM(ReconstructionAlgorithm):
 
     def _eta_update(self):
         # to avoid finite difference operataion again?
-        self._eta += self._mu2 * (self._Psi_out - self._U)
+        if self._denoiser is not None:
+            # PnP
+            self._eta += self._mu2 * (self._image_est - self._U)
+        else:
+            self._eta += self._mu2 * (self._Psi_out - self._U)
 
     def _rho_update(self):
         self._rho += self._mu3 * (self._image_est - self._W)
@@ -255,10 +327,14 @@ class ADMM(ReconstructionAlgorithm):
 
         # update forward and sparse operators
         self._forward_out = self._convolver.convolve(self._image_est)
-        self._Psi_out = self._Psi(self._image_est)
+        if self._denoiser is None:
+            self._Psi_out = self._Psi(self._image_est)
 
         self._xi_update()
-        self._eta_update()
+        if self._denoiser is None:
+            self._eta_update()
+        elif self._denoiser_use_dual:
+            self._eta_update()
         self._rho_update()
 
     def _form_image(self):

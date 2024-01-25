@@ -21,6 +21,8 @@ def load_image(
     fp,
     verbose=False,
     flip=False,
+    flip_ud=False,
+    flip_lr=False,
     bayer=False,
     black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
     blue_gain=None,
@@ -157,6 +159,10 @@ def load_image(
     if flip:
         img = np.flipud(img)
         img = np.fliplr(img)
+    if flip_ud:
+        img = np.flipud(img)
+    if flip_lr:
+        img = np.fliplr(img)
 
     if verbose:
         print_image_info(img)
@@ -206,6 +212,8 @@ def load_psf(
     bg_pix=(5, 25),
     return_bg=False,
     flip=False,
+    flip_ud=False,
+    flip_lr=False,
     verbose=False,
     bayer=False,
     blue_gain=None,
@@ -282,6 +290,8 @@ def load_psf(
             fp,
             verbose=verbose,
             flip=flip,
+            flip_ud=flip_ud,
+            flip_lr=flip_lr,
             bayer=bayer,
             blue_gain=blue_gain,
             red_gain=red_gain,
