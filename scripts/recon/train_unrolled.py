@@ -38,7 +38,7 @@ from hydra.utils import get_original_cwd
 import os
 import numpy as np
 import time
-from lensless import UnrolledFISTA, UnrolledADMM
+from lensless import UnrolledFISTA, UnrolledADMM, TrainableInversion
 from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     SimulatedFarFieldDataset,
@@ -540,6 +540,34 @@ def train_unrolled(config):
                 param.requires_grad = False
             # print(name, param.requires_grad, param.numel())
 
+    # initialize pre- and post processor with another model
+    if config.reconstruction.init_processors is not None:
+        from lensless.recon.model_dict import load_model, model_dict
+
+        model_orig = load_model(
+            model_dict["diffusercam"]["mirflickr"][config.reconstruction.init_processors],
+            psf=psf,
+            device=device,
+        )
+
+        # -- replace pre-process
+        if config.reconstruction.init_pre:
+            params1 = model_orig.pre_process_model.named_parameters()
+            params2 = pre_process.named_parameters()
+            dict_params2 = dict(params2)
+            for name1, param1 in params1:
+                if name1 in dict_params2:
+                    dict_params2[name1].data.copy_(param1.data)
+
+        # -- replace post-process
+        if config.reconstruction.init_post:
+            params1_post = model_orig.post_process_model.named_parameters()
+            params2_post = post_process.named_parameters()
+            dict_params2_post = dict(params2_post)
+            for name1, param1 in params1_post:
+                if name1 in dict_params2_post:
+                    dict_params2_post[name1].data.copy_(param1.data)
+
     # create reconstruction algorithm
     if config.reconstruction.method == "unrolled_fista":
         recon = UnrolledFISTA(
@@ -564,6 +592,14 @@ def train_unrolled(config):
             pre_process=pre_process if pre_proc_delay is None else None,
             post_process=post_process if post_proc_delay is None else None,
             skip_unrolled=config.reconstruction.skip_unrolled,
+            return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
+        ).to(device)
+    elif config.reconstruction.method == "trainable_inv":
+        recon = TrainableInversion(
+            psf,
+            K=config.reconstruction.trainable_inv.K,
+            pre_process=pre_process if pre_proc_delay is None else None,
+            post_process=post_process if post_proc_delay is None else None,
             return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
         ).to(device)
     else:
