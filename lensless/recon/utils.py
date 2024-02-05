@@ -91,7 +91,7 @@ def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference")
     image : :py:class:`torch.Tensor`
         Input image.
     noise_level : float or :py:class:`torch.Tensor`
-        Noise level in the image.
+        Noise level in the image within [0, 255].
     device : str
         Device to use for computation. Can be "cpu" or "cuda".
     mode : str
@@ -149,7 +149,8 @@ def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference")
 
 def get_drunet_function(model, device="cpu", mode="inference"):
     """
-    Return a porcessing function that applies the DruNet model to an image.
+    Return a processing function that applies the DruNet model to an image.
+    Legacy function to work with pre-trained models, use get_drunet_function_v2 instead.
 
     Parameters
     ----------
@@ -166,6 +167,35 @@ def get_drunet_function(model, device="cpu", mode="inference"):
         image = apply_denoiser(
             model,
             image,
+            noise_level=noise_level,
+            device=device,
+            mode=mode,
+        )
+        image = torch.clip(image, min=0.0) * x_max
+        return image
+
+    return process
+
+
+def get_drunet_function_v2(model, device="cpu", mode="inference"):
+    """
+    Return a processing function that applies the DruNet model to an image.
+
+    Parameters
+    ----------
+    model : :py:class:`torch.nn.Module`
+        DruNet like denoiser model
+    device : str
+        Device to use for computation. Can be "cpu" or "cuda".
+    mode : str
+        Mode to use for model. Can be "inference" or "train".
+    """
+
+    def process(image, noise_level):
+        x_max = torch.amax(image, dim=(-1, -2, -3, -4), keepdim=True) + 1e-6
+        image = apply_denoiser(
+            model,
+            image / x_max,
             noise_level=noise_level,
             device=device,
             mode=mode,

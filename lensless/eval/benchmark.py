@@ -9,6 +9,7 @@
 
 from lensless.utils.dataset import DiffuserCamTestDataset
 from lensless.utils.io import save_image
+from waveprop.noise import add_shot_noise
 from tqdm import tqdm
 import os
 import numpy as np
@@ -34,6 +35,8 @@ def benchmark(
     save_idx=None,
     output_dir=None,
     unrolled_output_factor=False,
+    return_average=True,
+    snr=None,
     **kwargs,
 ):
     """
@@ -55,6 +58,12 @@ def benchmark(
         Directory to save the predictions, by default save in working directory if save_idx is provided.
     crop : dict, optional
         Dictionary of crop parameters (vertical: [start, end], horizontal: [start, end]), by default None (no crop).
+    unrolled_output_factor : bool, optional
+        If True, compute metrics for unrolled output, by default False.
+    return_average : bool, optional
+        If True, return the average value of the metrics, by default True.
+    snr : float, optional
+        Signal to noise ratio for adding shot noise. If None, no noise is added, by default None.
 
     Returns
     -------
@@ -86,12 +95,12 @@ def benchmark(
             "ReconstructionError": None,
         }
 
-    metrics_values = {key: 0.0 for key in metrics}
+    metrics_values = {key: [] for key in metrics}
     if unrolled_output_factor:
         output_metrics = metrics.keys()
         for key in output_metrics:
             if key != "ReconstructionError":
-                metrics_values[key + "_unrolled"] = 0.0
+                metrics_values[key + "_unrolled"] = []
 
     # loop over batches
     dataloader = DataLoader(dataset, batch_size=batchsize, pin_memory=(device != "cpu"))
@@ -100,6 +109,11 @@ def benchmark(
     for lensless, lensed in tqdm(dataloader):
         lensless = lensless.to(device)
         lensed = lensed.to(device)
+
+        # add shot noise
+        if snr is not None:
+            for i in range(lensless.shape[0]):
+                lensless[i] = add_shot_noise(lensless[i], float(snr))
 
         # compute predictions
         with torch.no_grad():
@@ -154,12 +168,12 @@ def benchmark(
         # compute metrics
         for metric in metrics:
             if metric == "ReconstructionError":
-                metrics_values[metric] += model.reconstruction_error().cpu().item()
+                metrics_values[metric].append(model.reconstruction_error().cpu().item())
             else:
                 if "LPIPS" in metric:
                     if prediction.shape[1] == 1:
                         # LPIPS needs 3 channels
-                        metrics_values[metric] += (
+                        metrics_values[metric].append(
                             metrics[metric](
                                 prediction.repeat(1, 3, 1, 1), lensed.repeat(1, 3, 1, 1)
                             )
@@ -167,9 +181,11 @@ def benchmark(
                             .item()
                         )
                     else:
-                        metrics_values[metric] += metrics[metric](prediction, lensed).cpu().item()
+                        metrics_values[metric].append(
+                            metrics[metric](prediction, lensed).cpu().item()
+                        )
                 else:
-                    metrics_values[metric] += metrics[metric](prediction, lensed).cpu().item()
+                    metrics_values[metric].append(metrics[metric](prediction, lensed).cpu().item())
 
         # compute metrics for unrolled output
         if unrolled_output_factor:
@@ -199,7 +215,7 @@ def benchmark(
                     if "LPIPS" in metric:
                         if unrolled_out.shape[1] == 1:
                             # LPIPS needs 3 channels
-                            metrics_values[metric] += (
+                            metrics_values[metric].append(
                                 metrics[metric](
                                     unrolled_out.repeat(1, 3, 1, 1), lensed.repeat(1, 3, 1, 1)
                                 )
@@ -207,11 +223,11 @@ def benchmark(
                                 .item()
                             )
                         else:
-                            metrics_values[metric + "_unrolled"] += (
+                            metrics_values[metric + "_unrolled"].append(
                                 metrics[metric](unrolled_out, lensed).cpu().item()
                             )
                     else:
-                        metrics_values[metric + "_unrolled"] += (
+                        metrics_values[metric + "_unrolled"].append(
                             metrics[metric](unrolled_out, lensed).cpu().item()
                         )
 
@@ -219,8 +235,9 @@ def benchmark(
         idx += batchsize
 
     # average metrics
-    for metric in metrics:
-        metrics_values[metric] /= len(dataloader)
+    if return_average:
+        for metric in metrics:
+            metrics_values[metric] = np.mean(metrics_values[metric])
 
     return metrics_values
 

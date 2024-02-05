@@ -66,6 +66,10 @@ admm:
   tau: 0.0001
   # PnP
   denoiser: null  # set to use PnP
+  # denoiser:
+  #   network: DruNet
+  #   noise_level: 10   # within [0, 255]
+  #   use_dual: False  # just for ADMM
   #Loading unrolled model
   unrolled: false
   checkpoint_fp: null

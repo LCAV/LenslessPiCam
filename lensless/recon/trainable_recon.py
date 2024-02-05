@@ -51,6 +51,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         post_process=None,
         skip_unrolled=False,
         return_unrolled_output=False,
+        legacy_denoiser=False,
         **kwargs,
     ):
         """
@@ -85,6 +86,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             psf, dtype=dtype, n_iter=n_iter, **kwargs
         )
 
+        self._legacy_denoiser = legacy_denoiser
         self.set_pre_process(pre_process)
         self.set_post_process(post_process)
         self.skip_unrolled = skip_unrolled
@@ -108,10 +110,17 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         """
         if isinstance(process, torch.nn.Module):
             # If the post_process is a torch module, we assume it is a DruNet like network.
-            from lensless.recon.utils import get_drunet_function
+            from lensless.recon.utils import get_drunet_function, get_drunet_function_v2
 
             process_model = process
-            process_function = get_drunet_function(process_model, self._psf.device, mode="train")
+            if self._legacy_denoiser:
+                process_function = get_drunet_function(
+                    process_model, self._psf.device, mode="train"
+                )
+            else:
+                process_function = get_drunet_function_v2(
+                    process_model, self._psf.device, mode="train"
+                )
         elif process is not None:
             # Otherwise, we assume it is a function.
             assert callable(process), "pre_process must be a callable function"
