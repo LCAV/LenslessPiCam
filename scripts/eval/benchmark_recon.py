@@ -104,45 +104,28 @@ def benchmark_recon(config):
         )
     if "ADMM_Monakhova2019" in config.algorithms:
         model_list.append(("ADMM_Monakhova2019", ADMM(psf, mu1=1e-4, mu2=1e-4, mu3=1e-4, tau=2e-3)))
-    if "ADMM_PnP_10" in config.algorithms:
+    if "ADMM_PnP" in config.algorithms:
         model_list.append(
             (
-                "ADMM_PnP_10",
+                "ADMM_PnP",
                 ADMM(
                     psf,
                     mu1=config.admm.mu1,
                     mu2=config.admm.mu2,
                     mu3=config.admm.mu3,
                     tau=config.admm.tau,
-                    denoiser={"network": "DruNet", "noise_level": 10, "use_dual": False},
+                    denoiser={"network": "DruNet", "noise_level": 30, "use_dual": False},
                 ),
             )
         )
-    if "ADMM_PnP_25" in config.algorithms:
+    if "FISTA_PnP" in config.algorithms:
         model_list.append(
             (
-                "ADMM_PnP_25",
-                ADMM(
+                "FISTA_PnP",
+                FISTA(
                     psf,
-                    mu1=config.admm.mu1,
-                    mu2=config.admm.mu2,
-                    mu3=config.admm.mu3,
-                    tau=config.admm.tau,
-                    denoiser={"network": "DruNet", "noise_level": 25, "use_dual": False},
-                ),
-            )
-        )
-    if "ADMM_PnP_50" in config.algorithms:
-        model_list.append(
-            (
-                "ADMM_PnP_50",
-                ADMM(
-                    psf,
-                    mu1=config.admm.mu1,
-                    mu2=config.admm.mu2,
-                    mu3=config.admm.mu3,
-                    tau=config.admm.tau,
-                    denoiser={"network": "DruNet", "noise_level": 50, "use_dual": False},
+                    tk=config.fista.tk,
+                    denoiser={"network": "DruNet", "noise_level": 30},
                 ),
             )
         )

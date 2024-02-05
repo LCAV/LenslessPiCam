@@ -1,0 +1,13 @@
+# python scripts/recon/admm.py -cn admm_pnp
+defaults:
+  - defaults_recon
+  - _self_
+
+torch: True
+torch_device: 'cuda:1'
+
+admm:
+  denoiser:
+    network: DruNet
+    noise_level: 0.05
+    use_dual: False

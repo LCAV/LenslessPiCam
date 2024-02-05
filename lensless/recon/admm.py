@@ -43,7 +43,7 @@ class ADMM(ReconstructionAlgorithm):
         psi_gram=None,
         pad=False,
         norm="backward",
-        # for PnP
+        # PnP
         denoiser=None,
         **kwargs
     ):
@@ -95,7 +95,7 @@ class ADMM(ReconstructionAlgorithm):
 
         # call reset() to initialize matrices
         self._proj = self._Psi
-        super(ADMM, self).__init__(psf, dtype, pad=pad, norm=norm, **kwargs)
+        super(ADMM, self).__init__(psf, dtype, pad=pad, norm=norm, denoiser=denoiser, **kwargs)
 
         # set prior
         if psi is None:
@@ -132,34 +132,7 @@ class ADMM(ReconstructionAlgorithm):
             ).astype(self._complex_dtype)
 
         # check denoiser for PnP
-        self._denoiser = denoiser
-        if denoiser is not None:
-            assert self.is_torch
-
-            import lensless.recon.utils
-
-            denoiser_model, _ = lensless.recon.utils.create_process_network(
-                network=denoiser["network"], device=self._psf.device
-            )
-
-            def denoiser_func(x, normalize_image=True):
-                torch.clip(x, min=0.0, out=x)
-
-                x_max = torch.amax(x, dim=(-2, -3), keepdim=True) + 1e-6
-                denoised = lensless.recon.utils.apply_denoiser(
-                    model=denoiser_model,
-                    # image=x / x_max,
-                    image=x / x_max if normalize_image else x,
-                    noise_level=denoiser["noise_level"],
-                    device=self._psf.device,
-                )
-                # denoised = torch.clip(denoised, min=0.0) * x_max.to(self._psf.device)
-                denoised = torch.clip(denoised, min=0.0)
-                if normalize_image:
-                    denoised = denoised * x_max.to(self._psf.device)
-                return denoised
-
-            self._denoiser = denoiser_func
+        if self._denoiser is not None:
             self._denoiser_use_dual = denoiser["use_dual"]
 
             # - need to reset with new projector
@@ -195,7 +168,13 @@ class ADMM(ReconstructionAlgorithm):
             # self._image_est = torch.zeros_like(self._psf)
             self._X = torch.zeros_like(self._image_est)
             # self._U = torch.zeros_like(self._Psi(self._image_est))
-            self._U = torch.zeros_like(self._proj(self._image_est))
+            if self._denoiser is not None:
+                # PnP
+                self._U = torch.zeros_like(
+                    self._denoiser(self._image_est, self._denoiser_noise_level)
+                )
+            else:
+                self._U = torch.zeros_like(self._proj(self._image_est))
             self._W = torch.zeros_like(self._X)
             if self._image_est.max():
                 # if non-zero
@@ -251,9 +230,10 @@ class ADMM(ReconstructionAlgorithm):
             if self._denoiser_use_dual:
                 self._U = self._denoiser(
                     self._U + self._eta / self._mu2,
+                    self._denoiser_noise_level,
                 )
             else:
-                self._U = self._denoiser(self._image_est)
+                self._U = self._denoiser(self._image_est, self._denoiser_noise_level)
         else:
             self._U = soft_thresh(
                 self._Psi_out + self._eta / self._mu2, thresh=self._tau / self._mu2
