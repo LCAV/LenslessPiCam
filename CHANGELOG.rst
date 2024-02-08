@@ -23,6 +23,13 @@ Added
 - Option to freeze/unfreeze/add pre- and post-processor components during training.
 - Option to skip unrolled training and just use U-Net.
 - Dataset objects for Adafruit LCD: measured CelebA and hardware-in-the-loop.
+- Option to add auxiliary loss from output of camera inversion.
+- Option to specify denoiser to iterative methods for plug-and-play.
+- Model repository of trained models in ``lensless.recon.model_dict``.
+- TrainableInversion component as in FlatNet.
+- ``lensless.recon.utils.get_drunet_function_v2`` which doesn't normalize each color channel.
+- Option to add noise to DiffuserCamMirflickr dataset.
+- Option to initialize pre- and post-processor with components from another model.
 
 Changed
 ~~~~~~~
