@@ -536,17 +536,19 @@ def load_data(
     return psf, data
 
 
-def save_image(img, fp, max_val=255):
+def save_image(img, fp, max_val=255, normalize=True):
     """Save as uint8 image."""
 
     img_tmp = img.copy()
 
-    if img_tmp.dtype == np.uint16:
+    if img_tmp.dtype == np.uint16 or img_tmp.dtype == np.uint8:
         img_tmp = img_tmp.astype(np.float32)
 
-    if img_tmp.dtype == np.float64 or img_tmp.dtype == np.float32:
+    if normalize:
         img_tmp -= img_tmp.min()
         img_tmp /= img_tmp.max()
+
+    if img_tmp.dtype == np.float64 or img_tmp.dtype == np.float32:
         img_tmp *= max_val
         img_tmp = img_tmp.astype(np.uint8)
 
