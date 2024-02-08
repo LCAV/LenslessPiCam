@@ -67,6 +67,7 @@ def admm(config):
         fig = plt.gcf()
         plt.close(fig)
 
+    # load model
     start_time = time.time()
     if not config.admm.unrolled:
         recon = ADMM(psf, **config.admm)

@@ -9,6 +9,7 @@
 
 from lensless.utils.dataset import DiffuserCamTestDataset
 from lensless.utils.io import save_image
+from waveprop.noise import add_shot_noise
 from tqdm import tqdm
 import os
 import numpy as np
@@ -33,6 +34,9 @@ def benchmark(
     crop=None,
     save_idx=None,
     output_dir=None,
+    unrolled_output_factor=False,
+    return_average=True,
+    snr=None,
     **kwargs,
 ):
     """
@@ -54,6 +58,12 @@ def benchmark(
         Directory to save the predictions, by default save in working directory if save_idx is provided.
     crop : dict, optional
         Dictionary of crop parameters (vertical: [start, end], horizontal: [start, end]), by default None (no crop).
+    unrolled_output_factor : bool, optional
+        If True, compute metrics for unrolled output, by default False.
+    return_average : bool, optional
+        If True, return the average value of the metrics, by default True.
+    snr : float, optional
+        Signal to noise ratio for adding shot noise. If None, no noise is added, by default None.
 
     Returns
     -------
@@ -84,7 +94,13 @@ def benchmark(
             "SSIM": StructuralSimilarityIndexMeasure().to(device),
             "ReconstructionError": None,
         }
-    metrics_values = {key: 0.0 for key in metrics}
+
+    metrics_values = {key: [] for key in metrics}
+    if unrolled_output_factor:
+        output_metrics = metrics.keys()
+        for key in output_metrics:
+            if key != "ReconstructionError":
+                metrics_values[key + "_unrolled"] = []
 
     # loop over batches
     dataloader = DataLoader(dataset, batch_size=batchsize, pin_memory=(device != "cpu"))
@@ -94,14 +110,25 @@ def benchmark(
         lensless = lensless.to(device)
         lensed = lensed.to(device)
 
+        # add shot noise
+        if snr is not None:
+            for i in range(lensless.shape[0]):
+                lensless[i] = add_shot_noise(lensless[i], float(snr))
+
         # compute predictions
         with torch.no_grad():
             if batchsize == 1:
                 model.set_data(lensless)
-                prediction = model.apply(plot=False, save=False, **kwargs)
+                prediction = model.apply(
+                    plot=False, save=False, output_intermediate=unrolled_output_factor, **kwargs
+                )
 
             else:
                 prediction = model.batch_call(lensless, **kwargs)
+
+        if unrolled_output_factor:
+            unrolled_out = prediction[-1]
+            prediction = prediction[0]
 
         # Convert to [N*D, C, H, W] for torchmetrics
         prediction = prediction.reshape(-1, *prediction.shape[-3:]).movedim(-1, -3)
@@ -137,15 +164,16 @@ def benchmark(
             print("Warning: prediction is zero")
         lensed_max = torch.amax(lensed, dim=(1, 2, 3), keepdim=True)
         lensed = lensed / lensed_max
+
         # compute metrics
         for metric in metrics:
             if metric == "ReconstructionError":
-                metrics_values[metric] += model.reconstruction_error().cpu().item()
+                metrics_values[metric].append(model.reconstruction_error().cpu().item())
             else:
                 if "LPIPS" in metric:
                     if prediction.shape[1] == 1:
                         # LPIPS needs 3 channels
-                        metrics_values[metric] += (
+                        metrics_values[metric].append(
                             metrics[metric](
                                 prediction.repeat(1, 3, 1, 1), lensed.repeat(1, 3, 1, 1)
                             )
@@ -153,16 +181,63 @@ def benchmark(
                             .item()
                         )
                     else:
-                        metrics_values[metric] += metrics[metric](prediction, lensed).cpu().item()
+                        metrics_values[metric].append(
+                            metrics[metric](prediction, lensed).cpu().item()
+                        )
                 else:
-                    metrics_values[metric] += metrics[metric](prediction, lensed).cpu().item()
+                    metrics_values[metric].append(metrics[metric](prediction, lensed).cpu().item())
+
+        # compute metrics for unrolled output
+        if unrolled_output_factor:
+
+            # -- convert to CHW and remove depth
+            unrolled_out = unrolled_out.reshape(-1, *unrolled_out.shape[-3:]).movedim(-1, -3)
+
+            # -- extraction region of interest
+            if crop is not None:
+                unrolled_out = unrolled_out[
+                    ...,
+                    crop["vertical"][0] : crop["vertical"][1],
+                    crop["horizontal"][0] : crop["horizontal"][1],
+                ]
+
+            # -- normalization
+            unrolled_out_max = torch.amax(unrolled_out, dim=(-1, -2, -3), keepdim=True)
+            if torch.all(unrolled_out_max != 0):
+                unrolled_out = unrolled_out / unrolled_out_max
+
+            # -- compute metrics
+            for metric in metrics:
+                if metric == "ReconstructionError":
+                    # only have this for final output
+                    continue
+                else:
+                    if "LPIPS" in metric:
+                        if unrolled_out.shape[1] == 1:
+                            # LPIPS needs 3 channels
+                            metrics_values[metric].append(
+                                metrics[metric](
+                                    unrolled_out.repeat(1, 3, 1, 1), lensed.repeat(1, 3, 1, 1)
+                                )
+                                .cpu()
+                                .item()
+                            )
+                        else:
+                            metrics_values[metric + "_unrolled"].append(
+                                metrics[metric](unrolled_out, lensed).cpu().item()
+                            )
+                    else:
+                        metrics_values[metric + "_unrolled"].append(
+                            metrics[metric](unrolled_out, lensed).cpu().item()
+                        )
 
         model.reset()
         idx += batchsize
 
     # average metrics
-    for metric in metrics:
-        metrics_values[metric] /= len(dataloader)
+    if return_average:
+        for metric in metrics:
+            metrics_values[metric] = np.mean(metrics_values[metric])
 
     return metrics_values
 

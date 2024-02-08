@@ -17,6 +17,7 @@ files:
   downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
   test_size: 0.15
 
+  input_snr: null    # adding shot noise at input (for measured dataset) at this SNR in dB
   vertical_shift: null
   horizontal_shift: null
   crop: null
@@ -46,6 +47,9 @@ reconstruction:
   # Method: unrolled_admm, unrolled_fista
   method: unrolled_admm
   skip_unrolled: False
+  init_processors: null   # model name
+  init_pre: True   # if `init_processors`, set pre-procesor is available
+  init_post: True   # if `init_processors`, set post-procesor is available
 
   # Hyperparameters for each method
   unrolled_fista: # for unrolled_fista
@@ -61,6 +65,8 @@ reconstruction:
     mu2: 1e-4
     mu3: 1e-4
     tau: 2e-4
+  trainable_inv:
+    K: 1e-4
   pre_process: 
     network : null  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
@@ -126,7 +132,7 @@ training:
   skip_NAN: True
   clip_grad: 1.0
 
-  crop_preloss: True # crop region for computing loss
+  crop_preloss: False  # crop region for computing loss, files.crop should be set
 
 optimizer:
   type: Adam
@@ -140,3 +146,4 @@ optimizer:
 loss: 'l2'
 # set lpips to false to deactivate. Otherwise, give the weigth for the loss (the main loss l2/l1 always having a weigth of 1)
 lpips: 1.0
+unrolled_output_factor: False   # whether to account for unrolled output in loss (there must post-processor)

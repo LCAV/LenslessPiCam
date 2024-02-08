@@ -38,7 +38,7 @@ from hydra.utils import get_original_cwd
 import os
 import numpy as np
 import time
-from lensless import UnrolledFISTA, UnrolledADMM
+from lensless import UnrolledFISTA, UnrolledADMM, TrainableInversion
 from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     SimulatedFarFieldDataset,
@@ -366,6 +366,7 @@ def train_unrolled(config):
             dataset_dir=original_path,
             psf_path=psf_path,
             downsample=config.files.downsample,
+            input_snr=config.files.input_snr,
         )
         dataset.psf = dataset.psf.to(device)
         # train-test split as in https://waller-lab.github.io/LenslessLearning/dataset.html
@@ -404,6 +405,7 @@ def train_unrolled(config):
             horizontal_shift=config.files.horizontal_shift,
             simulation_config=config.simulation,
             crop=config.files.crop,
+            input_snr=config.files.input_snr,
         )
         crop = dataset.crop
         dataset.psf = dataset.psf.to(device)
@@ -486,6 +488,7 @@ def train_unrolled(config):
 
                 # -- plot lensed and res on top of each other
                 if config.training.crop_preloss:
+                    assert crop is not None
 
                     res_np = res_np[
                         crop["vertical"][0] : crop["vertical"][1],
@@ -511,7 +514,7 @@ def train_unrolled(config):
 
     start_time = time.time()
 
-    # Load pre process model
+    # Load pre-process model
     pre_process, pre_process_name = create_process_network(
         config.reconstruction.pre_process.network,
         config.reconstruction.pre_process.depth,
@@ -519,7 +522,8 @@ def train_unrolled(config):
         device=device,
     )
     pre_proc_delay = config.reconstruction.pre_process.delay
-    # Load post process model
+
+    # Load post-process model
     post_process, post_process_name = create_process_network(
         config.reconstruction.post_process.network,
         config.reconstruction.post_process.depth,
@@ -536,6 +540,34 @@ def train_unrolled(config):
                 param.requires_grad = False
             # print(name, param.requires_grad, param.numel())
 
+    # initialize pre- and post processor with another model
+    if config.reconstruction.init_processors is not None:
+        from lensless.recon.model_dict import load_model, model_dict
+
+        model_orig = load_model(
+            model_dict["diffusercam"]["mirflickr"][config.reconstruction.init_processors],
+            psf=psf,
+            device=device,
+        )
+
+        # -- replace pre-process
+        if config.reconstruction.init_pre:
+            params1 = model_orig.pre_process_model.named_parameters()
+            params2 = pre_process.named_parameters()
+            dict_params2 = dict(params2)
+            for name1, param1 in params1:
+                if name1 in dict_params2:
+                    dict_params2[name1].data.copy_(param1.data)
+
+        # -- replace post-process
+        if config.reconstruction.init_post:
+            params1_post = model_orig.post_process_model.named_parameters()
+            params2_post = post_process.named_parameters()
+            dict_params2_post = dict(params2_post)
+            for name1, param1 in params1_post:
+                if name1 in dict_params2_post:
+                    dict_params2_post[name1].data.copy_(param1.data)
+
     # create reconstruction algorithm
     if config.reconstruction.method == "unrolled_fista":
         recon = UnrolledFISTA(
@@ -547,6 +579,7 @@ def train_unrolled(config):
             pre_process=pre_process if pre_proc_delay is None else None,
             post_process=post_process if post_proc_delay is None else None,
             skip_unrolled=config.reconstruction.skip_unrolled,
+            return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
         ).to(device)
     elif config.reconstruction.method == "unrolled_admm":
         recon = UnrolledADMM(
@@ -559,6 +592,15 @@ def train_unrolled(config):
             pre_process=pre_process if pre_proc_delay is None else None,
             post_process=post_process if post_proc_delay is None else None,
             skip_unrolled=config.reconstruction.skip_unrolled,
+            return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
+        ).to(device)
+    elif config.reconstruction.method == "trainable_inv":
+        recon = TrainableInversion(
+            psf,
+            K=config.reconstruction.trainable_inv.K,
+            pre_process=pre_process if pre_proc_delay is None else None,
+            post_process=post_process if post_proc_delay is None else None,
+            return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
         ).to(device)
     else:
         raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
@@ -606,6 +648,7 @@ def train_unrolled(config):
         post_process_freeze=config.reconstruction.post_process.freeze,
         post_process_unfreeze=config.reconstruction.post_process.unfreeze,
         clip_grad=config.training.clip_grad,
+        unrolled_output_factor=config.unrolled_output_factor,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)

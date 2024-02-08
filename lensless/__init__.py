@@ -28,6 +28,7 @@ try:
     from .recon.trainable_recon import TrainableReconstructionAlgorithm
     from .recon.unrolled_admm import UnrolledADMM
     from .recon.unrolled_fista import UnrolledFISTA
+    from .recon.trainable_inversion import TrainableInversion
 except Exception:
     pass
 

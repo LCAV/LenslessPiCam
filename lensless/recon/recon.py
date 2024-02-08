@@ -198,7 +198,15 @@ class ReconstructionAlgorithm(abc.ABC):
     """
 
     def __init__(
-        self, psf, dtype=None, pad=True, n_iter=100, initial_est=None, reset=True, **kwargs
+        self,
+        psf,
+        dtype=None,
+        pad=True,
+        n_iter=100,
+        initial_est=None,
+        reset=True,
+        denoiser=None,
+        **kwargs,
     ):
         """
         Base constructor. Derived constructor may define new state variables
@@ -226,6 +234,14 @@ class ReconstructionAlgorithm(abc.ABC):
             reset : bool, optional
                 Whether to reset state variables in the base constructor. Defaults to True.
                 If False, you should call reset() at one point to initialize state variables.
+            denoiser : dict, optional
+                Dictionary defining a denoiser for plug-and-play. Must contain the following keys:
+
+                * ``"network"``: model to use as a denoiser.
+                * ``"noise_level"``: noise level of the denoiser.
+
+                If provided, the denoiser will be used as a projection function at each iteration.
+                Defaults to None.
         """
         super().__init__()
         self.is_torch = False
@@ -283,6 +299,22 @@ class ReconstructionAlgorithm(abc.ABC):
         else:
             self._initial_est = None
         self._data = None
+
+        self._denoiser = None
+        if denoiser is not None:
+            assert self.is_torch
+            assert "network" in denoiser.keys()
+            assert "noise_level" in denoiser.keys()
+
+            from lensless.recon.utils import get_drunet_function_v2, load_drunet
+
+            device = self._psf.device
+            if denoiser["network"] == "DruNet":
+                denoiser_model = load_drunet(requires_grad=False).to(device)
+                self._denoiser = get_drunet_function_v2(denoiser_model, device, mode="inference")
+            else:
+                raise NotImplementedError(f"Unsupported denoiser: {denoiser['network']}")
+            self._denoiser_noise_level = denoiser["noise_level"]
 
         if reset:
             self.reset()
@@ -462,6 +494,7 @@ class ReconstructionAlgorithm(abc.ABC):
         gamma=None,
         ax=None,
         reset=True,
+        **kwargs,
     ):
         """
         Method for performing iterative reconstruction. Note that `set_data`

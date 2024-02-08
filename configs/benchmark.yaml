@@ -14,7 +14,7 @@ device: "cuda"
 # numbers of iterations to benchmark
 n_iter_range: [5, 10, 20, 50, 100, 200, 300]
 # number of files to benchmark
-n_files: 200    # null for all files
+n_files: null    # null for all files
 #How much should the image be downsampled
 downsample: 2
 #algorithm to benchmark
