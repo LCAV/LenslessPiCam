@@ -22,7 +22,6 @@ import os
 import glob
 from lensless.utils.io import save_image
 import cv2
-import PIL
 from datasets import Dataset, DatasetDict, Image
 from huggingface_hub import upload_file
 from lensless.utils.dataset import natural_sort
