@@ -1,12 +1,14 @@
 """
 Apply ADMM reconstruction to folder.
 
+
 ```
 python scripts/recon/dataset.py
 ```
 
 To run APGD, use the following command:
 ```
+# (first-time): pip install git+https://github.com/matthieumeo/pycsou.git@38e9929c29509d350a7ff12c514e2880fdc99d6e
 python scripts/recon/dataset.py algo=apgd
 ```
 
@@ -21,13 +23,11 @@ import hydra
 from hydra.utils import to_absolute_path
 import os
 import time
-import numpy as np
 from lensless.utils.io import load_psf, load_image, save_image
 from lensless import ADMM
 import torch
 import glob
 from tqdm import tqdm
-from lensless.recon.apgd import APGD
 from joblib import Parallel, delayed
 
 
@@ -93,6 +93,8 @@ def admm_dataset(config):
 
     # -- apply reconstruction
     if algo == "apgd":
+
+        from lensless.recon.apgd import APGD
 
         start_time = time.time()
 
