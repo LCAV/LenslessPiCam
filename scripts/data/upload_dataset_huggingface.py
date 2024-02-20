@@ -125,6 +125,21 @@ def upload_dataset(config):
             )
     dataset_dict.push_to_hub(repo_id, token=hf_token)
 
+    upload_file(
+        path_or_fileobj=lensless_files[0],
+        path_in_repo="lensless_example.png",
+        repo_id=repo_id,
+        repo_type="dataset",
+        token=hf_token,
+    )
+    upload_file(
+        path_or_fileobj=lensed_files[0],
+        path_in_repo="lensed_example.png",
+        repo_id=repo_id,
+        repo_type="dataset",
+        token=hf_token,
+    )
+
     # total time in minutes
     print(f"Total time: {(time.time() - start_time) / 60} minutes")
 

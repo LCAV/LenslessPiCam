@@ -21,3 +21,5 @@ files:
   psf_measured: "/home/bezzam/LenslessPiCam/data/psf/adafruit_random_2mm_20231907.png"
   psf_simulated: "/home/bezzam/LenslessPiCam/data/psf/adafruit_random_pattern_20230719_SIM_psf.png"
   mask_pattern: "/home/bezzam/LenslessPiCam/data/psf/adafruit_random_pattern_20230719.npy"
+  mug_in_the_wild_12cm: "/home/bezzam/LenslessPiCam/data/raw_data/adafruit_mug_12cm_july21.png"
+  psf_12cm: "/home/bezzam/LenslessPiCam/data/psf/adafruit_psf_2mm_12p5cm_july21.png"
