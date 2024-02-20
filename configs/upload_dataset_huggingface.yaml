@@ -1,0 +1,23 @@
+# python scripts/data/upload_dataset_huggingface.py
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+repo_id: "bezzam/DigiCam-CelebA-10K"
+hf_token: null
+n_files: null
+test_size: 0.15
+
+lensless:
+  dir: "/scratch/bezzam/celeba_adafruit_random_2mm_20230720_10K"
+  ext: ".png"
+
+lensed:
+  dir: "/scratch/bezzam/celeba/img_align_celeba"
+  ext: ".jpg"
+  celeba_attr: "/scratch/bezzam/celeba/list_attr_celeba.txt"
+
+files:
+  psf_measured: "/home/bezzam/LenslessPiCam/data/psf/adafruit_random_2mm_20231907.png"
+  psf_simulated: "/home/bezzam/LenslessPiCam/data/psf/adafruit_random_pattern_20230719_SIM_psf.png"
+  mask_pattern: "/home/bezzam/LenslessPiCam/data/psf/adafruit_random_pattern_20230719.npy"
