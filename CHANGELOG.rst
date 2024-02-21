@@ -44,6 +44,7 @@ Bugfix
 - Fix bad train/test split for DiffuserCamMirflickr in unrolled training.
 - Resize utility.
 - Aperture, index to dimension conversion.
+- Submodule imports.
 
 
 1.0.5 - (2023-09-05)
