@@ -42,6 +42,8 @@ preprocess.data_dim=[48,64]
 Other hyperparameters for classification can be found in
 `configs/train_celeba_classifier.yaml`.
 
+# TODO: update with Hugging Face dataset: https://huggingface.co/datasets/bezzam/DigiCam-CelebA-10K
+
 """
 
 import warnings
