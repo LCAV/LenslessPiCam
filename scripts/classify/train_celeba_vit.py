@@ -4,7 +4,7 @@ Original tutorial: https://huggingface.co/blog/fine-tune-vit
 
 First, set-up HuggingFace libraries:
 ```
-pip install datasets transformers
+pip install datasets transformers[torch] scikit-learn tensorboardX
 ```
 
 Raw measurement datasets can be download from SwitchDrive.
@@ -41,6 +41,8 @@ preprocess.data_dim=[48,64]
 
 Other hyperparameters for classification can be found in
 `configs/train_celeba_classifier.yaml`.
+
+# TODO: update with Hugging Face dataset: https://huggingface.co/datasets/bezzam/DigiCam-CelebA-10K
 
 """
 
@@ -197,19 +199,13 @@ def train_celeba_classifier(config):
                 ratio=(0.9, 1.1),
             )
         )
-    _train_transforms.append(
-        Resize(size),
-        CenterCrop(size),
-    )
+    _train_transforms += [Resize(size), CenterCrop(size)]
     if config.augmentation.horizontal_flip:
         if config.data.raw:
             warnings.warn("Horizontal flip is not supported for raw data, Skipping!")
         else:
             _train_transforms.append(RandomHorizontalFlip())
-    _train_transforms.append(
-        ToTensor(),
-        normalize,
-    )
+    _train_transforms += [ToTensor(), normalize]
     _train_transforms = Compose(_train_transforms)
 
     _val_transforms = Compose(

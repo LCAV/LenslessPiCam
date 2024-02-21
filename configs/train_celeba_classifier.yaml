@@ -12,7 +12,7 @@ data:
   
   # -- raw
   # https://drive.switch.ch/index.php/s/m89D1tFEfktQueS
-  measured: data/celeba_adafruit_random_2mm_20230720_10K
+  measured: /scratch/bezzam/celeba_adafruit_random_2mm_20230720_10K
   raw: True
 
   # # -- reconstructed

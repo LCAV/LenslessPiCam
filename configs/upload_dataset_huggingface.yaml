@@ -1,0 +1,20 @@
+# python scripts/data/upload_dataset_huggingface.py
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+repo_id: null
+hf_token: null
+n_files: null
+test_size: 0.15
+
+lensless:
+  dir: null
+  ext: null
+
+lensed:
+  dir: null
+  ext: null
+
+# additional files to upload to root folder
+files: null
