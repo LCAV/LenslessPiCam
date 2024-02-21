@@ -13,12 +13,12 @@ Unreleased
 Added
 ~~~~~
 
-- Nothing
+- Script to upload measured datasets to Hugging Face: ``scripts/data/upload_dataset_huggingface.py``
 
 Changed
 ~~~~~
 
-- Nothing
+- Dataset reconstruction script uses datasets from Hugging Face: ``scripts/recon/dataset.py``
 
 Bugfix
 ~~~~~
