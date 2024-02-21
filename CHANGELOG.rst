@@ -13,6 +13,24 @@ Unreleased
 Added
 ~~~~~
 
+- Nothing
+
+Changed
+~~~~~
+
+- Nothing
+
+Bugfix
+~~~~~
+
+- Nothing
+
+1.0.6 - (2024-02-21)
+--------------------
+
+Added
+~~~~~
+
 - Trainable reconstruction can return intermediate outputs (between pre- and post-processing).
 - Auto-download for DRUNet model.
 - ``utils.dataset.DiffuserCamMirflickr`` helper class for Mirflickr dataset.
