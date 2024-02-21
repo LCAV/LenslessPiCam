@@ -298,12 +298,13 @@ def extract(
         horizontal_crop = (0, estimate.shape[1])
 
     # crop and rotate estimate image
-    estimate = rotate(
-        estimate[vertical_crop[0] : vertical_crop[1], horizontal_crop[0] : horizontal_crop[1]],
-        angle=rotation,
-        mode="nearest",
-        reshape=False,
-    )
+    if rotation:
+        estimate = rotate(
+            estimate[vertical_crop[0] : vertical_crop[1], horizontal_crop[0] : horizontal_crop[1]],
+            angle=rotation,
+            mode="nearest",
+            reshape=False,
+        )
     estimate /= estimate.max()
     estimate = np.clip(estimate, 0, 1)
     if verbose:
