@@ -1,0 +1,21 @@
+# python scripts/data/upload_dataset_huggingface.py -cn upload_digicam_26k
+defaults:
+  - upload_dataset_huggingface
+  - _self_
+
+repo_id: "bezzam/DigiCam-CelebA-26K"
+test_size: 0.15
+
+lensless:
+  dir: "/scratch/bezzam/celeba/celeba_adafruit_random_30cm_2mm_20231004_26K"
+  ext: ".png"
+
+lensed:
+  dir: "/scratch/bezzam/celeba/img_align_celeba"
+  ext: ".jpg"
+  celeba_attr: "/scratch/bezzam/celeba/list_attr_celeba.txt"
+
+files:
+  psf_measured: "/home/bezzam/LenslessPiCam/rpi_hq_adafruit_psf_2mm/raw_data_rgb.png"
+  psf_simulated: "/home/bezzam/LenslessPiCam/outputs/2024-02-21/10-07-17/adafruit_random_pattern_20231004_174047_SIM_psf.png"
+  mask_pattern: "/home/bezzam/LenslessPiCam/adafruit_random_pattern_20231004_174047.npy"
