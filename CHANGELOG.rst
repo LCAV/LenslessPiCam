@@ -13,6 +13,24 @@ Unreleased
 Added
 ~~~~~
 
+- Nothing
+
+Changed
+~~~~~
+
+- Nothing
+
+Bugfix
+~~~~~
+
+- Nothing
+
+1.0.6 - (2024-02-21)
+--------------------
+
+Added
+~~~~~
+
 - Trainable reconstruction can return intermediate outputs (between pre- and post-processing).
 - Auto-download for DRUNet model.
 - ``utils.dataset.DiffuserCamMirflickr`` helper class for Mirflickr dataset.
@@ -44,6 +62,7 @@ Bugfix
 - Fix bad train/test split for DiffuserCamMirflickr in unrolled training.
 - Resize utility.
 - Aperture, index to dimension conversion.
+- Submodule imports.
 
 
 1.0.5 - (2023-09-05)
