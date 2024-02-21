@@ -20,6 +20,11 @@ LenslessPiCam
       :target: https://drive.google.com/drive/folders/1nBDsg86RaZIqQM6qD-612k9v8gDrgdwB?usp=drive_link
       :alt: notebooks
 
+.. image:: https://huggingface.co/datasets/huggingface/badges/resolve/main/powered-by-huggingface-dark.svg
+      :target: https://huggingface.co/bezzam
+      :alt: huggingface
+
+
 *A Hardware and Software Toolkit for Lensless Computational Imaging with a Raspberry Pi*
 -----------------------------------------------------------------------------------------
 
