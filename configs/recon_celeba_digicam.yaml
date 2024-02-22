@@ -1,0 +1,32 @@
+# python scripts/recon/dataset.py -cn recon_celeba_digicam
+defaults:
+  - recon_dataset
+  - _self_
+
+torch: True
+torch_device: 'cuda:0'
+
+repo_id: "bezzam/DigiCam-CelebA-10K"
+split: "test"    # "train", "test", "all"
+psf_fn: "psf_measured.png"    # in repo root
+n_files: 25    # null for all files
+
+preprocess:
+  flip_ud: True 
+  flip_lr: True
+  downsample: 6
+
+  # to have different data shape than PSF
+  data_dim: null
+  # data_dim: [48, 64]       # down 64
+  # data_dim: [506, 676]   # down 6
+
+algo: admm   # "admm", "apgd", "null" to just copy over (resized) raw data
+admm:
+  n_iter: 10
+
+# extraction region of interest
+# roi: null   # top, left, bottom, right
+# roi: [10, 300, 560, 705]  # down 4
+roi: [10, 190, 377, 490]   # down 6
+# roi: [5, 150, 280, 352]   # down 8

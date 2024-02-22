@@ -21,6 +21,7 @@ from tqdm import tqdm
 from lensless.recon.drunet.network_unet import UNetRes
 from lensless.utils.io import save_image
 from lensless.utils.plot import plot_image
+from lensless.utils.dataset import SimulatedDatasetTrainableMask
 
 
 def load_drunet(model_path=None, n_channels=3, requires_grad=False):
@@ -43,7 +44,8 @@ def load_drunet(model_path=None, n_channels=3, requires_grad=False):
     """
 
     if model_path is None:
-        model_path = os.path.join(get_original_cwd(), "models", "drunet_color.pth")
+        this_file_path = os.path.dirname(os.path.realpath(__file__))
+        model_path = os.path.join(this_file_path, "..", "..", "models", "drunet_color.pth")
         if not os.path.exists(model_path):
             try:
                 from torchvision.datasets.utils import download_url
@@ -90,7 +92,7 @@ def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference")
     image : :py:class:`torch.Tensor`
         Input image.
     noise_level : float or :py:class:`torch.Tensor`
-        Noise level in the image.
+        Noise level in the image within [0, 255].
     device : str
         Device to use for computation. Can be "cpu" or "cuda".
     mode : str
@@ -101,6 +103,9 @@ def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference")
     image : :py:class:`torch.Tensor`
         Reconstructed image.
     """
+    assert noise_level > 0
+    assert noise_level <= 255
+
     # convert from NDHWC to NCHW
     depth = image.shape[-4]
     image = image.movedim(-1, -3)
@@ -117,6 +122,7 @@ def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference")
         noise_level = noise_level / 255.0
     else:
         noise_level = torch.tensor([noise_level / 255.0]).to(device)
+
     image = torch.cat(
         (
             image,
@@ -144,7 +150,8 @@ def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference")
 
 def get_drunet_function(model, device="cpu", mode="inference"):
     """
-    Return a porcessing function that applies the DruNet model to an image.
+    Return a processing function that applies the DruNet model to an image.
+    Legacy function to work with pre-trained models, use get_drunet_function_v2 instead.
 
     Parameters
     ----------
@@ -161,6 +168,35 @@ def get_drunet_function(model, device="cpu", mode="inference"):
         image = apply_denoiser(
             model,
             image,
+            noise_level=noise_level,
+            device=device,
+            mode=mode,
+        )
+        image = torch.clip(image, min=0.0) * x_max
+        return image
+
+    return process
+
+
+def get_drunet_function_v2(model, device="cpu", mode="inference"):
+    """
+    Return a processing function that applies the DruNet model to an image.
+
+    Parameters
+    ----------
+    model : :py:class:`torch.nn.Module`
+        DruNet like denoiser model
+    device : str
+        Device to use for computation. Can be "cpu" or "cuda".
+    mode : str
+        Mode to use for model. Can be "inference" or "train".
+    """
+
+    def process(image, noise_level):
+        x_max = torch.amax(image, dim=(-1, -2, -3, -4), keepdim=True) + 1e-6
+        image = apply_denoiser(
+            model,
+            image / x_max,
             noise_level=noise_level,
             device=device,
             mode=mode,
@@ -193,7 +229,7 @@ def measure_gradient(model):
     return total_norm
 
 
-def create_process_network(network, depth, device="cpu", nc=None):
+def create_process_network(network, depth=4, device="cpu", nc=None):
     """
     Helper function to create a process network.
 
@@ -265,6 +301,7 @@ class Trainer:
         logger=None,
         crop=None,
         clip_grad=1.0,
+        unrolled_output_factor=False,
         # for adding components during training
         pre_process=None,
         pre_process_delay=None,
@@ -322,6 +359,8 @@ class Trainer:
             Logger to use for logging. If None, just print to terminal. Default is None.
         crop : dict, optional
             Crop to apply to images before computing loss (by applying a mask). If None, no crop is applied. Default is None.
+        unrolled_output_factor : float, optional
+            How much of the unrolled loss to add to the total loss. If False, no unrolled loss is added. Default is False. Only applicable if a post-processor is used.
         pre_process : :py:class:`torch.nn.Module`, optional
             Pre process component to add during training. Default is None.
         pre_process_delay : int, optional
@@ -355,19 +394,17 @@ class Trainer:
         self.pre_process_delay = pre_process_delay
         self.pre_process_freeze = pre_process_freeze
         self.pre_process_unfreeze = pre_process_unfreeze
+        self.pre_process_delay = pre_process_delay
         if pre_process_delay is not None:
             assert pre_process is not None
-        else:
-            self.pre_process_delay = -1
 
         self.post_process = post_process
         self.post_process_delay = post_process_delay
         self.post_process_freeze = post_process_freeze
         self.post_process_unfreeze = post_process_unfreeze
+        self.post_process_delay = post_process_delay
         if post_process_delay is not None:
             assert post_process is not None
-        else:
-            self.post_process_delay = -1
 
         assert train_dataset is not None
         if test_dataset is None:
@@ -391,12 +428,24 @@ class Trainer:
         self.skip_NAN = skip_NAN
         self.eval_batch_size = eval_batch_size
 
+        # check if Subset and if simulating dataset
+        self.simulated_dataset_trainable_mask = False
+        if isinstance(self.test_dataset, SimulatedDatasetTrainableMask):
+            # assuming the case for both training and testing
+            self.simulated_dataset_trainable_mask = True
+
         self.mask = mask
         if mask is not None:
             assert isinstance(mask, TrainableMask)
             self.use_mask = True
         else:
             self.use_mask = False
+        if self.use_mask:
+            # save original PSF
+            psf_np = self.mask.get_psf().detach().cpu().numpy()[0, ...]
+            psf_np = psf_np.squeeze()  # remove (potential) singleton color channel
+            np.save(os.path.join("psf_original.npy"), psf_np)
+            save_image(psf_np, os.path.join("psf_original.png"))
 
         self.l1_mask = l1_mask
         self.gamma = gamma
@@ -409,7 +458,7 @@ class Trainer:
         else:
             raise ValueError(f"Unsuported loss : {loss}")
 
-        # Lpips loss
+        # -- Lpips loss
         if lpips:
             try:
                 import lpips
@@ -422,6 +471,15 @@ class Trainer:
 
         self.crop = crop
 
+        # -- adding unrolled loss
+        self.unrolled_output_factor = unrolled_output_factor
+        if self.unrolled_output_factor:
+            assert self.unrolled_output_factor > 0
+            assert self.post_process is not None
+            assert self.post_process_delay is None
+            assert self.post_process_unfreeze is None
+            assert self.post_process_freeze is None
+
         # optimizer
         self.clip_grad_norm = clip_grad
         self.optimizer_config = optimizer
@@ -429,6 +487,7 @@ class Trainer:
 
         self.metrics = {
             "LOSS": [],  # train loss
+            "LOSS_TEST": [],  # test loss
             "MSE": [],
             "MAE": [],
             "LPIPS_Vgg": [],
@@ -444,6 +503,10 @@ class Trainer:
             if metric_for_best_model == "PSNR" or metric_for_best_model == "SSIM"
             else np.inf,
         }
+        if self.unrolled_output_factor:
+            # -- add unrolled metrics
+            for key in ["MSE", "MAE", "LPIPS_Vgg", "LPIPS_Alex", "PSNR", "SSIM"]:
+                self.metrics[key + "_unrolled"] = []
         if metric_for_best_model is not None:
             assert metric_for_best_model in self.metrics.keys()
         self.save_every = save_every
@@ -545,6 +608,10 @@ class Trainer:
 
             # forward pass
             y_pred = self.recon.batch_call(X.to(self.device))
+            if self.unrolled_output_factor:
+                unrolled_out = y_pred[1]
+                y_pred = y_pred[0]
+
             # normalizing each output
             eps = 1e-12
             y_pred_max = torch.amax(y_pred, dim=(-1, -2, -3), keepdim=True) + eps
@@ -554,14 +621,14 @@ class Trainer:
             y_max = torch.amax(y, dim=(-1, -2, -3), keepdim=True) + eps
             y = y / y_max
 
-            # BEFORE
+            # # BEFORE
             # self.optimizer.zero_grad(set_to_none=True)
 
             # convert to CHW for loss and remove depth
             y_pred = y_pred.reshape(-1, *y_pred.shape[-3:]).movedim(-1, -3)
             y = y.reshape(-1, *y.shape[-3:]).movedim(-1, -3)
 
-            # crop
+            # extraction region of interest for loss
             if self.crop is not None:
                 y_pred = y_pred[
                     ...,
@@ -575,6 +642,8 @@ class Trainer:
                 ]
 
             loss_v = self.Loss(y_pred, y)
+
+            # add LPIPS loss
             if self.lpips:
 
                 if y_pred.shape[1] == 1:
@@ -590,6 +659,41 @@ class Trainer:
                 for p in self.mask.parameters():
                     if p.requires_grad:
                         loss_v = loss_v + self.l1_mask * torch.mean(torch.abs(p))
+
+            if self.unrolled_output_factor:
+                # -- normalize
+                unrolled_out_max = torch.amax(unrolled_out, dim=(-1, -2, -3), keepdim=True) + eps
+                unrolled_out = unrolled_out / unrolled_out_max
+
+                # -- convert to CHW for loss and remove depth
+                unrolled_out = unrolled_out.reshape(-1, *unrolled_out.shape[-3:]).movedim(-1, -3)
+
+                # -- extraction region of interest for loss
+                if self.crop is not None:
+                    unrolled_out = unrolled_out[
+                        ...,
+                        self.crop["vertical"][0] : self.crop["vertical"][1],
+                        self.crop["horizontal"][0] : self.crop["horizontal"][1],
+                    ]
+
+                # -- compute unrolled output loss
+                loss_unrolled = self.Loss(unrolled_out, y)
+
+                # -- add LPIPS loss
+                if self.lpips:
+                    if unrolled_out.shape[1] == 1:
+                        # if only one channel, repeat for LPIPS
+                        unrolled_out = unrolled_out.repeat(1, 3, 1, 1)
+
+                    # value for LPIPS needs to be in range [-1, 1]
+                    loss_unrolled = loss_unrolled + self.lpips * torch.mean(
+                        self.Loss_lpips(2 * unrolled_out - 1, 2 * y - 1)
+                    )
+
+                # -- add unrolled loss to total loss
+                loss_v = loss_v + self.unrolled_output_factor * loss_unrolled
+
+            # backward pass
             loss_v.backward()
 
             # check mask parameters are learning
@@ -598,7 +702,8 @@ class Trainer:
                     assert p.grad is not None
 
             if self.clip_grad_norm is not None:
-                torch.nn.utils.clip_grad_norm_(self.mask.parameters(), self.clip_grad_norm)
+                if self.use_mask:
+                    torch.nn.utils.clip_grad_norm_(self.mask.parameters(), self.clip_grad_norm)
                 torch.nn.utils.clip_grad_norm_(self.recon.parameters(), self.clip_grad_norm)
 
             # if any gradient is NaN, skip training step
@@ -609,10 +714,11 @@ class Trainer:
                     if param.grad is not None and torch.isnan(param.grad).any():
                         recon_is_NAN = True
                         break
-                for param in self.mask.parameters():
-                    if param.grad is not None and torch.isnan(param.grad).any():
-                        mask_is_NAN = True
-                        break
+                if self.use_mask:
+                    for param in self.mask.parameters():
+                        if param.grad is not None and torch.isnan(param.grad).any():
+                            mask_is_NAN = True
+                            break
                 if recon_is_NAN or mask_is_NAN:
                     if recon_is_NAN:
                         self.print(
@@ -631,9 +737,9 @@ class Trainer:
             # update mask
             if self.use_mask:
                 self.mask.update_mask()
-                # NEW
-                self.train_dataloader.dataset.set_psf()
                 self.recon._set_psf(self.mask._psf)
+                if self.simulated_dataset_trainable_mask:
+                    self.train_dataloader.dataset.set_psf()
 
             mean_loss += (loss_v.item() - mean_loss) * (1 / i)
             pbar.set_description(f"loss : {mean_loss}")
@@ -662,7 +768,8 @@ class Trainer:
         # NEW
         if self.use_mask:
             with torch.no_grad():
-                self.test_dataset.set_psf()
+                if self.simulated_dataset_trainable_mask:
+                    self.test_dataset.set_psf()
 
         output_dir = None
         if disp is not None:
@@ -679,6 +786,7 @@ class Trainer:
             save_idx=disp,
             output_dir=output_dir,
             crop=self.crop,
+            unrolled_output_factor=self.unrolled_output_factor,
         )
 
         # update metrics with current metrics
@@ -697,13 +805,21 @@ class Trainer:
             if self.lpips is not None:
                 eval_loss += self.lpips * current_metrics["LPIPS_Vgg"]
             if self.use_mask and self.l1_mask:
-                for p in self.mask.parameters():
-                    if p.requires_grad:
-                        eval_loss += self.l1_mask * np.mean(np.abs(p.cpu().detach().numpy()))
-                # eval_loss += self.l1_mask * np.mean(np.abs(self.mask._mask.cpu().detach().numpy()))
-            return eval_loss
+                with torch.no_grad():
+                    for p in self.mask.parameters():
+                        if p.requires_grad:
+                            eval_loss += self.l1_mask * np.mean(np.abs(p.cpu().detach().numpy()))
+                    # eval_loss += self.l1_mask * np.mean(np.abs(self.mask._mask.cpu().detach().numpy()))
+            if self.unrolled_output_factor:
+                unrolled_loss = current_metrics["MSE_unrolled"]
+                if self.lpips is not None:
+                    unrolled_loss += self.lpips * current_metrics["LPIPS_Vgg_unrolled"]
+                eval_loss += self.unrolled_output_factor * unrolled_loss
         else:
-            return current_metrics[self.metrics["metric_for_best_model"]]
+            eval_loss = current_metrics[self.metrics["metric_for_best_model"]]
+
+        self.metrics["LOSS_TEST"].append(eval_loss)
+        return eval_loss
 
     def on_epoch_end(self, mean_loss, save_pt, epoch, disp=None):
         """
@@ -806,7 +922,7 @@ class Trainer:
             self.on_epoch_end(mean_loss, save_pt, epoch + 1, disp=disp)
             self.scheduler.step()
 
-        self.print(f"Train time : {time.time() - start_time} s")
+        self.print(f"Train time [hour] : {(time.time() - start_time) / 3600} h")
 
     def save(self, epoch, path="recon", include_optimizer=False):
         # create directory if it does not exist
@@ -817,13 +933,19 @@ class Trainer:
         if self.use_mask:
 
             for name, param in self.mask.named_parameters():
-
                 # save as numpy array
                 if param.requires_grad:
                     np.save(
                         os.path.join(path, f"mask{name}_epoch{epoch}.npy"),
                         param.cpu().detach().numpy(),
                     )
+            # # if color_filter is an attribute
+            # if hasattr(self.mask, "color_filter") and self.mask.color_filter is not None:
+            #     # save save numpy array
+            #     np.save(
+            #         os.path.join(path, f"mask_color_filter_epoch{epoch}.npy"),
+            #         self.mask.color_filter.cpu().detach().numpy(),
+            #     )
 
             torch.save(
                 self.mask._optimizer.state_dict(), os.path.join(path, f"mask_optim_epoch{epoch}.pt")
@@ -831,9 +953,22 @@ class Trainer:
 
             psf_np = self.mask.get_psf().detach().cpu().numpy()[0, ...]
             psf_np = psf_np.squeeze()  # remove (potential) singleton color channel
+            np.save(os.path.join(path, f"psf_epoch{epoch}.npy"), psf_np)
             save_image(psf_np, os.path.join(path, f"psf_epoch{epoch}.png"))
             plot_image(psf_np, gamma=self.gamma)
             plt.savefig(os.path.join(path, f"psf_epoch{epoch}_plot.png"))
+            if epoch == "BEST":
+                # save difference with original PSF
+                psf_original = np.load("psf_original.npy")
+                diff = psf_np - psf_original
+                np.save(os.path.join(path, "psf_epochBEST_diff.npy"), diff)
+                diff_abs = np.abs(diff)
+                save_image(diff_abs, os.path.join(path, "psf_epochBEST_diffabs.png"))
+                _, ax = plt.subplots()
+                im = ax.imshow(diff_abs, cmap="gray" if diff_abs.ndim == 2 else None)
+                plt.colorbar(im, ax=ax)
+                ax.set_title("Absolute difference with original PSF")
+                plt.savefig(os.path.join(path, "psf_epochBEST_diffabs_plot.png"))
 
         # save optimizer
         if include_optimizer:

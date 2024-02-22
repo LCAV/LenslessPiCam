@@ -83,6 +83,11 @@ class GradientDescent(ReconstructionAlgorithm):
         self._proj = proj
         super(GradientDescent, self).__init__(psf, dtype, **kwargs)
 
+        if self._denoiser is not None:
+            print("Using denoiser in gradient descent.")
+            # redefine projection function
+            self._proj = self._denoiser
+
     def reset(self):
         if self.is_torch:
             if self._initial_est is not None:
@@ -121,10 +126,13 @@ class GradientDescent(ReconstructionAlgorithm):
 
     def _update(self, iter):
         self._image_est -= self._alpha * self._grad()
-        self._image_est = self._proj(self._image_est)
+        self._image_est = self._form_image()
 
     def _form_image(self):
-        return self._proj(self._image_est)
+        if self._denoiser is not None:
+            return self._proj(self._image_est, self._denoiser_noise_level)
+        else:
+            return self._proj(self._image_est)
 
 
 class NesterovGradientDescent(GradientDescent):
@@ -171,7 +179,8 @@ class NesterovGradientDescent(GradientDescent):
         p_prev = self._p
         self._p = self._mu * self._p - self._alpha * self._grad()
         self._image_est += -self._mu * p_prev + (1 + self._mu) * self._p
-        self._image_est = self._proj(self._image_est)
+        # self._image_est = self._proj(self._image_est)
+        self._image_est = self._form_image()
 
 
 class FISTA(GradientDescent):
@@ -220,7 +229,8 @@ class FISTA(GradientDescent):
 
     def _update(self, iter):
         self._image_est -= self._alpha * self._grad()
-        xk = self._proj(self._image_est)
+        # xk = self._proj(self._image_est)
+        xk = self._form_image()
         tk = (1 + np.sqrt(1 + 4 * self._tk**2)) / 2
         self._image_est = xk + (self._tk - 1) / tk * (xk - self._xk)
         self._tk = tk

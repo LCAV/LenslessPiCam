@@ -33,7 +33,7 @@ sim:
   flipud: True
 
   # in practice found waveprop=True or False doesn't make difference
-  waveprop: True
+  waveprop: False
 
   # below are ignored if waveprop=False
   scene2mask: 0.3   # [m]

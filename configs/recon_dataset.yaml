@@ -6,42 +6,29 @@ defaults:
 torch: True
 torch_device: 'cuda:0'
 
-input:
-  # https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Fpsf
-  psf: data/psf/adafruit_random_2mm_20231907.png
-  # https://drive.switch.ch/index.php/s/m89D1tFEfktQueS
-  raw_data: data/celeba_adafruit_random_2mm_20230720_1K
-
+repo_id: "bezzam/DiffuserCam-Lensless-Mirflickr-Dataset"
+split: "test"    # "train", "test", "all"
+psf_fn: "psf.png"    # in repo root
+output_folder: null  # autocreate name if not spe
 n_files: 25    # null for all files
-output_folder: data/celeba_adafruit_recon
-
-# extraction region of interest
-roi: null   # top, left, bottom, right
-# -- values for `data/celeba_adafruit_random_2mm_20230720_1K`
-# roi: [10, 300, 560, 705]  # down 4
-# roi: [6, 200, 373, 470]   # down 6
-# roi: [5, 150, 280, 352]   # down 8
 
 preprocess:
-  flip: True
+  flip_ud: True 
+  flip_lr: False
   downsample: 6
-
   # to have different data shape than PSF
   data_dim: null
-  # data_dim: [48, 64]       # down 64
-  # data_dim: [506, 676]   # down 6
-
-display:
-  disp: -1
-  plot: False
 
 algo: admm   # "admm", "apgd", "null" to just copy over (resized) raw data
-
+admm:
+  n_iter: 100
 apgd:  
   n_jobs: 1    # run in parallel as algo is slow
   max_iter: 500
 
-admm:
-  n_iter: 10
+# extraction region of interest
+roi: null   # top, left, bottom, right
 
-save: False
+display:
+  disp: -1
+  plot: False

@@ -90,7 +90,7 @@ def benchmark_recon(config):
         raise ValueError(f"Dataset {dataset} not supported")
 
     print(f"Number of files : {len(benchmark_dataset)}")
-    print(f"Data shape :  {dataset[0][0].shape}")
+    print(f"Data shape :  {benchmark_dataset[0][0].shape}")
 
     model_list = []  # list of algoritms to benchmark
     if "ADMM" in config.algorithms:
@@ -108,6 +108,31 @@ def benchmark_recon(config):
         )
     if "ADMM_Monakhova2019" in config.algorithms:
         model_list.append(("ADMM_Monakhova2019", ADMM(psf, mu1=1e-4, mu2=1e-4, mu3=1e-4, tau=2e-3)))
+    if "ADMM_PnP" in config.algorithms:
+        model_list.append(
+            (
+                "ADMM_PnP",
+                ADMM(
+                    psf,
+                    mu1=config.admm.mu1,
+                    mu2=config.admm.mu2,
+                    mu3=config.admm.mu3,
+                    tau=config.admm.tau,
+                    denoiser={"network": "DruNet", "noise_level": 30, "use_dual": False},
+                ),
+            )
+        )
+    if "FISTA_PnP" in config.algorithms:
+        model_list.append(
+            (
+                "FISTA_PnP",
+                FISTA(
+                    psf,
+                    tk=config.fista.tk,
+                    denoiser={"network": "DruNet", "noise_level": 30},
+                ),
+            )
+        )
     if "FISTA" in config.algorithms:
         model_list.append(("FISTA", FISTA(psf, tk=config.fista.tk)))
     if "GradientDescent" in config.algorithms:
@@ -314,8 +339,7 @@ def benchmark_recon(config):
                     )
         plt.xlabel("Number of iterations", fontsize="12")
         plt.ylabel(metric, fontsize="12")
-        if metric == "ReconstructionError":
-            plt.legend(fontsize="12")
+        plt.legend(fontsize="12")
         plt.grid()
         plt.savefig(f"{metric}.png")
 

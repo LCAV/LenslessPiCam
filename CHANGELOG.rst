@@ -13,6 +13,24 @@ Unreleased
 Added
 ~~~~~
 
+- Script to upload measured datasets to Hugging Face: ``scripts/data/upload_dataset_huggingface.py``
+
+Changed
+~~~~~
+
+- Dataset reconstruction script uses datasets from Hugging Face: ``scripts/recon/dataset.py``
+
+Bugfix
+~~~~~
+
+- Nothing
+
+1.0.6 - (2024-02-21)
+--------------------
+
+Added
+~~~~~
+
 - Trainable reconstruction can return intermediate outputs (between pre- and post-processing).
 - Auto-download for DRUNet model.
 - ``utils.dataset.DiffuserCamMirflickr`` helper class for Mirflickr dataset.
@@ -23,6 +41,13 @@ Added
 - Option to freeze/unfreeze/add pre- and post-processor components during training.
 - Option to skip unrolled training and just use U-Net.
 - Dataset objects for Adafruit LCD: measured CelebA and hardware-in-the-loop.
+- Option to add auxiliary loss from output of camera inversion.
+- Option to specify denoiser to iterative methods for plug-and-play.
+- Model repository of trained models in ``lensless.recon.model_dict``.
+- TrainableInversion component as in FlatNet.
+- ``lensless.recon.utils.get_drunet_function_v2`` which doesn't normalize each color channel.
+- Option to add noise to DiffuserCamMirflickr dataset.
+- Option to initialize pre- and post-processor with components from another model.
 
 Changed
 ~~~~~~~
@@ -37,6 +62,7 @@ Bugfix
 - Fix bad train/test split for DiffuserCamMirflickr in unrolled training.
 - Resize utility.
 - Aperture, index to dimension conversion.
+- Submodule imports.
 
 
 1.0.5 - (2023-09-05)

@@ -47,8 +47,11 @@ class DualDataset(Dataset):
         # background_pix=(0, 15),
         downsample=1,
         flip=False,
+        flip_ud=False,
+        flip_lr=False,
         transform_lensless=None,
         transform_lensed=None,
+        input_snr=None,
         **kwargs,
     ):
         """
@@ -72,13 +75,18 @@ class DualDataset(Dataset):
             Transform to apply to the lensless images, by default ``None``. Note that this transform is applied on HWC images (different from torchvision).
         transform_lensed : PyTorch Transform or None, optional
             Transform to apply to the lensed images, by default ``None``. Note that this transform is applied on HWC images (different from torchvision).
+        input_snr : float, optional
+            If not ``None``, Poisson noise is added to the lensless images to match the given SNR.
         """
         if isinstance(indices, int):
             indices = range(indices)
         self.indices = indices
         self.background = background
+        self.input_snr = input_snr
         self.downsample = downsample
         self.flip = flip
+        self.flip_ud = flip_ud
+        self.flip_lr = flip_lr
         self.transform_lensless = transform_lensless
         self.transform_lensed = transform_lensed
 
@@ -147,10 +155,22 @@ class DualDataset(Dataset):
         if self.background is not None:
             lensless = lensless - self.background
 
+        # add noise
+        if self.input_snr is not None:
+            from waveprop.noise import add_shot_noise
+
+            lensless = add_shot_noise(lensless, self.input_snr)
+
         # flip image x and y if needed
         if self.flip:
             lensless = torch.rot90(lensless, dims=(-3, -2), k=2)
             lensed = torch.rot90(lensed, dims=(-3, -2), k=2)
+        if self.flip_ud:
+            lensless = torch.flip(lensless, dims=(-4, -3))
+            lensed = torch.flip(lensed, dims=(-4, -3))
+        if self.flip_lr:
+            lensless = torch.flip(lensless, dims=(-4, -2))
+            lensed = torch.flip(lensed, dims=(-4, -2))
         if self.transform_lensless:
             lensless = self.transform_lensless(lensless)
         if self.transform_lensed:
@@ -759,6 +779,8 @@ class DiffuserCamTestDataset(MeasuredDataset):
             return_float=True,
             return_bg=True,
             bg_pix=(0, 15),
+            flip_ud=True,
+            flip_lr=False,
         )
 
         # transform from BGR to RGB
@@ -777,6 +799,8 @@ class DiffuserCamTestDataset(MeasuredDataset):
             background=background,
             downsample=downsample,
             flip=False,
+            flip_ud=True,
+            flip_lr=False,
             transform_lensless=transform_BRG2RGB,
             transform_lensed=transform_BRG2RGB,
             lensless_fn="diffuser",
