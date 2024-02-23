@@ -18,7 +18,7 @@ Added
 - ``lensless.hardware.mask.MultiLensArray`` class for simulating multi-lens arrays.
 - ``lensless.hardware.trainable_mask.TrainableCodedAperture`` class for training a coded aperture mask pattern.
 - Support for other optimizers in ``lensless.utils.Trainer.set_optimizer``.
-
+- ``lensless.utils.dataset.simulate_dataset`` for simulating a dataset given a mask/PSF.
 
 Changed
 ~~~~~
