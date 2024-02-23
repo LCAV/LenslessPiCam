@@ -534,11 +534,6 @@ class Trainer:
 
     def set_optimizer(self, last_epoch=-1):
 
-        # if self.optimizer_config.type == "Adam":
-        #     parameters = [{"params": self.recon.parameters()}]
-        #     self.optimizer = torch.optim.Adam(parameters, lr=self.optimizer_config.lr)
-        # else:
-        #     raise ValueError(f"Unsupported optimizer : {self.optimizer_config.type}")
         parameters = [{"params": self.recon.parameters()}]
         self.optimizer = getattr(torch.optim, self.optimizer_config.type)(
             parameters, lr=self.optimizer_config.lr
@@ -600,11 +595,9 @@ class Trainer:
             X = X.to(self.device)
             y = y.to(self.device)
 
-            # BEFORE
-            # # update psf according to mask
-            # if self.use_mask:
-            #     new_psf = self.mask.get_psf().to(self.device)
-            #     self.recon._set_psf(new_psf)
+            # update psf according to mask
+            if self.use_mask:
+                self.recon._set_psf(self.mask.get_psf().to(self.device))
 
             # forward pass
             y_pred = self.recon.batch_call(X.to(self.device))
@@ -620,9 +613,6 @@ class Trainer:
             # normalizing y
             y_max = torch.amax(y, dim=(-1, -2, -3), keepdim=True) + eps
             y = y / y_max
-
-            # # BEFORE
-            # self.optimizer.zero_grad(set_to_none=True)
 
             # convert to CHW for loss and remove depth
             y_pred = y_pred.reshape(-1, *y_pred.shape[-3:]).movedim(-1, -3)
@@ -730,14 +720,11 @@ class Trainer:
                     continue
 
             self.optimizer.step()
-
-            # NEW
             self.optimizer.zero_grad(set_to_none=True)
 
             # update mask
             if self.use_mask:
                 self.mask.update_mask()
-                self.recon._set_psf(self.mask._psf)
                 if self.simulated_dataset_trainable_mask:
                     self.train_dataloader.dataset.set_psf()
 
@@ -765,11 +752,9 @@ class Trainer:
         if self.test_dataset is None:
             return
 
-        # NEW
-        if self.use_mask:
+        if self.use_mask and self.simulated_dataset_trainable_mask:
             with torch.no_grad():
-                if self.simulated_dataset_trainable_mask:
-                    self.test_dataset.set_psf()
+                self.test_dataset.set_psf()
 
         output_dir = None
         if disp is not None:
@@ -809,7 +794,6 @@ class Trainer:
                     for p in self.mask.parameters():
                         if p.requires_grad:
                             eval_loss += self.l1_mask * np.mean(np.abs(p.cpu().detach().numpy()))
-                    # eval_loss += self.l1_mask * np.mean(np.abs(self.mask._mask.cpu().detach().numpy()))
             if self.unrolled_output_factor:
                 unrolled_loss = current_metrics["MSE_unrolled"]
                 if self.lpips is not None:
@@ -841,7 +825,6 @@ class Trainer:
             save_pt = os.getcwd()
 
         # save model
-        # self.save(path=save_pt, include_optimizer=False)
         epoch_eval_metric = self.evaluate(mean_loss, save_pt, epoch, disp=disp)
         new_best = False
         if (
@@ -939,13 +922,6 @@ class Trainer:
                         os.path.join(path, f"mask{name}_epoch{epoch}.npy"),
                         param.cpu().detach().numpy(),
                     )
-            # # if color_filter is an attribute
-            # if hasattr(self.mask, "color_filter") and self.mask.color_filter is not None:
-            #     # save save numpy array
-            #     np.save(
-            #         os.path.join(path, f"mask_color_filter_epoch{epoch}.npy"),
-            #         self.mask.color_filter.cpu().detach().numpy(),
-            #     )
 
             torch.save(
                 self.mask._optimizer.state_dict(), os.path.join(path, f"mask_optim_epoch{epoch}.pt")

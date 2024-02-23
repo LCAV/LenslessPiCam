@@ -67,7 +67,6 @@ log = logging.getLogger(__name__)
 def simulate_dataset(config, generator=None):
 
     if "cuda" in config.torch_device and torch.cuda.is_available():
-        # if config.torch_device == "cuda" and torch.cuda.is_available():
         log.info("Using GPU for training.")
         device = config.torch_device
     else:

@@ -40,10 +40,6 @@ class TrainableMask(torch.nn.Module, metaclass=abc.ABCMeta):
             Learning rate for the mask parameters, by default 1e-3
         """
         super().__init__()
-        # self._param = [torch.nn.Parameter(p, requires_grad=True) for p in initial_param]
-        # # self._param = initial_param
-        # self._optimizer = getattr(torch.optim, optimizer)(self._param, lr=lr)
-        # self._counter = 0
         self._optimizer = optimizer
         self._lr = lr
         self._counter = 0
@@ -89,19 +85,12 @@ class TrainablePSF(TrainableMask):
         Otherwise PSF will be returned as RGB. By default False.
     """
 
-    def __init__(self, initial_psf, optimizer="Adam", lr=1e-3, grayscale=False, **kwargs):
+    def __init__(self, initial_psf, grayscale=False, **kwargs):
 
-        # BEFORE
-        super().__init__(optimizer, lr, **kwargs)
+        super().__init__(**kwargs)
         self._psf = torch.nn.Parameter(initial_psf)
         initial_param = [self._psf]
         self._set_optimizer(initial_param)
-
-        # # cast as learnable parameters
-        # super().__init__()
-        # self._psf = torch.nn.Parameter(initial_psf)
-        # self._optimizer = getattr(torch.optim, optimizer)([self._psf], lr=lr)
-        # self._counter = 0
 
         # checks
         assert len(initial_psf.shape) == 4, "Mask must be of shape (depth, height, width, channels)"
@@ -133,8 +122,6 @@ class AdafruitLCD(TrainableMask):
         initial_vals,
         sensor,
         slm,
-        optimizer="Adam",
-        lr=1e-3,
         train_mask_vals=True,
         color_filter=None,
         rotate=None,
@@ -163,8 +150,7 @@ class AdafruitLCD(TrainableMask):
             Whether to flip the mask vertically, by default False
         """
 
-        super().__init__(optimizer, lr, **kwargs)  # when using TrainableMask init
-        # super().__init__()  # when using torch.nn.Module
+        super().__init__(**kwargs)
 
         self.train_mask_vals = train_mask_vals
         if train_mask_vals:
@@ -184,8 +170,6 @@ class AdafruitLCD(TrainableMask):
             ), "If color filter is not trainable, mask values must be trainable"
 
         # set optimizer
-        # self._optimizer = getattr(torch.optim, optimizer)(initial_param, lr=lr)
-        # self._counter = 0
         self._set_optimizer(initial_param)
 
         self.slm_param = slm_dict[slm]
@@ -264,8 +248,6 @@ class TrainableCodedAperture(TrainableMask):
         downsample=None,
         binary=True,
         torch_device="cuda",
-        optimizer="Adam",
-        lr=1e-3,
         **kwargs,
     ):
         """
@@ -273,13 +255,12 @@ class TrainableCodedAperture(TrainableMask):
         """
 
         # 1) call base constructor so parameters can be set
-        super().__init__(optimizer, lr, **kwargs)
+        super().__init__(**kwargs)
 
         # 2) initialize mask
         assert "distance_sensor" in kwargs, "Distance to sensor must be specified"
         assert "method" in kwargs, "Method must be specified."
         assert "n_bits" in kwargs, "Number of bits must be specified."
-        # self._mask_obj = CodedAperture.from_sensor(sensor_name, downsample, is_torch=True, **kwargs)
         self._mask_obj = CodedAperture.from_sensor(
             sensor_name,
             downsample,
@@ -287,23 +268,22 @@ class TrainableCodedAperture(TrainableMask):
             torch_device=torch_device,
             **kwargs,
         )
-        self._mask = self._mask_obj.mask
 
         # 3) set learnable parameters (should be immediate attributes of the class)
         self._row = None
         self._col = None
-        self._vals = None
+        self._mask = None
         if self._mask_obj.row is not None:
-            # seperable
+            # separable
             self.separable = True
             self._row = torch.nn.Parameter(self._mask_obj.row)
             self._col = torch.nn.Parameter(self._mask_obj.col)
             initial_param = [self._row, self._col]
         else:
-            # non-seperable
+            # non-separable
             self.separable = False
-            self._vals = torch.nn.Parameter(self._mask_obj.mask)
-            initial_param = [self._vals]
+            self._mask = torch.nn.Parameter(self._mask_obj.mask)
+            initial_param = [self._mask]
         self.binary = binary
 
         # 4) set optimizer
@@ -314,14 +294,6 @@ class TrainableCodedAperture(TrainableMask):
         self.project()
 
     def get_psf(self):
-        # self._mask_obj.create_mask(self._row, self._col)
-        # self._mask_obj.compute_psf()
-        # psf = self._mask_obj.psf.unsqueeze(0)
-
-        # # # need normalize the PSF? would think so but NAN comes up if included
-        # # psf = psf / psf.norm()
-
-        # return psf
         return self._psf
 
     def project(self):
@@ -333,12 +305,12 @@ class TrainableCodedAperture(TrainableMask):
                     self._row.data = torch.round(self._row)
                     self._col.data = torch.round(self._col)
             else:
-                self._vals.data = torch.clamp(self._vals, 0, 1)
+                self._mask.data = torch.clamp(self._mask, 0, 1)
                 if self.binary:
-                    self._vals.data = torch.round(self._vals)
+                    self._mask.data = torch.round(self._mask)
 
         # recompute PSF
-        self._mask_obj.create_mask(self._row, self._col, mask=self._vals)
+        self._mask_obj.create_mask(self._row, self._col, mask=self._mask)
         self._mask_obj.compute_psf()
         self._psf = self._mask_obj.psf.unsqueeze(0)
         self._psf = self._psf / self._psf.norm()
@@ -426,7 +398,7 @@ def prep_trainable_mask(config, psf=None, downsample=None):
                     color_filter = slm_param[SLMParam_wp.COLOR_FILTER]
                     color_filter = torch.from_numpy(color_filter.copy()).to(dtype=torch.float32)
 
-                    # TODO: add small random values
+                    # TODO: add small random values?
                     color_filter = color_filter + 0.1 * torch.rand_like(color_filter)
 
             else:

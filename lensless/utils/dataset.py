@@ -862,14 +862,6 @@ class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
             psf = self._mask.get_psf()
         self.sim.set_point_spread_function(psf)
 
-    # def _get_images_pair(self, index):
-    #     # update psf
-    #     psf = self._mask.get_psf()
-    #     self.sim.set_point_spread_function(psf)
-
-    #     # return simulated images
-    #     return super()._get_images_pair(index)
-
 
 class HITLDatasetTrainableMask(SimulatedDatasetTrainableMask):
     """
