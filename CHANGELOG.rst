@@ -14,11 +14,17 @@ Added
 ~~~~~
 
 - Script to upload measured datasets to Hugging Face: ``scripts/data/upload_dataset_huggingface.py``
+- Pytorch support for simulating PSFs of masks.
+- ``lensless.hardware.mask.MultiLensArray`` class for simulating multi-lens arrays.
+- ``lensless.hardware.trainable_mask.TrainableCodedAperture`` class for training a coded aperture mask pattern.
+- Support for other optimizers in ``lensless.utils.Trainer.set_optimizer``.
+- ``lensless.utils.dataset.simulate_dataset`` for simulating a dataset given a mask/PSF.
 
 Changed
 ~~~~~
 
 - Dataset reconstruction script uses datasets from Hugging Face: ``scripts/recon/dataset.py``
+- For trainable masks, set trainable parameters inside the child class.
 
 Bugfix
 ~~~~~

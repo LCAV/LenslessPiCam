@@ -1,3 +1,4 @@
+# fine-tune mask for PSF, but don't re-simulate
 # python scripts/recon/train_unrolled.py -cn train_celeba_digicam_mask
 defaults:
   - train_celeba_digicam
@@ -78,7 +79,7 @@ trainable_mask:
   # horizontal_shift: -100  # [px]
 
 
-  initial_value: adafruit_random_pattern_20231004_174047.npy  
+  initial_value: /home/bezzam/LenslessPiCam/adafruit_random_pattern_20231004_174047.npy  
   ap_center: [58, 76]
   ap_shape: [19, 25]
   rotate: 0   # rotation in degrees

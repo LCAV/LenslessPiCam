@@ -552,7 +552,11 @@ def save_image(img, fp, max_val=255, normalize=True):
         img_tmp *= max_val
         img_tmp = img_tmp.astype(np.uint8)
 
-    img_tmp = Image.fromarray(img_tmp)
+    # RGB
+    if len(img_tmp.shape) == 3 and img_tmp.shape[2] == 3:
+        img_tmp = Image.fromarray(img_tmp)
+    else:
+        img_tmp = Image.fromarray(img_tmp.squeeze())
     img_tmp.save(fp)
 
 

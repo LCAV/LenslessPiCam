@@ -74,14 +74,16 @@ def benchmark_recon(config):
         psf = dataset.psf
         crop = dataset.crop
 
+        if config.n_files is not None:
+            dataset = Subset(dataset, np.arange(config.n_files))
+            dataset.psf = dataset.dataset.psf
+
         # train-test split
         train_size = int((1 - config.files.test_size) * len(dataset))
         test_size = len(dataset) - train_size
         _, benchmark_dataset = torch.utils.data.random_split(
             dataset, [train_size, test_size], generator=generator
         )
-        if config.n_files is not None:
-            benchmark_dataset = Subset(benchmark_dataset, np.arange(config.n_files))
     else:
         raise ValueError(f"Dataset {dataset} not supported")
 

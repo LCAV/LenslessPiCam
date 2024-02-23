@@ -21,6 +21,7 @@ from tqdm import tqdm
 from lensless.recon.drunet.network_unet import UNetRes
 from lensless.utils.io import save_image
 from lensless.utils.plot import plot_image
+from lensless.utils.dataset import SimulatedDatasetTrainableMask
 
 
 def load_drunet(model_path=None, n_channels=3, requires_grad=False):
@@ -427,12 +428,24 @@ class Trainer:
         self.skip_NAN = skip_NAN
         self.eval_batch_size = eval_batch_size
 
+        # check if Subset and if simulating dataset
+        self.simulated_dataset_trainable_mask = False
+        if isinstance(self.test_dataset, SimulatedDatasetTrainableMask):
+            # assuming the case for both training and testing
+            self.simulated_dataset_trainable_mask = True
+
         self.mask = mask
         if mask is not None:
             assert isinstance(mask, TrainableMask)
             self.use_mask = True
         else:
             self.use_mask = False
+        if self.use_mask:
+            # save original PSF
+            psf_np = self.mask.get_psf().detach().cpu().numpy()[0, ...]
+            psf_np = psf_np.squeeze()  # remove (potential) singleton color channel
+            np.save(os.path.join("psf_original.npy"), psf_np)
+            save_image(psf_np, os.path.join("psf_original.png"))
 
         self.l1_mask = l1_mask
         self.gamma = gamma
@@ -521,11 +534,10 @@ class Trainer:
 
     def set_optimizer(self, last_epoch=-1):
 
-        if self.optimizer_config.type == "Adam":
-            parameters = [{"params": self.recon.parameters()}]
-            self.optimizer = torch.optim.Adam(parameters, lr=self.optimizer_config.lr)
-        else:
-            raise ValueError(f"Unsupported optimizer : {self.optimizer_config.type}")
+        parameters = [{"params": self.recon.parameters()}]
+        self.optimizer = getattr(torch.optim, self.optimizer_config.type)(
+            parameters, lr=self.optimizer_config.lr
+        )
 
         # Scheduler
         if self.optimizer_config.slow_start:
@@ -602,7 +614,6 @@ class Trainer:
             y_max = torch.amax(y, dim=(-1, -2, -3), keepdim=True) + eps
             y = y / y_max
 
-            self.optimizer.zero_grad(set_to_none=True)
             # convert to CHW for loss and remove depth
             y_pred = y_pred.reshape(-1, *y_pred.shape[-3:]).movedim(-1, -3)
             y = y.reshape(-1, *y.shape[-3:]).movedim(-1, -3)
@@ -635,7 +646,9 @@ class Trainer:
                     self.Loss_lpips(2 * y_pred - 1, 2 * y - 1)
                 )
             if self.use_mask and self.l1_mask:
-                loss_v = loss_v + self.l1_mask * torch.mean(torch.abs(self.mask._mask))
+                for p in self.mask.parameters():
+                    if p.requires_grad:
+                        loss_v = loss_v + self.l1_mask * torch.mean(torch.abs(p))
 
             if self.unrolled_output_factor:
                 # -- normalize
@@ -673,25 +686,47 @@ class Trainer:
             # backward pass
             loss_v.backward()
 
+            # check mask parameters are learning
+            if self.use_mask:
+                for p in self.mask.parameters():
+                    assert p.grad is not None
+
             if self.clip_grad_norm is not None:
+                if self.use_mask:
+                    torch.nn.utils.clip_grad_norm_(self.mask.parameters(), self.clip_grad_norm)
                 torch.nn.utils.clip_grad_norm_(self.recon.parameters(), self.clip_grad_norm)
 
             # if any gradient is NaN, skip training step
             if self.skip_NAN:
-                is_NAN = False
+                recon_is_NAN = False
+                mask_is_NAN = False
                 for param in self.recon.parameters():
                     if param.grad is not None and torch.isnan(param.grad).any():
-                        is_NAN = True
+                        recon_is_NAN = True
                         break
-                if is_NAN:
-                    self.print("NAN detected in gradiant, skipping training step")
+                if self.use_mask:
+                    for param in self.mask.parameters():
+                        if param.grad is not None and torch.isnan(param.grad).any():
+                            mask_is_NAN = True
+                            break
+                if recon_is_NAN or mask_is_NAN:
+                    if recon_is_NAN:
+                        self.print(
+                            "NAN detected in reconstruction gradient, skipping training step"
+                        )
+                    if mask_is_NAN:
+                        self.print("NAN detected in mask gradient, skipping training step")
                     i += 1
                     continue
+
             self.optimizer.step()
+            self.optimizer.zero_grad(set_to_none=True)
 
             # update mask
             if self.use_mask:
                 self.mask.update_mask()
+                if self.simulated_dataset_trainable_mask:
+                    self.train_dataloader.dataset.set_psf()
 
             mean_loss += (loss_v.item() - mean_loss) * (1 / i)
             pbar.set_description(f"loss : {mean_loss}")
@@ -716,6 +751,10 @@ class Trainer:
         """
         if self.test_dataset is None:
             return
+
+        if self.use_mask and self.simulated_dataset_trainable_mask:
+            with torch.no_grad():
+                self.test_dataset.set_psf()
 
         output_dir = None
         if disp is not None:
@@ -751,7 +790,10 @@ class Trainer:
             if self.lpips is not None:
                 eval_loss += self.lpips * current_metrics["LPIPS_Vgg"]
             if self.use_mask and self.l1_mask:
-                eval_loss += self.l1_mask * np.mean(np.abs(self.mask._mask.cpu().detach().numpy()))
+                with torch.no_grad():
+                    for p in self.mask.parameters():
+                        if p.requires_grad:
+                            eval_loss += self.l1_mask * np.mean(np.abs(p.cpu().detach().numpy()))
             if self.unrolled_output_factor:
                 unrolled_loss = current_metrics["MSE_unrolled"]
                 if self.lpips is not None:
@@ -783,7 +825,6 @@ class Trainer:
             save_pt = os.getcwd()
 
         # save model
-        # self.save(path=save_pt, include_optimizer=False)
         epoch_eval_metric = self.evaluate(mean_loss, save_pt, epoch, disp=disp)
         new_best = False
         if (
@@ -870,24 +911,17 @@ class Trainer:
         # create directory if it does not exist
         if not os.path.exists(path):
             os.makedirs(path)
-        # save mask
+
+        # save mask parameters
         if self.use_mask:
-            # torch.save(self.mask._mask, os.path.join(path, f"mask_epoch{epoch}.pt"))
 
-            # save mask as numpy array
-            if self.mask.train_mask_vals:
-                np.save(
-                    os.path.join(path, f"mask_epoch{epoch}.npy"),
-                    self.mask._mask.cpu().detach().numpy(),
-                )
-
-            # if color_filter is an attribute
-            if hasattr(self.mask, "color_filter") and self.mask.color_filter is not None:
-                # save save numpy array
-                np.save(
-                    os.path.join(path, f"mask_color_filter_epoch{epoch}.npy"),
-                    self.mask.color_filter.cpu().detach().numpy(),
-                )
+            for name, param in self.mask.named_parameters():
+                # save as numpy array
+                if param.requires_grad:
+                    np.save(
+                        os.path.join(path, f"mask{name}_epoch{epoch}.npy"),
+                        param.cpu().detach().numpy(),
+                    )
 
             torch.save(
                 self.mask._optimizer.state_dict(), os.path.join(path, f"mask_optim_epoch{epoch}.pt")
@@ -899,9 +933,22 @@ class Trainer:
             save_image(psf_np, os.path.join(path, f"psf_epoch{epoch}.png"))
             plot_image(psf_np, gamma=self.gamma)
             plt.savefig(os.path.join(path, f"psf_epoch{epoch}_plot.png"))
+            if epoch == "BEST":
+                # save difference with original PSF
+                psf_original = np.load("psf_original.npy")
+                diff = psf_np - psf_original
+                np.save(os.path.join(path, "psf_epochBEST_diff.npy"), diff)
+                diff_abs = np.abs(diff)
+                save_image(diff_abs, os.path.join(path, "psf_epochBEST_diffabs.png"))
+                _, ax = plt.subplots()
+                im = ax.imshow(diff_abs, cmap="gray" if diff_abs.ndim == 2 else None)
+                plt.colorbar(im, ax=ax)
+                ax.set_title("Absolute difference with original PSF")
+                plt.savefig(os.path.join(path, "psf_epochBEST_diffabs_plot.png"))
 
         # save optimizer
         if include_optimizer:
             torch.save(self.optimizer.state_dict(), os.path.join(path, f"optim_epoch{epoch}.pt"))
+
         # save recon
         torch.save(self.recon.state_dict(), os.path.join(path, f"recon_epoch{epoch}"))
