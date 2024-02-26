@@ -29,7 +29,7 @@ Changed
 Bugfix
 ~~~~~
 
-- Nothing
+- ``lensless.hardware.trainable_mask.AdafruitLCD`` input handling.
 
 1.0.6 - (2024-02-21)
 --------------------
