@@ -14,7 +14,7 @@ import torch
 from abc import abstractmethod
 from torch.utils.data import Dataset, Subset
 from torchvision import datasets, transforms
-from lensless.hardware.trainable_mask import prep_trainable_mask
+from lensless.hardware.trainable_mask import prep_trainable_mask, AdafruitLCD
 from lensless.utils.simulation import FarFieldSimulator
 from lensless.utils.io import load_image, load_psf
 from lensless.utils.image import is_grayscale, resize, rgb2gray
@@ -22,6 +22,10 @@ import re
 from lensless.hardware.utils import capture
 from lensless.hardware.utils import display
 from lensless.hardware.slm import set_programmable_mask, adafruit_sub2full
+from datasets import load_dataset
+from huggingface_hub import hf_hub_download
+import cv2
+from lensless.hardware.sensor import sensor_dict, SensorParam
 
 
 def convert(text):
@@ -953,6 +957,115 @@ class HITLDatasetTrainableMask(SimulatedDatasetTrainableMask):
 
         # return simulated images (replace simulated with measured)
         return img, lensed
+
+
+class DigiCamMultiMask(DualDataset):
+    def __init__(
+        self,
+        huggingface_repo,
+        split,
+        display_res=None,
+        sensor="rpi_hq",
+        slm="adafruit",
+        rotate=False,
+        downsample=1,
+        alignment=None,
+        **kwargs,
+    ):
+
+        self.dataset = load_dataset(huggingface_repo, split=split)
+        self.rotate = rotate
+        self.display_res = display_res
+
+        # download all masks
+        mask_labels = []
+        for i in range(len(self.dataset)):
+            mask_labels.append(self.dataset[i]["mask_label"])
+        mask_labels = list(set(mask_labels))
+        self.psfs = dict()
+
+        # deduce downsampling factor from measurement
+        self.downsample_lensless = downsample
+        lensless = np.array(self.dataset[0]["lensless"])
+        if self.downsample_lensless != 1.0:
+            lensless = resize(lensless, factor=1 / self.downsample_lensless)
+        sensor_res = sensor_dict[sensor][SensorParam.RESOLUTION]
+        downsample_fact = sensor_res[0] / lensless.shape[0]
+
+        # deduce recon shape from original image
+        self.alignment = dict(alignment)
+        if alignment is not None:
+            self.alignment["topright"] = (
+                int(self.alignment["topright"][0] / downsample),
+                int(self.alignment["topright"][1] / downsample),
+            )
+            self.alignment["height"] = int(self.alignment["height"] / downsample)
+        if self.alignment is not None:
+            original_aspect_ratio = display_res[1] / display_res[0]
+            self.alignment["width"] = int(self.alignment["height"] * original_aspect_ratio)
+
+        # simulate all PSFs
+        for label in mask_labels:
+            mask_fp = hf_hub_download(
+                repo_id=huggingface_repo, filename=f"masks/mask_{label}.npy", repo_type="dataset"
+            )
+            mask_vals = np.load(mask_fp)
+            mask = AdafruitLCD(
+                initial_vals=torch.from_numpy(mask_vals.astype(np.float32)),
+                sensor=sensor,
+                slm=slm,
+                downsample=downsample_fact,
+                flipud=rotate,
+            )
+            self.psfs[label] = mask.get_psf().detach()
+            assert (
+                self.psfs[label].shape[-3:-1] == lensless.shape[:2]
+            ), "PSF shape should match lensless shape"
+
+        super(DigiCamMultiMask, self).__init__(**kwargs)
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def _get_images_pair(self, idx):
+
+        # load image
+        lensless_np = np.array(self.dataset[idx]["lensless"])
+        lensed_np = np.array(self.dataset[idx]["lensed"])
+
+        # convert to float
+        if lensless_np.dtype == np.uint8:
+            lensless_np = lensless_np.astype(np.float32) / 255
+            lensed_np = lensed_np.astype(np.float32) / 255
+        else:
+            # 16 bit
+            lensless_np = lensless_np.astype(np.float32) / 65535
+            lensed_np = lensed_np.astype(np.float32) / 65535
+
+        if self.downsample_lensless != 1.0:
+            lensless_np = resize(
+                lensless_np, factor=1 / self.downsample_lensless, interpolation=cv2.INTER_NEAREST
+            )
+
+        if self.alignment is not None:
+            lensed_np = resize(
+                lensed_np,
+                shape=(self.alignment["height"], self.alignment["width"]),
+                interpolation=cv2.INTER_NEAREST,
+            )
+        elif self.display_res is not None:
+            lensed_np = resize(lensed_np, shape=self.display_res, interpolation=cv2.INTER_NEAREST)
+
+        return lensless_np, lensed_np
+
+    def __getitem__(self, idx):
+        lensless, lensed = super().__getitem__(idx)
+        if self.rotate:
+            lensless = torch.rot90(lensless, dims=(-3, -2), k=2)
+
+        # return corresponding PSF
+        mask_label = self.dataset[idx]["mask_label"]
+        return lensless, lensed, self.psfs[mask_label]
 
 
 def simulate_dataset(config, generator=None):

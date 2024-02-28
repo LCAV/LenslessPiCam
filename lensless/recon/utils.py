@@ -300,6 +300,7 @@ class Trainer:
         gamma=None,
         logger=None,
         crop=None,
+        alignment=None,
         clip_grad=1.0,
         unrolled_output_factor=False,
         # for adding components during training
@@ -417,6 +418,10 @@ class Trainer:
             )
             self.print(f"Train size : {train_size}, Test size : {test_size}")
 
+        if hasattr(train_dataset, "psfs"):
+            self.multipsf_dataset = True
+        else:
+            self.multipsf_dataset = False
         self.train_dataloader = torch.utils.data.DataLoader(
             dataset=train_dataset,
             batch_size=batch_size,
@@ -470,6 +475,7 @@ class Trainer:
                 )
 
         self.crop = crop
+        self.alignment = alignment
 
         # -- adding unrolled loss
         self.unrolled_output_factor = unrolled_output_factor
@@ -590,7 +596,16 @@ class Trainer:
         mean_loss = 0.0
         i = 1.0
         pbar = tqdm(data_loader)
-        for X, y in pbar:
+        for batch in pbar:
+
+            # get batch
+            if self.multipsf_dataset:
+                X, y, psfs = batch
+                psfs = psfs.to(self.device)
+            else:
+                X, y = batch
+                psfs = None
+
             # send to device
             X = X.to(self.device)
             y = y.to(self.device)
@@ -600,7 +615,7 @@ class Trainer:
                 self.recon._set_psf(self.mask.get_psf().to(self.device))
 
             # forward pass
-            y_pred = self.recon.batch_call(X.to(self.device))
+            y_pred = self.recon.batch_call(X, psfs=psfs)
             if self.unrolled_output_factor:
                 unrolled_out = y_pred[1]
                 y_pred = y_pred[0]
@@ -619,7 +634,16 @@ class Trainer:
             y = y.reshape(-1, *y.shape[-3:]).movedim(-1, -3)
 
             # extraction region of interest for loss
-            if self.crop is not None:
+            if self.alignment is not None:
+                y_pred = y_pred[
+                    ...,
+                    self.alignment["topright"][0] : self.alignment["topright"][0]
+                    + self.alignment["height"],
+                    self.alignment["topright"][1] : self.alignment["topright"][1]
+                    + self.alignment["width"],
+                ]
+                # expected that lensed is also reshaped accordingly
+            elif self.crop is not None:
                 y_pred = y_pred[
                     ...,
                     self.crop["vertical"][0] : self.crop["vertical"][1],
@@ -771,6 +795,7 @@ class Trainer:
             save_idx=disp,
             output_dir=output_dir,
             crop=self.crop,
+            alignment=self.alignment,
             unrolled_output_factor=self.unrolled_output_factor,
         )
 

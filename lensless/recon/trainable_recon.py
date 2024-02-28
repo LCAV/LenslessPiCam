@@ -9,6 +9,7 @@ import pathlib as plib
 from matplotlib import pyplot as plt
 from lensless.recon.recon import ReconstructionAlgorithm
 from lensless.utils.plot import plot_image
+from lensless.recon.rfft_convolve import RealFFTConvolve2D
 
 try:
     import torch
@@ -191,7 +192,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             for param in self.post_process_model.parameters():
                 param.requires_grad = True
 
-    def batch_call(self, batch):
+    def batch_call(self, batch, psfs=None):
         """
         Method for performing iterative reconstruction on a batch of images.
         This implementation is a properly vectorized implementation of FISTA.
@@ -199,6 +200,8 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         Parameters
         ----------
         batch : :py:class:`~torch.Tensor` of shape (batch, depth, channels, height, width)
+            The lensless images to reconstruct.
+        psfs : :py:class:`~torch.Tensor` of shape (batch, depth, channels, height, width)
             The lensless images to reconstruct.
 
         Returns
@@ -209,6 +212,11 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         self._data = batch
         assert len(self._data.shape) == 5, "batch must be of shape (N, D, C, H, W)"
         batch_size = batch.shape[0]
+        if psfs is not None:
+            # assert same shape
+            assert psfs.shape == batch.shape, "psfs must have the same shape as batch"
+            # -- update convolver
+            self._convolver = RealFFTConvolve2D(psfs.to(self._psf.device), **self._convolver_param)
 
         # pre process data
         if self.pre_process is not None:

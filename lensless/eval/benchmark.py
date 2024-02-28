@@ -32,6 +32,7 @@ def benchmark(
     batchsize=1,
     metrics=None,
     crop=None,
+    alignment=False,
     save_idx=None,
     output_dir=None,
     unrolled_output_factor=False,
@@ -58,6 +59,8 @@ def benchmark(
         Directory to save the predictions, by default save in working directory if save_idx is provided.
     crop : dict, optional
         Dictionary of crop parameters (vertical: [start, end], horizontal: [start, end]), by default None (no crop).
+    alignment : dict, optional
+        Similar to crop. Dictionary of alignment parameters (topright: [height, width], height: pix). Expects ``recon_width`` in ``dataset``. By default None (no alignment).
     unrolled_output_factor : bool, optional
         If True, compute metrics for unrolled output, by default False.
     return_average : bool, optional
@@ -72,6 +75,11 @@ def benchmark(
     """
     assert isinstance(model._psf, torch.Tensor), "model need to be constructed with torch support"
     device = model._psf.device
+
+    if hasattr(dataset, "psfs"):
+        multipsf_dataset = True
+    else:
+        multipsf_dataset = False
 
     if output_dir is None:
         output_dir = os.getcwd()
@@ -107,7 +115,14 @@ def benchmark(
     model.reset()
     idx = 0
     with torch.no_grad():
-        for lensless, lensed in tqdm(dataloader):
+        for batch in tqdm(dataloader):
+            if multipsf_dataset:
+                lensless, lensed, psfs = batch
+                psfs = psfs.to(device)
+            else:
+                lensless, lensed = batch
+                psfs = None
+
             lensless = lensless.to(device)
             lensed = lensed.to(device)
 
@@ -118,13 +133,15 @@ def benchmark(
 
             # compute predictions
             if batchsize == 1:
+                # TODO : handle multipsf
+                assert not multipsf_dataset
                 model.set_data(lensless)
                 prediction = model.apply(
                     plot=False, save=False, output_intermediate=unrolled_output_factor, **kwargs
                 )
 
             else:
-                prediction = model.batch_call(lensless, **kwargs)
+                prediction = model.batch_call(lensless, psfs, **kwargs)
 
             if unrolled_output_factor:
                 unrolled_out = prediction[-1]
@@ -134,7 +151,14 @@ def benchmark(
             prediction = prediction.reshape(-1, *prediction.shape[-3:]).movedim(-1, -3)
             lensed = lensed.reshape(-1, *lensed.shape[-3:]).movedim(-1, -3)
 
-            if crop is not None:
+            if alignment is not None:
+                prediction = prediction[
+                    ...,
+                    alignment["topright"][0] : alignment["topright"][0] + alignment["height"],
+                    alignment["topright"][1] : alignment["topright"][1] + alignment["width"],
+                ]
+                # expected that lensed is also reshaped accordingly
+            elif crop is not None:
                 prediction = prediction[
                     ...,
                     crop["vertical"][0] : crop["vertical"][1],

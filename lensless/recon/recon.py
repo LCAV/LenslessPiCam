@@ -285,6 +285,7 @@ class ReconstructionAlgorithm(abc.ABC):
             else:
                 raise ValueError(f"Unsupported dtype : {self._dtype}")
 
+        self._convolver_param = {"dtype": dtype, "pad": pad, **kwargs}
         self._convolver = RealFFTConvolve2D(psf, dtype=dtype, pad=pad, **kwargs)
         self._padded_shape = self._convolver._padded_shape
 
@@ -445,8 +446,9 @@ class ReconstructionAlgorithm(abc.ABC):
         psf : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
             PSF to set.
         """
-        assert len(psf.shape) == 4, "PSF must be 4D: (depth, height, width, channels)."
-        assert psf.shape[3] == 3 or psf.shape[3] == 1, "PSF must either be rgb (3) or grayscale (1)"
+        assert (
+            psf.shape[-1] == 3 or psf.shape[-1] == 1
+        ), "PSF must either be rgb (3) or grayscale (1)"
         assert self._psf.shape == psf.shape, "new PSF must have same shape as old PSF"
         assert isinstance(psf, type(self._psf)), "new PSF must have same type as old PSF"
 

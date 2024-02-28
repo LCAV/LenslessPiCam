@@ -159,18 +159,18 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         self._eta = torch.zeros_like(self._U)
         self._rho = torch.zeros_like(self._X)
 
-        # precompute_R_divmat
+        # precompute_R_divmat [iter, batch, depth, height, width, channels]
         self._R_divmat = 1.0 / (
-            self._mu1[:, None, None, None, None]
-            * (torch.abs(self._convolver._Hadj * self._convolver._H))
-            + self._mu2[:, None, None, None, None] * torch.abs(self._PsiTPsi)
-            + self._mu3[:, None, None, None, None]
+            self._mu1[:, None, None, None, None, None]
+            * (torch.abs(self._convolver._Hadj * self._convolver._H))[None, ...]
+            + self._mu2[:, None, None, None, None, None] * torch.abs(self._PsiTPsi)
+            + self._mu3[:, None, None, None, None, None]
         ).type(self._complex_dtype)
 
-        # precompute_X_divmat
+        # precompute_X_divmat [iter, batch, depth, height, width, channels]
         self._X_divmat = 1.0 / (
-            self._convolver._pad(torch.ones_like(self._psf[None, ...]))
-            + self._mu1[:, None, None, None, None]
+            self._convolver._pad(torch.ones_like(self._convolver._psf))[None, ...]
+            + self._mu1[:, None, None, None, None, None]
         )
 
     def _U_update(self, iter):

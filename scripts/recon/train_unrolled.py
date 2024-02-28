@@ -43,6 +43,7 @@ from lensless import UnrolledFISTA, UnrolledADMM, TrainableInversion
 from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     DigiCamCelebA,
+    DigiCamMultiMask,
 )
 from torch.utils.data import Subset
 from lensless.recon.utils import create_process_network
@@ -92,6 +93,7 @@ def train_unrolled(config):
     test_set = None
     psf = None
     crop = None
+    mask = None
     if "DiffuserCam" in config.files.dataset:
 
         original_path = os.path.join(get_original_cwd(), config.files.dataset)
@@ -190,6 +192,27 @@ def train_unrolled(config):
         log.info(f"PSF dtype : {psf.dtype}")
         log.info(f"PSF norm : {psf.norm()}")
 
+    elif config.files.huggingface_dataset is True:
+
+        train_set = DigiCamMultiMask(
+            huggingface_repo=config.files.dataset,
+            split="train",
+            display_res=config.files.image_res,
+            rotate=config.files.rotate,
+            downsample=config.files.downsample,
+            alignment=config.alignment,
+        )
+        test_set = DigiCamMultiMask(
+            huggingface_repo=config.files.dataset,
+            split="test",
+            display_res=config.files.image_res,
+            rotate=config.files.rotate,
+            downsample=config.files.downsample,
+            alignment=config.alignment,
+        )
+        first_psf_key = list(train_set.psfs.keys())[0]
+        psf = train_set.psfs[first_psf_key].to(device)
+
     else:
 
         train_set, test_set, mask = simulate_dataset(config, generator=generator)
@@ -197,7 +220,8 @@ def train_unrolled(config):
         crop = train_set.crop
 
     assert train_set is not None
-    assert psf is not None
+    if not hasattr(test_set, "psfs"):
+        assert psf is not None
 
     # reconstruct lensless with ADMM
     with torch.no_grad():
@@ -207,7 +231,12 @@ def train_unrolled(config):
 
             for i, _idx in enumerate(config.test_idx):
 
-                lensless, lensed = test_set[_idx]
+                if hasattr(test_set, "psfs"):
+                    # multimask
+                    lensless, lensed, psf = test_set[_idx]
+                    psf = psf.to(device)
+                else:
+                    lensless, lensed = test_set[_idx]
                 recon = ADMM(psf)
 
                 recon.set_data(lensless.to(psf.device))
@@ -221,7 +250,17 @@ def train_unrolled(config):
                 save_image(lensless_np, f"lensless_raw_{_idx}.png")
 
                 # -- plot lensed and res on top of each other
-                if config.training.crop_preloss:
+                cropped = False
+                if test_set.alignment is not None:
+                    top_right = test_set.alignment["topright"]
+                    height = test_set.alignment["height"]
+                    width = test_set.alignment["width"]
+                    res_np = res_np[
+                        top_right[0] : top_right[0] + height, top_right[1] : top_right[1] + width
+                    ]
+                    cropped = True
+
+                elif config.training.crop_preloss:
                     assert crop is not None
 
                     res_np = res_np[
@@ -232,8 +271,10 @@ def train_unrolled(config):
                         crop["vertical"][0] : crop["vertical"][1],
                         crop["horizontal"][0] : crop["horizontal"][1],
                     ]
-                    if i == 0:
-                        log.info(f"Cropped shape :  {res_np.shape}")
+                    cropped = True
+
+                if cropped and i == 0:
+                    log.info(f"Cropped shape :  {res_np.shape}")
 
                 save_image(res_np, f"lensless_recon_{_idx}.png")
                 save_image(lensed_np, f"lensed_{_idx}.png")
@@ -383,6 +424,7 @@ def train_unrolled(config):
         post_process_unfreeze=config.reconstruction.post_process.unfreeze,
         clip_grad=config.training.clip_grad,
         unrolled_output_factor=config.unrolled_output_factor,
+        alignment=test_set.alignment if hasattr(test_set, "alignment") else None,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)
