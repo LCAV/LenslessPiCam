@@ -1050,7 +1050,7 @@ class DigiCamMultiMask(DualDataset):
         if self.alignment is not None:
             lensed_np = resize(
                 lensed_np,
-                shape=(self.alignment["height"], self.alignment["width"]),
+                shape=(self.alignment["height"], self.alignment["width"], 3),
                 interpolation=cv2.INTER_NEAREST,
             )
         elif self.display_res is not None:
