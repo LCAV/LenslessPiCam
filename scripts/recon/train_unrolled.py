@@ -59,6 +59,14 @@ import matplotlib.pyplot as plt
 log = logging.getLogger(__name__)
 
 
+class MyDataParallel(torch.nn.DataParallel):
+    def __getattr__(self, name):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.module, name)
+
+
 @hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
 def train_unrolled(config):
 
@@ -80,13 +88,19 @@ def train_unrolled(config):
     if save:
         save = os.getcwd()
 
+    use_cuda = False
     if "cuda" in config.torch_device and torch.cuda.is_available():
         # if config.torch_device == "cuda" and torch.cuda.is_available():
         log.info("Using GPU for training.")
         device = config.torch_device
+        use_cuda = True
     else:
         log.info("Using CPU for training.")
         device = "cpu"
+    # device, use_cuda, multi_gpu, device_ids = device_checks(
+    #     config.torch_device, config.multi_gpu, logger=log.info,
+    # )
+    device_ids = config.device_ids
 
     # load dataset and create dataloader
     train_set = None
@@ -355,7 +369,7 @@ def train_unrolled(config):
             post_process=post_process if post_proc_delay is None else None,
             skip_unrolled=config.reconstruction.skip_unrolled,
             return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
-        ).to(device)
+        )
     elif config.reconstruction.method == "unrolled_admm":
         recon = UnrolledADMM(
             psf,
@@ -368,7 +382,7 @@ def train_unrolled(config):
             post_process=post_process if post_proc_delay is None else None,
             skip_unrolled=config.reconstruction.skip_unrolled,
             return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
-        ).to(device)
+        )
     elif config.reconstruction.method == "trainable_inv":
         recon = TrainableInversion(
             psf,
@@ -376,9 +390,14 @@ def train_unrolled(config):
             pre_process=pre_process if pre_proc_delay is None else None,
             post_process=post_process if post_proc_delay is None else None,
             return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
-        ).to(device)
+        )
     else:
         raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
+
+    if device_ids is not None:
+        recon = MyDataParallel(recon, device_ids=device_ids)
+    if use_cuda:
+        recon.to(device)
 
     # constructing algorithm name by appending pre and post process
     algorithm_name = config.reconstruction.method

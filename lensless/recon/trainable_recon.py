@@ -3,6 +3,7 @@
 # ==================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
+# Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
 import pathlib as plib
@@ -192,7 +193,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             for param in self.post_process_model.parameters():
                 param.requires_grad = True
 
-    def batch_call(self, batch, psfs=None):
+    def forward(self, batch, psfs=None):
         """
         Method for performing iterative reconstruction on a batch of images.
         This implementation is a properly vectorized implementation of FISTA.
@@ -216,7 +217,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             # assert same shape
             assert psfs.shape == batch.shape, "psfs must have the same shape as batch"
             # -- update convolver
-            self._convolver = RealFFTConvolve2D(psfs.to(self._psf.device), **self._convolver_param)
+            self._convolver = RealFFTConvolve2D(psfs.to(self._data.device), **self._convolver_param)
 
         # pre process data
         if self.pre_process is not None:

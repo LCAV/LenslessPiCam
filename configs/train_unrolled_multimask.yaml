@@ -3,11 +3,15 @@ defaults:
   - train_unrolledADMM
   - _self_
 
+
+torch_device: 'cuda:0'
+device_ids: [0, 1, 2, 3]
+
 # Dataset
 files:
-  dataset: bezzam/DigiCam-Mirflickr-MultiMask-1K
+  dataset: bezzam/DigiCam-Mirflickr-MultiMask-10K
   huggingface_dataset: True
-  downsample: 1.6
+  downsample: 1
   image_res: [900, 1200]  # used during measurement
   rotate: True   # if measurement is upside-down
 
@@ -19,5 +23,5 @@ alignment:
 training:
   batch_size: 4
   epoch: 25
-  eval_batch_size: 10
+  eval_batch_size: 16
 

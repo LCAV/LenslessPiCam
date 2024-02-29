@@ -615,7 +615,7 @@ class Trainer:
                 self.recon._set_psf(self.mask.get_psf().to(self.device))
 
             # forward pass
-            y_pred = self.recon.batch_call(X, psfs=psfs)
+            y_pred = self.recon.forward(X, psfs=psfs)
             if self.unrolled_output_factor:
                 unrolled_out = y_pred[1]
                 y_pred = y_pred[0]

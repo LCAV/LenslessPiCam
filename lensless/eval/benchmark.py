@@ -141,11 +141,12 @@ def benchmark(
                 )
 
             else:
-                prediction = model.batch_call(lensless, psfs, **kwargs)
+                prediction = model.forward(lensless, psfs, **kwargs)
 
             if unrolled_output_factor:
                 unrolled_out = prediction[-1]
                 prediction = prediction[0]
+            prediction_original = prediction.clone()
 
             # Convert to [N*D, C, H, W] for torchmetrics
             prediction = prediction.reshape(-1, *prediction.shape[-3:]).movedim(-1, -3)
@@ -192,7 +193,13 @@ def benchmark(
             # compute metrics
             for metric in metrics:
                 if metric == "ReconstructionError":
-                    metrics_values[metric].append(model.reconstruction_error().cpu().item())
+                    metrics_values[metric].append(
+                        model.reconstruction_error(
+                            prediction=prediction_original, lensless=lensless
+                        )
+                        .cpu()
+                        .item()
+                    )
                 else:
                     if "LPIPS" in metric:
                         if prediction.shape[1] == 1:
