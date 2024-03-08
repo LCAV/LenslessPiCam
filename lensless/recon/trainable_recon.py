@@ -213,15 +213,23 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         self._data = batch
         assert len(self._data.shape) == 5, "batch must be of shape (N, D, C, H, W)"
         batch_size = batch.shape[0]
+
         if psfs is not None:
             # assert same shape
             assert psfs.shape == batch.shape, "psfs must have the same shape as batch"
             # -- update convolver
             self._convolver = RealFFTConvolve2D(psfs.to(self._data.device), **self._convolver_param)
+        elif self._data.device != self._convolver._H.device:
+            # need for multi-GPU... TODO better solution?
+            self._convolver = RealFFTConvolve2D(
+                self._psf.to(self._data.device), **self._convolver_param
+            )
 
         # pre process data
         if self.pre_process is not None:
+            device_before = self._data.device
             self._data = self.pre_process(self._data, self.pre_process_param)
+            self._data = self._data.to(device_before)
 
         self.reset(batch_size=batch_size)
 
