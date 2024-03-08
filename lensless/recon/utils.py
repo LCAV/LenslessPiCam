@@ -117,11 +117,10 @@ def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference")
     right = (8 - image.shape[-1] % 8) - left
     image = torch.nn.functional.pad(image, (left, right, top, bottom), mode="constant", value=0)
     # add noise level as extra channel
-    image = image.to(device)
     if isinstance(noise_level, torch.Tensor):
         noise_level = noise_level / 255.0
     else:
-        noise_level = torch.tensor([noise_level / 255.0]).to(device)
+        noise_level = torch.tensor([noise_level / 255.0])
 
     image = torch.cat(
         (
@@ -198,10 +197,10 @@ def get_drunet_function_v2(model, device="cpu", mode="inference"):
             model,
             image / x_max,
             noise_level=noise_level,
-            device=device,
+            device=device,  # TODO: NOT USED
             mode=mode,
         )
-        image = torch.clip(image, min=0.0) * x_max
+        image = torch.clip(image, min=0.0) * x_max.to(image.device)
         return image
 
     return process
@@ -229,7 +228,7 @@ def measure_gradient(model):
     return total_norm
 
 
-def create_process_network(network, depth=4, device="cpu", nc=None):
+def create_process_network(network, depth=4, device="cpu", nc=None, device_ids=None):
     """
     Helper function to create a process network.
 
@@ -256,7 +255,7 @@ def create_process_network(network, depth=4, device="cpu", nc=None):
     if network == "DruNet":
         from lensless.recon.utils import load_drunet
 
-        process = load_drunet(requires_grad=True).to(device)
+        process = load_drunet(requires_grad=True)
         process_name = "DruNet"
     elif network == "UnetRes":
         from lensless.recon.drunet.network_unet import UNetRes
@@ -270,11 +269,16 @@ def create_process_network(network, depth=4, device="cpu", nc=None):
             act_mode="R",
             downsample_mode="strideconv",
             upsample_mode="convtranspose",
-        ).to(device)
+        )
         process_name = "UnetRes_d" + str(depth)
     else:
         process = None
         process_name = None
+
+    if process is not None:
+        if device_ids is not None:
+            process = torch.nn.DataParallel(process, device_ids=device_ids)
+        process = process.to(device)
 
     return (process, process_name)
 
@@ -300,9 +304,9 @@ class Trainer:
         gamma=None,
         logger=None,
         crop=None,
-        alignment=None,
         clip_grad=1.0,
         unrolled_output_factor=False,
+        extra_eval_sets=None,
         # for adding components during training
         pre_process=None,
         pre_process_delay=None,
@@ -418,10 +422,7 @@ class Trainer:
             )
             self.print(f"Train size : {train_size}, Test size : {test_size}")
 
-        if hasattr(train_dataset, "psfs"):
-            self.multipsf_dataset = True
-        else:
-            self.multipsf_dataset = False
+        self.train_dataset = train_dataset
         self.train_dataloader = torch.utils.data.DataLoader(
             dataset=train_dataset,
             batch_size=batch_size,
@@ -429,6 +430,7 @@ class Trainer:
             pin_memory=(self.device != "cpu"),
         )
         self.test_dataset = test_dataset
+        self.extra_eval_sets = extra_eval_sets  # additional datasets to evaluate on
         self.lpips = lpips
         self.skip_NAN = skip_NAN
         self.eval_batch_size = eval_batch_size
@@ -475,7 +477,6 @@ class Trainer:
                 )
 
         self.crop = crop
-        self.alignment = alignment
 
         # -- adding unrolled loss
         self.unrolled_output_factor = unrolled_output_factor
@@ -515,6 +516,9 @@ class Trainer:
                 self.metrics[key + "_unrolled"] = []
         if metric_for_best_model is not None:
             assert metric_for_best_model in self.metrics.keys()
+        if extra_eval_sets is not None:
+            for key in extra_eval_sets:
+                self.metrics[key] = dict()
         self.save_every = save_every
 
         # Backward hook that detect NAN in the gradient and print the layer weights
@@ -599,7 +603,7 @@ class Trainer:
         for batch in pbar:
 
             # get batch
-            if self.multipsf_dataset:
+            if self.train_dataset.multimask:
                 X, y, psfs = batch
                 psfs = psfs.to(self.device)
             else:
@@ -615,7 +619,7 @@ class Trainer:
                 self.recon._set_psf(self.mask.get_psf().to(self.device))
 
             # forward pass
-            y_pred = self.recon.forward(X, psfs=psfs)
+            y_pred = self.recon.forward(batch=X, psfs=psfs)
             if self.unrolled_output_factor:
                 unrolled_out = y_pred[1]
                 y_pred = y_pred[0]
@@ -634,13 +638,15 @@ class Trainer:
             y = y.reshape(-1, *y.shape[-3:]).movedim(-1, -3)
 
             # extraction region of interest for loss
-            if self.alignment is not None:
+            if (
+                hasattr(self.train_dataset, "alignment")
+                and self.train_dataset.alignment is not None
+            ):
+                alignment = self.train_dataset.alignment
                 y_pred = y_pred[
                     ...,
-                    self.alignment["topright"][0] : self.alignment["topright"][0]
-                    + self.alignment["height"],
-                    self.alignment["topright"][1] : self.alignment["topright"][1]
-                    + self.alignment["width"],
+                    alignment["topright"][0] : alignment["topright"][0] + alignment["height"],
+                    alignment["topright"][1] : alignment["topright"][1] + alignment["width"],
                 ]
                 # expected that lensed is also reshaped accordingly
             elif self.crop is not None:
@@ -795,7 +801,6 @@ class Trainer:
             save_idx=disp,
             output_dir=output_dir,
             crop=self.crop,
-            alignment=self.alignment,
             unrolled_output_factor=self.unrolled_output_factor,
         )
 
@@ -803,11 +808,6 @@ class Trainer:
         self.metrics["LOSS"].append(mean_loss)
         for key in current_metrics:
             self.metrics[key].append(current_metrics[key])
-
-        if save_pt:
-            # save dictionary metrics to file with json
-            with open(os.path.join(save_pt, "metrics.json"), "w") as f:
-                json.dump(self.metrics, f, indent=4)
 
         # check best metric
         if self.metrics["metric_for_best_model"] is None:
@@ -828,6 +828,52 @@ class Trainer:
             eval_loss = current_metrics[self.metrics["metric_for_best_model"]]
 
         self.metrics["LOSS_TEST"].append(eval_loss)
+
+        # add extra evaluation sets
+        if self.extra_eval_sets is not None:
+            for eval_set in self.extra_eval_sets:
+
+                # create output directory
+                output_dir = None
+                if disp is not None:
+                    output_dir = os.path.join("eval_recon")
+                    if not os.path.exists(output_dir):
+                        os.mkdir(output_dir)
+                    output_dir = os.path.join(output_dir, str(epoch) + f"_{eval_set}")
+
+                if not self.extra_eval_sets[eval_set].multimask:
+                    # need to set correct PSF for evaluation
+                    # TODO cleaner way to set PSF?
+                    self.recon._set_psf(self.extra_eval_sets[eval_set].psf.to(self.device))
+
+                # benchmarking
+                extra_metrics = benchmark(
+                    self.recon,
+                    self.extra_eval_sets[eval_set],
+                    batchsize=self.eval_batch_size,
+                    save_idx=disp,
+                    output_dir=output_dir,
+                    crop=self.crop,
+                    unrolled_output_factor=self.unrolled_output_factor,
+                )
+
+                # add metrics to dictionary
+                for key in extra_metrics:
+                    if key not in self.metrics[eval_set]:
+                        self.metrics[eval_set][key] = [extra_metrics[key]]
+                    else:
+                        self.metrics[eval_set][key].append(extra_metrics[key])
+
+            # set back PSF to original in case changed
+            # TODO: cleaner way?
+            if not self.train_dataset.multimask:
+                self.recon._set_psf(self.train_dataset.psf.to(self.device))
+
+        if save_pt:
+            # save dictionary metrics to file with json
+            with open(os.path.join(save_pt, "metrics.json"), "w") as f:
+                json.dump(self.metrics, f, indent=4)
+
         return eval_loss
 
     def on_epoch_end(self, mean_loss, save_pt, epoch, disp=None):

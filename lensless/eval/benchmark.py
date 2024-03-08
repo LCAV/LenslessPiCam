@@ -32,7 +32,6 @@ def benchmark(
     batchsize=1,
     metrics=None,
     crop=None,
-    alignment=False,
     save_idx=None,
     output_dir=None,
     unrolled_output_factor=False,
@@ -59,8 +58,6 @@ def benchmark(
         Directory to save the predictions, by default save in working directory if save_idx is provided.
     crop : dict, optional
         Dictionary of crop parameters (vertical: [start, end], horizontal: [start, end]), by default None (no crop).
-    alignment : dict, optional
-        Similar to crop. Dictionary of alignment parameters (topright: [height, width], height: pix). Expects ``recon_width`` in ``dataset``. By default None (no alignment).
     unrolled_output_factor : bool, optional
         If True, compute metrics for unrolled output, by default False.
     return_average : bool, optional
@@ -76,11 +73,6 @@ def benchmark(
     assert isinstance(model._psf, torch.Tensor), "model need to be constructed with torch support"
     device = model._psf.device
 
-    if hasattr(dataset, "psfs"):
-        multipsf_dataset = True
-    else:
-        multipsf_dataset = False
-
     if output_dir is None:
         output_dir = os.getcwd()
     else:
@@ -88,16 +80,20 @@ def benchmark(
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
 
+    alignment = None
+    if hasattr(dataset, "alignment"):
+        alignment = dataset.alignment
+
     if metrics is None:
         metrics = {
             "MSE": MSELoss().to(device),
-            "MAE": L1Loss().to(device),
+            # "MAE": L1Loss().to(device),
             "LPIPS_Vgg": lpip.LearnedPerceptualImagePatchSimilarity(
                 net_type="vgg", normalize=True
             ).to(device),
-            "LPIPS_Alex": lpip.LearnedPerceptualImagePatchSimilarity(
-                net_type="alex", normalize=True
-            ).to(device),
+            # "LPIPS_Alex": lpip.LearnedPerceptualImagePatchSimilarity(
+            #     net_type="alex", normalize=True
+            # ).to(device),
             "PSNR": psnr.PeakSignalNoiseRatio().to(device),
             "SSIM": StructuralSimilarityIndexMeasure().to(device),
             "ReconstructionError": None,
@@ -116,7 +112,7 @@ def benchmark(
     idx = 0
     with torch.no_grad():
         for batch in tqdm(dataloader):
-            if multipsf_dataset:
+            if dataset.multimask:
                 lensless, lensed, psfs = batch
                 psfs = psfs.to(device)
             else:
@@ -133,8 +129,8 @@ def benchmark(
 
             # compute predictions
             if batchsize == 1:
-                # TODO : handle multipsf
-                assert not multipsf_dataset
+                if psfs is not None:
+                    model._set_psf(psfs[0])
                 model.set_data(lensless)
                 prediction = model.apply(
                     plot=False, save=False, output_intermediate=unrolled_output_factor, **kwargs
@@ -174,12 +170,12 @@ def benchmark(
             if save_idx is not None:
                 batch_idx = np.arange(idx, idx + batchsize)
 
-                for i, idx in enumerate(batch_idx):
-                    if idx in save_idx:
+                for i, _batch_idx in enumerate(batch_idx):
+                    if _batch_idx in save_idx:
                         prediction_np = prediction.cpu().numpy()[i]
                         # switch to [H, W, C] for saving
                         prediction_np = np.moveaxis(prediction_np, 0, -1)
-                        save_image(prediction_np, fp=os.path.join(output_dir, f"{idx}.png"))
+                        save_image(prediction_np, fp=os.path.join(output_dir, f"{_batch_idx}.png"))
 
             # normalization
             prediction_max = torch.amax(prediction, dim=(-1, -2, -3), keepdim=True)
