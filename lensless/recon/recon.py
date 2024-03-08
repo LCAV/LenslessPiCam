@@ -459,6 +459,7 @@ class ReconstructionAlgorithm(abc.ABC):
             pad=self._convolver.pad,
             norm=self._convolver.norm,
         )
+        self.reset()
 
     def _progress(self):
         """
