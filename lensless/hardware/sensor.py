@@ -319,7 +319,7 @@ class VirtualSensor(object):
 
         self.pixel_size = self.pixel_size * factor
         self.pitch = self.pitch * factor
-        self.resolution = np.round(self.resolution / factor).astype(int)
+        self.resolution = (self.resolution / factor).astype(int)
         self.size = self.pixel_size * self.resolution
         self.image_shape = self.resolution
         if self.color:
