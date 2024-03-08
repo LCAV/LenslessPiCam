@@ -25,12 +25,11 @@ files:
     # vertical: null
     # horizontal: null
 
+  extra_eval: null  # dict of extra datasets to evaluate on
+
 torch: True
 torch_device: 'cuda'
 measure: null       # if measuring data on-the-fly
-
-# see some outputs of classical ADMM before training
-test_idx: [0, 1, 2, 3, 4]
 
 # test set example to visualize at the end of every epoch
 eval_disp_idx: [0, 1, 2, 3, 4]

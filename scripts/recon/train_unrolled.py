@@ -43,7 +43,7 @@ from lensless import UnrolledFISTA, UnrolledADMM, TrainableInversion
 from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     DigiCamCelebA,
-    DigiCamMultiMask,
+    DigiCam,
 )
 from torch.utils.data import Subset
 from lensless.recon.utils import create_process_network
@@ -208,24 +208,30 @@ def train_unrolled(config):
 
     elif config.files.huggingface_dataset is True:
 
-        train_set = DigiCamMultiMask(
+        train_set = DigiCam(
             huggingface_repo=config.files.dataset,
             split="train",
             display_res=config.files.image_res,
             rotate=config.files.rotate,
             downsample=config.files.downsample,
             alignment=config.alignment,
+            save_psf=config.files.save_psf,
         )
-        test_set = DigiCamMultiMask(
+        test_set = DigiCam(
             huggingface_repo=config.files.dataset,
             split="test",
             display_res=config.files.image_res,
             rotate=config.files.rotate,
             downsample=config.files.downsample,
             alignment=config.alignment,
+            save_psf=config.files.save_psf,
         )
-        first_psf_key = list(train_set.psfs.keys())[0]
-        psf = train_set.psfs[first_psf_key].to(device)
+        if train_set.multimask:
+            # get first PSF for initialization
+            first_psf_key = list(train_set.psf.keys())[device_ids[0]]
+            psf = train_set.psf[first_psf_key].to(device)
+        else:
+            psf = train_set.psf.to(device)
 
     else:
 
@@ -234,19 +240,31 @@ def train_unrolled(config):
         crop = train_set.crop
 
     assert train_set is not None
-    if not hasattr(test_set, "psfs"):
-        assert psf is not None
+    # if not hasattr(test_set, "psfs"):
+    #     assert psf is not None
+
+    if config.files.extra_eval is not None:
+        # TODO only support Hugging Face DigiCam datasets for now
+        extra_eval_sets = dict()
+        for eval_set in config.files.extra_eval:
+
+            extra_eval_sets[eval_set] = DigiCam(
+                split="test",
+                downsample=config.files.downsample,  # needs to be same size
+                **config.files.extra_eval[eval_set],
+            )
 
     # reconstruct lensless with ADMM
     with torch.no_grad():
-        if config.test_idx is not None:
+        if config.eval_disp_idx is not None:
 
             log.info("Reconstruction a few images with ADMM...")
 
-            for i, _idx in enumerate(config.test_idx):
+            for i, _idx in enumerate(config.eval_disp_idx):
 
-                if hasattr(test_set, "psfs"):
+                if test_set.multimask:
                     # multimask
+                    # lensless, lensed, _ = test_set[_idx]  # using wrong PSF
                     lensless, lensed, psf = test_set[_idx]
                     psf = psf.to(device)
                 else:
@@ -309,6 +327,7 @@ def train_unrolled(config):
         config.reconstruction.pre_process.depth,
         nc=config.reconstruction.pre_process.nc,
         device=device,
+        device_ids=device_ids,
     )
     pre_proc_delay = config.reconstruction.pre_process.delay
 
@@ -318,6 +337,7 @@ def train_unrolled(config):
         config.reconstruction.post_process.depth,
         nc=config.reconstruction.post_process.nc,
         device=device,
+        device_ids=device_ids,
     )
     post_proc_delay = config.reconstruction.post_process.delay
 
@@ -443,7 +463,7 @@ def train_unrolled(config):
         post_process_unfreeze=config.reconstruction.post_process.unfreeze,
         clip_grad=config.training.clip_grad,
         unrolled_output_factor=config.unrolled_output_factor,
-        alignment=test_set.alignment if hasattr(test_set, "alignment") else None,
+        extra_eval_sets=extra_eval_sets if config.files.extra_eval is not None else None,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)
