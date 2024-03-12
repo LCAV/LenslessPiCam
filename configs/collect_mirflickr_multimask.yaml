@@ -1,0 +1,35 @@
+# python scripts/measure/collect_dataset_on_device.py -cn collect_mirflickr_multimask
+defaults:
+  - collect_dataset
+  - _self_
+
+
+min_level: 170
+max_tries: 1
+
+masks:
+  seed: 0
+  device: adafruit
+  n: 100    # number of masks
+  shape: [54, 26]
+  center: [57, 77]
+
+input_dir: /mnt/mirflickr/all
+
+# can pass existing folder to continue measurement
+output_dir: /mnt/mirflickr/all_measured_20240209-172459
+
+# files to measure
+n_files: null
+
+# -- display parameters
+display:
+  image_res: [900, 1200]
+  vshift: -26
+  brightness: 90
+  delay: 1
+
+capture:
+  down: 8
+  exposure: 0.7
+  awb_gains: [1.6, 1.2]  # red, blue

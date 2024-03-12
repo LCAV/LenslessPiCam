@@ -1,0 +1,18 @@
+# python scripts/measure/collect_dataset_on_device.py -cn collect_mirflickr_COSI
+defaults:
+  - collect_mirflickr_multimask
+  - _self_
+
+
+min_level: 125
+
+
+masks:
+  n: 1
+
+# can pass existing folder to continue measurement
+output_dir: /mnt/mirflickr/all_measured_20240226-111214   # single mask
+
+capture:
+  exposure: 0.5
+  awb_gains: [1.6, 1.2]  # red, blue
