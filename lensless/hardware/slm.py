@@ -11,11 +11,6 @@ import numpy as np
 from lensless.hardware.utils import check_username_hostname
 from lensless.utils.io import get_ctypes
 from slm_controller.hardware import SLMParam, slm_devices
-from waveprop.spherical import spherical_prop
-from waveprop.color import ColorSystem
-from waveprop.rs import angular_spectrum
-from waveprop.slm import get_centers
-from waveprop.devices import SLMParam as SLMParam_wp
 from scipy.ndimage import rotate as rotate_func
 
 
@@ -27,6 +22,17 @@ try:
 except ImportError:
     torch_available = False
 
+try:
+    from waveprop.spherical import spherical_prop
+    from waveprop.color import ColorSystem
+    from waveprop.rs import angular_spectrum
+    from waveprop.slm import get_centers
+    from waveprop.devices import SLMParam as SLMParam_wp
+
+    waveprop_available = True
+except ImportError:
+    waveprop_available = False
+
 
 SUPPORTED_DEVICE = {
     "adafruit": "~/slm-controller/examples/adafruit_slm.py",
@@ -35,7 +41,7 @@ SUPPORTED_DEVICE = {
 }
 
 
-def set_programmable_mask(pattern, device, rpi_username, rpi_hostname, verbose=False):
+def set_programmable_mask(pattern, device, rpi_username=None, rpi_hostname=None, verbose=False):
     """
     Set LCD pattern on Raspberry Pi.
 
@@ -55,7 +61,11 @@ def set_programmable_mask(pattern, device, rpi_username, rpi_hostname, verbose=F
 
     """
 
-    client = check_username_hostname(rpi_username, rpi_hostname)
+    if rpi_username is not None:
+        assert (
+            rpi_hostname is not None
+        ), "rpi_hostname must be specified if rpi_username is specified"
+        client = check_username_hostname(rpi_username, rpi_hostname)
 
     # get path to python executable on Raspberry Pi
     rpi_python = "~/slm-controller/slm_controller_env/bin/python"
@@ -77,27 +87,37 @@ def set_programmable_mask(pattern, device, rpi_username, rpi_hostname, verbose=F
     local_path = os.path.join(os.getcwd(), pattern_fn)
     np.save(local_path, pattern)
 
-    # copy pattern to Raspberry Pi
-    remote_path = f"~/{pattern_fn}"
-    if verbose:
-        print(f"PUTTING {local_path} to {remote_path}")
+    if rpi_username is not None:
 
-    os.system(
-        'scp %s "%s@%s:%s" >/dev/null 2>&1' % (local_path, rpi_username, rpi_hostname, remote_path)
-    )
-    # # -- not sure why this doesn't work... permission denied
-    # sftp = client.open_sftp()
-    # sftp.put(local_path, remote_path, confirm=True)
-    # sftp.close()
+        # copy pattern to Raspberry Pi
+        remote_path = f"~/{pattern_fn}"
+        if verbose:
+            print(f"PUTTING {local_path} to {remote_path}")
+        os.system(
+            'scp %s "%s@%s:%s" >/dev/null 2>&1'
+            % (local_path, rpi_username, rpi_hostname, remote_path)
+        )
+        # # -- not sure why this doesn't work... permission denied
+        # sftp = client.open_sftp()
+        # sftp.put(local_path, remote_path, confirm=True)
+        # sftp.close()
 
-    # run script on Raspberry Pi to set mask pattern
-    command = f"{rpi_python} {script} --file_path {remote_path}"
-    if verbose:
-        print(f"COMMAND : {command}")
-    _stdin, _stdout, _stderr = client.exec_command(command)
-    if verbose:
-        print(_stdout.read().decode())
-    client.close()
+        # run script on Raspberry Pi to set mask pattern
+        command = f"{rpi_python} {script} --file_path {remote_path}"
+        if verbose:
+            print(f"COMMAND : {command}")
+        _stdin, _stdout, _stderr = client.exec_command(command)
+        if verbose:
+            print(_stdout.read().decode())
+        client.close()
+
+    else:
+
+        # run script on Raspberry Pi to set mask pattern
+        command = f"{rpi_python} {script} --file_path {local_path} >/dev/null 2>&1"
+        if verbose:
+            print(f"COMMAND : {command}")
+        os.system(command)
 
     os.remove(local_path)
 
@@ -130,6 +150,8 @@ def get_programmable_mask(
         Number of bits/levels to quantize mask to.
 
     """
+
+    assert waveprop_available
 
     use_torch = False
     if torch_available:
@@ -276,6 +298,8 @@ def get_intensity_psf(
         Color system. Not used if ``waveprop=False``.
 
     """
+    assert waveprop_available
+
     if color_system is None:
         color_system = ColorSystem.rgb()
 
