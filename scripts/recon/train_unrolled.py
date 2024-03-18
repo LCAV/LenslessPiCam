@@ -107,6 +107,7 @@ def train_unrolled(config):
     test_set = None
     psf = None
     crop = None
+    alignment = None  # very similar to crop, TODO: should switch to this approach
     mask = None
     if "DiffuserCam" in config.files.dataset:
 
@@ -210,6 +211,7 @@ def train_unrolled(config):
 
         train_set = DigiCam(
             huggingface_repo=config.files.dataset,
+            psf=config.files.huggingface_psf,
             split="train",
             display_res=config.files.image_res,
             rotate=config.files.rotate,
@@ -219,6 +221,7 @@ def train_unrolled(config):
         )
         test_set = DigiCam(
             huggingface_repo=config.files.dataset,
+            psf=config.files.huggingface_psf,
             split="test",
             display_res=config.files.image_res,
             rotate=config.files.rotate,
@@ -232,6 +235,8 @@ def train_unrolled(config):
             psf = train_set.psf[first_psf_key].to(device)
         else:
             psf = train_set.psf.to(device)
+        crop = test_set.crop  # same for train set
+        alignment = test_set.alignment
 
     else:
 
@@ -283,10 +288,11 @@ def train_unrolled(config):
 
                 # -- plot lensed and res on top of each other
                 cropped = False
-                if test_set.alignment is not None:
-                    top_right = test_set.alignment["topright"]
-                    height = test_set.alignment["height"]
-                    width = test_set.alignment["width"]
+
+                if alignment is not None:
+                    top_right = alignment["topright"]
+                    height = alignment["height"]
+                    width = alignment["width"]
                     res_np = res_np[
                         top_right[0] : top_right[0] + height, top_right[1] : top_right[1] + width
                     ]

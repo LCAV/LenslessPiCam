@@ -964,6 +964,7 @@ class DigiCam(DualDataset):
         self,
         huggingface_repo,
         split,
+        psf=None,
         display_res=None,
         sensor="rpi_hq",
         slm="adafruit",
@@ -971,6 +972,7 @@ class DigiCam(DualDataset):
         downsample=1,
         alignment=None,
         save_psf=False,
+        simulation_config=None,
         **kwargs,
     ):
 
@@ -988,20 +990,45 @@ class DigiCam(DualDataset):
         downsample_fact = sensor_res[0] / lensless.shape[0]
 
         # deduce recon shape from original image
-        self.alignment = dict(alignment)
+        self.alignment = None
+        self.crop = None
         if alignment is not None:
-            self.alignment["topright"] = (
-                int(self.alignment["topright"][0] / downsample),
-                int(self.alignment["topright"][1] / downsample),
-            )
-            self.alignment["height"] = int(self.alignment["height"] / downsample)
-        if self.alignment is not None:
-            original_aspect_ratio = display_res[1] / display_res[0]
-            self.alignment["width"] = int(self.alignment["height"] * original_aspect_ratio)
+            # preparing ground-truth in expected shape
+            if "topright" in alignment:
+                self.alignment = dict(alignment.copy())
+                self.alignment["topright"] = (
+                    int(self.alignment["topright"][0] / downsample),
+                    int(self.alignment["topright"][1] / downsample),
+                )
+                self.alignment["height"] = int(self.alignment["height"] / downsample)
+
+                original_aspect_ratio = display_res[1] / display_res[0]
+                self.alignment["width"] = int(self.alignment["height"] * original_aspect_ratio)
+
+            # preparing ground-truth as simulated measurement of original
+            elif "crop" in alignment:
+                self.crop = dict(alignment["crop"].copy())
+                self.crop["vertical"][0] = int(self.crop["vertical"][0] / downsample)
+                self.crop["vertical"][1] = int(self.crop["vertical"][1] / downsample)
+                self.crop["horizontal"][0] = int(self.crop["horizontal"][0] / downsample)
+                self.crop["horizontal"][1] = int(self.crop["horizontal"][1] / downsample)
 
         # download all masks
         self.multimask = False
-        if "mask_label" in data_0:
+        if psf is not None:
+            # download PSF from huggingface
+            psf_fp = hf_hub_download(repo_id=huggingface_repo, filename=psf, repo_type="dataset")
+            psf, _ = load_psf(
+                psf_fp,
+                downsample=downsample_fact,
+                return_float=True,
+                return_bg=True,
+                flip=rotate,
+                bg_pix=(0, 15),
+            )
+            self.psf = torch.from_numpy(psf)
+
+        elif "mask_label" in data_0:
             self.multimask = True
             mask_labels = []
             for i in range(len(self.dataset)):
@@ -1051,6 +1078,23 @@ class DigiCam(DualDataset):
                 self.psf.shape[-3:-1] == lensless.shape[:2]
             ), "PSF shape should match lensless shape"
 
+        # create simulator
+        self.simulator = None
+        self.vertical_shift = None
+        self.horizontal_shift = None
+        if "simulation" in alignment:
+            simulation_config = dict(alignment["simulation"])
+            simulation_config["output_dim"] = tuple(self.psf.shape[-3:-1])
+            simulator = FarFieldSimulator(
+                is_torch=True,
+                **simulation_config,
+            )
+            self.simulator = simulator
+            if "vertical_shift" in simulation_config:
+                self.vertical_shift = int(simulation_config["vertical_shift"] / downsample)
+            if "horizontal_shift" in simulation_config:
+                self.horizontal_shift = int(simulation_config["horizontal_shift"] / downsample)
+
         super(DigiCam, self).__init__(**kwargs)
 
     def __len__(self):
@@ -1071,21 +1115,37 @@ class DigiCam(DualDataset):
             lensless_np = lensless_np.astype(np.float32) / 65535
             lensed_np = lensed_np.astype(np.float32) / 65535
 
+        # downsample if necessary
         if self.downsample_lensless != 1.0:
             lensless_np = resize(
                 lensless_np, factor=1 / self.downsample_lensless, interpolation=cv2.INTER_NEAREST
             )
 
-        if self.alignment is not None:
-            lensed_np = resize(
-                lensed_np,
-                shape=(self.alignment["height"], self.alignment["width"], 3),
-                interpolation=cv2.INTER_NEAREST,
-            )
-        elif self.display_res is not None:
-            lensed_np = resize(lensed_np, shape=self.display_res, interpolation=cv2.INTER_NEAREST)
+        # convert to torch
+        lensless = torch.from_numpy(lensless_np)
+        lensed = torch.from_numpy(lensed_np)
 
-        return lensless_np, lensed_np
+        if self.simulator is not None:
+            # project original image to lensed space
+            with torch.no_grad():
+                lensed = self.simulator.propagate_image(lensed, return_object_plane=True)
+
+            if self.vertical_shift is not None:
+                lensed = torch.roll(lensed, self.vertical_shift, dims=-3)
+            if self.horizontal_shift is not None:
+                lensed = torch.roll(lensed, self.horizontal_shift, dims=-2)
+
+        if self.alignment is not None:
+            if "height" in self.alignment:
+                lensed = resize(
+                    lensed,
+                    shape=(self.alignment["height"], self.alignment["width"], 3),
+                    interpolation=cv2.INTER_NEAREST,
+                )
+        elif self.display_res is not None:
+            lensed = resize(lensed, shape=self.display_res, interpolation=cv2.INTER_NEAREST)
+
+        return lensless, lensed
 
     def __getitem__(self, idx):
         lensless, lensed = super().__getitem__(idx)
