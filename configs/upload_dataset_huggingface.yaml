@@ -12,10 +12,12 @@ multimask: False
 lensless:
   dir: null
   ext: null
+  sixteen: False
 
 lensed:
   dir: null
   ext: null
+  sixteen: False
 
 # additional files to upload to root folder
 files: null

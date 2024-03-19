@@ -70,6 +70,24 @@ def upload_dataset(config):
     ]
     lensed_files = [os.path.join(config.lensed.dir, f + config.lensed.ext) for f in common_files]
 
+    # if TIFF files, convert to PNG and save in temporary directory
+    if config.lensless.ext == ".tiff":
+
+        import cv2
+
+        dir_lensless_png = os.path.join(config.lensless.dir, "png")
+        os.makedirs(dir_lensless_png, exist_ok=True)
+        lensless_files_png = []
+        for f in lensless_files:
+            img = cv2.imread(f, cv2.IMREAD_UNCHANGED)
+            fp = f.replace(".tiff", ".png")
+            cv2.imwrite(fp, img)
+            lensless_files_png.append(fp)
+
+    import pudb
+
+    pudb.set_trace()
+
     # check for attribute
     df_attr = None
     if "celeba_attr" in config.lensed.keys():
