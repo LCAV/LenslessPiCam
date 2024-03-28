@@ -52,10 +52,12 @@ class RealFFTConvolve2D:
 
         # prepare shapes for reconstruction
 
-        assert len(psf.shape) == 4, "Expected 4D PSF of shape (depth, width, height, channels)"
-        self._use_3d = psf.shape[0] != 1
-        self._is_rgb = psf.shape[3] == 3
-        assert self._is_rgb or psf.shape[3] == 1
+        assert (
+            len(psf.shape) >= 4
+        ), "Expected 4D PSF of shape ([batch], depth, width, height, channels)"
+        self._use_3d = psf.shape[-4] != 1
+        self._is_rgb = psf.shape[-1] == 3
+        assert self._is_rgb or psf.shape[-1] == 1
 
         # save normalization
         self.norm = norm

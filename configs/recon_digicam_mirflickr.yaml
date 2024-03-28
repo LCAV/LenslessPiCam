@@ -1,0 +1,21 @@
+# python scripts/recon/digicam_mirflickr.py
+defaults:
+  - defaults_recon
+  - _self_
+
+# - Learned reconstructions: see "lensless/recon/model_dict.py"
+# model: U10  
+# model: Unet8M
+# model: TrainInv+Unet8M
+# model: U10+Unet8M
+# model: Unet4M+TrainInv+Unet4M
+# model: Unet4M+U10+Unet4M
+
+# -- for ADMM with fixed parameters
+model: admm
+n_iter: 10
+
+device: cuda:0
+n_trials: 100   # more if you want to get average inference time
+idx: 1    # index from test set to reconstruct
+save: True

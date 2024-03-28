@@ -69,7 +69,7 @@
    
 
    .. autoclass:: lensless.TrainableReconstructionAlgorithm
-      :members: batch_call, apply, reset, set_data
+      :members: forward, apply, reset, set_data
       :special-members: __init__
       :show-inheritance:
 
@@ -78,7 +78,7 @@
    ~~~~~~~~~~~~~~
 
    .. autoclass:: lensless.UnrolledFISTA
-      :members: batch_call
+      :members: forward
       :special-members: __init__
       :show-inheritance:
 
@@ -86,7 +86,7 @@
    ~~~~~~~~~~~~~
 
    .. autoclass:: lensless.UnrolledADMM
-      :members: batch_call
+      :members: forward
       :special-members: __init__
       :show-inheritance:
 

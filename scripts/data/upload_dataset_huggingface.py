@@ -128,6 +128,28 @@ def upload_dataset(config):
             [lensed_files[i] for i in train_indices],
             {k: [v[i] for i in train_indices] for k, v in df_attr.items()},
         )
+    elif isinstance(config.split, int):
+        n_test_split = int(test_size * config.split)
+
+        # get all indices
+        n_splits = len(lensless_files) // config.split
+        test_idx = np.array([])
+        for i in range(n_splits):
+            test_idx = np.append(test_idx, np.arange(n_test_split) + i * config.split)
+        test_idx = test_idx.astype(int)
+
+        # get train indices
+        train_idx = np.setdiff1d(np.arange(len(lensless_files)), test_idx)
+        train_idx = train_idx.astype(int)
+
+        # split dict into train-test
+        test_dataset = create_dataset(
+            [lensless_files[i] for i in test_idx], [lensed_files[i] for i in test_idx]
+        )
+        train_dataset = create_dataset(
+            [lensless_files[i] for i in train_idx], [lensed_files[i] for i in train_idx]
+        )
+
     else:
         n_test = int(test_size * len(common_files))
         if df_attr is not None:

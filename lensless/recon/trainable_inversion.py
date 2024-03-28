@@ -16,6 +16,8 @@ class TrainableInversion(TrainableReconstructionAlgorithm):
         Constructor for trainable inversion component as proposed in
         the FlatNet work: https://siddiquesalman.github.io/flatnet/
 
+        Their implementation: https://github.com/siddiquesalman/flatnet/blob/d1dc179666a08df58c4bdf83c4274310ba3cd186/models/fftlayer.py#L70
+
         Parameters
         ----------
         psf : :py:class:`~torch.Tensor`

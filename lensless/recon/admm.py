@@ -95,7 +95,9 @@ class ADMM(ReconstructionAlgorithm):
 
         # call reset() to initialize matrices
         self._proj = self._Psi
-        super(ADMM, self).__init__(psf, dtype, pad=pad, norm=norm, denoiser=denoiser, **kwargs)
+        super(ADMM, self).__init__(
+            psf, dtype, pad=pad, norm=norm, denoiser=denoiser, reset=False, **kwargs
+        )
 
         # set prior
         if psi is None:
@@ -114,22 +116,10 @@ class ADMM(ReconstructionAlgorithm):
 
             # - need to reset with new projector
             self._proj = self._Psi
-            self.reset()
 
         # precompute_R_divmat (self._H computed by constructor with reset())
         if self.is_torch:
             self._PsiTPsi = self._PsiTPsi.to(self._psf.device)
-            self._R_divmat = 1.0 / (
-                self._mu1 * (torch.abs(self._convolver._Hadj * self._convolver._H))
-                + self._mu2 * torch.abs(self._PsiTPsi)
-                + self._mu3
-            ).type(self._complex_dtype)
-        else:
-            self._R_divmat = 1.0 / (
-                self._mu1 * (np.abs(self._convolver._Hadj * self._convolver._H))
-                + self._mu2 * np.abs(self._PsiTPsi)
-                + self._mu3
-            ).astype(self._complex_dtype)
 
         # check denoiser for PnP
         if self._denoiser is not None:
@@ -139,7 +129,8 @@ class ADMM(ReconstructionAlgorithm):
             self._proj = self._denoiser
             # identify function
             self._PsiT = lambda x: x
-            self.reset()
+
+        self.reset()
 
     def _Psi(self, x):
         """
@@ -189,6 +180,13 @@ class ADMM(ReconstructionAlgorithm):
             self._eta = torch.zeros_like(self._U)
             self._rho = torch.zeros_like(self._X)
 
+            # precompute _R_divmat
+            self._R_divmat = 1.0 / (
+                self._mu1 * (torch.abs(self._convolver._Hadj * self._convolver._H))
+                + self._mu2 * torch.abs(self._PsiTPsi)
+                + self._mu3
+            ).type(self._complex_dtype)
+
             # precompute_X_divmat
             self._X_divmat = 1.0 / (self._convolver._pad(torch.ones_like(self._psf)) + self._mu1)
             # self._X_divmat = 1.0 / (torch.ones_like(self._psf) + self._mu1)
@@ -216,6 +214,13 @@ class ADMM(ReconstructionAlgorithm):
             self._xi = np.zeros_like(self._image_est)
             self._eta = np.zeros_like(self._U)
             self._rho = np.zeros_like(self._X)
+
+            # precompute R_divmat
+            self._R_divmat = 1.0 / (
+                self._mu1 * (np.abs(self._convolver._Hadj * self._convolver._H))
+                + self._mu2 * np.abs(self._PsiTPsi)
+                + self._mu3
+            ).astype(self._complex_dtype)
 
             # precompute_X_divmat
             self._X_divmat = 1.0 / (

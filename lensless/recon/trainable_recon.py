@@ -3,12 +3,14 @@
 # ==================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
+# Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
 import pathlib as plib
 from matplotlib import pyplot as plt
 from lensless.recon.recon import ReconstructionAlgorithm
 from lensless.utils.plot import plot_image
+from lensless.recon.rfft_convolve import RealFFTConvolve2D
 
 try:
     import torch
@@ -191,7 +193,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             for param in self.post_process_model.parameters():
                 param.requires_grad = True
 
-    def batch_call(self, batch):
+    def forward(self, batch, psfs=None):
         """
         Method for performing iterative reconstruction on a batch of images.
         This implementation is a properly vectorized implementation of FISTA.
@@ -199,6 +201,8 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         Parameters
         ----------
         batch : :py:class:`~torch.Tensor` of shape (batch, depth, channels, height, width)
+            The lensless images to reconstruct.
+        psfs : :py:class:`~torch.Tensor` of shape (batch, depth, channels, height, width)
             The lensless images to reconstruct.
 
         Returns
@@ -210,9 +214,22 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         assert len(self._data.shape) == 5, "batch must be of shape (N, D, C, H, W)"
         batch_size = batch.shape[0]
 
+        if psfs is not None:
+            # assert same shape
+            assert psfs.shape == batch.shape, "psfs must have the same shape as batch"
+            # -- update convolver
+            self._convolver = RealFFTConvolve2D(psfs.to(self._data.device), **self._convolver_param)
+        elif self._data.device != self._convolver._H.device:
+            # need for multi-GPU... TODO better solution?
+            self._convolver = RealFFTConvolve2D(
+                self._psf.to(self._data.device), **self._convolver_param
+            )
+
         # pre process data
         if self.pre_process is not None:
+            device_before = self._data.device
             self._data = self.pre_process(self._data, self.pre_process_param)
+            self._data = self._data.to(device_before)
 
         self.reset(batch_size=batch_size)
 

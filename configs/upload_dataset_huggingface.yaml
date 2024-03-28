@@ -8,6 +8,7 @@ hf_token: null
 n_files: null
 test_size: 0.15
 multimask: False
+split: first   # "first: first nfiles for test, `int`: test_size*split for test (interleaved) as if multimask
 
 lensless:
   dir: null
