@@ -16,6 +16,7 @@ files:
 
   huggingface_dataset: null
   huggingface_psf: null
+  split_seed: null   # if null use train/test split from dataset
   
   n_files: null    # null to use all for both train/test
   downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution

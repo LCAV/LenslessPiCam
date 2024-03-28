@@ -766,7 +766,7 @@ class Trainer:
 
         return mean_loss
 
-    def evaluate(self, mean_loss, save_pt, epoch, disp=None):
+    def evaluate(self, mean_loss, epoch, disp=None):
         """
         Evaluate the reconstruction algorithm on the test dataset.
 
@@ -774,8 +774,6 @@ class Trainer:
         ----------
         mean_loss : float
             Mean loss of the last epoch.
-        save_pt : str
-            Path to save metrics dictionary to. If None, no logging of metrics.
         disp : list of int, optional
             Test set examples to visualize at the end of each epoch, by default None.
         """
@@ -869,11 +867,6 @@ class Trainer:
             if not self.train_dataset.multimask:
                 self.recon._set_psf(self.train_dataset.psf.to(self.device))
 
-        if save_pt:
-            # save dictionary metrics to file with json
-            with open(os.path.join(save_pt, "metrics.json"), "w") as f:
-                json.dump(self.metrics, f, indent=4)
-
         return eval_loss
 
     def on_epoch_end(self, mean_loss, save_pt, epoch, disp=None):
@@ -896,7 +889,7 @@ class Trainer:
             save_pt = os.getcwd()
 
         # save model
-        epoch_eval_metric = self.evaluate(mean_loss, save_pt, epoch, disp=disp)
+        epoch_eval_metric = self.evaluate(mean_loss, epoch, disp=disp)
         new_best = False
         if (
             self.metrics["metric_for_best_model"] == "PSNR"
@@ -917,6 +910,10 @@ class Trainer:
         if self.save_every is not None and epoch % self.save_every == 0:
             self.save(path=save_pt, include_optimizer=False, epoch=epoch)
 
+        # save dictionary metrics to file with json
+        with open(os.path.join(save_pt, "metrics.json"), "w") as f:
+            json.dump(self.metrics, f, indent=4)
+
     def train(self, n_epoch=1, save_pt=None, disp=None):
         """
         Train the reconstruction algorithm.
@@ -933,7 +930,7 @@ class Trainer:
 
         start_time = time.time()
 
-        self.evaluate(-1, save_pt, epoch=0, disp=disp)
+        self.evaluate(-1, epoch=0, disp=disp)
         for epoch in range(n_epoch):
 
             # add extra components (if specified)

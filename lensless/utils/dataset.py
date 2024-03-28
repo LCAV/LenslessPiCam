@@ -973,12 +973,19 @@ class DigiCam(DualDataset):
         alignment=None,
         save_psf=False,
         simulation_config=None,
+        return_mask_label=False,
         **kwargs,
     ):
 
-        self.dataset = load_dataset(huggingface_repo, split=split)
+        if isinstance(split, str):
+            self.dataset = load_dataset(huggingface_repo, split=split)
+        elif isinstance(split, Dataset):
+            self.dataset = split
+        else:
+            raise ValueError("split should be a string or a Dataset object")
         self.rotate = rotate
         self.display_res = display_res
+        self.return_mask_label = return_mask_label
 
         # deduce downsampling factor from measurement
         data_0 = self.dataset[0]
@@ -987,7 +994,7 @@ class DigiCam(DualDataset):
         if self.downsample_lensless != 1.0:
             lensless = resize(lensless, factor=1 / self.downsample_lensless)
         sensor_res = sensor_dict[sensor][SensorParam.RESOLUTION]
-        downsample_fact = sensor_res[0] / lensless.shape[0]
+        downsample_fact = min(sensor_res / lensless.shape[:2])
 
         # deduce recon shape from original image
         self.alignment = None
@@ -1014,6 +1021,7 @@ class DigiCam(DualDataset):
                 self.crop["horizontal"][1] = int(self.crop["horizontal"][1] / downsample)
 
         # download all masks
+        # TODO: reshape directly with lensless image shape
         self.multimask = False
         if psf is not None:
             # download PSF from huggingface
@@ -1052,9 +1060,10 @@ class DigiCam(DualDataset):
                     flipud=rotate,
                 )
                 self.psf[label] = mask.get_psf().detach()
+
                 assert (
                     self.psf[label].shape[-3:-1] == lensless.shape[:2]
-                ), "PSF shape should match lensless shape"
+                ), f"PSF shape should match lensless shape: PSF {self.psf[label].shape[-3:-1]} vs lensless {lensless.shape[:2]}"
 
                 if save_psf:
                     # same viewable image of PSF
@@ -1082,8 +1091,8 @@ class DigiCam(DualDataset):
         self.simulator = None
         self.vertical_shift = None
         self.horizontal_shift = None
-        if "simulation" in alignment:
-            simulation_config = dict(alignment["simulation"])
+        if alignment is not None and "simulation" in alignment:
+            simulation_config = dict(alignment["simulation"].copy())
             simulation_config["output_dim"] = tuple(self.psf.shape[-3:-1])
             simulator = FarFieldSimulator(
                 is_torch=True,
@@ -1121,11 +1130,13 @@ class DigiCam(DualDataset):
                 lensless_np, factor=1 / self.downsample_lensless, interpolation=cv2.INTER_NEAREST
             )
 
-        # convert to torch
-        lensless = torch.from_numpy(lensless_np)
-        lensed = torch.from_numpy(lensed_np)
-
+        lensless = lensless_np
+        lensed = lensed_np
         if self.simulator is not None:
+            # convert to torch
+            lensless = torch.from_numpy(lensless_np)
+            lensed = torch.from_numpy(lensed_np)
+
             # project original image to lensed space
             with torch.no_grad():
                 lensed = self.simulator.propagate_image(lensed, return_object_plane=True)
@@ -1135,15 +1146,14 @@ class DigiCam(DualDataset):
             if self.horizontal_shift is not None:
                 lensed = torch.roll(lensed, self.horizontal_shift, dims=-2)
 
-        if self.alignment is not None:
-            if "height" in self.alignment:
-                lensed = resize(
-                    lensed,
-                    shape=(self.alignment["height"], self.alignment["width"], 3),
-                    interpolation=cv2.INTER_NEAREST,
-                )
+        elif self.alignment is not None:
+            lensed = resize(
+                lensed_np,
+                shape=(self.alignment["height"], self.alignment["width"], 3),
+                interpolation=cv2.INTER_NEAREST,
+            )
         elif self.display_res is not None:
-            lensed = resize(lensed, shape=self.display_res, interpolation=cv2.INTER_NEAREST)
+            lensed = resize(lensed_np, shape=self.display_res, interpolation=cv2.INTER_NEAREST)
 
         return lensless, lensed
 
@@ -1155,7 +1165,11 @@ class DigiCam(DualDataset):
         # return corresponding PSF
         if self.multimask:
             mask_label = self.dataset[idx]["mask_label"]
-            return lensless, lensed, self.psf[mask_label]
+
+            if self.return_mask_label:
+                return lensless, lensed, mask_label
+            else:
+                return lensless, lensed, self.psf[mask_label]
         else:
             return lensless, lensed
 

@@ -200,19 +200,32 @@ def train_unrolled(config):
 
             psf = dataset.psf
 
-        # print info about PSF
-        log.info(f"PSF shape : {psf.shape}")
-        log.info(f"PSF min : {psf.min()}")
-        log.info(f"PSF max : {psf.max()}")
-        log.info(f"PSF dtype : {psf.dtype}")
-        log.info(f"PSF norm : {psf.norm()}")
-
     elif config.files.huggingface_dataset is True:
+
+        split_train = "train"
+        split_test = "test"
+        if config.files.split_seed is not None:
+            from datasets import load_dataset, concatenate_datasets
+
+            seed = config.files.split_seed
+            generator = torch.Generator().manual_seed(seed)
+
+            # - combine train and test into single dataset
+            train_dataset = load_dataset(config.files.dataset, split="train")
+            test_dataset = load_dataset(config.files.dataset, split="test")
+            dataset = concatenate_datasets([test_dataset, train_dataset])
+
+            # - split into train and test
+            train_size = int((1 - config.files.test_size) * len(dataset))
+            test_size = len(dataset) - train_size
+            split_train, split_test = torch.utils.data.random_split(
+                dataset, [train_size, test_size], generator=generator
+            )
 
         train_set = DigiCam(
             huggingface_repo=config.files.dataset,
             psf=config.files.huggingface_psf,
-            split="train",
+            split=split_train,
             display_res=config.files.image_res,
             rotate=config.files.rotate,
             downsample=config.files.downsample,
@@ -222,7 +235,7 @@ def train_unrolled(config):
         test_set = DigiCam(
             huggingface_repo=config.files.dataset,
             psf=config.files.huggingface_psf,
-            split="test",
+            split=split_test,
             display_res=config.files.image_res,
             rotate=config.files.rotate,
             downsample=config.files.downsample,
@@ -238,6 +251,19 @@ def train_unrolled(config):
         crop = test_set.crop  # same for train set
         alignment = test_set.alignment
 
+        # -- if learning mask
+        mask = prep_trainable_mask(config, psf)
+        if mask is not None:
+            assert not train_set.multimask
+            # plot initial PSF
+            psf_np = mask.get_psf().detach().cpu().numpy()[0, ...]
+            if config.trainable_mask.grayscale:
+                psf_np = psf_np[:, :, -1]
+
+            save_image(psf_np, os.path.join(save, "psf_initial.png"))
+            plot_image(psf_np, gamma=config.display.gamma)
+            plt.savefig(os.path.join(save, "psf_initial_plot.png"))
+
     else:
 
         train_set, test_set, mask = simulate_dataset(config, generator=generator)
@@ -247,6 +273,13 @@ def train_unrolled(config):
     assert train_set is not None
     # if not hasattr(test_set, "psfs"):
     #     assert psf is not None
+
+    # print info about PSF
+    log.info(f"PSF shape : {psf.shape}")
+    log.info(f"PSF min : {psf.min()}")
+    log.info(f"PSF max : {psf.max()}")
+    log.info(f"PSF dtype : {psf.dtype}")
+    log.info(f"PSF norm : {psf.norm()}")
 
     if config.files.extra_eval is not None:
         # TODO only support Hugging Face DigiCam datasets for now

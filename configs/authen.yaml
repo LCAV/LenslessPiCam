@@ -1,0 +1,22 @@
+# python scripts/data/authenticate.py
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+# repo_id: "bezzam/DigiCam-Mirflickr-MultiMask-25K"
+repo_id: "bezzam/DigiCam-Mirflickr-MultiMask-10K"
+# repo_id: "bezzam/DigiCam-Mirflickr-MultiMask-1K"  # for testing
+split: all   # "all" (for 100 masks), "test" (for 15 masks)
+n_iter: 25
+n_files: 100   # per mask
+grayscale: True
+font_scale: 1.5
+torch_device: cuda:2 
+
+model: Unet4M+U10+Unet4M
+
+# -- admm 25
+cont: /root/LenslessPiCam/outputs/2024-03-26/17-52-49
+# -- admm 10
+# cont: /root/LenslessPiCam/outputs/2024-03-25/23-36-06
+scores_fp: null    # file path to already computed scores
