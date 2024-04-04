@@ -22,6 +22,8 @@ import numpy as np
 from datasets import Dataset, DatasetDict, Image
 from huggingface_hub import upload_file
 from lensless.utils.dataset import natural_sort
+from tqdm import tqdm
+from lensless.utils.io import save_image
 
 
 @hydra.main(
@@ -36,7 +38,17 @@ def upload_dataset(config):
     hf_token = config.hf_token
     n_files = config.n_files
     multimask = config.multimask
+    n_jobs = config.n_jobs
     assert hf_token is not None, "Please provide a HuggingFace token."
+    assert repo_id is not None, "Please provide a HuggingFace repo_id."
+    assert config.lensless.dir is not None, "Please provide a lensless directory."
+    assert config.lensed.dir is not None, "Please provide a lensed directory."
+    assert (
+        config.lensless.ext is not None
+    ), "Please provide a lensless file extension, e.g. .png, .jpg, .tiff"
+    assert (
+        config.lensed.ext is not None
+    ), "Please provide a lensed file extension, e.g. .png, .jpg, .tiff"
 
     # get masks
     files_masks = []
@@ -69,6 +81,25 @@ def upload_dataset(config):
         os.path.join(config.lensless.dir, f + config.lensless.ext) for f in common_files
     ]
     lensed_files = [os.path.join(config.lensed.dir, f + config.lensed.ext) for f in common_files]
+
+    # convert to normalized 8 bit
+    if config.lensless.eight_norm:
+
+        import cv2
+        from joblib import Parallel, delayed
+
+        tmp_dir = config.lensless.dir + "_tmp"
+        os.makedirs(tmp_dir, exist_ok=True)
+
+        # -- parallelize with joblib
+        def save_8bit(f, output_dir, normalize=True):
+            img = cv2.imread(f, cv2.IMREAD_UNCHANGED)
+            new_fp = os.path.join(output_dir, os.path.basename(f))
+            new_fp = new_fp.split(".")[0] + ".png"
+            save_image(img, new_fp, normalize=normalize)
+
+        Parallel(n_jobs=n_jobs)(delayed(save_8bit)(f, tmp_dir) for f in tqdm(lensless_files))
+        lensless_files = glob.glob(os.path.join(tmp_dir, "*png"))
 
     # check for attribute
     df_attr = None
@@ -141,6 +172,8 @@ def upload_dataset(config):
         train_dataset = create_dataset(
             lensless_files[n_test:], lensed_files[n_test:], df_attr_train
         )
+    print(f"Train size: {len(train_dataset)}")
+    print(f"Test size: {len(test_dataset)}")
 
     # step 2: create DatasetDict
     dataset_dict = DatasetDict(
@@ -167,14 +200,14 @@ def upload_dataset(config):
 
     upload_file(
         path_or_fileobj=lensless_files[0],
-        path_in_repo="lensless_example.png",
+        path_in_repo=f"lensless_example{config.lensless.ext}",
         repo_id=repo_id,
         repo_type="dataset",
         token=hf_token,
     )
     upload_file(
         path_or_fileobj=lensed_files[0],
-        path_in_repo="lensed_example.png",
+        path_in_repo=f"lensed_example{config.lensed.ext}",
         repo_id=repo_id,
         repo_type="dataset",
         token=hf_token,
@@ -191,6 +224,10 @@ def upload_dataset(config):
 
     # total time in minutes
     print(f"Total time: {(time.time() - start_time) / 60} minutes")
+
+    # delete PNG files
+    if config.lensless.eight_norm:
+        os.system(f"rm -rf {tmp_dir}")
 
 
 if __name__ == "__main__":
