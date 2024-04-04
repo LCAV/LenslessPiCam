@@ -8,16 +8,16 @@ hf_token: null
 n_files: null
 test_size: 0.15
 multimask: False
+n_jobs: 1
 
 lensless:
   dir: null
-  ext: null
-  sixteen: False
+  ext: null  # for example: .png, .jpg
+  eight_norm: False   # save as 8-bit normalized image
 
 lensed:
   dir: null
   ext: null
-  sixteen: False
 
-# additional files to upload to root folder
+# additional files to upload to root folder, e.g. PSF
 files: null
