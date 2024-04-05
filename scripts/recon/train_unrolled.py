@@ -39,7 +39,7 @@ import os
 import numpy as np
 import time
 from lensless.hardware.trainable_mask import prep_trainable_mask
-from lensless import UnrolledFISTA, UnrolledADMM, TrainableInversion
+from lensless import ADMM, UnrolledFISTA, UnrolledADMM, TrainableInversion
 from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     DigiCamCelebA,
@@ -53,7 +53,6 @@ from lensless.recon.utils import Trainer
 import torch
 from lensless.utils.io import save_image
 from lensless.utils.plot import plot_image
-from lensless import ADMM
 import matplotlib.pyplot as plt
 
 # A logger for this file

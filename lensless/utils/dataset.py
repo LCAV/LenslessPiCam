@@ -1153,7 +1153,9 @@ class DigiCam(DualDataset):
                 interpolation=cv2.INTER_NEAREST,
             )
         elif self.display_res is not None:
-            lensed = resize(lensed_np, shape=self.display_res, interpolation=cv2.INTER_NEAREST)
+            lensed = resize(
+                lensed_np, shape=(*self.display_res, 3), interpolation=cv2.INTER_NEAREST
+            )
 
         return lensless, lensed
 
