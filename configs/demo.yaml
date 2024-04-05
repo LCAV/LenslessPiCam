@@ -63,7 +63,9 @@ camera:
   # these gains are not applied if rgb=True
   red_gain: 1.9
   blue_gain: 1.2
-  # psf: data/psf/tape_rgb_31032023.png  # path to PSF, DigiCam configuration
+  # -- path to PSF,
+  # psf: data/psf/tape_rgb_31032023.png  
+  # -- DigiCam configuration
   psf: 
     seed: 0
     device: adafruit

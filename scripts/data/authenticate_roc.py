@@ -36,8 +36,6 @@ for method, scores_fp in scores_paths.items():
     accuracy = np.zeros(n_psf)
     confusion_matrix = np.zeros((n_psf, n_psf))
     for psf_idx in scores:
-        # y_true_idx = np.zeros(n_psf)
-        # y_true_idx[int(psf_idx)] = 1
         y_true_idx = np.ones(n_psf)
         y_true_idx[int(psf_idx)] = 0
         for score in scores[psf_idx]:

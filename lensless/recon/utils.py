@@ -80,7 +80,7 @@ def load_drunet(model_path=None, n_channels=3, requires_grad=False):
     return model
 
 
-def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference"):
+def apply_denoiser(model, image, noise_level=10, mode="inference"):
     """
     Apply a pre-trained denoising model with input in the format Channel, Height, Width.
     An additionnal channel is added for the noise level as done in Drunet.
@@ -147,7 +147,7 @@ def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference")
     return image
 
 
-def get_drunet_function(model, device="cpu", mode="inference"):
+def get_drunet_function(model, mode="inference"):
     """
     Return a processing function that applies the DruNet model to an image.
     Legacy function to work with pre-trained models, use get_drunet_function_v2 instead.
@@ -168,7 +168,6 @@ def get_drunet_function(model, device="cpu", mode="inference"):
             model,
             image,
             noise_level=noise_level,
-            device=device,
             mode=mode,
         )
         image = torch.clip(image, min=0.0) * x_max
@@ -177,7 +176,7 @@ def get_drunet_function(model, device="cpu", mode="inference"):
     return process
 
 
-def get_drunet_function_v2(model, device="cpu", mode="inference"):
+def get_drunet_function_v2(model, mode="inference"):
     """
     Return a processing function that applies the DruNet model to an image.
 
@@ -185,8 +184,6 @@ def get_drunet_function_v2(model, device="cpu", mode="inference"):
     ----------
     model : :py:class:`torch.nn.Module`
         DruNet like denoiser model
-    device : str
-        Device to use for computation. Can be "cpu" or "cuda".
     mode : str
         Mode to use for model. Can be "inference" or "train".
     """
@@ -197,7 +194,6 @@ def get_drunet_function_v2(model, device="cpu", mode="inference"):
             model,
             image / x_max,
             noise_level=noise_level,
-            device=device,  # TODO: NOT USED
             mode=mode,
         )
         image = torch.clip(image, min=0.0) * x_max.to(image.device)

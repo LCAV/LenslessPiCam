@@ -1,3 +1,34 @@
+"""
+Script to compute scores for the authentication experiment.
+Scores are computed using the ADMM algorithm.
+
+Default configuration is set in `configs/authen.yaml`.
+
+To run the script:
+```
+python scripts/data/authenticate.py -cn YOUR CONFIG
+```
+
+We would run out of GPU memory so wrote a bash script loop the script:
+```
+#!/bin/sh
+# loop forever
+while true
+do
+    # run the python script
+    python scripts/data/authenticate.py -CN YOUR CONFIG \
+    cont=PATH_TO_INITIAL_RUN
+done
+```
+
+A ROC curve can then be plotted from multiple scores with:
+```
+python scripts/data/authenticate_roc.py
+```
+
+"""
+
+
 from lensless.utils.dataset import DigiCam
 import torch
 from lensless import ADMM
@@ -150,19 +181,7 @@ def authen(config):
                 recon = ADMM(psf=psfs[psf_idx].to(device))
                 recon.set_data(lensless.to(device))
                 recon.apply(disp_iter=None, plot=False, n_iter=n_iter)
-                # res = recon.apply(disp_iter=None, plot=False, n_iter=n_iter)
-                # if i == 0:
-                #     # save images
-                #     res_np = res.cpu().detach().numpy()
-                #     res_np = np.squeeze(res_np)
-                #     res_np = res_np / res_np.max()
-                #     if grayscale:
-                #         plt.imshow(res_np, cmap="gray")
-                #     else:
-                #         plt.imshow(res_np)
-                #     plt.savefig(f"recon_{psf_idx}.png")
                 scores_i.append(recon.reconstruction_error().item())
-                # del recon, res
                 del recon
             scores[str(mask_label)].append(np.array(scores_i).tolist())
             del lensless
@@ -209,7 +228,6 @@ def authen(config):
     plt.figure(figsize=(10, 7))
     # set font scale
     sn.set(font_scale=config.font_scale)
-    # sn.heatmap(df_cm, annot=True, cbar=False)
     sn.heatmap(df_cm, annot=False, cbar=True)
 
     # save plot

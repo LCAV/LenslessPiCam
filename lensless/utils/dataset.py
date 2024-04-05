@@ -1389,3 +1389,11 @@ def simulate_dataset(config, generator=None):
             )
 
     return train_ds_prop, test_ds_prop, mask
+
+
+class MyDataParallel(torch.nn.DataParallel):
+    def __getattr__(self, name):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.module, name)

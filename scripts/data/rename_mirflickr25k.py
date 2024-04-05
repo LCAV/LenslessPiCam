@@ -1,3 +1,9 @@
+"""
+Utility file to rename files in MirFlickr25k dataset (https://press.liacs.nl/mirflickr/)
+so that they match the names in the larger dataset, i.e. removing "im" from the filename.
+"""
+
+
 import os
 import glob
 from lensless.utils.dataset import natural_sort

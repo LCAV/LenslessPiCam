@@ -116,13 +116,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
             process_model = process
             if self._legacy_denoiser:
-                process_function = get_drunet_function(
-                    process_model, self._psf.device, mode="train"
-                )
+                process_function = get_drunet_function(process_model, mode="train")
             else:
-                process_function = get_drunet_function_v2(
-                    process_model, self._psf.device, mode="train"
-                )
+                process_function = get_drunet_function_v2(process_model, mode="train")
         elif process is not None:
             # Otherwise, we assume it is a function.
             assert callable(process), "pre_process must be a callable function"

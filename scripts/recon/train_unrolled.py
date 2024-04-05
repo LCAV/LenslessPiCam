@@ -44,10 +44,11 @@ from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     DigiCamCelebA,
     DigiCam,
+    MyDataParallel,
+    simulate_dataset,
 )
 from torch.utils.data import Subset
 from lensless.recon.utils import create_process_network
-from lensless.utils.dataset import simulate_dataset
 from lensless.recon.utils import Trainer
 import torch
 from lensless.utils.io import save_image
@@ -57,14 +58,6 @@ import matplotlib.pyplot as plt
 
 # A logger for this file
 log = logging.getLogger(__name__)
-
-
-class MyDataParallel(torch.nn.DataParallel):
-    def __getattr__(self, name):
-        try:
-            return super().__getattr__(name)
-        except AttributeError:
-            return getattr(self.module, name)
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
@@ -97,9 +90,6 @@ def train_unrolled(config):
     else:
         log.info("Using CPU for training.")
         device = "cpu"
-    # device, use_cuda, multi_gpu, device_ids = device_checks(
-    #     config.torch_device, config.multi_gpu, logger=log.info,
-    # )
     device_ids = config.device_ids
 
     # load dataset and create dataloader

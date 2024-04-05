@@ -312,7 +312,7 @@ class ReconstructionAlgorithm(abc.ABC):
             device = self._psf.device
             if denoiser["network"] == "DruNet":
                 denoiser_model = load_drunet(requires_grad=False).to(device)
-                self._denoiser = get_drunet_function_v2(denoiser_model, device, mode="inference")
+                self._denoiser = get_drunet_function_v2(denoiser_model, mode="inference")
             else:
                 raise NotImplementedError(f"Unsupported denoiser: {denoiser['network']}")
             self._denoiser_noise_level = denoiser["noise_level"]

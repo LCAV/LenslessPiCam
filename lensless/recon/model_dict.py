@@ -64,7 +64,6 @@ model_dict = {
             "unrolled_admm10_ft_psf_post8M": "bezzam/digicam-celeba-unrolled-admm10-ft-psf-post8M",
             "pre8M_unrolled_admm10": "bezzam/digicam-celeba-pre8M-unrolled-admm10",
             "pre4M_unrolled_admm10_post4M": "bezzam/digicam-celeba-pre4M-unrolled-admm10-post4M",
-            "pre4M_unrolled_admm10_post4M_OLD": "bezzam/digicam-celeba-pre4M-unrolled-admm10-post4M_OLD",
             "pre4M_unrolled_admm10_ft_psf_post4M": "bezzam/digicam-celeba-pre4M-unrolled-admm10-ft-psf-post4M",
             "Unet4M+TrainInv+Unet4M": "bezzam/digicam-celeba-unet4M-trainable-inv-unet4M",
             # baseline benchmarks which don't have model file but use ADMM
