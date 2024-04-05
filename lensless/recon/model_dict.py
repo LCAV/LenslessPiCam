@@ -99,7 +99,7 @@ def remove_data_parallel(old_state_dict):
     return new_state_dict
 
 
-def download_model(camera, dataset, model):
+def download_model(camera, dataset, model, local_model_dir=None):
 
     """
     Download model from model_dict (if needed).
@@ -112,6 +112,9 @@ def download_model(camera, dataset, model):
         Name of model.
     """
 
+    if local_model_dir is None:
+        local_model_dir = model_dir_path
+
     if camera not in model_dict:
         raise ValueError(f"Camera {camera} not found in model_dict.")
 
@@ -122,7 +125,7 @@ def download_model(camera, dataset, model):
         raise ValueError(f"Model {model} not found in model_dict.")
 
     repo_id = model_dict[camera][dataset][model]
-    model_dir = os.path.join(model_dir_path, camera, dataset, model)
+    model_dir = os.path.join(local_model_dir, camera, dataset, model)
 
     if not os.path.exists(model_dir):
         snapshot_download(repo_id=repo_id, local_dir=model_dir)
