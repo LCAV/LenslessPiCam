@@ -317,7 +317,6 @@ def compare_models(model_paths, max_epoch=None, linewidth=2, fontsize=18, metric
     plot_colors = list(mcolors.TABLEAU_COLORS.keys())
 
     _, ax = plt.subplots()
-    # plt.figure()
     for model in model_paths:
         model_path = model_paths[model]
         _metrics_path = os.path.join(model_path, "metrics.json")
