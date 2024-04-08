@@ -157,6 +157,7 @@ directory):
    pip install -r rpi_requirements.txt
 
    # test on-device camera capture (after setting up the camera)
+   source lensless_env/bin/activate
    python scripts/measure/on_device_capture.py
 
 You may still need to manually install ``numpy`` and/or ``scipy`` with ``pip`` in case libraries (e.g. ``libopenblas.so.0``) cannot be detected.

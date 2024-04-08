@@ -147,6 +147,9 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
     ax.set_title("Histogram")
     fig_gray.savefig("grey_analysis.png")
 
+    img_grey = img_grey.squeeze()
+    img = img.squeeze()
+
     if lens:
         # determine PSF width
         plot_cross_section(
@@ -166,6 +169,7 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
                 ax.set_ylabel("")
 
     elif lensless:
+
         # plot autocorrelations and width
         # -- grey
         _, ax_auto = plt.subplots(ncols=4, nrows=2, num="Autocorrelations", figsize=(15, 5))
