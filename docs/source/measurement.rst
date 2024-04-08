@@ -139,8 +139,7 @@ Measuring an arbitrary dataset
 
 .. note::
 
-   From the Raspberry Pi, it is recommended to disable screen blanking (the screen from entering
-   power saving mode and turning off) by following these `steps <https://pimylifeup.com/raspberry-pi-disable-screen-blanking/>`__.
+   Please go through the above sections to ensure that the camera is working correctly and that you are able to capture and display images.
 
 
 The following script can be used to collect an arbitrary dataset with the proposed camera.
@@ -201,6 +200,11 @@ for an example of measuring a multi-mask dataset with DigiCam.
 .. note::
 
    As the measurement may run for a while, it is recommended to run the script in a `screen <https://linuxize.com/post/how-to-use-linux-screen/>`__ session (or similar) to avoid the script being interrupted if the SSH connection is lost.
+
+.. note::
+
+   From the Raspberry Pi, it is recommended to disable screen blanking (the screen from entering
+   power saving mode and turning off) by following these `steps <https://pimylifeup.com/raspberry-pi-disable-screen-blanking/>`__.
 
 
 Troubleshooting
