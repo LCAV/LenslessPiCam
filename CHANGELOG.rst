@@ -19,6 +19,11 @@ Added
 - ``lensless.hardware.trainable_mask.TrainableCodedAperture`` class for training a coded aperture mask pattern.
 - Support for other optimizers in ``lensless.utils.Trainer.set_optimizer``.
 - ``lensless.utils.dataset.simulate_dataset`` for simulating a dataset given a mask/PSF.
+- Support for training/testing with multiple mask patterns in the dataset.
+- Multi-GPU support for training.
+- DigiCam dataset which interfaces with Hugging Face.
+- Scripts for authentication.
+- DigiCam support for Telegram demo.
 
 Changed
 ~~~~~
