@@ -16,6 +16,7 @@ from lensless.recon.trainable_inversion import TrainableInversion
 from lensless.hardware.trainable_mask import prep_trainable_mask
 import yaml
 from huggingface_hub import snapshot_download
+from collections import OrderedDict
 
 
 model_dir_path = os.path.join(os.path.dirname(__file__), "..", "..", "models")
@@ -58,21 +59,47 @@ model_dict = {
             "unrolled_admm10": "bezzam/digicam-celeba-unrolled-admm10",
             "unrolled_admm10_ft_psf": "bezzam/digicam-celeba-unrolled-admm10-ft-psf",
             "unet8M": "bezzam/digicam-celeba-unet8M",
+            "TrainInv+Unet8M": "bezzam/digicam-celeba-trainable-inv-unet8M",
             "unrolled_admm10_post8M": "bezzam/digicam-celeba-unrolled-admm10-post8M",
             "unrolled_admm10_ft_psf_post8M": "bezzam/digicam-celeba-unrolled-admm10-ft-psf-post8M",
             "pre8M_unrolled_admm10": "bezzam/digicam-celeba-pre8M-unrolled-admm10",
             "pre4M_unrolled_admm10_post4M": "bezzam/digicam-celeba-pre4M-unrolled-admm10-post4M",
-            "pre4M_unrolled_admm10_post4M_OLD": "bezzam/digicam-celeba-pre4M-unrolled-admm10-post4M_OLD",
             "pre4M_unrolled_admm10_ft_psf_post4M": "bezzam/digicam-celeba-pre4M-unrolled-admm10-ft-psf-post4M",
+            "Unet4M+TrainInv+Unet4M": "bezzam/digicam-celeba-unet4M-trainable-inv-unet4M",
             # baseline benchmarks which don't have model file but use ADMM
             "admm_measured_psf": "bezzam/digicam-celeba-admm-measured-psf",
             "admm_simulated_psf": "bezzam/digicam-celeba-admm-simulated-psf",
-        }
+        },
+        "mirflickr_single_25k": {
+            "U10": "bezzam/digicam-mirflickr-single-25k-unrolled-admm10",
+            "Unet8M": "bezzam/digicam-mirflickr-single-25k-unet8M",
+            "TrainInv+Unet8M": "bezzam/digicam-mirflickr-single-25k-trainable-inv-unet8M",
+            "U10+Unet8M": "bezzam/digicam-mirflickr-single-25k-unrolled-admm10-unet8M",
+            "Unet4M+TrainInv+Unet4M": "bezzam/digicam-mirflickr-single-25k-unet4M-trainable-inv-unet4M",
+            "Unet4M+U10+Unet4M": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M",
+        },
+        "mirflickr_multi_25k": {
+            "Unet8M": "bezzam/digicam-mirflickr-multi-25k-unet8M",
+            "Unet4M+U10+Unet4M": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm10-unet4M",
+        },
     },
 }
 
 
-def download_model(camera, dataset, model):
+def remove_data_parallel(old_state_dict):
+    new_state_dict = OrderedDict()
+
+    for k, v in old_state_dict.items():
+        # remove `module.` from k
+        if "module." in k:
+            name = k.replace("module.", "")
+            # name = k[7:] # remove `module.`
+            new_state_dict[name] = v
+
+    return new_state_dict
+
+
+def download_model(camera, dataset, model, local_model_dir=None):
 
     """
     Download model from model_dict (if needed).
@@ -85,6 +112,9 @@ def download_model(camera, dataset, model):
         Name of model.
     """
 
+    if local_model_dir is None:
+        local_model_dir = model_dir_path
+
     if camera not in model_dict:
         raise ValueError(f"Camera {camera} not found in model_dict.")
 
@@ -95,7 +125,7 @@ def download_model(camera, dataset, model):
         raise ValueError(f"Model {model} not found in model_dict.")
 
     repo_id = model_dict[camera][dataset][model]
-    model_dir = os.path.join(model_dir_path, camera, dataset, model)
+    model_dir = os.path.join(local_model_dir, camera, dataset, model)
 
     if not os.path.exists(model_dir):
         snapshot_download(repo_id=repo_id, local_dir=model_dir)
@@ -103,7 +133,7 @@ def download_model(camera, dataset, model):
     return model_dir
 
 
-def load_model(model_path, psf, device="cpu", legacy_denoiser=False):
+def load_model(model_path, psf, device="cpu", legacy_denoiser=False, verbose=True):
 
     """
     Load best model from model path.
@@ -142,7 +172,8 @@ def load_model(model_path, psf, device="cpu", legacy_denoiser=False):
     # load best model config
     model_checkpoint = os.path.join(model_path, "recon_epochBEST")
     assert os.path.exists(model_checkpoint), "Checkpoint does not exist"
-    print("Loading checkpoint from : ", model_checkpoint)
+    if verbose:
+        print("Loading checkpoint from : ", model_checkpoint)
     model_state_dict = torch.load(model_checkpoint, map_location=device)
 
     # load model
@@ -192,6 +223,9 @@ def load_model(model_path, psf, device="cpu", legacy_denoiser=False):
     if mask is not None:
         psf_learned = torch.nn.Parameter(psf_learned)
         recon._set_psf(psf_learned)
+
+    if config["device_ids"] is not None:
+        model_state_dict = remove_data_parallel(model_state_dict)
 
     # # return model_state_dict
     # if "_psf" in model_state_dict:

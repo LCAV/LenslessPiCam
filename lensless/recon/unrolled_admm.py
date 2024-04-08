@@ -3,6 +3,7 @@
 # =================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
+# Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
 from lensless.recon.trainable_recon import TrainableReconstructionAlgorithm
@@ -130,19 +131,23 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         return finite_diff_adj(U)
 
     def reset(self, batch_size=1):
+
+        if self._data is not None:
+            device = self._data.device
+        else:
+            device = self._convolver._H.device
+
         # ensure that mu1, mu2, mu3, tau are positive
-        self._mu1 = torch.abs(self._mu1_p)
-        self._mu2 = torch.abs(self._mu2_p)
-        self._mu3 = torch.abs(self._mu3_p)
-        self._tau = torch.abs(self._tau_p)
+        self._mu1 = torch.abs(self._mu1_p).to(device)
+        self._mu2 = torch.abs(self._mu2_p).to(device)
+        self._mu3 = torch.abs(self._mu3_p).to(device)
+        self._tau = torch.abs(self._tau_p).to(device)
 
         # TODO initialize without padding
         if self._initial_est is not None:
-            self._image_est = self._initial_est
+            self._image_est = self._initial_est.to(device)
         else:
-            self._image_est = torch.zeros([1] + self._padded_shape, dtype=self._dtype).to(
-                self._psf.device
-            )
+            self._image_est = torch.zeros([1] + self._padded_shape, dtype=self._dtype).to(device)
 
         self._X = torch.zeros_like(self._image_est)
         self._U = torch.zeros_like(self._Psi(self._image_est))
@@ -159,18 +164,18 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
         self._eta = torch.zeros_like(self._U)
         self._rho = torch.zeros_like(self._X)
 
-        # precompute_R_divmat
+        # precompute_R_divmat [iter, batch, depth, height, width, channels]
         self._R_divmat = 1.0 / (
-            self._mu1[:, None, None, None, None]
-            * (torch.abs(self._convolver._Hadj * self._convolver._H))
-            + self._mu2[:, None, None, None, None] * torch.abs(self._PsiTPsi)
-            + self._mu3[:, None, None, None, None]
+            self._mu1[:, None, None, None, None, None]
+            * (torch.abs(self._convolver._Hadj * self._convolver._H))[None, ...]
+            + self._mu2[:, None, None, None, None, None] * torch.abs(self._PsiTPsi).to(device)
+            + self._mu3[:, None, None, None, None, None]
         ).type(self._complex_dtype)
 
-        # precompute_X_divmat
+        # precompute_X_divmat [iter, batch, depth, height, width, channels]
         self._X_divmat = 1.0 / (
-            self._convolver._pad(torch.ones_like(self._psf[None, ...]))
-            + self._mu1[:, None, None, None, None]
+            self._convolver._pad(torch.ones_like(self._convolver._psf))[None, ...]
+            + self._mu1[:, None, None, None, None, None]
         )
 
     def _U_update(self, iter):

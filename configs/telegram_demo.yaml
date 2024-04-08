@@ -11,18 +11,30 @@ rpi_lensed_hostname: null
 
 # can pre-load PSF so it doesn't have to be loaded and resize at each reconstruction
 # psf: null
+# -- digicam (simulated)
 psf:
-  fp: data/psf/tape_rgb_31032023.png
-  # fp: data/psf/tape_rgb.png  # wrong
+  sensor: rpi_hq
+  device: adafruit
+  mask_shape: [54, 26]
+  mask_center: [57, 77]
+  flipud: True
   downsample: 4
+# -- measured PSF
+# psf:
+#   # https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Fpsf
+#   fp: data/psf/tape_rgb_31032023.png
+#   # fp: data/psf/tape_rgb.png  # wrong
+#   downsample: 4
 
 # which hydra config to use and available algos
 config_name: demo
-default_algo: unrolled   # note that this requires GPU
-supported_algos: ["fista", "admm", "unrolled"]
+default_algo: admm   # note that unrolled requires GPU
+# supported_algos: ["fista", "admm", "unrolled"]
+supported_algos: ["fista", "admm"]
 
 
 # overlaying logos on the reconstruction
+# images: https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Foriginal
 overlay:
   alpha: 60
 

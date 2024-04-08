@@ -80,7 +80,7 @@ def load_drunet(model_path=None, n_channels=3, requires_grad=False):
     return model
 
 
-def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference"):
+def apply_denoiser(model, image, noise_level=10, mode="inference"):
     """
     Apply a pre-trained denoising model with input in the format Channel, Height, Width.
     An additionnal channel is added for the noise level as done in Drunet.
@@ -117,11 +117,10 @@ def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference")
     right = (8 - image.shape[-1] % 8) - left
     image = torch.nn.functional.pad(image, (left, right, top, bottom), mode="constant", value=0)
     # add noise level as extra channel
-    image = image.to(device)
     if isinstance(noise_level, torch.Tensor):
         noise_level = noise_level / 255.0
     else:
-        noise_level = torch.tensor([noise_level / 255.0]).to(device)
+        noise_level = torch.tensor([noise_level / 255.0])
 
     image = torch.cat(
         (
@@ -148,7 +147,7 @@ def apply_denoiser(model, image, noise_level=10, device="cpu", mode="inference")
     return image
 
 
-def get_drunet_function(model, device="cpu", mode="inference"):
+def get_drunet_function(model, mode="inference"):
     """
     Return a processing function that applies the DruNet model to an image.
     Legacy function to work with pre-trained models, use get_drunet_function_v2 instead.
@@ -169,7 +168,6 @@ def get_drunet_function(model, device="cpu", mode="inference"):
             model,
             image,
             noise_level=noise_level,
-            device=device,
             mode=mode,
         )
         image = torch.clip(image, min=0.0) * x_max
@@ -178,7 +176,7 @@ def get_drunet_function(model, device="cpu", mode="inference"):
     return process
 
 
-def get_drunet_function_v2(model, device="cpu", mode="inference"):
+def get_drunet_function_v2(model, mode="inference"):
     """
     Return a processing function that applies the DruNet model to an image.
 
@@ -186,8 +184,6 @@ def get_drunet_function_v2(model, device="cpu", mode="inference"):
     ----------
     model : :py:class:`torch.nn.Module`
         DruNet like denoiser model
-    device : str
-        Device to use for computation. Can be "cpu" or "cuda".
     mode : str
         Mode to use for model. Can be "inference" or "train".
     """
@@ -198,10 +194,9 @@ def get_drunet_function_v2(model, device="cpu", mode="inference"):
             model,
             image / x_max,
             noise_level=noise_level,
-            device=device,
             mode=mode,
         )
-        image = torch.clip(image, min=0.0) * x_max
+        image = torch.clip(image, min=0.0) * x_max.to(image.device)
         return image
 
     return process
@@ -229,7 +224,7 @@ def measure_gradient(model):
     return total_norm
 
 
-def create_process_network(network, depth=4, device="cpu", nc=None):
+def create_process_network(network, depth=4, device="cpu", nc=None, device_ids=None):
     """
     Helper function to create a process network.
 
@@ -256,7 +251,7 @@ def create_process_network(network, depth=4, device="cpu", nc=None):
     if network == "DruNet":
         from lensless.recon.utils import load_drunet
 
-        process = load_drunet(requires_grad=True).to(device)
+        process = load_drunet(requires_grad=True)
         process_name = "DruNet"
     elif network == "UnetRes":
         from lensless.recon.drunet.network_unet import UNetRes
@@ -270,11 +265,16 @@ def create_process_network(network, depth=4, device="cpu", nc=None):
             act_mode="R",
             downsample_mode="strideconv",
             upsample_mode="convtranspose",
-        ).to(device)
+        )
         process_name = "UnetRes_d" + str(depth)
     else:
         process = None
         process_name = None
+
+    if process is not None:
+        if device_ids is not None:
+            process = torch.nn.DataParallel(process, device_ids=device_ids)
+        process = process.to(device)
 
     return (process, process_name)
 
@@ -302,6 +302,7 @@ class Trainer:
         crop=None,
         clip_grad=1.0,
         unrolled_output_factor=False,
+        extra_eval_sets=None,
         # for adding components during training
         pre_process=None,
         pre_process_delay=None,
@@ -417,6 +418,7 @@ class Trainer:
             )
             self.print(f"Train size : {train_size}, Test size : {test_size}")
 
+        self.train_dataset = train_dataset
         self.train_dataloader = torch.utils.data.DataLoader(
             dataset=train_dataset,
             batch_size=batch_size,
@@ -424,6 +426,7 @@ class Trainer:
             pin_memory=(self.device != "cpu"),
         )
         self.test_dataset = test_dataset
+        self.extra_eval_sets = extra_eval_sets  # additional datasets to evaluate on
         self.lpips = lpips
         self.skip_NAN = skip_NAN
         self.eval_batch_size = eval_batch_size
@@ -509,6 +512,9 @@ class Trainer:
                 self.metrics[key + "_unrolled"] = []
         if metric_for_best_model is not None:
             assert metric_for_best_model in self.metrics.keys()
+        if extra_eval_sets is not None:
+            for key in extra_eval_sets:
+                self.metrics[key] = dict()
         self.save_every = save_every
 
         # Backward hook that detect NAN in the gradient and print the layer weights
@@ -590,7 +596,16 @@ class Trainer:
         mean_loss = 0.0
         i = 1.0
         pbar = tqdm(data_loader)
-        for X, y in pbar:
+        for batch in pbar:
+
+            # get batch
+            if self.train_dataset.multimask:
+                X, y, psfs = batch
+                psfs = psfs.to(self.device)
+            else:
+                X, y = batch
+                psfs = None
+
             # send to device
             X = X.to(self.device)
             y = y.to(self.device)
@@ -600,7 +615,7 @@ class Trainer:
                 self.recon._set_psf(self.mask.get_psf().to(self.device))
 
             # forward pass
-            y_pred = self.recon.batch_call(X.to(self.device))
+            y_pred = self.recon.forward(batch=X, psfs=psfs)
             if self.unrolled_output_factor:
                 unrolled_out = y_pred[1]
                 y_pred = y_pred[0]
@@ -619,7 +634,18 @@ class Trainer:
             y = y.reshape(-1, *y.shape[-3:]).movedim(-1, -3)
 
             # extraction region of interest for loss
-            if self.crop is not None:
+            if (
+                hasattr(self.train_dataset, "alignment")
+                and self.train_dataset.alignment is not None
+            ):
+                alignment = self.train_dataset.alignment
+                y_pred = y_pred[
+                    ...,
+                    alignment["topright"][0] : alignment["topright"][0] + alignment["height"],
+                    alignment["topright"][1] : alignment["topright"][1] + alignment["width"],
+                ]
+                # expected that lensed is also reshaped accordingly
+            elif self.crop is not None:
                 y_pred = y_pred[
                     ...,
                     self.crop["vertical"][0] : self.crop["vertical"][1],
@@ -736,7 +762,7 @@ class Trainer:
 
         return mean_loss
 
-    def evaluate(self, mean_loss, save_pt, epoch, disp=None):
+    def evaluate(self, mean_loss, epoch, disp=None):
         """
         Evaluate the reconstruction algorithm on the test dataset.
 
@@ -744,8 +770,6 @@ class Trainer:
         ----------
         mean_loss : float
             Mean loss of the last epoch.
-        save_pt : str
-            Path to save metrics dictionary to. If None, no logging of metrics.
         disp : list of int, optional
             Test set examples to visualize at the end of each epoch, by default None.
         """
@@ -779,11 +803,6 @@ class Trainer:
         for key in current_metrics:
             self.metrics[key].append(current_metrics[key])
 
-        if save_pt:
-            # save dictionary metrics to file with json
-            with open(os.path.join(save_pt, "metrics.json"), "w") as f:
-                json.dump(self.metrics, f, indent=4)
-
         # check best metric
         if self.metrics["metric_for_best_model"] is None:
             eval_loss = current_metrics["MSE"]
@@ -803,6 +822,47 @@ class Trainer:
             eval_loss = current_metrics[self.metrics["metric_for_best_model"]]
 
         self.metrics["LOSS_TEST"].append(eval_loss)
+
+        # add extra evaluation sets
+        if self.extra_eval_sets is not None:
+            for eval_set in self.extra_eval_sets:
+
+                # create output directory
+                output_dir = None
+                if disp is not None:
+                    output_dir = os.path.join("eval_recon")
+                    if not os.path.exists(output_dir):
+                        os.mkdir(output_dir)
+                    output_dir = os.path.join(output_dir, str(epoch) + f"_{eval_set}")
+
+                if not self.extra_eval_sets[eval_set].multimask:
+                    # need to set correct PSF for evaluation
+                    # TODO cleaner way to set PSF?
+                    self.recon._set_psf(self.extra_eval_sets[eval_set].psf.to(self.device))
+
+                # benchmarking
+                extra_metrics = benchmark(
+                    self.recon,
+                    self.extra_eval_sets[eval_set],
+                    batchsize=self.eval_batch_size,
+                    save_idx=disp,
+                    output_dir=output_dir,
+                    crop=self.crop,
+                    unrolled_output_factor=self.unrolled_output_factor,
+                )
+
+                # add metrics to dictionary
+                for key in extra_metrics:
+                    if key not in self.metrics[eval_set]:
+                        self.metrics[eval_set][key] = [extra_metrics[key]]
+                    else:
+                        self.metrics[eval_set][key].append(extra_metrics[key])
+
+            # set back PSF to original in case changed
+            # TODO: cleaner way?
+            if not self.train_dataset.multimask:
+                self.recon._set_psf(self.train_dataset.psf.to(self.device))
+
         return eval_loss
 
     def on_epoch_end(self, mean_loss, save_pt, epoch, disp=None):
@@ -825,7 +885,7 @@ class Trainer:
             save_pt = os.getcwd()
 
         # save model
-        epoch_eval_metric = self.evaluate(mean_loss, save_pt, epoch, disp=disp)
+        epoch_eval_metric = self.evaluate(mean_loss, epoch, disp=disp)
         new_best = False
         if (
             self.metrics["metric_for_best_model"] == "PSNR"
@@ -846,6 +906,10 @@ class Trainer:
         if self.save_every is not None and epoch % self.save_every == 0:
             self.save(path=save_pt, include_optimizer=False, epoch=epoch)
 
+        # save dictionary metrics to file with json
+        with open(os.path.join(save_pt, "metrics.json"), "w") as f:
+            json.dump(self.metrics, f, indent=4)
+
     def train(self, n_epoch=1, save_pt=None, disp=None):
         """
         Train the reconstruction algorithm.
@@ -862,7 +926,7 @@ class Trainer:
 
         start_time = time.time()
 
-        self.evaluate(-1, save_pt, epoch=0, disp=disp)
+        self.evaluate(-1, epoch=0, disp=disp)
         for epoch in range(n_epoch):
 
             # add extra components (if specified)

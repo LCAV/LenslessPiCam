@@ -13,6 +13,10 @@ import matplotlib.pyplot as plt
 from lensless import FISTA, ADMM
 from lensless.hardware.utils import check_username_hostname, display
 from lensless.utils.io import load_image, load_psf
+import omegaconf
+from lensless.hardware.slm import set_programmable_mask, adafruit_sub2full
+from lensless.hardware.trainable_mask import AdafruitLCD
+from torch import from_numpy
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="demo")
@@ -37,7 +41,34 @@ def demo(config):
     print("\nCopying over picture...")
     display(fp=display_fp, rpi_username=RPI_USERNAME, rpi_hostname=RPI_HOSTNAME, **config.display)
 
-    # 2) Take picture
+    # 2) (If DigiCam) set mask pattern
+    mask = None
+    flipud = False
+    if isinstance(config.camera.psf, omegaconf.dictconfig.DictConfig):
+        print("\nSetting mask pattern...")
+        np.random.seed(config.camera.psf.seed % (2**32 - 1))
+        mask_vals = np.random.uniform(0, 1, config.camera.psf.mask_shape)
+        full_pattern = adafruit_sub2full(
+            mask_vals,
+            center=config.camera.psf.mask_center,
+        )
+        set_programmable_mask(
+            full_pattern,
+            device=config.camera.psf.device,
+            rpi_username=RPI_USERNAME,
+            rpi_hostname=RPI_HOSTNAME,
+        )
+        mask_vals_torch = from_numpy(mask_vals.astype(np.float32))
+        flipud = config.camera.psf.flipud
+        mask = AdafruitLCD(
+            initial_vals=mask_vals_torch,
+            sensor=config.capture.sensor,
+            slm=config.camera.psf.device,
+            downsample=config.recon.downsample,
+            flipud=flipud,
+        )
+
+    # 3) Take picture
     time.sleep(config.capture.delay)  # for picture to display
     print("\nTaking picture...")
 
@@ -131,17 +162,21 @@ def demo(config):
     if save:
         plt.savefig(os.path.join(save, "histogram.png"))
 
-    # 3) Reconstruct
+    # 4) Reconstruct
 
     # -- prepare data
-    psf, bg = load_psf(
-        to_absolute_path(config.camera.psf),
-        downsample=config.recon.downsample,
-        return_float=True,
-        return_bg=True,
-        dtype=config.recon.dtype,
-    )
-    psf = np.array(psf, dtype=config.recon.dtype)
+    if mask is not None:
+        psf = mask.get_psf().detach().numpy()
+        bg = np.zeros(psf.shape[-1])
+    else:
+        psf, bg = load_psf(
+            to_absolute_path(config.camera.psf),
+            downsample=config.recon.downsample,
+            return_float=True,
+            return_bg=True,
+            dtype=config.recon.dtype,
+        )
+        psf = np.array(psf, dtype=config.recon.dtype)
     ax = plot_image(psf[0], gamma=config.recon.gamma)
     ax.set_title("PSF")
     if save:
@@ -174,6 +209,11 @@ def demo(config):
 
         psf = torch.from_numpy(psf).type(torch_dtype).to(config.recon.torch_device)
         data = torch.from_numpy(data).type(torch_dtype).to(config.recon.torch_device)
+        if flipud:
+            data = torch.rot90(data, dims=(-3, -2), k=2)
+    else:
+        if flipud:
+            data = np.rot90(data, k=2, axes=(-3, -2))
 
     # -- apply algo
     start_time = time.time()
