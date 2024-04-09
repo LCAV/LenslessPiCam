@@ -160,6 +160,7 @@ class DualDataset(Dataset):
 
         if self.background is not None:
             lensless = lensless - self.background
+            lensless = torch.clamp(lensless, min=0)
 
         # add noise
         if self.input_snr is not None:
@@ -957,6 +958,57 @@ class HITLDatasetTrainableMask(SimulatedDatasetTrainableMask):
 
         # return simulated images (replace simulated with measured)
         return img, lensed
+
+
+class DiffuserCamMirflickrHF(DualDataset):
+    def __init__(self, split, downsample=6, **kwargs):
+        """
+        Parameters
+        ----------
+        split : str
+            Split of the dataset to use: 'train', 'test', or 'all'.
+        downsample : int, optional
+            Downsample factor of the PSF, which is 4x the resolution of the images, by default 6 for resolution of (180, 320).
+        """
+
+        # fixed parameters
+        repo_id = "bezzam/DiffuserCam-Lensless-Mirflickr-Dataset"
+        flip_ud = True
+        dtype = "float32"
+
+        # get dataset
+        self.dataset = load_dataset(repo_id, split=split)
+
+        # get PSF
+        psf_fp = hf_hub_download(repo_id=repo_id, filename="psf.png", repo_type="dataset")
+
+        print("\nPSF:")
+        psf, bg = load_psf(
+            psf_fp,
+            verbose=False,
+            downsample=downsample,
+            return_bg=True,
+            flip_ud=flip_ud,
+            dtype=dtype,
+        )
+        self.psf = torch.from_numpy(psf)
+
+        super(DiffuserCamMirflickrHF, self).__init__(
+            flip_ud=flip_ud, downsample=downsample / 4, background=bg, **kwargs
+        )
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def _get_images_pair(self, idx):
+        lensless = np.array(self.dataset[idx]["lensless"])
+        lensed = np.array(self.dataset[idx]["lensed"])
+
+        # normalize
+        lensless = lensless.astype(np.float32) / 255
+        lensed = lensed.astype(np.float32) / 255
+
+        return lensless, lensed
 
 
 class DigiCam(DualDataset):
