@@ -961,7 +961,7 @@ class HITLDatasetTrainableMask(SimulatedDatasetTrainableMask):
 
 
 class DiffuserCamMirflickrHF(DualDataset):
-    def __init__(self, split, downsample=6, **kwargs):
+    def __init__(self, split, downsample=2, flip_ud=True, **kwargs):
         """
         Parameters
         ----------
@@ -969,11 +969,12 @@ class DiffuserCamMirflickrHF(DualDataset):
             Split of the dataset to use: 'train', 'test', or 'all'.
         downsample : int, optional
             Downsample factor of the PSF, which is 4x the resolution of the images, by default 6 for resolution of (180, 320).
+        flip_ud : bool, optional
+            If True, data is flipped up-down, by default ``True``. Otherwise data is upside-down.
         """
 
         # fixed parameters
         repo_id = "bezzam/DiffuserCam-Lensless-Mirflickr-Dataset"
-        flip_ud = True
         dtype = "float32"
 
         # get dataset
@@ -981,20 +982,19 @@ class DiffuserCamMirflickrHF(DualDataset):
 
         # get PSF
         psf_fp = hf_hub_download(repo_id=repo_id, filename="psf.png", repo_type="dataset")
-
-        print("\nPSF:")
         psf, bg = load_psf(
             psf_fp,
             verbose=False,
-            downsample=downsample,
+            downsample=downsample * 4,
             return_bg=True,
             flip_ud=flip_ud,
             dtype=dtype,
+            bg_pix=(0, 15),
         )
         self.psf = torch.from_numpy(psf)
 
         super(DiffuserCamMirflickrHF, self).__init__(
-            flip_ud=flip_ud, downsample=downsample / 4, background=bg, **kwargs
+            flip_ud=flip_ud, downsample=downsample, background=bg, **kwargs
         )
 
     def __len__(self):
