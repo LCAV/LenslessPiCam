@@ -12,7 +12,6 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-from hydra.utils import get_original_cwd
 import os
 import torch
 from lensless.eval.benchmark import benchmark
@@ -55,7 +54,7 @@ def load_drunet(model_path=None, n_channels=3, requires_grad=False):
 
             # default to yes if no input is given
             valid = input("%s (Y/n) " % msg).lower() != "n"
-            output_path = os.path.join(get_original_cwd(), "models")
+            output_path = os.path.join(this_file_path, "..", "..", "models")
             if valid:
                 url = "https://drive.switch.ch/index.php/s/jTdeMHom025RFRQ/download"
                 filename = "drunet_color.pth"
