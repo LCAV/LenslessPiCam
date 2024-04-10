@@ -1227,6 +1227,31 @@ class DigiCam(DualDataset):
         else:
             return lensless, lensed
 
+    def extract_roi(self, reconstruction, lensed=None):
+        assert len(reconstruction.shape) == 4, "Reconstruction should have shape [B, H, W, C]"
+        if lensed is not None:
+            assert len(lensed.shape) == 4, "Lensed should have shape [B, H, W, C]"
+
+        if self.alignment is not None:
+            top_right = self.alignment["topright"]
+            height = self.alignment["height"]
+            width = self.alignment["width"]
+            reconstruction = reconstruction[
+                :, top_right[0] : top_right[0] + height, top_right[1] : top_right[1] + width
+            ]
+        elif self.crop is not None:
+            vertical = self.crop["vertical"]
+            horizontal = self.crop["horizontal"]
+            reconstruction = reconstruction[
+                :, vertical[0] : vertical[1], horizontal[0] : horizontal[1]
+            ]
+            if lensed is not None:
+                lensed = lensed[:, vertical[0] : vertical[1], horizontal[0] : horizontal[1]]
+        if lensed is not None:
+            return reconstruction, lensed
+        else:
+            return reconstruction
+
 
 def simulate_dataset(config, generator=None):
     """
