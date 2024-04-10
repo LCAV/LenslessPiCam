@@ -430,6 +430,9 @@ class Trainer:
         self.lpips = lpips
         self.skip_NAN = skip_NAN
         self.eval_batch_size = eval_batch_size
+        self.train_multimask = False
+        if hasattr(train_dataset, "multimask"):
+            self.train_multimask = train_dataset.multimask
 
         # check if Subset and if simulating dataset
         self.simulated_dataset_trainable_mask = False
@@ -599,7 +602,7 @@ class Trainer:
         for batch in pbar:
 
             # get batch
-            if self.train_dataset.multimask:
+            if self.train_multimask:
                 X, y, psfs = batch
                 psfs = psfs.to(self.device)
             else:
@@ -835,10 +838,11 @@ class Trainer:
                         os.mkdir(output_dir)
                     output_dir = os.path.join(output_dir, str(epoch) + f"_{eval_set}")
 
-                if not self.extra_eval_sets[eval_set].multimask:
-                    # need to set correct PSF for evaluation
-                    # TODO cleaner way to set PSF?
-                    self.recon._set_psf(self.extra_eval_sets[eval_set].psf.to(self.device))
+                if hasattr(self.extra_eval_sets[eval_set], "multimask"):
+                    if not self.extra_eval_sets[eval_set].multimask:
+                        # need to set correct PSF for evaluation
+                        # TODO cleaner way to set PSF?
+                        self.recon._set_psf(self.extra_eval_sets[eval_set].psf.to(self.device))
 
                 # benchmarking
                 extra_metrics = benchmark(
@@ -860,7 +864,7 @@ class Trainer:
 
             # set back PSF to original in case changed
             # TODO: cleaner way?
-            if not self.train_dataset.multimask:
+            if not self.train_multimask:
                 self.recon._set_psf(self.train_dataset.psf.to(self.device))
 
         return eval_loss
