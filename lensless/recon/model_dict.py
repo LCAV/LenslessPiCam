@@ -224,7 +224,7 @@ def load_model(model_path, psf, device="cpu", legacy_denoiser=False, verbose=Tru
         psf_learned = torch.nn.Parameter(psf_learned)
         recon._set_psf(psf_learned)
 
-    if config["device_ids"] is not None:
+    if "device_ids" in config.keys() and config["device_ids"] is not None:
         model_state_dict = remove_data_parallel(model_state_dict)
 
     # # return model_state_dict
