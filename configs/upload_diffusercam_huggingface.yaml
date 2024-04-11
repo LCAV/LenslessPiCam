@@ -5,6 +5,9 @@ hydra:
 
 repo_id: "bezzam/DiffuserCam-Lensless-Mirflickr-Dataset"
 normalize: False
+# repo_id: bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM
+# normalize: True
+
 dir_diffuser: "DiffuserCam_mirflickr/dataset/diffuser_images"
 dir_lensed: "DiffuserCam_mirflickr/dataset/ground_truth_lensed"
 psf_fp: "DiffuserCam_mirflickr/psf.tiff"
