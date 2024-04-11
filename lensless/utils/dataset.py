@@ -961,11 +961,14 @@ class HITLDatasetTrainableMask(SimulatedDatasetTrainableMask):
 
 
 class DiffuserCamMirflickrHF(DualDataset):
-    def __init__(self, 
-                 split, 
-                 repo_id="bezzam/DiffuserCam-Lensless-Mirflickr-Dataset",
-                 downsample=2, 
-                 flip_ud=True, **kwargs):
+    def __init__(
+        self,
+        split,
+        repo_id="bezzam/DiffuserCam-Lensless-Mirflickr-Dataset",
+        downsample=2,
+        flip_ud=True,
+        **kwargs,
+    ):
         """
         Parameters
         ----------
