@@ -961,7 +961,11 @@ class HITLDatasetTrainableMask(SimulatedDatasetTrainableMask):
 
 
 class DiffuserCamMirflickrHF(DualDataset):
-    def __init__(self, split, downsample=2, flip_ud=True, **kwargs):
+    def __init__(self, 
+                 split, 
+                 repo_id="bezzam/DiffuserCam-Lensless-Mirflickr-Dataset",
+                 downsample=2, 
+                 flip_ud=True, **kwargs):
         """
         Parameters
         ----------
@@ -974,14 +978,13 @@ class DiffuserCamMirflickrHF(DualDataset):
         """
 
         # fixed parameters
-        repo_id = "bezzam/DiffuserCam-Lensless-Mirflickr-Dataset"
         dtype = "float32"
 
         # get dataset
         self.dataset = load_dataset(repo_id, split=split)
 
         # get PSF
-        psf_fp = hf_hub_download(repo_id=repo_id, filename="psf.png", repo_type="dataset")
+        psf_fp = hf_hub_download(repo_id=repo_id, filename="psf.tiff", repo_type="dataset")
         psf, bg = load_psf(
             psf_fp,
             verbose=False,

@@ -8,7 +8,7 @@ torch_device: 'cuda:0'
 
 dataset: diffusercam
 split: test    # "train", "test", "all"
-downsample: 6
+downsample: 2
 data_dim: null
 output_folder: null  # autocreate name if not specified
 n_files: 25    # null for all files
