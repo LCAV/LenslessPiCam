@@ -965,6 +965,7 @@ class DiffuserCamMirflickrHF(DualDataset):
         self,
         split,
         repo_id="bezzam/DiffuserCam-Lensless-Mirflickr-Dataset",
+        psf="psf.tiff",
         downsample=2,
         flip_ud=True,
         **kwargs,
@@ -987,7 +988,7 @@ class DiffuserCamMirflickrHF(DualDataset):
         self.dataset = load_dataset(repo_id, split=split)
 
         # get PSF
-        psf_fp = hf_hub_download(repo_id=repo_id, filename="psf.tiff", repo_type="dataset")
+        psf_fp = hf_hub_download(repo_id=repo_id, filename=psf, repo_type="dataset")
         psf, bg = load_psf(
             psf_fp,
             verbose=False,

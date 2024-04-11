@@ -45,7 +45,7 @@ def upload_dataset(config):
     file_ext = config.file_ext
     n_files = config.n_files
     n_jobs = config.n_jobs
-    normalize = True   # TODO need this to remove negative values in npy files, or upload the TIFF?
+    normalize = config.normalize
 
     assert hf_token is not None, "Please provide a HuggingFace token."
 
