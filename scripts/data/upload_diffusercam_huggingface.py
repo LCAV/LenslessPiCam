@@ -86,15 +86,8 @@ def upload_dataset(config):
         diffuser_fn = os.path.join(dir_diffuser_png, f.replace(file_ext, ".png"))
         save_image(diffuser_img, diffuser_fn, normalize=normalize)
 
-        try:
-            lensed_img = np.load(os.path.join(dir_lensed, f))
-            lensed_img = cv2.cvtColor(lensed_img, cv2.COLOR_BGR2RGB)  # convert to RGB
-        except Exception as e:
-            print(f"Error {e} with {f}, loading tiff...")
-            tiff_fp = os.path.join(dir_lensed, f.replace(file_ext, ".jpg.tiff"))
-            lensed_img = cv2.imread(tiff_fp, cv2.IMREAD_UNCHANGED)
-            lensed_img = cv2.cvtColor(lensed_img, cv2.COLOR_BGR2RGB)  # convert to RGB
-            lensed_img = lensed_img / 4095.0  # normalize
+        lensed_img = np.load(os.path.join(dir_lensed, f))
+        lensed_img = cv2.cvtColor(lensed_img, cv2.COLOR_BGR2RGB)  # convert to RGB
         lensed_fn = os.path.join(dir_lensed_png, f.replace(file_ext, ".png"))
         save_image(lensed_img, lensed_fn, normalize=normalize)
 
