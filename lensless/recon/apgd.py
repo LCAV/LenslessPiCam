@@ -88,7 +88,7 @@ class APGD(ReconstructionAlgorithm):
         self,
         psf,
         max_iter=500,
-        dtype=np.float32,
+        dtype="float32",
         diff_penalty=None,
         prox_penalty=APGDPriors.NONNEG,
         acceleration=True,

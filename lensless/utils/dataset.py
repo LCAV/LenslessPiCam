@@ -160,6 +160,7 @@ class DualDataset(Dataset):
 
         if self.background is not None:
             lensless = lensless - self.background
+            lensless = torch.clamp(lensless, min=0)
 
         # add noise
         if self.input_snr is not None:
@@ -959,6 +960,64 @@ class HITLDatasetTrainableMask(SimulatedDatasetTrainableMask):
         return img, lensed
 
 
+class DiffuserCamMirflickrHF(DualDataset):
+    def __init__(
+        self,
+        split,
+        repo_id="bezzam/DiffuserCam-Lensless-Mirflickr-Dataset",
+        psf="psf.tiff",
+        downsample=2,
+        flip_ud=True,
+        **kwargs,
+    ):
+        """
+        Parameters
+        ----------
+        split : str
+            Split of the dataset to use: 'train', 'test', or 'all'.
+        downsample : int, optional
+            Downsample factor of the PSF, which is 4x the resolution of the images, by default 6 for resolution of (180, 320).
+        flip_ud : bool, optional
+            If True, data is flipped up-down, by default ``True``. Otherwise data is upside-down.
+        """
+
+        # fixed parameters
+        dtype = "float32"
+
+        # get dataset
+        self.dataset = load_dataset(repo_id, split=split)
+
+        # get PSF
+        psf_fp = hf_hub_download(repo_id=repo_id, filename=psf, repo_type="dataset")
+        psf, bg = load_psf(
+            psf_fp,
+            verbose=False,
+            downsample=downsample * 4,
+            return_bg=True,
+            flip_ud=flip_ud,
+            dtype=dtype,
+            bg_pix=(0, 15),
+        )
+        self.psf = torch.from_numpy(psf)
+
+        super(DiffuserCamMirflickrHF, self).__init__(
+            flip_ud=flip_ud, downsample=downsample, background=bg, **kwargs
+        )
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def _get_images_pair(self, idx):
+        lensless = np.array(self.dataset[idx]["lensless"])
+        lensed = np.array(self.dataset[idx]["lensed"])
+
+        # normalize
+        lensless = lensless.astype(np.float32) / 255
+        lensed = lensed.astype(np.float32) / 255
+
+        return lensless, lensed
+
+
 class DigiCam(DualDataset):
     def __init__(
         self,
@@ -1174,6 +1233,31 @@ class DigiCam(DualDataset):
                 return lensless, lensed, self.psf[mask_label]
         else:
             return lensless, lensed
+
+    def extract_roi(self, reconstruction, lensed=None):
+        assert len(reconstruction.shape) == 4, "Reconstruction should have shape [B, H, W, C]"
+        if lensed is not None:
+            assert len(lensed.shape) == 4, "Lensed should have shape [B, H, W, C]"
+
+        if self.alignment is not None:
+            top_right = self.alignment["topright"]
+            height = self.alignment["height"]
+            width = self.alignment["width"]
+            reconstruction = reconstruction[
+                :, top_right[0] : top_right[0] + height, top_right[1] : top_right[1] + width
+            ]
+        elif self.crop is not None:
+            vertical = self.crop["vertical"]
+            horizontal = self.crop["horizontal"]
+            reconstruction = reconstruction[
+                :, vertical[0] : vertical[1], horizontal[0] : horizontal[1]
+            ]
+            if lensed is not None:
+                lensed = lensed[:, vertical[0] : vertical[1], horizontal[0] : horizontal[1]]
+        if lensed is not None:
+            return reconstruction, lensed
+        else:
+            return reconstruction
 
 
 def simulate_dataset(config, generator=None):

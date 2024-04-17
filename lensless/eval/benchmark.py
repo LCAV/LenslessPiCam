@@ -112,9 +112,10 @@ def benchmark(
     idx = 0
     with torch.no_grad():
         for batch in tqdm(dataloader):
-            if dataset.multimask:
-                lensless, lensed, psfs = batch
-                psfs = psfs.to(device)
+            if hasattr(dataset, "multimask"):
+                if dataset.multimask:
+                    lensless, lensed, psfs = batch
+                    psfs = psfs.to(device)
             else:
                 lensless, lensed = batch
                 psfs = None
