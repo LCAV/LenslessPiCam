@@ -24,6 +24,8 @@ Added
 - DigiCam dataset which interfaces with Hugging Face.
 - Scripts for authentication.
 - DigiCam support for Telegram demo.
+- DiffuserCamMirflickr Hugging Face API.
+- Fallback for normalization if data not in 8bit range (``lensless.utils.io.save_image``).
 
 Changed
 ~~~~~
@@ -35,6 +37,9 @@ Bugfix
 ~~~~~
 
 - ``lensless.hardware.trainable_mask.AdafruitLCD`` input handling.
+- Local path for DRUNet download.
+- APGD input handling (float32).
+- Multimask handling.
 
 1.0.6 - (2024-02-21)
 --------------------
