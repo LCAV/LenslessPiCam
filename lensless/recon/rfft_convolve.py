@@ -159,7 +159,7 @@ class RealFFTConvolve2D:
             conv_output = self._crop(conv_output)
 
         # ensure shape stays the same
-        assert conv_output.shape == x.shape
+        assert conv_output.shape[-3:-1] == x.shape[-3:-1]
         return conv_output
 
     def deconvolve(self, y):
@@ -198,5 +198,5 @@ class RealFFTConvolve2D:
             deconv_output = self._crop(deconv_output)
 
         # ensure shape stays the same
-        assert deconv_output.shape == y.shape
+        assert deconv_output.shape[-3:-1] == y.shape[-3:-1]
         return deconv_output
