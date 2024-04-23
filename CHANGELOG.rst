@@ -40,7 +40,7 @@ Bugfix
 - Local path for DRUNet download.
 - APGD input handling (float32).
 - Multimask handling.
-- Passing shape to IRFFT so that it mathches shape of input to RFFT.
+- Passing shape to IRFFT so that it matches shape of input to RFFT.
 
 1.0.6 - (2024-02-21)
 --------------------
