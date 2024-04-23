@@ -13,6 +13,7 @@ import shutil
 import pytz
 from datetime import datetime
 from lensless.hardware.utils import check_username_hostname
+from lensless.hardware.slm import set_programmable_mask, adafruit_sub2full
 
 # for displaying emojis
 from emoji import EMOJI_DATA
@@ -51,6 +52,7 @@ RPI_LENSED_HOSTNAME = None
 CONFIG_FN = None
 DEFAULT_ALGO = None
 ALGO_TEXT = None
+MASK_PARAM = None
 
 
 OVERLAY_ALPHA = None
@@ -63,12 +65,14 @@ INPUT_FP = "user_photo.jpg"
 RAW_DATA_FP = "raw_data.png"
 OUTPUT_FOLDER = "demo_lensless"
 BUSY = False
-supported_algos = ["fista", "admm", "unrolled"]
+# supported_algos = ["fista", "admm", "unrolled"]
+supported_algos = ["fista", "admm"]
 supported_input = ["mnist", "thumb", "face"]
 TIMEOUT = 1 * 60  # 10 minutes
 
 BRIGHTNESS = 100
-EXPOSURE = 0.02
+# EXPOSURE = 0.02
+EXPOSURE = 0.5
 LOW_LIGHT_THRESHOLD = 100
 SATURATION_THRESHOLD = 0.05
 
@@ -117,7 +121,47 @@ async def check_incoming_message(update: Update, context: ContextTypes.DEFAULT_T
     # create folder for user
     user_folder = get_user_folder(update)
     if not os.path.exists(user_folder):
-        os.makedirs(user_folder)
+        os.makedirs(user_folder, exist_ok=True)
+
+        if MASK_PARAM is not None:
+
+            import torch
+            from lensless.hardware.slm import set_programmable_mask, adafruit_sub2full
+            from lensless.hardware.trainable_mask import AdafruitLCD
+            from lensless.utils.io import save_image
+
+            user_id = int(os.path.basename(user_folder))
+            np.random.seed(user_id % (2**32 - 1))  # TODO set user ID as seed
+            mask_vals = np.random.uniform(0, 1, MASK_PARAM.mask_shape)
+
+            # simulate PSF
+            full_pattern = adafruit_sub2full(
+                mask_vals,
+                center=MASK_PARAM.mask_center,
+            )
+            set_programmable_mask(
+                full_pattern,
+                device=MASK_PARAM.device,
+                rpi_username=RPI_USERNAME,
+                rpi_hostname=RPI_HOSTNAME,
+            )
+            mask_vals_torch = torch.from_numpy(mask_vals.astype(np.float32))
+            mask = AdafruitLCD(
+                initial_vals=mask_vals_torch,
+                sensor=MASK_PARAM.sensor,
+                slm=MASK_PARAM.device,
+                downsample=MASK_PARAM.downsample,
+                flipud=MASK_PARAM.flipud,
+            )
+            psf = mask.get_psf().detach().numpy()
+
+            # save PSF as PNG
+            psf_fp = os.path.join(user_folder, "psf.png")
+            save_image(psf[0], psf_fp)
+
+            # save as NPY
+            psf_npy_fp = os.path.join(user_folder, "psf.npy")
+            np.save(psf_npy_fp, psf)
 
     if BUSY:
         return "System is busy. Please wait for the current job to finish and try again."
@@ -232,6 +276,9 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # EXPOSURE = 0.02
 
+    vshift = -26
+    pad = 10
+
     res = await check_incoming_message(update, context)
     if res is not None:
         await update.message.reply_text(res, reply_to_message_id=update.message.message_id)
@@ -252,7 +299,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_folder = get_user_folder(update)
         original_file_path = os.path.join(user_folder, INPUT_FP)
         os.system(
-            f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+            f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME} display.pad={pad} display.vshift={vshift}"
         )
         await update.message.reply_text(
             "Image sent to display.", reply_to_message_id=update.message.message_id
@@ -291,6 +338,113 @@ async def take_picture(update: Update, context: ContextTypes.DEFAULT_TYPE, query
     )
 
 
+def overlay(user_subfolder):
+
+    if OVERLAY_1 is not None or OVERLAY_2 is not None or OVERLAY_3 is not None:
+
+        alpha = OVERLAY_ALPHA
+
+        reconstructed_path = os.path.join(user_subfolder, "reconstructed.png")
+
+        img1 = Image.open(reconstructed_path)
+        img1 = img1.convert("RGBA")
+
+        for overlay_config in [OVERLAY_1, OVERLAY_2, OVERLAY_3]:
+            if overlay_config is not None:
+                overlay_img = Image.open(overlay_config.fp)
+                overlay_img = overlay_img.convert("RGBA")
+                overlay_img.putalpha(alpha)
+                new_width = int(img1.width * overlay_config.scaling)
+                overlay_img = overlay_img.resize(
+                    (new_width, int(new_width * overlay_img.height / overlay_img.width))
+                )
+                img1.paste(
+                    overlay_img,
+                    (overlay_config.position[0], overlay_config.position[1]),
+                    overlay_img,
+                )
+
+        OUTPUT_FP = os.path.join(user_subfolder, "reconstructed_overlay.png")
+        img1.convert("RGB").save(OUTPUT_FP)
+
+    else:
+
+        OUTPUT_FP = os.path.join(user_subfolder, "reconstructed.png")
+
+    return OUTPUT_FP
+
+
+async def random_mask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Set random mask and reconstruct (with ADMM).
+    """
+
+    algo = "admm"
+
+    # get user subfolder
+    user_subfolder = get_user_folder(update)
+
+    # get seed for random mask
+    seed = int(os.path.basename(user_subfolder))
+    # add random number to seed
+    seed += np.random.randint(0, 1000)
+    os.system(
+        f"python scripts/recon/demo.py -cn {CONFIG_FN} plot=False recon.algo={algo} output={user_subfolder} camera.psf.seed={seed}"
+    )
+
+    # -- send back, with watermark if provided
+    OUTPUT_FP = overlay(user_subfolder)
+    await update.message.reply_photo(
+        OUTPUT_FP,
+        caption=f"Reconstruction ({algo})",
+        reply_to_message_id=update.message.message_id,
+    )
+
+    # simulate BAD PSF
+    import torch
+    from lensless.hardware.slm import set_programmable_mask, adafruit_sub2full
+    from lensless.hardware.trainable_mask import AdafruitLCD
+    from lensless.utils.io import save_image
+
+    np.random.seed(seed % (2**32 - 1))
+    mask_vals = np.random.uniform(0, 1, MASK_PARAM.mask_shape)
+
+    # simulate PSF
+    full_pattern = adafruit_sub2full(
+        mask_vals,
+        center=MASK_PARAM.mask_center,
+    )
+    set_programmable_mask(
+        full_pattern, device=MASK_PARAM.device, rpi_username=RPI_USERNAME, rpi_hostname=RPI_HOSTNAME
+    )
+    mask_vals_torch = torch.from_numpy(mask_vals.astype(np.float32))
+    mask = AdafruitLCD(
+        initial_vals=mask_vals_torch,
+        sensor=MASK_PARAM.sensor,
+        slm=MASK_PARAM.device,
+        downsample=MASK_PARAM.downsample,
+        flipud=MASK_PARAM.flipud,
+    )
+    psf = mask.get_psf().detach().numpy()
+
+    # save PSF as PNG
+    psf_fp = os.path.join(user_subfolder, "psf_bad.png")
+    save_image(psf[0], psf_fp)
+    await update.message.reply_photo(
+        psf_fp,
+        caption="Incorrect PSF used for reconstruction",
+        reply_to_message_id=update.message.message_id,
+    )
+
+    # send back false and ground truth PSF
+    psf_fp = os.path.join(user_subfolder, "psf.png")
+    await update.message.reply_photo(
+        psf_fp,
+        caption="Correct PSF (your key)",
+        reply_to_message_id=update.message.message_id,
+    )
+
+
 async def reconstruct(update: Update, context: ContextTypes.DEFAULT_TYPE, algo, query=None) -> None:
 
     supported = check_algo(algo)
@@ -325,53 +479,24 @@ async def reconstruct(update: Update, context: ContextTypes.DEFAULT_TYPE, algo, 
         os.system(
             f"python scripts/recon/demo.py -cn {CONFIG_FN} plot=False recon.algo={algo} output={user_subfolder} camera.psf={PSF_FP} recon.downsample=1 camera.background={BACKGROUND_FP}"
         )
+    elif MASK_PARAM is not None:
+        # get seed for random mask
+        seed = int(os.path.basename(user_subfolder))
+        os.system(
+            f"python scripts/recon/demo.py -cn {CONFIG_FN} plot=False recon.algo={algo} output={user_subfolder} camera.psf.seed={seed}"
+        )
     else:
         os.system(
             f"python scripts/recon/demo.py -cn {CONFIG_FN} plot=False recon.algo={algo} output={user_subfolder}"
         )
 
     # -- send back, with watermark if provided
-    if OVERLAY_1 is not None or OVERLAY_2 is not None or OVERLAY_3 is not None:
-
-        alpha = OVERLAY_ALPHA
-
-        reconstructed_path = os.path.join(user_subfolder, "reconstructed.png")
-
-        img1 = Image.open(reconstructed_path)
-        img1 = img1.convert("RGBA")
-
-        for overlay_config in [OVERLAY_1, OVERLAY_2, OVERLAY_3]:
-            if overlay_config is not None:
-                overlay_img = Image.open(overlay_config.fp)
-                overlay_img = overlay_img.convert("RGBA")
-                overlay_img.putalpha(alpha)
-                new_width = int(img1.width * overlay_config.scaling)
-                overlay_img = overlay_img.resize(
-                    (new_width, int(new_width * overlay_img.height / overlay_img.width))
-                )
-                img1.paste(
-                    overlay_img,
-                    (overlay_config.position[0], overlay_config.position[1]),
-                    overlay_img,
-                )
-
-        OUTPUT_FP = os.path.join(user_subfolder, "reconstructed_overlay.png")
-        img1.convert("RGB").save(OUTPUT_FP)
-
-        # return photo
-        await update.message.reply_photo(
-            OUTPUT_FP,
-            caption=f"Reconstruction ({algo})",
-            reply_to_message_id=update.message.message_id,
-        )
-
-    else:
-        OUTPUT_FP = os.path.join(user_subfolder, "reconstructed.png")
-        await update.message.reply_photo(
-            OUTPUT_FP,
-            caption=f"Reconstruction ({algo})",
-            reply_to_message_id=update.message.message_id,
-        )
+    OUTPUT_FP = overlay(user_subfolder)
+    await update.message.reply_photo(
+        OUTPUT_FP,
+        caption=f"Reconstruction ({algo})",
+        reply_to_message_id=update.message.message_id,
+    )
 
 
 async def take_picture_and_reconstruct(
@@ -384,6 +509,25 @@ async def take_picture_and_reconstruct(
     else:
         user_subfolder = get_user_folder(update)
         responder = update.message
+
+    # (if DigiCam) set mask pattern
+    if MASK_PARAM is not None:
+        print("Setting mask pattern...")
+        # get seed for random mask
+        seed = int(os.path.basename(user_subfolder))
+        np.random.seed(seed % (2**32 - 1))
+        mask_vals = np.random.uniform(0, 1, MASK_PARAM.mask_shape)
+        full_pattern = adafruit_sub2full(
+            mask_vals,
+            center=MASK_PARAM.mask_center,
+        )
+        # setting mask
+        set_programmable_mask(
+            full_pattern,
+            device=MASK_PARAM.device,
+            rpi_username=RPI_USERNAME,
+            rpi_hostname=RPI_HOSTNAME,
+        )
 
     await take_picture(update, context, query=query)
 
@@ -471,9 +615,9 @@ async def mnist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     algo = DEFAULT_ALGO
-    vshift = -10
+    vshift = -26
     brightness = 100
-    # EXPOSURE = 0.08
+    EXPOSURE = 1
 
     # copy image to INPUT_FP
     user_folder = get_user_folder(update)
@@ -510,9 +654,10 @@ async def thumb_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     algo = DEFAULT_ALGO
-    vshift = -10
+    vshift = -26
     brightness = 80
-    # EXPOSURE = 0.02
+    EXPOSURE = 0.5
+    pad = 10
 
     # copy image to INPUT_FP
     user_folder = get_user_folder(update)
@@ -521,7 +666,7 @@ async def thumb_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # -- send to display
     os.system(
-        f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+        f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.pad={pad} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
     )
     await update.message.reply_text(
         f"Image sent to display with brightness {brightness}.",
@@ -549,9 +694,9 @@ async def face_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     algo = DEFAULT_ALGO
-    vshift = 0
+    vshift = -20
     brightness = 80
-    # EXPOSURE = 0.02
+    EXPOSURE = 1
 
     # copy image to INPUT_FP
     user_folder = get_user_folder(update)
@@ -603,7 +748,7 @@ async def psf_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     OUTPUT_FP = os.path.join(OUTPUT_FOLDER, "raw_data.png")
     await update.message.reply_photo(
         OUTPUT_FP,
-        caption="PSF (zoom in to see caustic pattern)",
+        caption="PSF (zoom in to see pattern)",
         reply_to_message_id=update.message.message_id,
     )
 
@@ -611,6 +756,15 @@ async def psf_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if PSF_FP is not None:
         await update.message.reply_photo(
             PSF_FP_GAMMA,
+            caption="PSF used for reconstructions",
+            reply_to_message_id=update.message.message_id,
+        )
+    elif MASK_PARAM is not None:
+        # return pre-computed PSF
+        user_folder = get_user_folder(update)
+        psf_fp = os.path.join(user_folder, "psf.png")
+        await update.message.reply_photo(
+            psf_fp,
             caption="PSF used for reconstructions",
             reply_to_message_id=update.message.message_id,
         )
@@ -653,11 +807,12 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     elif "exposure" in query.message.text:
 
         EXPOSURE = float(query.data)
-        # await query.edit_message_text(text=f"Image sent to display with exposure of {EXPOSURE} seconds.")
+        await query.edit_message_text(text=f"Exposure set to {EXPOSURE} seconds.")
 
-    algo = DEFAULT_ALGO
-    # send query instead of update as it has the message data
-    await take_picture_and_reconstruct(update, context, algo, query=query)
+    # TODO not working with mask
+    # algo = DEFAULT_ALGO
+    # # send query instead of update as it has the message data
+    # await take_picture_and_reconstruct(update, context, algo, query=query)
     BUSY = False
 
 
@@ -715,14 +870,14 @@ async def exposure_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     Set exposure, re-capture, and reconstruct.
     """
 
-    # check INPUT_FP exists
-    user_folder = get_user_folder(update)
-    original_file_path = os.path.join(user_folder, INPUT_FP)
-    if not os.path.exists(original_file_path):
-        await update.message.reply_text(
-            "Please set an image first.", reply_to_message_id=update.message.message_id
-        )
-        return
+    # # check INPUT_FP exists
+    # user_folder = get_user_folder(update)
+    # original_file_path = os.path.join(user_folder, INPUT_FP)
+    # if not os.path.exists(original_file_path):
+    #     await update.message.reply_text(
+    #         "Please set an image first.", reply_to_message_id=update.message.message_id
+    #     )
+    #     return
 
     res = await check_incoming_message(update, context)
     if res is not None:
@@ -730,10 +885,14 @@ async def exposure_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
 
     # vals = {0.02: "very low", 0.05: "low", 0.1: "medium", 0.2: "high", 0.5: "very high"}
+    # -- tape based
     vals = {0.02: "very low", 0.035: "low", 0.05: "medium", 0.065: "high", 0.08: "very high"}
+    # -- digicam
+    vals = {0.25: "very low", 0.5: "low", 0.75: "medium", 1: "high", 1.25: "very high"}
 
     current_exp = vals[EXPOSURE]
-    del vals[EXPOSURE]
+    if EXPOSURE in vals:
+        del vals[EXPOSURE]
     keys = list(vals.keys())
     keyboard = [
         [
@@ -761,7 +920,7 @@ async def emoji(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     global BUSY, EXPOSURE
 
-    # EXPOSURE = 0.02
+    EXPOSURE = 0.7
 
     res = await check_incoming_message(update, context)
     if res is not None:
@@ -770,7 +929,7 @@ async def emoji(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # create image from emoji
     text = update.message.text
-    size = 30
+    size = 15
     with Image.new("RGB", (size, size), (0, 0, 0)) as image:
         font = ImageFont.truetype(
             "/usr/share/fonts/truetype/freefont/FreeMono.ttf", size, encoding="unic"
@@ -785,7 +944,7 @@ async def emoji(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         image.save(original_file_path)
 
     # display
-    vshift = -10
+    vshift = -20
     brightness = 80
     os.system(
         f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME} display.vshift={vshift} display.brightness={brightness}"
@@ -812,9 +971,8 @@ def main(config) -> None:
 
     global TOKEN, WHITELIST_USERS, RPI_USERNAME, RPI_HOSTNAME, RPI_LENSED_USERNAME, RPI_LENSED_HOSTNAME, CONFIG_FN
     global DEFAULT_ALGO, ALGO_TEXT, HELP_TEXT, supported_algos
-    # global OVERLAY_BOTTOMLEFT, OVERLAY_BOTTOMRIGHT, OVERLAY_TOPLEFT, OVERLAY_TOPRIGHT
     global OVERLAY_ALPHA, OVERLAY_1, OVERLAY_2, OVERLAY_3
-    global PSF_FP, BACKGROUND_FP
+    global PSF_FP, BACKGROUND_FP, MASK_PARAM
 
     TOKEN = config.token
 
@@ -847,9 +1005,12 @@ def main(config) -> None:
         "The photo will be:\n\n1. Displayed on a screen.\n2. Our lensless camera will "
         "take a picture.\n3. A reconstruction will be sent back through the bot.\n4. "
         "The raw data will also be sent back."
-        "\n\nIf you do not feel comfortable sending one "
-        f"of your own pictures, you can use the {input_commands} commands to set "
-        "the image on the display with one of our inputs. Or even send an emoij 😎"
+        # "\n\nIf you do not feel comfortable sending one "
+        # f"of your own pictures, you can use the {input_commands} commands to set "
+        # "the image on the display with one of our inputs. Or even send an emoij 😎"
+        f"\n\n⚠️ Try one of the {input_commands} commands to use images we've configured. "
+        "Or even send an emoij 😎 "
+        "You can also send your own image (but brightness/exposure may need to be adjusted)."
         "\n\nAll previous data is overwritten "
         "when a new image is sent, and everything is deleted when the process running on the "
         "server is shut down."
@@ -864,10 +1025,15 @@ def main(config) -> None:
         "can specify the algorithm (on the last measurement) with the corresponding "
         f"command: {algo_commands}."
         "\n\nAll provided algorithms require an estimate of the point spread function (PSF). "
-        "You can measure a (proxy) PSF with /psf (a point source like "
-        "image will be displayed on the screen). "
-        "In practice, we measure the PSF with single white LED. The used PSF is sent also sent "
-        "back with the /psf command."
+        "Each user has their unique mask pattern according to the Telegram ID. "
+        "\n\n⚠️ After doing a measurement/reconstruction, you can try running /random_mask "
+        "to see what would be the reconstruction if you use a different (wrong) mask, "
+        "as if someone (like a hacker!) were trying to decode your data with a different mask."
+        # "\n\nAll provided algorithms require an estimate of the point spread function (PSF). "
+        # "You can measure a (proxy) PSF with /psf (a point source like "
+        # "image will be displayed on the screen). "
+        # "In practice, we measure the PSF with single white LED. The used PSF is sent also sent "
+        # "back with the /psf command."
         "\n\nMore info: go.epfl.ch/lensless"
     )
 
@@ -877,25 +1043,30 @@ def main(config) -> None:
 
     # load and downsample PSF beforehand
     if config.psf is not None:
-        from lensless.utils.io import save_image
 
-        psf, bg = load_psf(
-            config.psf.fp, downsample=config.psf.downsample, return_float=True, return_bg=True
-        )
+        if "fp" in config.psf:
+            from lensless.utils.io import save_image
 
-        # save to demo folder
-        PSF_FP = os.path.join(OUTPUT_FOLDER, "psf.png")
-        save_image(psf[0], PSF_FP)
+            psf, bg = load_psf(
+                config.psf.fp, downsample=config.psf.downsample, return_float=True, return_bg=True
+            )
 
-        # save with gamma correction
-        from lensless.utils.image import gamma_correction
+            # save to demo folder
+            PSF_FP = os.path.join(OUTPUT_FOLDER, "psf.png")
+            save_image(psf[0], PSF_FP)
 
-        psf_gamma = gamma_correction(psf[0], gamma=1.5)
-        save_image(psf_gamma, PSF_FP_GAMMA)
+            # save with gamma correction
+            from lensless.utils.image import gamma_correction
 
-        # save background array
-        BACKGROUND_FP = os.path.join(OUTPUT_FOLDER, "psf_bg.npy")
-        np.save(BACKGROUND_FP, bg)
+            psf_gamma = gamma_correction(psf[0], gamma=1.5)
+            save_image(psf_gamma, PSF_FP_GAMMA)
+
+            # save background array
+            BACKGROUND_FP = os.path.join(OUTPUT_FOLDER, "psf_bg.npy")
+            np.save(BACKGROUND_FP, bg)
+        elif "device" in config.psf:
+            # programmable mask
+            MASK_PARAM = config.psf
 
     # Create the Application and pass it your bot's token.
     assert TOKEN is not None
@@ -916,7 +1087,6 @@ def main(config) -> None:
         application.add_handler(CommandHandler("mnist", mnist_command, block=False))
         application.add_handler(CommandHandler("thumb", thumb_command, block=False))
         application.add_handler(CommandHandler("face", face_command, block=False))
-        application.add_handler(CommandHandler("psf", psf_command, block=False))
         # application.add_handler(CommandHandler("brightness", brightness_command, block=False))
 
         # different algorithms
@@ -940,6 +1110,12 @@ def main(config) -> None:
 
         # emoji input
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, emoji, block=False))
+
+        if MASK_PARAM is not None:
+            application.add_handler(CommandHandler("random_mask", random_mask, block=False))
+        else:
+            # to dim for measuring PSF of DigiCam?
+            application.add_handler(CommandHandler("psf", psf_command, block=False))
 
         # Run the bot until the user presses Ctrl-C
         application.run_polling()

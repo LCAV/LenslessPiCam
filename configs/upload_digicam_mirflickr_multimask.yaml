@@ -1,0 +1,17 @@
+# python scripts/data/upload_dataset_huggingface.py -cn upload_digicam_mirflickr_multimask
+defaults:
+  - upload_dataset_huggingface
+  - _self_
+
+repo_id: "bezzam/DigiCam-Mirflickr-MultiMask-38K"
+n_files: null
+test_size: 0.15
+multimask: True
+
+lensless:
+  dir: "/root/mirflickr/all_measured_20240209-172459"
+  ext: ".png"
+
+lensed:
+  dir: "/root/mirflickr/mirflickr25k"
+  ext: ".jpg"

@@ -6,6 +6,8 @@ Push DiffuserCam dataset to HuggingFace.
 pip install datasets
 pip install huggingface_hub
 pip install joblib
+pip install git+https://github.com/pvigier/perlin-numpy.git@5e26837db14042e51166eb6cad4c0df2c1907016
+pip install git+https://github.com/ebezzam/slm-controller.git
 
 # make a write token on HuggingFace
 
@@ -43,7 +45,7 @@ def upload_dataset(config):
     file_ext = config.file_ext
     n_files = config.n_files
     n_jobs = config.n_jobs
-    normalize = False
+    normalize = config.normalize
 
     assert hf_token is not None, "Please provide a HuggingFace token."
 

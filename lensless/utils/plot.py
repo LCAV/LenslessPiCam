@@ -10,6 +10,8 @@
 import numpy as np
 import warnings
 import matplotlib.pyplot as plt
+import os
+import json
 
 from lensless.utils.image import FLOAT_DTYPES, get_max_val, gamma_correction, autocorr2d
 
@@ -286,3 +288,74 @@ def plot_autocorr2d(vals, pad_mode="reflect", ax=None):
     ax.imshow(autocorr_img, cmap="gray", vmin=0, vmax=max_val_plot)
     ax.axis("off")
     return ax, autocorr
+
+
+def compare_models(model_paths, max_epoch=None, linewidth=2, fontsize=18, metrics=None):
+    """
+    Plot train and test loss for multiple models, and print metrics for best epoch.
+
+    Parameters
+    ----------
+    model_paths : dict
+        Dictionary of model names and their paths.
+    max_epoch : int, optional
+        Maximum epoch to plot. Default is None.
+    linewidth : int, optional
+        Line width for plot. Default is 2.
+    fontsize : int, optional
+        Font size for plot. Default is 18.
+    metrics : list, optional
+        List of metrics to print. Default is ["PSNR", "SSIM", "LPIPS_Vgg"].
+    """
+
+    if metrics is None:
+        metrics = ["PSNR", "SSIM", "LPIPS_Vgg"]
+
+    # plot train and test loss
+    import matplotlib.colors as mcolors
+
+    plot_colors = list(mcolors.TABLEAU_COLORS.keys())
+
+    _, ax = plt.subplots()
+    for model in model_paths:
+        model_path = model_paths[model]
+        _metrics_path = os.path.join(model_path, "metrics.json")
+
+        assert os.path.exists(_metrics_path), f"Path {_metrics_path} does not exist"
+        _test_metrics = json.load(open(_metrics_path))
+
+        color = plot_colors.pop()
+        train_loss = np.array(_test_metrics["LOSS"])
+        if max_epoch is not None:
+            train_loss = train_loss[: max_epoch + 1]
+        ax.plot(
+            train_loss, label=model + " (train)", color=color, linestyle="--", linewidth=linewidth
+        )
+
+        test_loss = np.array(_test_metrics["MSE"]) + np.array(_test_metrics["LPIPS_Vgg"])
+        if max_epoch is not None:
+            test_loss = test_loss[: max_epoch + 1]
+        ax.plot(test_loss, label=model + " (test)", linestyle="-", color=color, linewidth=linewidth)
+
+        # best_epoch = np.argmin(test_loss)
+        best_epoch = _test_metrics["best_epoch"]
+        print(f"\n-- {model} --")
+        print(f"Best epoch for {model}: {best_epoch} / {len(test_loss)-1}")
+        print(f"Best test loss for {model}: {test_loss[best_epoch]}")
+        # print metrics
+        for _metric in metrics:
+            print(f"{_metric}: {np.array(_test_metrics[_metric])[best_epoch]:.3}")
+
+    # set font size
+    ax.tick_params(axis="both", which="major", labelsize=fontsize)
+    ax.set_xlabel("Epoch", fontsize=fontsize)
+    ax.set_title("Train-test loss", fontsize=fontsize)
+
+    # legend outside
+    ax.legend(loc="upper right", fontsize=fontsize)
+    # ax.set_ylim([0.4, 1]);
+    if max_epoch is not None:
+        ax.set_xlim([0, max_epoch])
+
+    ax.grid()
+    return ax

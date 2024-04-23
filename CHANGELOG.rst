@@ -14,16 +14,33 @@ Added
 ~~~~~
 
 - Script to upload measured datasets to Hugging Face: ``scripts/data/upload_dataset_huggingface.py``
+- Pytorch support for simulating PSFs of masks.
+- ``lensless.hardware.mask.MultiLensArray`` class for simulating multi-lens arrays.
+- ``lensless.hardware.trainable_mask.TrainableCodedAperture`` class for training a coded aperture mask pattern.
+- Support for other optimizers in ``lensless.utils.Trainer.set_optimizer``.
+- ``lensless.utils.dataset.simulate_dataset`` for simulating a dataset given a mask/PSF.
+- Support for training/testing with multiple mask patterns in the dataset.
+- Multi-GPU support for training.
+- DigiCam dataset which interfaces with Hugging Face.
+- Scripts for authentication.
+- DigiCam support for Telegram demo.
+- DiffuserCamMirflickr Hugging Face API.
+- Fallback for normalization if data not in 8bit range (``lensless.utils.io.save_image``).
 
 Changed
 ~~~~~
 
 - Dataset reconstruction script uses datasets from Hugging Face: ``scripts/recon/dataset.py``
+- For trainable masks, set trainable parameters inside the child class.
 
 Bugfix
 ~~~~~
 
-- Nothing
+- ``lensless.hardware.trainable_mask.AdafruitLCD`` input handling.
+- Local path for DRUNet download.
+- APGD input handling (float32).
+- Multimask handling.
+- Passing shape to IRFFT so that it matches shape of input to RFFT.
 
 1.0.6 - (2024-02-21)
 --------------------

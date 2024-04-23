@@ -13,6 +13,11 @@ files:
   celeba_root: null   # path to parent directory of CelebA: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
   psf: data/psf/diffusercam_psf.tiff
   diffusercam_psf: True
+
+  huggingface_dataset: null
+  huggingface_psf: null
+  split_seed: null   # if null use train/test split from dataset
+  
   n_files: null    # null to use all for both train/test
   downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
   test_size: 0.15
@@ -23,13 +28,13 @@ files:
   crop: null
     # vertical: null
     # horizontal: null
+  image_res: null   # for measured data, what resolution used at screen
+
+  extra_eval: null  # dict of extra datasets to evaluate on
 
 torch: True
 torch_device: 'cuda'
 measure: null       # if measuring data on-the-fly
-
-# see some outputs of classical ADMM before training
-test_idx: [0, 1, 2, 3, 4]
 
 # test set example to visualize at the end of every epoch
 eval_disp_idx: [0, 1, 2, 3, 4]
@@ -90,6 +95,7 @@ trainable_mask:
   initial_value: psf
   grayscale: False
   mask_lr: 1e-3
+  optimizer: Adam  # Adam, SGD... (Pytorch class)
   L1_strength: 1.0  #False or float
 
 target: "object_plane"    # "original" or "object_plane" or "label"
@@ -135,7 +141,7 @@ training:
   crop_preloss: False  # crop region for computing loss, files.crop should be set
 
 optimizer:
-  type: Adam
+  type: Adam  # Adam, SGD... (Pytorch class)
   lr: 1e-4
   slow_start: False  #float how much to reduce lr for first epoch
   # Decay LR in step fashion: https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html

@@ -6,20 +6,26 @@
 # Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
+from hydra.utils import get_original_cwd
 import numpy as np
 import glob
 import os
 import torch
 from abc import abstractmethod
-from torch.utils.data import Dataset
-from torchvision import transforms
+from torch.utils.data import Dataset, Subset
+from torchvision import datasets, transforms
+from lensless.hardware.trainable_mask import prep_trainable_mask, AdafruitLCD
 from lensless.utils.simulation import FarFieldSimulator
-from lensless.utils.io import load_image, load_psf
-from lensless.utils.image import resize
+from lensless.utils.io import load_image, load_psf, save_image
+from lensless.utils.image import is_grayscale, resize, rgb2gray
 import re
 from lensless.hardware.utils import capture
 from lensless.hardware.utils import display
 from lensless.hardware.slm import set_programmable_mask, adafruit_sub2full
+from datasets import load_dataset
+from huggingface_hub import hf_hub_download
+import cv2
+from lensless.hardware.sensor import sensor_dict, SensorParam
 
 
 def convert(text):
@@ -154,6 +160,7 @@ class DualDataset(Dataset):
 
         if self.background is not None:
             lensless = lensless - self.background
+            lensless = torch.clamp(lensless, min=0)
 
         # add noise
         if self.input_snr is not None:
@@ -849,13 +856,18 @@ class SimulatedDatasetTrainableMask(SimulatedFarFieldDataset):
 
         super(SimulatedDatasetTrainableMask, self).__init__(dataset, simulator, **kwargs)
 
-    def _get_images_pair(self, index):
-        # update psf
-        psf = self._mask.get_psf()
-        self.sim.set_point_spread_function(psf)
+    def set_psf(self, psf=None):
+        """
+        Set the PSF of the simulator.
 
-        # return simulated images
-        return super()._get_images_pair(index)
+        Parameters
+        ----------
+        psf : :py:class:`torch.Tensor`, optional
+            PSF to use for the simulation. If ``None``, the PSF of the mask is used.
+        """
+        if psf is None:
+            psf = self._mask.get_psf()
+        self.sim.set_point_spread_function(psf)
 
 
 class HITLDatasetTrainableMask(SimulatedDatasetTrainableMask):
@@ -946,3 +958,526 @@ class HITLDatasetTrainableMask(SimulatedDatasetTrainableMask):
 
         # return simulated images (replace simulated with measured)
         return img, lensed
+
+
+class DiffuserCamMirflickrHF(DualDataset):
+    def __init__(
+        self,
+        split,
+        repo_id="bezzam/DiffuserCam-Lensless-Mirflickr-Dataset",
+        psf="psf.tiff",
+        downsample=2,
+        flip_ud=True,
+        dtype="float32",
+        **kwargs,
+    ):
+        """
+        Parameters
+        ----------
+        split : str
+            Split of the dataset to use: 'train', 'test', or 'all'.
+        downsample : int, optional
+            Downsample factor of the PSF, which is 4x the resolution of the images, by default 6 for resolution of (180, 320).
+        flip_ud : bool, optional
+            If True, data is flipped up-down, by default ``True``. Otherwise data is upside-down.
+        """
+
+        # get dataset
+        self.dataset = load_dataset(repo_id, split=split)
+
+        # get PSF
+        psf_fp = hf_hub_download(repo_id=repo_id, filename=psf, repo_type="dataset")
+        psf, bg = load_psf(
+            psf_fp,
+            verbose=False,
+            downsample=downsample * 4,
+            return_bg=True,
+            flip_ud=flip_ud,
+            dtype=dtype,
+            bg_pix=(0, 15),
+        )
+        self.psf = torch.from_numpy(psf)
+
+        super(DiffuserCamMirflickrHF, self).__init__(
+            flip_ud=flip_ud, downsample=downsample, background=bg, **kwargs
+        )
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def _get_images_pair(self, idx):
+        lensless = np.array(self.dataset[idx]["lensless"])
+        lensed = np.array(self.dataset[idx]["lensed"])
+
+        # normalize
+        lensless = lensless.astype(np.float32) / 255
+        lensed = lensed.astype(np.float32) / 255
+
+        return lensless, lensed
+
+
+class DigiCam(DualDataset):
+    def __init__(
+        self,
+        huggingface_repo,
+        split,
+        psf=None,
+        display_res=None,
+        sensor="rpi_hq",
+        slm="adafruit",
+        rotate=False,
+        downsample=1,
+        alignment=None,
+        save_psf=False,
+        simulation_config=None,
+        return_mask_label=False,
+        **kwargs,
+    ):
+
+        if isinstance(split, str):
+            self.dataset = load_dataset(huggingface_repo, split=split)
+        elif isinstance(split, Dataset):
+            self.dataset = split
+        else:
+            raise ValueError("split should be a string or a Dataset object")
+        self.rotate = rotate
+        self.display_res = display_res
+        self.return_mask_label = return_mask_label
+
+        # deduce downsampling factor from measurement
+        data_0 = self.dataset[0]
+        self.downsample_lensless = downsample
+        lensless = np.array(data_0["lensless"])
+        if self.downsample_lensless != 1.0:
+            lensless = resize(lensless, factor=1 / self.downsample_lensless)
+        sensor_res = sensor_dict[sensor][SensorParam.RESOLUTION]
+        downsample_fact = min(sensor_res / lensless.shape[:2])
+
+        # deduce recon shape from original image
+        self.alignment = None
+        self.crop = None
+        if alignment is not None:
+            # preparing ground-truth in expected shape
+            if "topright" in alignment:
+                self.alignment = dict(alignment.copy())
+                self.alignment["topright"] = (
+                    int(self.alignment["topright"][0] / downsample),
+                    int(self.alignment["topright"][1] / downsample),
+                )
+                self.alignment["height"] = int(self.alignment["height"] / downsample)
+
+                original_aspect_ratio = display_res[1] / display_res[0]
+                self.alignment["width"] = int(self.alignment["height"] * original_aspect_ratio)
+
+            # preparing ground-truth as simulated measurement of original
+            elif "crop" in alignment:
+                self.crop = dict(alignment["crop"].copy())
+                self.crop["vertical"][0] = int(self.crop["vertical"][0] / downsample)
+                self.crop["vertical"][1] = int(self.crop["vertical"][1] / downsample)
+                self.crop["horizontal"][0] = int(self.crop["horizontal"][0] / downsample)
+                self.crop["horizontal"][1] = int(self.crop["horizontal"][1] / downsample)
+
+        # download all masks
+        # TODO: reshape directly with lensless image shape
+        self.multimask = False
+        if psf is not None:
+            # download PSF from huggingface
+            psf_fp = hf_hub_download(repo_id=huggingface_repo, filename=psf, repo_type="dataset")
+            psf, _ = load_psf(
+                psf_fp,
+                downsample=downsample_fact,
+                return_float=True,
+                return_bg=True,
+                flip=rotate,
+                bg_pix=(0, 15),
+            )
+            self.psf = torch.from_numpy(psf)
+
+        elif "mask_label" in data_0:
+            self.multimask = True
+            mask_labels = []
+            for i in range(len(self.dataset)):
+                mask_labels.append(self.dataset[i]["mask_label"])
+            mask_labels = list(set(mask_labels))
+
+            # simulate all PSFs
+            self.psf = dict()
+            for label in mask_labels:
+                mask_fp = hf_hub_download(
+                    repo_id=huggingface_repo,
+                    filename=f"masks/mask_{label}.npy",
+                    repo_type="dataset",
+                )
+                mask_vals = np.load(mask_fp)
+                mask = AdafruitLCD(
+                    initial_vals=torch.from_numpy(mask_vals.astype(np.float32)),
+                    sensor=sensor,
+                    slm=slm,
+                    downsample=downsample_fact,
+                    flipud=rotate,
+                )
+                self.psf[label] = mask.get_psf().detach()
+
+                assert (
+                    self.psf[label].shape[-3:-1] == lensless.shape[:2]
+                ), f"PSF shape should match lensless shape: PSF {self.psf[label].shape[-3:-1]} vs lensless {lensless.shape[:2]}"
+
+                if save_psf:
+                    # same viewable image of PSF
+                    save_image(self.psf[label].squeeze().cpu().numpy(), f"psf_{label}.png")
+
+        else:
+
+            mask_fp = hf_hub_download(
+                repo_id=huggingface_repo, filename="mask_pattern.npy", repo_type="dataset"
+            )
+            mask_vals = np.load(mask_fp)
+            mask = AdafruitLCD(
+                initial_vals=torch.from_numpy(mask_vals.astype(np.float32)),
+                sensor=sensor,
+                slm=slm,
+                downsample=downsample_fact,
+                flipud=rotate,
+            )
+            self.psf = mask.get_psf().detach()
+            assert (
+                self.psf.shape[-3:-1] == lensless.shape[:2]
+            ), "PSF shape should match lensless shape"
+
+        # create simulator
+        self.simulator = None
+        self.vertical_shift = None
+        self.horizontal_shift = None
+        if alignment is not None and "simulation" in alignment:
+            simulation_config = dict(alignment["simulation"].copy())
+            simulation_config["output_dim"] = tuple(self.psf.shape[-3:-1])
+            simulator = FarFieldSimulator(
+                is_torch=True,
+                **simulation_config,
+            )
+            self.simulator = simulator
+            if "vertical_shift" in simulation_config:
+                self.vertical_shift = int(simulation_config["vertical_shift"] / downsample)
+            if "horizontal_shift" in simulation_config:
+                self.horizontal_shift = int(simulation_config["horizontal_shift"] / downsample)
+
+        super(DigiCam, self).__init__(**kwargs)
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def _get_images_pair(self, idx):
+
+        # load image
+        lensless_np = np.array(self.dataset[idx]["lensless"])
+        lensed_np = np.array(self.dataset[idx]["lensed"])
+
+        # convert to float
+        if lensless_np.dtype == np.uint8:
+            lensless_np = lensless_np.astype(np.float32) / 255
+            lensed_np = lensed_np.astype(np.float32) / 255
+        else:
+            # 16 bit
+            lensless_np = lensless_np.astype(np.float32) / 65535
+            lensed_np = lensed_np.astype(np.float32) / 65535
+
+        # downsample if necessary
+        if self.downsample_lensless != 1.0:
+            lensless_np = resize(
+                lensless_np, factor=1 / self.downsample_lensless, interpolation=cv2.INTER_NEAREST
+            )
+
+        lensless = lensless_np
+        lensed = lensed_np
+        if self.simulator is not None:
+            # convert to torch
+            lensless = torch.from_numpy(lensless_np)
+            lensed = torch.from_numpy(lensed_np)
+
+            # project original image to lensed space
+            with torch.no_grad():
+                lensed = self.simulator.propagate_image(lensed, return_object_plane=True)
+
+            if self.vertical_shift is not None:
+                lensed = torch.roll(lensed, self.vertical_shift, dims=-3)
+            if self.horizontal_shift is not None:
+                lensed = torch.roll(lensed, self.horizontal_shift, dims=-2)
+
+        elif self.alignment is not None:
+            lensed = resize(
+                lensed_np,
+                shape=(self.alignment["height"], self.alignment["width"], 3),
+                interpolation=cv2.INTER_NEAREST,
+            )
+        elif self.display_res is not None:
+            lensed = resize(
+                lensed_np, shape=(*self.display_res, 3), interpolation=cv2.INTER_NEAREST
+            )
+
+        return lensless, lensed
+
+    def __getitem__(self, idx):
+        lensless, lensed = super().__getitem__(idx)
+        if self.rotate:
+            lensless = torch.rot90(lensless, dims=(-3, -2), k=2)
+
+        # return corresponding PSF
+        if self.multimask:
+            mask_label = self.dataset[idx]["mask_label"]
+
+            if self.return_mask_label:
+                return lensless, lensed, mask_label
+            else:
+                return lensless, lensed, self.psf[mask_label]
+        else:
+            return lensless, lensed
+
+    def extract_roi(self, reconstruction, lensed=None):
+        assert len(reconstruction.shape) == 4, "Reconstruction should have shape [B, H, W, C]"
+        if lensed is not None:
+            assert len(lensed.shape) == 4, "Lensed should have shape [B, H, W, C]"
+
+        if self.alignment is not None:
+            top_right = self.alignment["topright"]
+            height = self.alignment["height"]
+            width = self.alignment["width"]
+            reconstruction = reconstruction[
+                :, top_right[0] : top_right[0] + height, top_right[1] : top_right[1] + width
+            ]
+        elif self.crop is not None:
+            vertical = self.crop["vertical"]
+            horizontal = self.crop["horizontal"]
+            reconstruction = reconstruction[
+                :, vertical[0] : vertical[1], horizontal[0] : horizontal[1]
+            ]
+            if lensed is not None:
+                lensed = lensed[:, vertical[0] : vertical[1], horizontal[0] : horizontal[1]]
+        if lensed is not None:
+            return reconstruction, lensed
+        else:
+            return reconstruction
+
+
+def simulate_dataset(config, generator=None):
+    """
+    Prepare datasets for training and testing.
+
+    Parameters
+    ----------
+    config : omegaconf.DictConfig
+        Configuration, e.g. from Hydra. See ``scripts/recon/train_unrolled.py`` for an example that uses this function.
+    generator : torch.Generator, optional
+        Random number generator, by default ``None``.
+    """
+
+    if "cuda" in config.torch_device and torch.cuda.is_available():
+        device = config.torch_device
+    else:
+        device = "cpu"
+
+    # -- prepare PSF
+    psf = None
+    if config.trainable_mask.mask_type is None or config.trainable_mask.initial_value == "psf":
+        psf_fp = os.path.join(get_original_cwd(), config.files.psf)
+        psf, _ = load_psf(
+            psf_fp,
+            downsample=config.files.downsample,
+            return_float=True,
+            return_bg=True,
+            bg_pix=(0, 15),
+        )
+        if config.files.diffusercam_psf:
+            transform_BRG2RGB = transforms.Lambda(lambda x: x[..., [2, 1, 0]])
+            psf = transform_BRG2RGB(torch.from_numpy(psf))
+
+        # drop depth dimension
+        psf = psf.to(device)
+
+    else:
+        # training mask / PSF
+        mask = prep_trainable_mask(config, psf)
+        psf = mask.get_psf().to(device)
+
+    # -- load dataset
+    pre_transform = None
+    transforms_list = [transforms.ToTensor()]
+    data_path = os.path.join(get_original_cwd(), "data")
+    if config.simulation.grayscale:
+        transforms_list.append(transforms.Grayscale())
+
+    if config.files.dataset == "mnist":
+        transform = transforms.Compose(transforms_list)
+        train_ds = datasets.MNIST(root=data_path, train=True, download=True, transform=transform)
+        test_ds = datasets.MNIST(root=data_path, train=False, download=True, transform=transform)
+
+    elif config.files.dataset == "fashion_mnist":
+        transform = transforms.Compose(transforms_list)
+        train_ds = datasets.FashionMNIST(
+            root=data_path, train=True, download=True, transform=transform
+        )
+        test_ds = datasets.FashionMNIST(
+            root=data_path, train=False, download=True, transform=transform
+        )
+    elif config.files.dataset == "cifar10":
+        transform = transforms.Compose(transforms_list)
+        train_ds = datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform)
+        test_ds = datasets.CIFAR10(root=data_path, train=False, download=True, transform=transform)
+
+    elif config.files.dataset == "CelebA":
+        root = config.files.celeba_root
+        data_path = os.path.join(root, "celeba")
+        assert os.path.isdir(
+            data_path
+        ), f"Data path {data_path} does not exist. Make sure you download the CelebA dataset and provide the parent directory as 'config.files.celeba_root'. Download link: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html"
+        transform = transforms.Compose(transforms_list)
+        if config.files.n_files is None:
+            train_ds = datasets.CelebA(
+                root=root, split="train", download=False, transform=transform
+            )
+            test_ds = datasets.CelebA(root=root, split="test", download=False, transform=transform)
+        else:
+            ds = datasets.CelebA(root=root, split="all", download=False, transform=transform)
+
+            ds = Subset(ds, np.arange(config.files.n_files))
+
+            train_size = int((1 - config.files.test_size) * len(ds))
+            test_size = len(ds) - train_size
+            train_ds, test_ds = torch.utils.data.random_split(
+                ds, [train_size, test_size], generator=generator
+            )
+    else:
+        raise NotImplementedError(f"Dataset {config.files.dataset} not implemented.")
+
+    if config.files.dataset != "CelebA":
+        if config.files.n_files is not None:
+            train_size = int((1 - config.files.test_size) * config.files.n_files)
+            test_size = config.files.n_files - train_size
+            train_ds = Subset(train_ds, np.arange(train_size))
+            test_ds = Subset(test_ds, np.arange(test_size))
+
+    # convert PSF
+    if config.simulation.grayscale and not is_grayscale(psf):
+        psf = rgb2gray(psf)
+
+    # check if gpu is available
+    device_conv = config.torch_device
+    if device_conv == "cuda" and torch.cuda.is_available():
+        device_conv = "cuda"
+    else:
+        device_conv = "cpu"
+
+    # create simulator
+    simulator = FarFieldSimulator(
+        psf=psf,
+        is_torch=True,
+        **config.simulation,
+    )
+
+    # create Pytorch dataset and dataloader
+    crop = config.files.crop.copy() if config.files.crop is not None else None
+    if mask is None:
+        train_ds_prop = SimulatedFarFieldDataset(
+            dataset=train_ds,
+            simulator=simulator,
+            dataset_is_CHW=True,
+            device_conv=device_conv,
+            flip=config.simulation.flip,
+            vertical_shift=config.files.vertical_shift,
+            horizontal_shift=config.files.horizontal_shift,
+            crop=crop,
+            downsample=config.files.downsample,
+            pre_transform=pre_transform,
+        )
+        test_ds_prop = SimulatedFarFieldDataset(
+            dataset=test_ds,
+            simulator=simulator,
+            dataset_is_CHW=True,
+            device_conv=device_conv,
+            flip=config.simulation.flip,
+            vertical_shift=config.files.vertical_shift,
+            horizontal_shift=config.files.horizontal_shift,
+            crop=crop,
+            downsample=config.files.downsample,
+            pre_transform=pre_transform,
+        )
+    else:
+        if config.measure is not None:
+
+            train_ds_prop = HITLDatasetTrainableMask(
+                rpi_username=config.measure.rpi_username,
+                rpi_hostname=config.measure.rpi_hostname,
+                celeba_root=config.files.celeba_root,
+                display_config=config.measure.display,
+                capture_config=config.measure.capture,
+                mask_center=config.trainable_mask.ap_center,
+                dataset=train_ds,
+                mask=mask,
+                simulator=simulator,
+                dataset_is_CHW=True,
+                device_conv=device_conv,
+                flip=config.simulation.flip,
+                vertical_shift=config.files.vertical_shift,
+                horizontal_shift=config.files.horizontal_shift,
+                crop=crop,
+                downsample=config.files.downsample,
+                pre_transform=pre_transform,
+            )
+
+            test_ds_prop = HITLDatasetTrainableMask(
+                rpi_username=config.measure.rpi_username,
+                rpi_hostname=config.measure.rpi_hostname,
+                celeba_root=config.files.celeba_root,
+                display_config=config.measure.display,
+                capture_config=config.measure.capture,
+                mask_center=config.trainable_mask.ap_center,
+                dataset=test_ds,
+                mask=mask,
+                simulator=simulator,
+                dataset_is_CHW=True,
+                device_conv=device_conv,
+                flip=config.simulation.flip,
+                vertical_shift=config.files.vertical_shift,
+                horizontal_shift=config.files.horizontal_shift,
+                crop=crop,
+                downsample=config.files.downsample,
+                pre_transform=pre_transform,
+            )
+
+        else:
+
+            train_ds_prop = SimulatedDatasetTrainableMask(
+                dataset=train_ds,
+                mask=mask,
+                simulator=simulator,
+                dataset_is_CHW=True,
+                device_conv=device_conv,
+                flip=config.simulation.flip,
+                vertical_shift=config.files.vertical_shift,
+                horizontal_shift=config.files.horizontal_shift,
+                crop=crop,
+                downsample=config.files.downsample,
+                pre_transform=pre_transform,
+            )
+            test_ds_prop = SimulatedDatasetTrainableMask(
+                dataset=test_ds,
+                mask=mask,
+                simulator=simulator,
+                dataset_is_CHW=True,
+                device_conv=device_conv,
+                flip=config.simulation.flip,
+                vertical_shift=config.files.vertical_shift,
+                horizontal_shift=config.files.horizontal_shift,
+                crop=crop,
+                downsample=config.files.downsample,
+                pre_transform=pre_transform,
+            )
+
+    return train_ds_prop, test_ds_prop, mask
+
+
+class MyDataParallel(torch.nn.DataParallel):
+    def __getattr__(self, name):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.module, name)

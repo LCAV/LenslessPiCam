@@ -547,12 +547,26 @@ def save_image(img, fp, max_val=255, normalize=True):
     if normalize:
         img_tmp -= img_tmp.min()
         img_tmp /= img_tmp.max()
+    else:
+        normalized = False
+        if img_tmp.min() < 0:
+            img_tmp -= img_tmp.min()
+            normalize = True
+        if img_tmp.max() > 1:
+            img_tmp /= img_tmp.max()
+            normalize = True
+        if normalized:
+            print(f"Warning (out of range): {fp} normalizing data to [0, 1]")
 
     if img_tmp.dtype == np.float64 or img_tmp.dtype == np.float32:
         img_tmp *= max_val
         img_tmp = img_tmp.astype(np.uint8)
 
-    img_tmp = Image.fromarray(img_tmp)
+    # RGB
+    if len(img_tmp.shape) == 3 and img_tmp.shape[2] == 3:
+        img_tmp = Image.fromarray(img_tmp)
+    else:
+        img_tmp = Image.fromarray(img_tmp.squeeze())
     img_tmp.save(fp)
 
 

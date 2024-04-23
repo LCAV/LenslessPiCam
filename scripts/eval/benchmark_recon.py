@@ -26,7 +26,7 @@ import pathlib as plib
 from lensless.eval.benchmark import benchmark
 import matplotlib.pyplot as plt
 from lensless import ADMM, FISTA, GradientDescent, NesterovGradientDescent
-from lensless.utils.dataset import DiffuserCamTestDataset, DigiCamCelebA
+from lensless.utils.dataset import DiffuserCamTestDataset, DigiCamCelebA, DigiCam
 from lensless.utils.io import save_image
 
 import torch
@@ -52,11 +52,11 @@ def benchmark_recon(config):
         device = "cpu"
 
     # Benchmark dataset
+    crop = None
     dataset = config.dataset
     if dataset == "DiffuserCam":
         benchmark_dataset = DiffuserCamTestDataset(n_files=n_files, downsample=downsample)
         psf = benchmark_dataset.psf.to(device)
-        crop = None
 
     elif dataset == "DigiCamCelebA":
 
@@ -74,14 +74,31 @@ def benchmark_recon(config):
         psf = dataset.psf
         crop = dataset.crop
 
+        if config.n_files is not None:
+            dataset = Subset(dataset, np.arange(config.n_files))
+            dataset.psf = dataset.dataset.psf
+
         # train-test split
         train_size = int((1 - config.files.test_size) * len(dataset))
         test_size = len(dataset) - train_size
         _, benchmark_dataset = torch.utils.data.random_split(
             dataset, [train_size, test_size], generator=generator
         )
-        if config.n_files is not None:
-            benchmark_dataset = Subset(benchmark_dataset, np.arange(config.n_files))
+    elif dataset == "DigiCamHF":
+        benchmark_dataset = DigiCam(
+            huggingface_repo=config.huggingface.repo,
+            split="test",
+            display_res=config.huggingface.image_res,
+            rotate=config.huggingface.rotate,
+            downsample=config.huggingface.downsample,
+            alignment=config.huggingface.alignment,
+        )
+        if benchmark_dataset.multimask:
+            # get first PSF for initialization
+            first_psf_key = list(benchmark_dataset.psf.keys())[0]
+            psf = benchmark_dataset.psf[first_psf_key].to(device)
+        else:
+            psf = benchmark_dataset.psf.to(device)
     else:
         raise ValueError(f"Dataset {dataset} not supported")
 
@@ -265,6 +282,12 @@ def benchmark_recon(config):
 
     # for each metrics plot the results comparing each model
     metrics_to_plot = ["SSIM", "PSNR", "MSE", "LPIPS_Vgg", "LPIPS_Alex", "ReconstructionError"]
+    available_metrics = list(results[model_name][n_iter_range[0]].keys())
+    metrics_to_plot = [metric for metric in metrics_to_plot if metric in available_metrics]
+    # print metrics being skipped
+    skipped_metrics = [metric for metric in metrics_to_plot if metric not in available_metrics]
+    if len(skipped_metrics) > 0:
+        print(f"Metrics {skipped_metrics} not available and will be skipped")
     for metric in metrics_to_plot:
         plt.figure()
         # plot benchmarked algorithm

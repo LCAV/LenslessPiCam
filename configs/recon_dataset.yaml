@@ -6,18 +6,12 @@ defaults:
 torch: True
 torch_device: 'cuda:0'
 
-repo_id: "bezzam/DiffuserCam-Lensless-Mirflickr-Dataset"
-split: "test"    # "train", "test", "all"
-psf_fn: "psf.png"    # in repo root
-output_folder: null  # autocreate name if not spe
+dataset: diffusercam
+split: test    # "train", "test", "all"
+downsample: 2
+data_dim: null
+output_folder: null  # autocreate name if not specified
 n_files: 25    # null for all files
-
-preprocess:
-  flip_ud: True 
-  flip_lr: False
-  downsample: 6
-  # to have different data shape than PSF
-  data_dim: null
 
 algo: admm   # "admm", "apgd", "null" to just copy over (resized) raw data
 admm:
