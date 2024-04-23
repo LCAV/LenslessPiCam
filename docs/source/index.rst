@@ -26,6 +26,7 @@ Contents
    reconstruction
    evaluation
    mask
+   fabrication
    sensor
    utilities
    demo

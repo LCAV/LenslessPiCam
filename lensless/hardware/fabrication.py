@@ -8,10 +8,12 @@
 
 
 """
-Fabrication
-===========
+Mask Fabrication
+================
 
 This module provides tools to generate 3D models of masks for lensless imaging.
+
+Check out `this notebook <https://drive.google.com/file/d/1yITAkXJZAWcfVX5UCwIGgMogGkF60djR/view?usp=sharing>`_ on Google Colab for how to use this module.
 
 """
 
@@ -197,6 +199,14 @@ class Mask3DModel:
 
     @classmethod
     def from_mask(cls, mask: Mask, **kwargs):
+        """
+        Create a Mask3DModel from a Mask object.
+
+        Parameters
+        ----------
+        mask : :py:class:`~lensless.hardware.mask.Mask`
+            Mask object to generate from, e.g. :py:class:`~lensless.hardware.mask.CodedAperture` or :py:class:`~lensless.hardware.mask.FresnelZoneAperture`.
+        """
         return cls(mask_array=mask.mask, mask_size=mask.size, **kwargs)
 
     @staticmethod
