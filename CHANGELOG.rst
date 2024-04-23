@@ -28,13 +28,13 @@ Added
 - Fallback for normalization if data not in 8bit range (``lensless.utils.io.save_image``).
 
 Changed
-~~~~~
+~~~~~~~
 
 - Dataset reconstruction script uses datasets from Hugging Face: ``scripts/recon/dataset.py``
 - For trainable masks, set trainable parameters inside the child class.
 
 Bugfix
-~~~~~
+~~~~~~
 
 - ``lensless.hardware.trainable_mask.AdafruitLCD`` input handling.
 - Local path for DRUNet download.
