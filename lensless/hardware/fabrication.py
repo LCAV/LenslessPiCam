@@ -1,9 +1,25 @@
+# #############################################################################
+# fabrication.py
+# =================
+# Authors :
+# Rein BENTDAL [rein.bent@gmail.com]
+# Eric BEZZAM [ebezzam@gmail.com]
+# #############################################################################
+
+
+"""
+Fabrication
+===========
+
+This module provides tools to generate 3D models of masks for lensless imaging.
+
+"""
+
 import os
 import cadquery as cq
 import numpy as np
 from typing import Union, Optional
 from abc import ABC, abstractmethod
-
 from lensless.hardware.mask import Mask
 
 
@@ -137,17 +153,28 @@ class Mask3DModel:
         show_axis: bool = False,
         generate: bool = True,
     ):
-        """_summary_
+        """
+        Wrapper to CadQuery to generate a 3D model from a mask array.
 
-        Args:
-            mask_array (np.ndarray): Array of the mask to generate from. 1 is opaque, 0 is transparent.
-            frame (Frame): Frame object defining the frame around the mask.
-            connection (Connection): Connection object defining how to connect the frame to the mask.
-            mask_size (Union[tuple[float, float], np.ndarray]): dimensions of the mask in meters.
-            height (float): How thick to make the mask in millimeters.
-            simplify (bool, optional): Combines all objects in the model to a single object. Results in a much smaller 3d model file and faster post processing. But takes a considerable amount of more time to generate model. Defaults to False.
-            show_axis (bool, optional): Show axis for debug purposes. Defaults to False.
-            generate (bool, optional): Generate model on initialization. Defaults to True.
+        Parameters
+        ----------
+        mask_array : np.ndarray
+            Array of the mask to generate from. 1 is opaque, 0 is transparent.
+        mask_size : Union[tuple[float, float], np.ndarray]
+            Dimensions of the mask in meters.
+        height : Optional[float], optional
+            How thick to make the mask in millimeters.
+        frame : Optional[Frame], optional
+            Frame object defining the frame around the mask.
+        connection : Optional[Connection], optional
+            Connection object defining how to connect the frame to the mask.
+        simplify : bool, optional
+            Combines all objects in the model to a single object. Can result in a smaller 3d model file and faster post processing. But takes a considerable amount of more time to generate model. Defaults to False.
+        show_axis : bool, optional
+            Show axis for debug purposes. Defaults to False.
+        generate : bool, optional
+            Generate model on initialization. Defaults to True.
+
         """
 
         self.mask = mask_array
@@ -407,7 +434,7 @@ class ThreePointConnection(Connection):
         return model
 
 
-class CodedAppertureConnection(Connection):
+class CodedApertureConnection(Connection):
     def __init__(self, joint_radius: float = 0.1):
         self.joint_radius = joint_radius
 
