@@ -270,7 +270,7 @@ class CodedAperture(Mask):
             self.row = None
             self.col = None
         else:
-            seq = max_len_seq(self.n_bits)[0]
+            seq = max_len_seq(self.n_bits)[0] * 2 - 1
             self.row = seq
             self.col = seq
 
@@ -303,8 +303,10 @@ class CodedAperture(Mask):
         if self.row is not None:
             if self.is_torch:
                 self.mask = torch.outer(self.row, self.col)
+                self.mask = torch.round((self.mask + 1) / 2).to(torch.uint8)
             else:
                 self.mask = np.outer(self.row, self.col)
+                self.mask = np.round((self.mask + 1) / 2).astype(np.uint8)
         assert self.mask is not None, "Mask should be specified"
 
         # resize to sensor shape
