@@ -139,20 +139,28 @@ class RealFFTConvolve2D:
         if self.is_torch:
             conv_output = torch.fft.ifftshift(
                 torch.fft.irfft2(
-                    torch.fft.rfft2(self._padded_data, dim=(-3, -2)) * self._H, dim=(-3, -2)
+                    torch.fft.rfft2(self._padded_data, dim=(-3, -2)) * self._H,
+                    dim=(-3, -2),
+                    s=self._padded_shape[-3:-1],
                 ),
                 dim=(-3, -2),
             )
 
         else:
             conv_output = fft.ifftshift(
-                fft.irfft2(fft.rfft2(self._padded_data, axes=(-3, -2)) * self._H, axes=(-3, -2)),
+                fft.irfft2(
+                    fft.rfft2(self._padded_data, axes=(-3, -2)) * self._H,
+                    axes=(-3, -2),
+                    s=self._padded_shape[-3:-1],
+                ),
                 axes=(-3, -2),
             )
         if self.pad:
-            return self._crop(conv_output)
-        else:
-            return conv_output
+            conv_output = self._crop(conv_output)
+
+        # ensure shape stays the same
+        assert conv_output.shape[-3:-1] == x.shape[-3:-1]
+        return conv_output
 
     def deconvolve(self, y):
         """
@@ -165,21 +173,30 @@ class RealFFTConvolve2D:
                 self._padded_data = y  # .type(self.dtype).to(self._psf.device)
             else:
                 self._padded_data[:] = y  # .astype(self.dtype)
+
         if self.is_torch:
             deconv_output = torch.fft.ifftshift(
                 torch.fft.irfft2(
-                    torch.fft.rfft2(self._padded_data, dim=(-3, -2)) * self._Hadj, dim=(-3, -2)
+                    torch.fft.rfft2(self._padded_data, dim=(-3, -2)) * self._Hadj,
+                    dim=(-3, -2),
+                    s=self._padded_shape[-3:-1],
                 ),
                 dim=(-3, -2),
             )
 
         else:
             deconv_output = fft.ifftshift(
-                fft.irfft2(fft.rfft2(self._padded_data, axes=(-3, -2)) * self._Hadj, axes=(-3, -2)),
+                fft.irfft2(
+                    fft.rfft2(self._padded_data, axes=(-3, -2)) * self._Hadj,
+                    axes=(-3, -2),
+                    s=self._padded_shape[-3:-1],
+                ),
                 axes=(-3, -2),
             )
 
         if self.pad:
-            return self._crop(deconv_output)
-        else:
-            return deconv_output
+            deconv_output = self._crop(deconv_output)
+
+        # ensure shape stays the same
+        assert deconv_output.shape[-3:-1] == y.shape[-3:-1]
+        return deconv_output

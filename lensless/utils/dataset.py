@@ -968,6 +968,7 @@ class DiffuserCamMirflickrHF(DualDataset):
         psf="psf.tiff",
         downsample=2,
         flip_ud=True,
+        dtype="float32",
         **kwargs,
     ):
         """
@@ -980,9 +981,6 @@ class DiffuserCamMirflickrHF(DualDataset):
         flip_ud : bool, optional
             If True, data is flipped up-down, by default ``True``. Otherwise data is upside-down.
         """
-
-        # fixed parameters
-        dtype = "float32"
 
         # get dataset
         self.dataset = load_dataset(repo_id, split=split)

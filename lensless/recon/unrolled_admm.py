@@ -198,7 +198,9 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
             + self._convolver.deconvolve(self._mu1[iter] * self._X - self._xi)
         )
         freq_space_result = self._R_divmat[iter] * torch.fft.rfft2(rk, dim=(-3, -2))
-        self._image_est = torch.fft.irfft2(freq_space_result, dim=(-3, -2))
+        self._image_est = torch.fft.irfft2(
+            freq_space_result, dim=(-3, -2), s=self._convolver._padded_shape[-3:-1]
+        )
 
     def _W_update(self, iter):
         """Non-negativity update"""

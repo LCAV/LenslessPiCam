@@ -282,10 +282,14 @@ class ADMM(ReconstructionAlgorithm):
 
         if self.is_torch:
             freq_space_result = self._R_divmat * torch.fft.rfft2(rk, dim=(-3, -2))
-            self._image_est = torch.fft.irfft2(freq_space_result, dim=(-3, -2))
+            self._image_est = torch.fft.irfft2(
+                freq_space_result, dim=(-3, -2), s=self._convolver._padded_shape[-3:-1]
+            )
         else:
             freq_space_result = self._R_divmat * fft.rfft2(rk, axes=(-3, -2))
-            self._image_est = fft.irfft2(freq_space_result, axes=(-3, -2))
+            self._image_est = fft.irfft2(
+                freq_space_result, axes=(-3, -2), s=self._convolver._padded_shape[-3:-1]
+            )
 
         # self._image_est = self._convolver._crop(res)
 
