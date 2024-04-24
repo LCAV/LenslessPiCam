@@ -1,5 +1,5 @@
-Demo
-====
+Demo (measurement and reconstruction)
+=====================================
 
 A full demo script can be found in ``scripts/demo.py``. Its configuration
 file can be found in ``configs/demo.yaml``.

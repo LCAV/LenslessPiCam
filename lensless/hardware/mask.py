@@ -230,8 +230,8 @@ class Mask(abc.ABC):
             mask, extent=(0, 1e3 * self.size[1], 1e3 * self.size[0], 0), cmap="gray", **kwargs
         )
         ax.set_title(title)
-        ax.set_xlabel("x [mm]")
-        ax.set_ylabel("y [mm]")
+        ax.set_xlabel("[mm]")
+        ax.set_ylabel("[mm]")
         return ax
 
 
