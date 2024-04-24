@@ -17,7 +17,7 @@ LenslessPiCam
 
 
 .. image:: https://colab.research.google.com/assets/colab-badge.svg
-      :target: https://drive.google.com/drive/folders/1nBDsg86RaZIqQM6qD-612k9v8gDrgdwB?usp=drive_link
+      :target: https://lensless.readthedocs.io/en/latest/examples.html
       :alt: notebooks
 
 .. image:: https://huggingface.co/datasets/huggingface/badges/resolve/main/powered-by-huggingface-dark.svg
@@ -25,24 +25,35 @@ LenslessPiCam
       :alt: huggingface
 
 
-*A Hardware and Software Toolkit for Lensless Computational Imaging with a Raspberry Pi*
------------------------------------------------------------------------------------------
+*A Hardware and Software Toolkit for Lensless Computational Imaging*
+--------------------------------------------------------------------
 
 .. image:: https://github.com/LCAV/LenslessPiCam/raw/main/scripts/recon/example.png
     :alt: Lensless imaging example
     :align: center
 
 
-This toolkit has everything you need to perform imaging with a lensless
-camera. We make use of a low-cost implementation of DiffuserCam [1]_, 
-where we use a piece of tape instead of the lens and the
-`Raspberry Pi HQ camera sensor <https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera>`__
-(the `V2 sensor <https://www.raspberrypi.com/products/camera-module-v2/>`__
-is also supported). Similar principles and methods can be used for a
-different lensless encoder and a different sensor. 
+This toolkit has everything you need to perform imaging with a lensless camera.
+The sensor in most examples is the `Raspberry Pi HQ <https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera>`__,
+camera sensor as it is low cost (around 50 USD) and has a high resolution (12 MP).
+The lensless encoder/mask used in most examples is either a piece of tape or a `low-cost LCD <https://www.adafruit.com/product/358>`__.
+As **modularity** is a key feature of this toolkit, you can use a different sensors and lensless encoders.
 
-*If you are interested in exploring reconstruction algorithms without building the camera, that is entirely possible!*
-The provided reconstruction algorithms can be used with the provided data or simulated data.
+The toolkit includes:
+
+* Camera assembly tutorials (`link <https://lensless.readthedocs.io/en/latest/building.html>`__).
+* Measurement scripts (`link <https://lensless.readthedocs.io/en/latest/measurement.html>`__).
+* Dataset preparation and loading tools, with `Hugging Face <https://huggingface.co/bezzam>`__ integration (`slides <https://docs.google.com/presentation/d/18h7jTcp20jeoiF8dJIEcc7wHgjpgFgVxZ_bJ04W55lg/edit?usp=sharing>`__ on uploading a dataset to Hugging Face with `this script <https://github.com/LCAV/LenslessPiCam/blob/main/scripts/data/upload_dataset_huggingface.py>`__).
+* `Reconstruction algorithms <https://lensless.readthedocs.io/en/latest/reconstruction.html>`__ (e.g. FISTA, ADMM, unrolled algorithms, trainable inversion, pre- and post-processors).
+* `Training script <https://github.com/LCAV/LenslessPiCam/blob/main/scripts/recon/train_unrolled.py>`__ for learning-based reconstruction.
+* `Pre-trained models <https://github.com/LCAV/LenslessPiCam/blob/main/lensless/recon/model_dict.py>`__ that can be loaded from `Hugging Face <https://huggingface.co/bezzam>`__, for example in `this script <https://github.com/LCAV/LenslessPiCam/blob/main/scripts/recon/diffusercam_mirflickr.py>`__.
+* Mask `design <https://lensless.readthedocs.io/en/latest/mask.html>`__ and `fabrication <https://lensless.readthedocs.io/en/latest/fabrication.html>`__ tools.
+* `Simulation tools <https://lensless.readthedocs.io/en/latest/simulation.html>`__.
+* `Evalutions tools <https://lensless.readthedocs.io/en/latest/evaluation.html>`__ (e.g. PSNR, LPIPS, SSIM, visualizations).
+* `Demo <https://lensless.readthedocs.io/en/latest/demo.html#telegram-demo>`__ that can be run on Telegram!
+
+Please refer to the `documentation <http://lensless.readthedocs.io>`__ for more details,
+while an overview of example notebooks can be found `here <https://lensless.readthedocs.io/en/latest/examples.html>`__.
 
 We've also written a few Medium articles to guide users through the process
 of building the camera, measuring data with it, and reconstruction.
@@ -172,7 +183,7 @@ to them for the idea and making tools/code/data available! Below is some of
 the work that has inspired this toolkit:
 
 * `Build your own DiffuserCam tutorial <https://waller-lab.github.io/DiffuserCam/tutorial>`__.
-* `DiffuserCam Lensless MIR Flickr dataset <https://waller-lab.github.io/LenslessLearning/dataset.html>`__ [2]_. 
+* `DiffuserCam Lensless MIR Flickr dataset <https://waller-lab.github.io/LenslessLearning/dataset.html>`__ [1]_. 
 
 A few students at EPFL have also contributed to this project:
 
@@ -204,6 +215,4 @@ If you use these tools in your own research, please cite the following:
 References
 ----------
 
-.. [1] Antipa, N., Kuo, G., Heckel, R., Mildenhall, B., Bostan, E., Ng, R., & Waller, L. (2018). DiffuserCam: lensless single-exposure 3D imaging. Optica, 5(1), 1-9.
-
-.. [2] Monakhova, K., Yurtsever, J., Kuo, G., Antipa, N., Yanny, K., & Waller, L. (2019). Learned reconstructions for practical mask-based lensless imaging. Optics express, 27(20), 28075-28090.
+.. [1] Monakhova, K., Yurtsever, J., Kuo, G., Antipa, N., Yanny, K., & Waller, L. (2019). Learned reconstructions for practical mask-based lensless imaging. Optics express, 27(20), 28075-28090.

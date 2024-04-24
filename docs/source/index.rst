@@ -31,6 +31,12 @@ Contents
    utilities
    demo
 
+
+.. toctree::
+   :caption: Examples
+
+   examples
+
 .. toctree::
    :caption: Data
 
