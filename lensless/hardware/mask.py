@@ -7,8 +7,8 @@
 # #############################################################################
 
 """
-Mask
-====
+Mask Design
+===========
 
 This module provides utilities to create different types of masks (:py:class:`~lensless.hardware.mask.CodedAperture`,
 :py:class:`~lensless.hardware.mask.PhaseContour`,
@@ -32,6 +32,7 @@ from waveprop.rs import angular_spectrum
 from waveprop.noise import add_shot_noise
 from lensless.hardware.sensor import VirtualSensor
 from lensless.utils.image import resize
+import matplotlib.pyplot as plt
 
 try:
     import torch
@@ -49,7 +50,7 @@ class Mask(abc.ABC):
     def __init__(
         self,
         resolution,
-        distance_sensor,
+        distance_sensor=None,
         size=None,
         feature_size=None,
         psf_wavelength=[460e-9, 550e-9, 640e-9],
@@ -65,9 +66,9 @@ class Mask(abc.ABC):
         resolution: array_like
             Resolution of the  mask (px).
         distance_sensor: float
-            Distance between the mask and the sensor (m).
+            Distance between the mask and the sensor (m). Needed to simulate PSF.
         size: array_like
-            Size of the sensor (m). Only one of ``size`` or ``feature_size`` needs to be specified.
+            Size of the mask (m). Only one of ``size`` or ``feature_size`` needs to be specified.
         feature_size: float or array_like
             Size of the feature (m). Only one of ``size`` or ``feature_size`` needs to be specified.
         psf_wavelength: list, optional
@@ -111,14 +112,16 @@ class Mask(abc.ABC):
         self.torch_device = torch_device
 
         # create mask
-        self.create_mask()
+        self.phase_pattern = None  # for phase masks
+        self.create_mask()  # creates self.mask
         self.shape = self.mask.shape
 
         # PSF
         assert hasattr(psf_wavelength, "__len__"), "psf_wavelength should be a list"
         self.psf_wavelength = psf_wavelength
         self.psf = None
-        self.compute_psf()
+        if self.distance_sensor is not None:
+            self.compute_psf()
 
     @classmethod
     def from_sensor(cls, sensor_name, downsample=None, **kwargs):
@@ -158,11 +161,22 @@ class Mask(abc.ABC):
         """
         pass
 
-    def compute_psf(self):
+    def compute_psf(self, distance_sensor=None):
         """
         Compute the intensity PSF with bandlimited angular spectrum (BLAS) for each wavelength.
         Common to all types of masks.
+
+        Parameters
+        ----------
+        distance_sensor: float, optional
+            Distance between mask and sensor (m). Default is the distance specified at initialization.
         """
+        if distance_sensor is not None:
+            self.distance_sensor = distance_sensor
+        assert (
+            self.distance_sensor is not None
+        ), "Distance between mask and sensor should be specified."
+
         if self.is_torch:
             psf = torch.zeros(
                 tuple(self.resolution) + (len(self.psf_wavelength),),
@@ -188,6 +202,38 @@ class Mask(abc.ABC):
         else:
             self.psf = np.abs(psf) ** 2
 
+    def plot(self, ax=None, **kwargs):
+        """
+        Plot the mask.
+
+        Parameters
+        ----------
+        ax: :py:class:`~matplotlib.axes.Axes`, optional
+            Axes to plot the mask on. Default is None.
+        **kwargs:
+            Additional arguments for the plot function.
+        """
+
+        if ax is None:
+            _, ax = plt.subplots()
+
+        if self.phase_pattern is not None:
+            mask = self.phase_pattern
+            title = "Phase pattern"
+        else:
+            mask = self.mask
+            title = "Mask"
+        if self.is_torch:
+            mask = mask.cpu().numpy()
+
+        ax.imshow(
+            mask, extent=(0, 1e3 * self.size[1], 1e3 * self.size[0], 0), cmap="gray", **kwargs
+        )
+        ax.set_title(title)
+        ax.set_xlabel("[mm]")
+        ax.set_ylabel("[mm]")
+        return ax
+
 
 class CodedAperture(Mask):
     """
@@ -203,8 +249,8 @@ class CodedAperture(Mask):
         method: str
             Pattern generation method (MURA or MLS). Default is ``MLS``.
         n_bits: int, optional
-            Number of bits for pattern generation.
-            Size is ``4*n_bits + 1`` for MURA and ``2^n - 1`` for MLS.
+            Number of bits for pattern generation, must be prime for MURA.
+            Results in ``2^n - 1``x``2^n - 1`` for MLS.
             Default is 8 (for a 255x255 MLS mask).
         **kwargs:
             The keyword arguments are passed to the parent class :py:class:`~lensless.hardware.mask.Mask`.
@@ -220,11 +266,11 @@ class CodedAperture(Mask):
 
         # initialize parameters
         if self.method.upper() == "MURA":
-            self.mask = self.generate_mura(4 * self.n_bits + 1)
+            self.mask = self.generate_mura(self.n_bits)
             self.row = None
             self.col = None
         else:
-            seq = max_len_seq(self.n_bits)[0]
+            seq = max_len_seq(self.n_bits)[0] * 2 - 1
             self.row = seq
             self.col = seq
 
@@ -257,8 +303,10 @@ class CodedAperture(Mask):
         if self.row is not None:
             if self.is_torch:
                 self.mask = torch.outer(self.row, self.col)
+                self.mask = torch.round((self.mask + 1) / 2).to(torch.uint8)
             else:
                 self.mask = np.outer(self.row, self.col)
+                self.mask = np.round((self.mask + 1) / 2).astype(np.uint8)
         assert self.mask is not None, "Mask should be specified"
 
         # resize to sensor shape
@@ -547,8 +595,12 @@ class MultiLensArray(Mask):
         locs_pix = self.loc * (1 / self.feature_size[0])
         radius_pix = self.radius * (1 / self.feature_size[0])
         height = self.create_height_map(radius_pix, locs_pix)
-        self.phi = height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength
-        self.mask = np.exp(1j * self.phi) if not self.is_torch else torch.exp(1j * self.phi)
+        self.phase_pattern = height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength
+        self.mask = (
+            np.exp(1j * self.phase_pattern)
+            if not self.is_torch
+            else torch.exp(1j * self.phase_pattern)
+        )
 
     def create_height_map(self, radius, locs):
         height = (
@@ -642,6 +694,9 @@ class PhaseContour(Mask):
         self.target_psf = cv.Canny(np.interp(binary, (-1, 1), (0, 255)).astype(np.uint8), 0, 255)
 
         # Computing mask and height map
+        assert (
+            self.distance_sensor is not None
+        ), "Distance between mask and sensor should be specified."
         phase_mask, height_map = phase_retrieval(
             target_psf=self.target_psf,
             wv=self.design_wv,
@@ -707,15 +762,14 @@ class FresnelZoneAperture(Mask):
     namely binarized cosine function.
     """
 
-    def __init__(self, radius=0.32e-3, **kwargs):
+    def __init__(self, radius=0.56e-3, **kwargs):
         """
         Fresnel Zone Aperture mask contructor.
 
         Parameters
         ----------
         radius: float
-            characteristic radius of the FZA (m)
-            default value: 5e-4
+            Radius of the FZA (m). Default value is 0.56e-3 (largest in the paper, others are 0.32e-3 and 0.25e-3).
         **kwargs:
             The keyword arguments are passed to the parent class :py:class:`~lensless.hardware.mask.Mask`.
         """

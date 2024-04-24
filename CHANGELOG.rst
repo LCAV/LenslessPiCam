@@ -26,21 +26,26 @@ Added
 - DigiCam support for Telegram demo.
 - DiffuserCamMirflickr Hugging Face API.
 - Fallback for normalization if data not in 8bit range (``lensless.utils.io.save_image``).
+- Add utilities for fabricating masks with 3D printing (``lensless.hardware.fabrication``).
 
 Changed
-~~~~~
+~~~~~~~
 
 - Dataset reconstruction script uses datasets from Hugging Face: ``scripts/recon/dataset.py``
 - For trainable masks, set trainable parameters inside the child class.
+- ``distance_sensor`` optional for ``lensless.hardware.mask.Mask``, e.g. don't need for fabrication.
+- More intuitive interface for MURA for coded aperture (``lensless.hardware.mask.CodedAperture``), i.e. directly pass prime number.
+
 
 Bugfix
-~~~~~
+~~~~~~
 
 - ``lensless.hardware.trainable_mask.AdafruitLCD`` input handling.
 - Local path for DRUNet download.
 - APGD input handling (float32).
 - Multimask handling.
 - Passing shape to IRFFT so that it matches shape of input to RFFT.
+- MLS mask creation (needed to rescale digits).
 
 1.0.6 - (2024-02-21)
 --------------------

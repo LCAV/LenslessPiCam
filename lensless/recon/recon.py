@@ -9,6 +9,9 @@
 Reconstruction
 ==============
 
+Check out `this notebook <https://drive.google.com/file/d/1Wgt6ZMRZVuctLHaXxk7PEyPaBaUPvU33/view?usp=drive_link>`_
+on Google Colab for an overview of the reconstruction algorithms available in LenslessPiCam (analytic and learned).
+
 The core algorithmic component of ``LenslessPiCam`` is the abstract
 class :py:class:`~lensless.ReconstructionAlgorithm`. The five reconstruction
 strategies available in ``LenslessPiCam`` derive from this class:

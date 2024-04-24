@@ -1,5 +1,5 @@
-Demo
-====
+Demo (measurement and reconstruction)
+=====================================
 
 A full demo script can be found in ``scripts/demo.py``. Its configuration
 file can be found in ``configs/demo.yaml``.
@@ -11,7 +11,7 @@ It assumes the following setup:
 * The RPi and the PC are connected to the same network.
 * You can SSH into the RPi from the PC `without a password <https://medium.com/@bezzam/headless-and-passwordless-interfacing-with-a-raspberry-pi-ssh-453dd75154c3>`_.
 * The RPi is connected to a lensless camera and a display.
-* The display is configured to display images in full screen, as described in :ref:`measurement<Remote display>`.
+* The display is configured to display images in full screen, as described in :ref:`measurement<Preparing an external monitor for displaying images (remote display)>`.
 * The PSF of the lensless camera is known and saved as an RGB file.
 
 .. image:: demo_setup.png
@@ -100,7 +100,7 @@ you need to:
 
 #. Install Telegram Python API (and other dependencies): ``pip install python-telegram-bot emoji pilmoji``.
 
-#. Make sure ``LenslessPiCam`` is installed on your server and on the Raspberry Pi, and that the display is configured to display images in full screen, as described in :ref:`measurement<Remote display>`.
+#. Make sure ``LenslessPiCam`` is installed on your server and on the Raspberry Pi, and that the display is configured to display images in full screen, as described in :ref:`measurement<Preparing an external monitor for displaying images (remote display)>`.
 
 #. Prepare your configuration file using ``configs/telegram_demo.yaml`` as a template. You will have to set ``token`` to the token of your bot, ``rpi_username`` and ``rpi_hostname`` to the username and hostname of your Raspberry Pi, ``psf:fp`` to the path of your PSF file, and ``config_name`` to a demo configuration that e.g. worked for above. You may also want to set what algorithms you are willing to let the bot support (note that as of 12 March 2023, unrolled ADMM requires a GPU).
 

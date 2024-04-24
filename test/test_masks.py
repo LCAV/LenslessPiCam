@@ -13,7 +13,7 @@ def test_flatcam():
 
     mask1 = CodedAperture(
         method="MURA",
-        n_bits=25,
+        n_bits=23,
         resolution=resolution,
         feature_size=d1,
         distance_sensor=dz,

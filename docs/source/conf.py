@@ -41,6 +41,9 @@ MOCK_MODULES = [
     "scipy.special",
     "matplotlib.cm",
     "pyffs",
+    "datasets",
+    "huggingface_hub",
+    "cadquery",
 ]
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
