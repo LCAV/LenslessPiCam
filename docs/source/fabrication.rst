@@ -1,5 +1,12 @@
 .. automodule:: lensless.hardware.fabrication
 
+   This masks are meant to be used with a mount for the Raspberry Pi HQ sensor (shown below).
+   The design files can be found `here <https://drive.switch.ch/index.php/s/nDe50iC7zn52r07#/>`_.
+
+   .. image:: mount_components.png
+      :alt: Mount components.
+      :align: center
+
 
    Mask3DModel
    ~~~~~~~~~~~

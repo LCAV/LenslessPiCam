@@ -16,4 +16,4 @@ The following notebooks can be run from Google Colab:
 # Mask Design
 
 - [Multi-lens array design](https://drive.google.com/file/d/1IIGjdPUD5qqq4kWjDp50OWnIvHPVdvmp/view?usp=sharing)
-- [Creating STL files for 3D printing masks](https://drive.google.com/file/d/1yITAkXJZAWcfVX5UCwIGgMogGkF60djR/view?usp=sharing)
+- [Creating STEP files for 3D printing masks](https://colab.research.google.com/drive/1eDLnDL5q4i41xPZLn73wKcKpZksfkkIo?usp=sharing)

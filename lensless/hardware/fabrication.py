@@ -12,8 +12,7 @@ Mask Fabrication
 ================
 
 This module provides tools for fabricating masks for lensless imaging.
-
-Check out `this notebook <https://drive.google.com/file/d/1yITAkXJZAWcfVX5UCwIGgMogGkF60djR/view?usp=sharing>`_ on Google Colab for how to use this module.
+Check out `this notebook <https://colab.research.google.com/drive/1eDLnDL5q4i41xPZLn73wKcKpZksfkkIo?usp=drive_link>`_ on Google Colab for how to use this module.
 
 """
 
