@@ -7,8 +7,8 @@
 # #############################################################################
 
 """
-Mask
-====
+Mask Design
+===========
 
 This module provides utilities to create different types of masks (:py:class:`~lensless.hardware.mask.CodedAperture`,
 :py:class:`~lensless.hardware.mask.PhaseContour`,
