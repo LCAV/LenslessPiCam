@@ -10,11 +10,14 @@ from lensless.hardware.sensor import SensorOptions
 import cv2
 from lensless.utils.image import print_image_info
 from lensless.utils.io import load_image
-
-
 import logging
 
 logging.getLogger("paramiko").setLevel(logging.WARNING)
+
+if os.name == "nt":
+    NULL_FILE = "nul"
+else:
+    NULL_FILE = "/dev/null 2>&1"
 
 
 def capture(
@@ -156,8 +159,8 @@ def capture(
             if verbose:
                 print(f"\nCopying over picture as {localfile}...")
             os.system(
-                'scp "%s@%s:%s" %s >/dev/null 2>&1'
-                % (rpi_username, rpi_hostname, remotefile, localfile)
+                'scp "%s@%s:%s" %s >%s'
+                % (rpi_username, rpi_hostname, remotefile, localfile, NULL_FILE)
             )
 
             img = load_image(localfile, verbose=True, bayer=bayer, nbits_out=nbits_out)
@@ -179,8 +182,8 @@ def capture(
             if verbose:
                 print(f"\nCopying over picture as {localfile}...")
             os.system(
-                'scp "%s@%s:%s" %s >/dev/null 2>&1'
-                % (rpi_username, rpi_hostname, remotefile, localfile)
+                'scp "%s@%s:%s" %s >%s'
+                % (rpi_username, rpi_hostname, remotefile, localfile, NULL_FILE)
             )
 
             img = load_image(localfile, verbose=True)
@@ -196,8 +199,8 @@ def capture(
         if verbose:
             print(f"\nCopying over picture as {localfile}...")
         os.system(
-            'scp "%s@%s:%s" %s >/dev/null 2>&1'
-            % (rpi_username, rpi_hostname, remotefile, localfile)
+            'scp "%s@%s:%s" %s >%s'
+            % (rpi_username, rpi_hostname, remotefile, localfile, NULL_FILE)
         )
 
         if rgb or gray:
@@ -270,9 +273,7 @@ def display(
     remote_tmp_file = "~/tmp_display.png"
     display_path = "~/LenslessPiCam_display/test.png"
 
-    os.system(
-        'scp %s "%s@%s:%s" >/dev/null 2>&1' % (fp, rpi_username, rpi_hostname, remote_tmp_file)
-    )
+    os.system(f"scp {fp} {rpi_username}@{rpi_hostname}:{remote_tmp_file} > {NULL_FILE}")
 
     # run script on Raspberry Pi to prepare image to display
     prep_command = f"{rpi_python} {script} --fp {remote_tmp_file} \
@@ -289,8 +290,8 @@ def display(
 
 def check_username_hostname(username, hostname, timeout=10):
 
-    assert username is not None, "Username must be specified"
-    assert hostname is not None, "Hostname must be specified"
+    assert username is not None, "Raspberry Pi username must be specified"
+    assert hostname is not None, "Raspberry Pi hostname must be specified"
 
     client = paramiko.client.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())

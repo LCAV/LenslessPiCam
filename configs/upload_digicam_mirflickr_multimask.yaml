@@ -9,9 +9,9 @@ test_size: 0.15
 multimask: True
 
 lensless:
-  dir: "/scratch/bezzam/mirflickr/all_measured_20240209-172459"
+  dir: "/root/mirflickr/all_measured_20240209-172459"
   ext: ".png"
 
 lensed:
-  dir: "/scratch/bezzam/mirflickr/all"
+  dir: "/root/mirflickr/mirflickr25k"
   ext: ".jpg"

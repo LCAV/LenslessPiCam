@@ -9,7 +9,7 @@ output_file_ext: png
 
 # files to measure
 n_files: 15
-start_idx: 0        # start index, TODO implement
+start_idx: 0
 
 # timing
 runtime: null   # in hours
@@ -23,19 +23,24 @@ max_level: 254
 min_level: 200
 max_tries: 6
 
+masks: null   # for multi-mask measurements
+
 # -- display parameters
 display:
   output_fp: "~/LenslessPiCam_display/test.png"
   # default to this screen: https://www.dell.com/en-us/work/shop/dell-ultrasharp-usb-c-hub-monitor-u2421e/apd/210-axmg/monitors-monitor-accessories#techspecs_section
   screen_res: [1920, 1200]   # width, height
+  image_res: null    # useful if input images don't have the same dimension, set it to this 
   pad: 0
   hshift: 0
   vshift: -10
   brightness: 80   # max brightness
   rot90: 3
+  delay: 2    # to allow picture to display
+  landscape: False    # whether to force landscape
 
 capture:
-  delay: 2    # to allow picture to display
+  skip: False    # to test looping over displaying images
   config_pause: 2
   iso: 100
   res: null

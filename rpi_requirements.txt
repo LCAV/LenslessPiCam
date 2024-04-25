@@ -2,3 +2,7 @@ picamerax>=20.9.1
 image>=1.5.33
 click>=8.0.1
 matplotlib>=3.4.2
+hydra-code
+paramiko
+numpy>=1.24.2
+scipy>=1.6.0

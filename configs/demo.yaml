@@ -18,7 +18,7 @@ display:
   screen_res: [1920, 1200]   # width, height
   pad: 0
   hshift: 0
-  vshift: 0
+  vshift: -10
   brightness: 100
   rot90: 3
 
@@ -32,7 +32,7 @@ display:
 capture:
   sensor: rpi_hq
   gamma: null # for visualization
-  exp: 0.02
+  exp: 1
   delay: 2
   script: ~/LenslessPiCam/scripts/measure/on_device_capture.py
   iso: 100
@@ -56,14 +56,22 @@ capture:
   # remote script returns RGB data
   rgb: True
   down: 4
-  awb_gains: [1.9, 1.2]
+  awb_gains: [1.6, 1.2]
 
 
 camera:
   # these gains are not applied if rgb=True
   red_gain: 1.9
   blue_gain: 1.2
-  psf: data/psf/tape_rgb_31032023.png
+  # -- path to PSF,
+  # psf: data/psf/tape_rgb_31032023.png  
+  # -- DigiCam configuration
+  psf: 
+    seed: 0
+    device: adafruit
+    mask_shape: [54, 26]
+    mask_center: [57, 77]
+    flipud: True
   background: null
 
 
@@ -84,7 +92,7 @@ recon:
 
   # -- admm
   admm:
-    n_iter: 10
+    n_iter: 100
     disp_iter: null
     mu1: 1e-6
     mu2: 1e-5

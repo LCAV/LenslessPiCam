@@ -39,19 +39,20 @@ import os
 import numpy as np
 import time
 from lensless.hardware.trainable_mask import prep_trainable_mask
-from lensless import UnrolledFISTA, UnrolledADMM, TrainableInversion
+from lensless import ADMM, UnrolledFISTA, UnrolledADMM, TrainableInversion
 from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     DigiCamCelebA,
+    DigiCam,
+    MyDataParallel,
+    simulate_dataset,
 )
 from torch.utils.data import Subset
 from lensless.recon.utils import create_process_network
-from lensless.utils.dataset import simulate_dataset
 from lensless.recon.utils import Trainer
 import torch
 from lensless.utils.io import save_image
 from lensless.utils.plot import plot_image
-from lensless import ADMM
 import matplotlib.pyplot as plt
 
 # A logger for this file
@@ -79,19 +80,24 @@ def train_unrolled(config):
     if save:
         save = os.getcwd()
 
+    use_cuda = False
     if "cuda" in config.torch_device and torch.cuda.is_available():
         # if config.torch_device == "cuda" and torch.cuda.is_available():
         log.info("Using GPU for training.")
         device = config.torch_device
+        use_cuda = True
     else:
         log.info("Using CPU for training.")
         device = "cpu"
+    device_ids = config.device_ids
 
     # load dataset and create dataloader
     train_set = None
     test_set = None
     psf = None
     crop = None
+    alignment = None  # very similar to crop, TODO: should switch to this approach
+    mask = None
     if "DiffuserCam" in config.files.dataset:
 
         original_path = os.path.join(get_original_cwd(), config.files.dataset)
@@ -183,12 +189,69 @@ def train_unrolled(config):
 
             psf = dataset.psf
 
-        # print info about PSF
-        log.info(f"PSF shape : {psf.shape}")
-        log.info(f"PSF min : {psf.min()}")
-        log.info(f"PSF max : {psf.max()}")
-        log.info(f"PSF dtype : {psf.dtype}")
-        log.info(f"PSF norm : {psf.norm()}")
+    elif config.files.huggingface_dataset is True:
+
+        split_train = "train"
+        split_test = "test"
+        if config.files.split_seed is not None:
+            from datasets import load_dataset, concatenate_datasets
+
+            seed = config.files.split_seed
+            generator = torch.Generator().manual_seed(seed)
+
+            # - combine train and test into single dataset
+            train_dataset = load_dataset(config.files.dataset, split="train")
+            test_dataset = load_dataset(config.files.dataset, split="test")
+            dataset = concatenate_datasets([test_dataset, train_dataset])
+
+            # - split into train and test
+            train_size = int((1 - config.files.test_size) * len(dataset))
+            test_size = len(dataset) - train_size
+            split_train, split_test = torch.utils.data.random_split(
+                dataset, [train_size, test_size], generator=generator
+            )
+
+        train_set = DigiCam(
+            huggingface_repo=config.files.dataset,
+            psf=config.files.huggingface_psf,
+            split=split_train,
+            display_res=config.files.image_res,
+            rotate=config.files.rotate,
+            downsample=config.files.downsample,
+            alignment=config.alignment,
+            save_psf=config.files.save_psf,
+        )
+        test_set = DigiCam(
+            huggingface_repo=config.files.dataset,
+            psf=config.files.huggingface_psf,
+            split=split_test,
+            display_res=config.files.image_res,
+            rotate=config.files.rotate,
+            downsample=config.files.downsample,
+            alignment=config.alignment,
+            save_psf=config.files.save_psf,
+        )
+        if train_set.multimask:
+            # get first PSF for initialization
+            first_psf_key = list(train_set.psf.keys())[device_ids[0]]
+            psf = train_set.psf[first_psf_key].to(device)
+        else:
+            psf = train_set.psf.to(device)
+        crop = test_set.crop  # same for train set
+        alignment = test_set.alignment
+
+        # -- if learning mask
+        mask = prep_trainable_mask(config, psf)
+        if mask is not None:
+            assert not train_set.multimask
+            # plot initial PSF
+            psf_np = mask.get_psf().detach().cpu().numpy()[0, ...]
+            if config.trainable_mask.grayscale:
+                psf_np = psf_np[:, :, -1]
+
+            save_image(psf_np, os.path.join(save, "psf_initial.png"))
+            plot_image(psf_np, gamma=config.display.gamma)
+            plt.savefig(os.path.join(save, "psf_initial_plot.png"))
 
     else:
 
@@ -197,17 +260,42 @@ def train_unrolled(config):
         crop = train_set.crop
 
     assert train_set is not None
-    assert psf is not None
+    # if not hasattr(test_set, "psfs"):
+    #     assert psf is not None
+
+    # print info about PSF
+    log.info(f"PSF shape : {psf.shape}")
+    log.info(f"PSF min : {psf.min()}")
+    log.info(f"PSF max : {psf.max()}")
+    log.info(f"PSF dtype : {psf.dtype}")
+    log.info(f"PSF norm : {psf.norm()}")
+
+    if config.files.extra_eval is not None:
+        # TODO only support Hugging Face DigiCam datasets for now
+        extra_eval_sets = dict()
+        for eval_set in config.files.extra_eval:
+
+            extra_eval_sets[eval_set] = DigiCam(
+                split="test",
+                downsample=config.files.downsample,  # needs to be same size
+                **config.files.extra_eval[eval_set],
+            )
 
     # reconstruct lensless with ADMM
     with torch.no_grad():
-        if config.test_idx is not None:
+        if config.eval_disp_idx is not None:
 
             log.info("Reconstruction a few images with ADMM...")
 
-            for i, _idx in enumerate(config.test_idx):
+            for i, _idx in enumerate(config.eval_disp_idx):
 
-                lensless, lensed = test_set[_idx]
+                if test_set.multimask:
+                    # multimask
+                    # lensless, lensed, _ = test_set[_idx]  # using wrong PSF
+                    lensless, lensed, psf = test_set[_idx]
+                    psf = psf.to(device)
+                else:
+                    lensless, lensed = test_set[_idx]
                 recon = ADMM(psf)
 
                 recon.set_data(lensless.to(psf.device))
@@ -221,7 +309,18 @@ def train_unrolled(config):
                 save_image(lensless_np, f"lensless_raw_{_idx}.png")
 
                 # -- plot lensed and res on top of each other
-                if config.training.crop_preloss:
+                cropped = False
+
+                if alignment is not None:
+                    top_right = alignment["topright"]
+                    height = alignment["height"]
+                    width = alignment["width"]
+                    res_np = res_np[
+                        top_right[0] : top_right[0] + height, top_right[1] : top_right[1] + width
+                    ]
+                    cropped = True
+
+                elif config.training.crop_preloss:
                     assert crop is not None
 
                     res_np = res_np[
@@ -232,8 +331,10 @@ def train_unrolled(config):
                         crop["vertical"][0] : crop["vertical"][1],
                         crop["horizontal"][0] : crop["horizontal"][1],
                     ]
-                    if i == 0:
-                        log.info(f"Cropped shape :  {res_np.shape}")
+                    cropped = True
+
+                if cropped and i == 0:
+                    log.info(f"Cropped shape :  {res_np.shape}")
 
                 save_image(res_np, f"lensless_recon_{_idx}.png")
                 save_image(lensed_np, f"lensed_{_idx}.png")
@@ -254,6 +355,7 @@ def train_unrolled(config):
         config.reconstruction.pre_process.depth,
         nc=config.reconstruction.pre_process.nc,
         device=device,
+        device_ids=device_ids,
     )
     pre_proc_delay = config.reconstruction.pre_process.delay
 
@@ -263,6 +365,7 @@ def train_unrolled(config):
         config.reconstruction.post_process.depth,
         nc=config.reconstruction.post_process.nc,
         device=device,
+        device_ids=device_ids,
     )
     post_proc_delay = config.reconstruction.post_process.delay
 
@@ -314,7 +417,7 @@ def train_unrolled(config):
             post_process=post_process if post_proc_delay is None else None,
             skip_unrolled=config.reconstruction.skip_unrolled,
             return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
-        ).to(device)
+        )
     elif config.reconstruction.method == "unrolled_admm":
         recon = UnrolledADMM(
             psf,
@@ -327,7 +430,7 @@ def train_unrolled(config):
             post_process=post_process if post_proc_delay is None else None,
             skip_unrolled=config.reconstruction.skip_unrolled,
             return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
-        ).to(device)
+        )
     elif config.reconstruction.method == "trainable_inv":
         recon = TrainableInversion(
             psf,
@@ -335,9 +438,14 @@ def train_unrolled(config):
             pre_process=pre_process if pre_proc_delay is None else None,
             post_process=post_process if post_proc_delay is None else None,
             return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
-        ).to(device)
+        )
     else:
         raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
+
+    if device_ids is not None:
+        recon = MyDataParallel(recon, device_ids=device_ids)
+    if use_cuda:
+        recon.to(device)
 
     # constructing algorithm name by appending pre and post process
     algorithm_name = config.reconstruction.method
@@ -383,6 +491,7 @@ def train_unrolled(config):
         post_process_unfreeze=config.reconstruction.post_process.unfreeze,
         clip_grad=config.training.clip_grad,
         unrolled_output_factor=config.unrolled_output_factor,
+        extra_eval_sets=extra_eval_sets if config.files.extra_eval is not None else None,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)

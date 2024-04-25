@@ -4,9 +4,13 @@ hydra:
     chdir: True    # change to output folder
 
 repo_id: "bezzam/DiffuserCam-Lensless-Mirflickr-Dataset"
-dir_diffuser: "/scratch/bezzam/DiffuserCam_mirflickr/dataset/diffuser_images"
-dir_lensed: "/scratch/bezzam/DiffuserCam_mirflickr/dataset/ground_truth_lensed"
-psf_fp: "/home/bezzam/LenslessPiCam/data/psf/diffusercam_psf.tiff"
+normalize: False
+# repo_id: bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM
+# normalize: True
+
+dir_diffuser: "DiffuserCam_mirflickr/dataset/diffuser_images"
+dir_lensed: "DiffuserCam_mirflickr/dataset/ground_truth_lensed"
+psf_fp: "DiffuserCam_mirflickr/psf.tiff"
 hf_token: null
 file_ext: ".npy"
 n_files: null

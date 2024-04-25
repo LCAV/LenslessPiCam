@@ -1,0 +1,17 @@
+# python scripts/data/authenticate.py
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+# repo_id: "bezzam/DigiCam-Mirflickr-MultiMask-25K"
+# repo_id: "bezzam/DigiCam-Mirflickr-MultiMask-1K"
+repo_id: "bezzam/DigiCam-Mirflickr-MultiMask-10K"
+split: all   # "all" (for 100 masks), "test" (for 15 masks)
+n_iter: 25
+n_files: 100   # per mask
+grayscale: True
+font_scale: 1.5
+torch_device: cuda:0
+
+cont: null     # continue already started file
+scores_fp: null    # file path to already computed scores

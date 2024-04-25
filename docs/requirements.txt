@@ -8,3 +8,4 @@ torchmetrics>=0.11.4
 pyFFS>=2.2.3   # for waveprop
 waveprop>=0.0.9
 tqdm
+omegaconf
