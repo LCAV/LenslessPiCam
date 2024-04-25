@@ -37,7 +37,7 @@ This toolkit has everything you need to perform imaging with a lensless camera.
 The sensor in most examples is the `Raspberry Pi HQ <https://www.raspberrypi.com/products/raspberry-pi-high-quality-camera>`__,
 camera sensor as it is low cost (around 50 USD) and has a high resolution (12 MP).
 The lensless encoder/mask used in most examples is either a piece of tape or a `low-cost LCD <https://www.adafruit.com/product/358>`__.
-As **modularity** is a key feature of this toolkit, you can use a different sensors and lensless encoders.
+As **modularity** is a key feature of this toolkit, we try to support different sensors and/or lensless encoders.
 
 The toolkit includes:
 
