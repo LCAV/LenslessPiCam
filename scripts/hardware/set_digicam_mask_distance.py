@@ -2,7 +2,7 @@ import hydra
 from lensless.hardware.utils import set_mask_sensor_distance
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="digicam")
+@hydra.main(version_base=None, config_path="../../configs", config_name="digicam_config")
 def config_digicam(config):
 
     rpi_username = config.rpi.username
