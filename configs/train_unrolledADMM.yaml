@@ -35,6 +35,7 @@ files:
 
 torch: True
 torch_device: 'cuda'
+device_ids: null    # for multi-gpu set list, e.g. [0, 1, 2, 3]
 measure: null       # if measuring data on-the-fly
 
 # test set example to visualize at the end of every epoch
