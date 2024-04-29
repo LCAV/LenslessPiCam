@@ -13,6 +13,7 @@ from waveprop.noise import add_shot_noise
 from tqdm import tqdm
 import os
 import numpy as np
+import wandb
 
 try:
     import torch
@@ -37,6 +38,9 @@ def benchmark(
     unrolled_output_factor=False,
     return_average=True,
     snr=None,
+    use_wandb=False,
+    label=None,
+    epoch=None,
     **kwargs,
 ):
     """
@@ -179,7 +183,13 @@ def benchmark(
                         prediction_np = prediction.cpu().numpy()[i]
                         # switch to [H, W, C] for saving
                         prediction_np = np.moveaxis(prediction_np, 0, -1)
-                        save_image(prediction_np, fp=os.path.join(output_dir, f"{_batch_idx}.png"))
+                        fp = os.path.join(output_dir, f"{_batch_idx}.png")
+                        save_image(prediction_np, fp=fp)
+
+                        if use_wandb:
+                            assert epoch is not None, "epoch must be provided for wandb logging"
+                            log_key = f"{_batch_idx}_{label}" if label is not None else f"{_batch_idx}"
+                            wandb.log({log_key: wandb.Image(fp)}, step=epoch)
 
             # normalization
             prediction_max = torch.amax(prediction, dim=(-1, -2, -3), keepdim=True)

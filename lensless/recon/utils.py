@@ -801,6 +801,8 @@ class Trainer:
             output_dir=output_dir,
             crop=self.crop,
             unrolled_output_factor=self.unrolled_output_factor,
+            use_wandb=self.use_wandb,
+            epoch=epoch,
         )
 
         # update metrics with current metrics
@@ -860,6 +862,9 @@ class Trainer:
                     output_dir=output_dir,
                     crop=self.crop,
                     unrolled_output_factor=self.unrolled_output_factor,
+                    use_wandb=self.use_wandb,
+                    label=eval_set,
+                    epoch=epoch,
                 )
 
                 # add metrics to dictionary
@@ -944,7 +949,7 @@ class Trainer:
 
         start_time = time.time()
 
-        self.evaluate(-1, epoch=0, disp=disp)
+        self.evaluate(mean_loss=1, epoch=0, disp=disp)
         for epoch in range(n_epoch):
 
             # add extra components (if specified)

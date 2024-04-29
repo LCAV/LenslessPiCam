@@ -93,13 +93,15 @@ def train_unrolled(config):
     use_cuda = False
     if "cuda" in config.torch_device and torch.cuda.is_available():
         # if config.torch_device == "cuda" and torch.cuda.is_available():
-        log.info("Using GPU for training.")
+        log.info(f"Using GPU for training. Main device : {config.torch_device}")
         device = config.torch_device
         use_cuda = True
     else:
         log.info("Using CPU for training.")
         device = "cpu"
     device_ids = config.device_ids
+    if device_ids is not None:
+        log.info(f"Using multiple GPUs : {device_ids}")
 
     # load dataset and create dataloader
     train_set = None
