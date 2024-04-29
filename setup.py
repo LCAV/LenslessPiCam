@@ -34,6 +34,7 @@ setuptools.setup(
         "rawpy>=0.16.0",  # less than python 3.12
         "paramiko>=3.2.0",
         "hydra-core",
+        "slm_controller @ git+https://github.com/ebezzam/slm-controller.git"
     ],
     extra_requires={"dev": ["pudb", "black"]},
 )

@@ -11,3 +11,4 @@ torchvision
 torchmetrics
 lpips
 wandb
+datasets
