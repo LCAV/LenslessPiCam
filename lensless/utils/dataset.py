@@ -1269,7 +1269,7 @@ def simulate_dataset(config, generator=None):
     Parameters
     ----------
     config : omegaconf.DictConfig
-        Configuration, e.g. from Hydra. See ``scripts/recon/train_unrolled.py`` for an example that uses this function.
+        Configuration, e.g. from Hydra. See ``scripts/recon/train_learning_based.py`` for an example that uses this function.
     generator : torch.Generator, optional
         Random number generator, by default ``None``.
     """

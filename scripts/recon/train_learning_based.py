@@ -1,6 +1,6 @@
 # #############################################################################
-# train_unrolled.py
-# =================
+# train_learning_based.py
+# =======================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
 # Eric BEZZAM [ebezzam@gmail.com]
@@ -10,24 +10,24 @@
 Train unrolled version of reconstruction algorithm.
 
 ```
-python scripts/recon/train_unrolled.py
+python scripts/recon/train_learning_based.py
 ```
 
 By default it uses the configuration from the file `configs/train_unrolledADMM.yaml`.
 
 To train pre- and post-processing networks, use the following command:
 ```
-python scripts/recon/train_unrolled.py -cn train_pre-post-processing
+python scripts/recon/train_learning_based.py -cn train_pre-post-processing
 ```
 
 To fine-tune the DiffuserCam PSF, use the following command:
 ```
-python scripts/recon/train_unrolled.py -cn fine-tune_PSF
+python scripts/recon/train_learning_based.py -cn fine-tune_PSF
 ```
 
 To train a PSF from scratch with a simulated dataset, use the following command:
 ```
-python scripts/recon/train_unrolled.py -cn train_psf_from_scratch
+python scripts/recon/train_learning_based.py -cn train_psf_from_scratch
 ```
 
 """

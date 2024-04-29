@@ -1,4 +1,4 @@
-# python scripts/recon/train_unrolled.py -cn train_digicam_multimask
+# python scripts/recon/train_learning_based.py -cn train_digicam_multimask
 defaults:
   - train_digicam_singlemask
   - _self_
