@@ -6,7 +6,7 @@
 # Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
-
+import wandb
 import json
 import math
 import numpy as np
@@ -302,6 +302,7 @@ class Trainer:
         clip_grad=1.0,
         unrolled_output_factor=False,
         extra_eval_sets=None,
+        use_wandb=False,
         # for adding components during training
         pre_process=None,
         pre_process_delay=None,
@@ -490,6 +491,8 @@ class Trainer:
         self.optimizer_config = optimizer
         self.set_optimizer()
 
+        # metrics
+        self.use_wandb = use_wandb
         self.metrics = {
             "LOSS": [],  # train loss
             "LOSS_TEST": [],  # test loss
@@ -802,6 +805,8 @@ class Trainer:
 
         # update metrics with current metrics
         self.metrics["LOSS"].append(mean_loss)
+        if self.use_wandb:
+            wandb.log({"LOSS": mean_loss}, step=epoch)
         for key in current_metrics:
             self.metrics[key].append(current_metrics[key])
 
@@ -824,8 +829,11 @@ class Trainer:
             eval_loss = current_metrics[self.metrics["metric_for_best_model"]]
 
         self.metrics["LOSS_TEST"].append(eval_loss)
+        if self.use_wandb:
+            wandb.log({"LOSS_TEST": eval_loss}, step=epoch)
 
         # add extra evaluation sets
+        extra_metrics_epoch = {}
         if self.extra_eval_sets is not None:
             for eval_set in self.extra_eval_sets:
 
@@ -860,11 +868,18 @@ class Trainer:
                         self.metrics[eval_set][key] = [extra_metrics[key]]
                     else:
                         self.metrics[eval_set][key].append(extra_metrics[key])
+                    extra_metrics_epoch[f"{eval_set}_{key}"] = extra_metrics[key]
 
             # set back PSF to original in case changed
             # TODO: cleaner way?
             if not self.train_multimask:
                 self.recon._set_psf(self.train_dataset.psf.to(self.device))
+
+        # log metrics to wandb
+        if self.use_wandb:
+            wandb.log(current_metrics, step=epoch)
+            if self.extra_eval_sets is not None:
+                wandb.log(extra_metrics_epoch, step=epoch)
 
         return eval_loss
 

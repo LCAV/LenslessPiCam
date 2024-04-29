@@ -32,6 +32,7 @@ python scripts/recon/train_unrolled.py -cn train_psf_from_scratch
 
 """
 
+import wandb
 import logging
 import hydra
 from hydra.utils import get_original_cwd
@@ -61,6 +62,15 @@ log = logging.getLogger(__name__)
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
 def train_unrolled(config):
+
+    if config.wandb_project is not None:
+        # start a new wandb run to track this script
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project=config.wandb_project,
+            # track hyperparameters and run metadata
+            config=dict(config),
+        )
 
     # set seed
     seed = config.seed
@@ -220,6 +230,7 @@ def train_unrolled(config):
             downsample=config.files.downsample,
             alignment=config.alignment,
             save_psf=config.files.save_psf,
+            n_files=config.files.n_files,
         )
         test_set = DigiCam(
             huggingface_repo=config.files.dataset,
@@ -230,6 +241,7 @@ def train_unrolled(config):
             downsample=config.files.downsample,
             alignment=config.alignment,
             save_psf=config.files.save_psf,
+            n_files=config.files.n_files,
         )
         if train_set.multimask:
             # get first PSF for initialization
@@ -278,6 +290,7 @@ def train_unrolled(config):
             extra_eval_sets[eval_set] = DigiCam(
                 split="test",
                 downsample=config.files.downsample,  # needs to be same size
+                n_files=config.files.n_files,
                 **config.files.extra_eval[eval_set],
             )
 
@@ -492,6 +505,7 @@ def train_unrolled(config):
         clip_grad=config.training.clip_grad,
         unrolled_output_factor=config.unrolled_output_factor,
         extra_eval_sets=extra_eval_sets if config.files.extra_eval is not None else None,
+        use_wandb=True if config.wandb_project is not None else False,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)

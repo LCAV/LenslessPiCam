@@ -4,6 +4,7 @@ hydra:
     chdir: True    # change to output folder
 
 
+wandb_project: lensless
 seed: 0
 start_delay: null
 

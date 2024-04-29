@@ -116,6 +116,9 @@ def benchmark(
                 if dataset.multimask:
                     lensless, lensed, psfs = batch
                     psfs = psfs.to(device)
+                else:
+                    lensless, lensed = batch
+                    psfs = None
             else:
                 lensless, lensed = batch
                 psfs = None
@@ -198,24 +201,27 @@ def benchmark(
                         .item()
                     )
                 else:
-                    if "LPIPS" in metric:
-                        if prediction.shape[1] == 1:
-                            # LPIPS needs 3 channels
-                            metrics_values[metric].append(
-                                metrics[metric](
-                                    prediction.repeat(1, 3, 1, 1), lensed.repeat(1, 3, 1, 1)
+                    try:
+                        if "LPIPS" in metric:
+                            if prediction.shape[1] == 1:
+                                # LPIPS needs 3 channels
+                                metrics_values[metric].append(
+                                    metrics[metric](
+                                        prediction.repeat(1, 3, 1, 1), lensed.repeat(1, 3, 1, 1)
+                                    )
+                                    .cpu()
+                                    .item()
                                 )
-                                .cpu()
-                                .item()
-                            )
+                            else:
+                                metrics_values[metric].append(
+                                    metrics[metric](prediction, lensed).cpu().item()
+                                )
                         else:
                             metrics_values[metric].append(
                                 metrics[metric](prediction, lensed).cpu().item()
                             )
-                    else:
-                        metrics_values[metric].append(
-                            metrics[metric](prediction, lensed).cpu().item()
-                        )
+                    except Exception as e:
+                        print(f"Error in metric {metric}: {e}")
 
             # compute metrics for unrolled output
             if unrolled_output_factor:

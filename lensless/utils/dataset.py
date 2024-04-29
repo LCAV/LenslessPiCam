@@ -1031,15 +1031,19 @@ class DigiCam(DualDataset):
         save_psf=False,
         simulation_config=None,
         return_mask_label=False,
+        n_files=None,
         **kwargs,
     ):
 
         if isinstance(split, str):
+            if n_files is not None:
+                split = f"{split}[0:{n_files}]"
             self.dataset = load_dataset(huggingface_repo, split=split)
         elif isinstance(split, Dataset):
             self.dataset = split
         else:
             raise ValueError("split should be a string or a Dataset object")
+
         self.rotate = rotate
         self.display_res = display_res
         self.return_mask_label = return_mask_label
