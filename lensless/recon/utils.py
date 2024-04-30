@@ -1032,7 +1032,7 @@ class Trainer:
             fp_plot = os.path.join(path, f"psf_epoch{epoch}_plot.png")
             plt.savefig(fp_plot)
 
-            if self.use_wandb and epoch!="BEST":
+            if self.use_wandb and epoch != "BEST":
                 wandb.log({"psf": wandb.Image(fp)}, step=epoch)
                 wandb.log({"psf_plot": wandb.Image(fp_plot)}, step=epoch)
 
