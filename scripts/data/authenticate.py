@@ -29,7 +29,7 @@ python scripts/data/authenticate_roc.py
 """
 
 
-from lensless.utils.dataset import DigiCam
+from lensless.utils.dataset import HFDataset
 import torch
 from lensless import ADMM
 from lensless.utils.image import rgb2gray
@@ -67,14 +67,14 @@ def authen(config):
 
         # load multimask dataset
         if split == "all":
-            train_set = DigiCam(
+            train_set = HFDataset(
                 huggingface_repo=huggingface_repo,
                 split="train",
                 rotate=rotate,
                 downsample=downsample,
                 return_mask_label=True,
             )
-            test_set = DigiCam(
+            test_set = HFDataset(
                 huggingface_repo=huggingface_repo,
                 split="test",
                 rotate=rotate,
@@ -114,7 +114,7 @@ def authen(config):
                 file_idx += list(np.arange(n_train_psf) + i * n_train_psf + test_files_offet)
 
         else:
-            all_set = DigiCam(
+            all_set = HFDataset(
                 huggingface_repo=huggingface_repo,
                 split=split,
                 rotate=rotate,

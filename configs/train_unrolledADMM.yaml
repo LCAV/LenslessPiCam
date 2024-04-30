@@ -10,11 +10,13 @@ start_delay: null
 
 # Dataset
 files:
+  # -- using local dataset
   # dataset: /scratch/bezzam/DiffuserCam_mirflickr/dataset  # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
   # celeba_root: null   # path to parent directory of CelebA: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
   # psf: data/psf/diffusercam_psf.tiff
   # diffusercam_psf: True
 
+  # -- using huggingface dataset
   dataset: bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM
   huggingface_dataset: True
   huggingface_psf: psf.tiff

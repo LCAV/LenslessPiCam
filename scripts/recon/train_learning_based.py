@@ -40,7 +40,7 @@ from lensless import ADMM, UnrolledFISTA, UnrolledADMM, TrainableInversion
 from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     DigiCamCelebA,
-    DigiCam,
+    HFDataset,
     MyDataParallel,
     simulate_dataset,
 )
@@ -57,7 +57,7 @@ log = logging.getLogger(__name__)
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
-def train_unrolled(config):
+def train_learned(config):
 
     if config.wandb_project is not None:
         # start a new wandb run to track this script
@@ -189,8 +189,13 @@ def train_unrolled(config):
             generator = torch.Generator().manual_seed(seed)
 
             # - combine train and test into single dataset
-            train_dataset = load_dataset(config.files.dataset, split="train")
-            test_dataset = load_dataset(config.files.dataset, split="test")
+            train_split = "train"
+            test_split = "test"
+            if config.files.n_files is not None:
+                train_split = f"train[:{config.files.n_files}]"
+                test_split = f"test[:{config.files.n_files}]"
+            train_dataset = load_dataset(config.files.dataset, split=train_split)
+            test_dataset = load_dataset(config.files.dataset, split=test_split)
             dataset = concatenate_datasets([test_dataset, train_dataset])
 
             # - split into train and test
@@ -200,7 +205,7 @@ def train_unrolled(config):
                 dataset, [train_size, test_size], generator=generator
             )
 
-        train_set = DigiCam(
+        train_set = HFDataset(
             huggingface_repo=config.files.dataset,
             psf=config.files.huggingface_psf,
             split=split_train,
@@ -212,7 +217,7 @@ def train_unrolled(config):
             save_psf=config.files.save_psf,
             n_files=config.files.n_files,
         )
-        test_set = DigiCam(
+        test_set = HFDataset(
             huggingface_repo=config.files.dataset,
             psf=config.files.huggingface_psf,
             split=split_test,
@@ -226,7 +231,10 @@ def train_unrolled(config):
         )
         if train_set.multimask:
             # get first PSF for initialization
-            first_psf_key = list(train_set.psf.keys())[device_ids[0]]
+            if device_ids is not None:
+                first_psf_key = list(train_set.psf.keys())[device_ids[0]]
+            else:
+                first_psf_key = list(train_set.psf.keys())[0]
             psf = train_set.psf[first_psf_key].to(device)
         else:
             psf = train_set.psf.to(device)
@@ -265,7 +273,7 @@ def train_unrolled(config):
         extra_eval_sets = dict()
         for eval_set in config.files.extra_eval:
 
-            extra_eval_sets[eval_set] = DigiCam(
+            extra_eval_sets[eval_set] = HFDataset(
                 split="test",
                 downsample=config.files.downsample,  # needs to be same size
                 n_files=config.files.n_files,
@@ -492,4 +500,4 @@ def train_unrolled(config):
 
 
 if __name__ == "__main__":
-    train_unrolled()
+    train_learned()

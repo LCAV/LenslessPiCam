@@ -1016,25 +1016,59 @@ class DiffuserCamMirflickrHF(DualDataset):
         return lensless, lensed
 
 
-class DigiCam(DualDataset):
+class HFDataset(DualDataset):
     def __init__(
         self,
         huggingface_repo,
         split,
+        n_files=None,
         psf=None,
-        display_res=None,
-        sensor="rpi_hq",
-        slm="adafruit",
         rotate=False,   # just the lensless image
         downsample=1,
         downsample_lensed=1,
+        display_res=None,
+        sensor="rpi_hq",
+        slm="adafruit",
         alignment=None,
-        save_psf=False,
-        simulation_config=None,
         return_mask_label=False,
-        n_files=None,
+        save_psf=False,
         **kwargs,
     ):
+        """
+        Wrapper for lensless datasets on Hugging Face.
+
+        Parameters
+        ----------
+        huggingface_repo : str
+            Hugging Face repository ID.
+        split : str or :py:class:`torch.utils.data.Dataset`
+            Split of the dataset to use: 'train', 'test', or 'all'. If a Dataset object is given, it is used directly.
+        n_files : int, optional
+            Number of files to load from the dataset, by default None, namely all.
+        psf : str, optional
+            File name of the PSF at the repository. If None, it is assumed that there is a mask pattern from which the PSF is simulated, by default None.
+        rotate : bool, optional
+            If True, lensless images and PSF are rotated 180 degrees. Lensed/original image is not rotated! By default False.
+        downsample : float, optional
+            Downsample factor of the lensless images, by default 1.
+        downsample_lensed : float, optional
+            Downsample factor of the lensed images, by default 1.
+        display_res : tuple, optional
+            Resolution of images when displayed on screen during measurement.
+        sensor : str, optional
+            If `psf` not provided, the sensor to use for the PSF simulation, by default "rpi_hq".
+        slm : str, optional
+            If `psf` not provided, the SLM to use for the PSF simulation, by default "adafruit".
+        alignment : dict, optional
+            Alignment parameters between lensless and lensed data.
+            If "topright", "height", and "width" are provided, the region-of-interest from the reconstruction of ``lensless`` is extracted and ``lensed`` is reshaped to match.
+            If "crop" is provided, the region-of-interest is extracted from the simulated lensed image, namely a ``simulation`` configuration should be provided within ``alignment``.
+        return_mask_label : bool, optional
+            If multimask dataset, return the mask label (True) or the corresponding PSF (False).
+        save_psf : bool, optional
+            If multimask dataset, save the simulated PSFs.
+
+        """
 
         if isinstance(split, str):
             if n_files is not None:
@@ -1080,6 +1114,7 @@ class DigiCam(DualDataset):
 
             # preparing ground-truth as simulated measurement of original
             elif "crop" in alignment:
+                assert "simulation" in alignment, "Simulation config should be provided"
                 self.crop = dict(alignment["crop"].copy())
                 self.crop["vertical"][0] = int(self.crop["vertical"][0] / downsample)
                 self.crop["vertical"][1] = int(self.crop["vertical"][1] / downsample)
@@ -1170,7 +1205,7 @@ class DigiCam(DualDataset):
             if "horizontal_shift" in simulation_config:
                 self.horizontal_shift = int(simulation_config["horizontal_shift"] / downsample)
 
-        super(DigiCam, self).__init__(**kwargs)
+        super(HFDataset, self).__init__(**kwargs)
 
     def __len__(self):
         return len(self.dataset)
@@ -1195,7 +1230,6 @@ class DigiCam(DualDataset):
             lensless_np = resize(
                 lensless_np, factor=1 / self.downsample_lensless, interpolation=cv2.INTER_NEAREST
             )
-
 
         lensless = lensless_np
         lensed = lensed_np
@@ -1226,7 +1260,7 @@ class DigiCam(DualDataset):
         elif self.downsample_lensed != 1.0:
             lensed = resize(
                 lensed_np,
-                factor=self.downsample_lensed,
+                factor=1 / self.downsample_lensed,
                 interpolation=cv2.INTER_NEAREST,
             )
 

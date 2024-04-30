@@ -11,6 +11,7 @@ eval_disp_idx: [1, 2, 4, 5, 9]
 files:
   dataset: bezzam/DigiCam-Mirflickr-SingleMask-25K
   huggingface_dataset: True
+  huggingface_psf: null
   downsample: 1
   # TODO: these parameters should be in the dataset?
   image_res: [900, 1200]  # used during measurement
