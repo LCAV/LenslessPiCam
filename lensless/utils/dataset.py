@@ -1023,7 +1023,7 @@ class HFDataset(DualDataset):
         split,
         n_files=None,
         psf=None,
-        rotate=False,   # just the lensless image
+        rotate=False,  # just the lensless image
         downsample=1,
         downsample_lensed=1,
         display_res=None,

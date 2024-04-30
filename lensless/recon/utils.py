@@ -459,7 +459,7 @@ class Trainer:
             plot_image(psf_np, gamma=self.gamma)
             fp_plot = "psf_original_plot.png"
             plt.savefig(fp_plot)
-            
+
             if self.use_wandb:
                 wandb.log({"psf": wandb.Image(fp)}, step=0)
                 wandb.log({"psf_plot": wandb.Image(fp_plot)}, step=0)

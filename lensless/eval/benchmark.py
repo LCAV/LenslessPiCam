@@ -188,7 +188,9 @@ def benchmark(
 
                         if use_wandb:
                             assert epoch is not None, "epoch must be provided for wandb logging"
-                            log_key = f"{_batch_idx}_{label}" if label is not None else f"{_batch_idx}"
+                            log_key = (
+                                f"{_batch_idx}_{label}" if label is not None else f"{_batch_idx}"
+                            )
                             wandb.log({log_key: wandb.Image(fp)}, step=epoch)
 
             # normalization
