@@ -17,7 +17,7 @@ By default it uses the configuration from the file `configs/train_unrolledADMM.y
 
 To train pre- and post-processing networks, use the following command:
 ```
-python scripts/recon/train_learning_based.py -cn train_pre-post-processing
+python scripts/recon/train_learning_based.py -cn train_unrolled_pre_post
 ```
 
 To fine-tune the DiffuserCam PSF, use the following command:
@@ -25,10 +25,6 @@ To fine-tune the DiffuserCam PSF, use the following command:
 python scripts/recon/train_learning_based.py -cn fine-tune_PSF
 ```
 
-To train a PSF from scratch with a simulated dataset, use the following command:
-```
-python scripts/recon/train_learning_based.py -cn train_psf_from_scratch
-```
 
 """
 
@@ -110,7 +106,7 @@ def train_unrolled(config):
     crop = None
     alignment = None  # very similar to crop, TODO: should switch to this approach
     mask = None
-    if "DiffuserCam" in config.files.dataset:
+    if "DiffuserCam" in config.files.dataset and config.files.huggingface_dataset is False:
 
         original_path = os.path.join(get_original_cwd(), config.files.dataset)
         psf_path = os.path.join(get_original_cwd(), config.files.psf)
@@ -134,15 +130,6 @@ def train_unrolled(config):
 
         # -- if learning mask
         mask = prep_trainable_mask(config, dataset.psf)
-        if mask is not None:
-            # plot initial PSF
-            psf_np = mask.get_psf().detach().cpu().numpy()[0, ...]
-            if config.trainable_mask.grayscale:
-                psf_np = psf_np[:, :, -1]
-
-            save_image(psf_np, os.path.join(save, "psf_initial.png"))
-            plot_image(psf_np, gamma=config.display.gamma)
-            plt.savefig(os.path.join(save, "psf_initial_plot.png"))
 
         psf = dataset.psf
 
@@ -179,17 +166,7 @@ def train_unrolled(config):
         mask = prep_trainable_mask(config, dataset.psf, downsample=downsample)
 
         if mask is not None:
-            # plot initial PSF
-            with torch.no_grad():
-                psf_np = mask.get_psf().detach().cpu().numpy()[0, ...]
-                if config.trainable_mask.grayscale:
-                    psf_np = psf_np[:, :, -1]
-
-            save_image(psf_np, os.path.join(save, "psf_initial.png"))
-            plot_image(psf_np, gamma=config.display.gamma)
-            plt.savefig(os.path.join(save, "psf_initial_plot.png"))
-
-            # save original PSF as well
+            # save original PSF
             psf_meas = dataset.psf.detach().cpu().numpy()[0, ...]
             plot_image(psf_meas, gamma=config.display.gamma)
             plt.savefig(os.path.join(save, "psf_meas_plot.png"))
@@ -230,6 +207,7 @@ def train_unrolled(config):
             display_res=config.files.image_res,
             rotate=config.files.rotate,
             downsample=config.files.downsample,
+            downsample_lensed=config.files.downsample_lensed,
             alignment=config.alignment,
             save_psf=config.files.save_psf,
             n_files=config.files.n_files,
@@ -241,6 +219,7 @@ def train_unrolled(config):
             display_res=config.files.image_res,
             rotate=config.files.rotate,
             downsample=config.files.downsample,
+            downsample_lensed=config.files.downsample_lensed,
             alignment=config.alignment,
             save_psf=config.files.save_psf,
             n_files=config.files.n_files,
@@ -258,20 +237,17 @@ def train_unrolled(config):
         mask = prep_trainable_mask(config, psf)
         if mask is not None:
             assert not train_set.multimask
-            # plot initial PSF
-            psf_np = mask.get_psf().detach().cpu().numpy()[0, ...]
-            if config.trainable_mask.grayscale:
-                psf_np = psf_np[:, :, -1]
-
-            save_image(psf_np, os.path.join(save, "psf_initial.png"))
-            plot_image(psf_np, gamma=config.display.gamma)
-            plt.savefig(os.path.join(save, "psf_initial_plot.png"))
 
     else:
 
         train_set, test_set, mask = simulate_dataset(config, generator=generator)
         psf = train_set.psf
         crop = train_set.crop
+
+    if not hasattr(train_set, "multimask"):
+        train_set.multimask = False
+    if not hasattr(test_set, "multimask"):
+        test_set.multimask = False
 
     assert train_set is not None
     # if not hasattr(test_set, "psfs"):

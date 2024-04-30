@@ -1025,8 +1025,9 @@ class DigiCam(DualDataset):
         display_res=None,
         sensor="rpi_hq",
         slm="adafruit",
-        rotate=False,
+        rotate=False,   # just the lensless image
         downsample=1,
+        downsample_lensed=1,
         alignment=None,
         save_psf=False,
         simulation_config=None,
@@ -1048,14 +1049,18 @@ class DigiCam(DualDataset):
         self.display_res = display_res
         self.return_mask_label = return_mask_label
 
-        # deduce downsampling factor from measurement
+        # deduce downsampling factor from the first image
         data_0 = self.dataset[0]
         self.downsample_lensless = downsample
+        self.downsample_lensed = downsample_lensed
         lensless = np.array(data_0["lensless"])
         if self.downsample_lensless != 1.0:
             lensless = resize(lensless, factor=1 / self.downsample_lensless)
-        sensor_res = sensor_dict[sensor][SensorParam.RESOLUTION]
-        downsample_fact = min(sensor_res / lensless.shape[:2])
+        if psf is None:
+            sensor_res = sensor_dict[sensor][SensorParam.RESOLUTION]
+            downsample_fact = min(sensor_res / lensless.shape[:2])
+        else:
+            downsample_fact = 1
 
         # deduce recon shape from original image
         self.alignment = None
@@ -1089,7 +1094,7 @@ class DigiCam(DualDataset):
             psf_fp = hf_hub_download(repo_id=huggingface_repo, filename=psf, repo_type="dataset")
             psf, _ = load_psf(
                 psf_fp,
-                downsample=downsample_fact,
+                shape=lensless.shape,
                 return_float=True,
                 return_bg=True,
                 flip=rotate,
@@ -1191,6 +1196,7 @@ class DigiCam(DualDataset):
                 lensless_np, factor=1 / self.downsample_lensless, interpolation=cv2.INTER_NEAREST
             )
 
+
         lensless = lensless_np
         lensed = lensed_np
         if self.simulator is not None:
@@ -1216,6 +1222,12 @@ class DigiCam(DualDataset):
         elif self.display_res is not None:
             lensed = resize(
                 lensed_np, shape=(*self.display_res, 3), interpolation=cv2.INTER_NEAREST
+            )
+        elif self.downsample_lensed != 1.0:
+            lensed = resize(
+                lensed_np,
+                factor=self.downsample_lensed,
+                interpolation=cv2.INTER_NEAREST,
             )
 
         return lensless, lensed

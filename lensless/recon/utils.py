@@ -383,6 +383,8 @@ class Trainer:
         """
         global print
 
+        self.use_wandb = use_wandb
+
         self.device = recon._psf.device
         self.logger = logger
         if self.logger is not None:
@@ -441,6 +443,7 @@ class Trainer:
             self.simulated_dataset_trainable_mask = True
 
         self.mask = mask
+        self.gamma = gamma
         if mask is not None:
             assert isinstance(mask, TrainableMask)
             self.use_mask = True
@@ -450,11 +453,18 @@ class Trainer:
             # save original PSF
             psf_np = self.mask.get_psf().detach().cpu().numpy()[0, ...]
             psf_np = psf_np.squeeze()  # remove (potential) singleton color channel
-            np.save(os.path.join("psf_original.npy"), psf_np)
-            save_image(psf_np, os.path.join("psf_original.png"))
+            np.save("psf_original.npy", psf_np)
+            fp = "psf_original.png"
+            save_image(psf_np, fp)
+            plot_image(psf_np, gamma=self.gamma)
+            fp_plot = "psf_original_plot.png"
+            plt.savefig(fp_plot)
+            
+            if self.use_wandb:
+                wandb.log({"psf": wandb.Image(fp)}, step=0)
+                wandb.log({"psf_plot": wandb.Image(fp_plot)}, step=0)
 
         self.l1_mask = l1_mask
-        self.gamma = gamma
 
         # loss
         if loss == "l2":
@@ -492,7 +502,6 @@ class Trainer:
         self.set_optimizer()
 
         # metrics
-        self.use_wandb = use_wandb
         self.metrics = {
             "LOSS": [],  # train loss
             "LOSS_TEST": [],  # test loss
@@ -1017,9 +1026,16 @@ class Trainer:
             psf_np = self.mask.get_psf().detach().cpu().numpy()[0, ...]
             psf_np = psf_np.squeeze()  # remove (potential) singleton color channel
             np.save(os.path.join(path, f"psf_epoch{epoch}.npy"), psf_np)
-            save_image(psf_np, os.path.join(path, f"psf_epoch{epoch}.png"))
+            fp = os.path.join(path, f"psf_epoch{epoch}.png")
+            save_image(psf_np, fp)
             plot_image(psf_np, gamma=self.gamma)
-            plt.savefig(os.path.join(path, f"psf_epoch{epoch}_plot.png"))
+            fp_plot = os.path.join(path, f"psf_epoch{epoch}_plot.png")
+            plt.savefig(fp_plot)
+
+            if self.use_wandb and epoch!="BEST":
+                wandb.log({"psf": wandb.Image(fp)}, step=epoch)
+                wandb.log({"psf_plot": wandb.Image(fp_plot)}, step=epoch)
+
             if epoch == "BEST":
                 # save difference with original PSF
                 psf_original = np.load("psf_original.npy")
