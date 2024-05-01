@@ -21,12 +21,13 @@ Added
 - ``lensless.utils.dataset.simulate_dataset`` for simulating a dataset given a mask/PSF.
 - Support for training/testing with multiple mask patterns in the dataset.
 - Multi-GPU support for training.
-- DigiCam dataset which interfaces with Hugging Face.
+- Dataset which interfaces with Hugging Face (``lensless.utils.dataset.HFDataset``).
 - Scripts for authentication.
 - DigiCam support for Telegram demo.
 - DiffuserCamMirflickr Hugging Face API.
 - Fallback for normalization if data not in 8bit range (``lensless.utils.io.save_image``).
 - Add utilities for fabricating masks with 3D printing (``lensless.hardware.fabrication``).
+- WandB support.
 
 Changed
 ~~~~~~~
