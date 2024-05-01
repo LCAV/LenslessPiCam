@@ -1,7 +1,7 @@
 # Learn mask with HITL training by setting measure configuration (set to null for learning in simulation)
 # 
 # EXAMPLE COMMAND: 
-# python scripts/recon/train_unrolled.py -cn train_celeba_digicam_hitl measure.rpi_username=USERNAME measure.rpi_hostname=HOSTNAME files.vertical_shift=SHIFT
+# python scripts/recon/train_learning_based.py -cn train_celeba_digicam_hitl measure.rpi_username=USERNAME measure.rpi_hostname=HOSTNAME files.vertical_shift=SHIFT
 
 defaults:
   - train_celeba_digicam

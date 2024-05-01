@@ -1,17 +1,18 @@
-# python scripts/recon/train_unrolled.py -cn train_digicam_multimask
+# python scripts/recon/train_learning_based.py -cn train_digicam_multimask
 defaults:
   - train_unrolledADMM
   - _self_
-
 
 torch_device: 'cuda:0'
 device_ids: [0, 1, 2, 3]
 eval_disp_idx: [1, 2, 4, 5, 9]
 
+
 # Dataset
 files:
   dataset: bezzam/DigiCam-Mirflickr-MultiMask-25K
   huggingface_dataset: True
+  huggingface_psf: null
   downsample: 1
   # TODO: these parameters should be in the dataset?
   image_res: [900, 1200]  # used during measurement
@@ -56,3 +57,4 @@ reconstruction:
     network : UnetRes  # UnetRes or DruNet or null
     depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
     nc: [32,64,116,128]
+

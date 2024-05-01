@@ -19,6 +19,26 @@ or measured).
     :special-members: __init__, __len__
 
 
+Measured dataset objects
+------------------------
+
+.. autoclass:: lensless.utils.dataset.HFDataset
+    :members:
+    :special-members: __init__
+
+.. autoclass:: lensless.utils.dataset.MeasuredDataset
+    :members:
+    :special-members: __init__
+
+.. autoclass:: lensless.utils.dataset.MeasuredDatasetSimulatedOriginal
+    :members:
+    :special-members: __init__
+
+.. autoclass:: lensless.utils.dataset.DiffuserCamTestDataset
+    :members:
+    :special-members: __init__
+
+
 Simulated dataset objects
 -------------------------
 
@@ -41,21 +61,5 @@ mask / PSF.
     :special-members: __init__
 
 .. autoclass:: lensless.utils.dataset.SimulatedDatasetTrainableMask
-    :members:
-    :special-members: __init__
-
-
-Measured dataset objects
-------------------------
-
-.. autoclass:: lensless.utils.dataset.MeasuredDataset
-    :members:
-    :special-members: __init__
-
-.. autoclass:: lensless.utils.dataset.MeasuredDatasetSimulatedOriginal
-    :members:
-    :special-members: __init__
-
-.. autoclass:: lensless.utils.dataset.DiffuserCamTestDataset
     :members:
     :special-members: __init__

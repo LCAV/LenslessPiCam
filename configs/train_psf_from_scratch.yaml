@@ -1,4 +1,4 @@
-# python scripts/recon/train_unrolled.py -cn train_psf_from_scratch
+# python scripts/recon/train_learning_based.py -cn train_psf_from_scratch
 defaults:
   - train_unrolledADMM
   - _self_
@@ -6,6 +6,10 @@ defaults:
 # Train Dataset
 files:
   dataset: mnist   # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  huggingface_dataset: False
+  n_files: 1000
+  test_size: 0.15
+
   celeba_root: /scratch/bezzam
   downsample: 8
 
@@ -24,8 +28,6 @@ simulation:
   object_height: 0.30
 
 training:
-  crop_preloss: False # crop region for computing loss
-  batch_size: 8
-  epoch: 25
+  batch_size: 2
   eval_batch_size: 16
   save_every: 5

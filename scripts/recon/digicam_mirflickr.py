@@ -3,7 +3,7 @@ import yaml
 import torch
 from lensless import ADMM
 from lensless.utils.plot import plot_image
-from lensless.utils.dataset import DigiCam
+from lensless.utils.dataset import HFDataset
 import os
 from lensless.utils.io import save_image
 import time
@@ -35,7 +35,7 @@ def apply_pretrained(config):
             model_config = yaml.safe_load(stream)
 
     # load dataset
-    test_set = DigiCam(
+    test_set = HFDataset(
         huggingface_repo=model_config["files"]["dataset"],
         psf=model_config["files"]["huggingface_psf"]
         if "huggingface_psf" in model_config["files"]

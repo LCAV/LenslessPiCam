@@ -13,6 +13,7 @@ from waveprop.noise import add_shot_noise
 from tqdm import tqdm
 import os
 import numpy as np
+import wandb
 
 try:
     import torch
@@ -37,6 +38,9 @@ def benchmark(
     unrolled_output_factor=False,
     return_average=True,
     snr=None,
+    use_wandb=False,
+    label=None,
+    epoch=None,
     **kwargs,
 ):
     """
@@ -116,6 +120,9 @@ def benchmark(
                 if dataset.multimask:
                     lensless, lensed, psfs = batch
                     psfs = psfs.to(device)
+                else:
+                    lensless, lensed = batch
+                    psfs = None
             else:
                 lensless, lensed = batch
                 psfs = None
@@ -176,7 +183,15 @@ def benchmark(
                         prediction_np = prediction.cpu().numpy()[i]
                         # switch to [H, W, C] for saving
                         prediction_np = np.moveaxis(prediction_np, 0, -1)
-                        save_image(prediction_np, fp=os.path.join(output_dir, f"{_batch_idx}.png"))
+                        fp = os.path.join(output_dir, f"{_batch_idx}.png")
+                        save_image(prediction_np, fp=fp)
+
+                        if use_wandb:
+                            assert epoch is not None, "epoch must be provided for wandb logging"
+                            log_key = (
+                                f"{_batch_idx}_{label}" if label is not None else f"{_batch_idx}"
+                            )
+                            wandb.log({log_key: wandb.Image(fp)}, step=epoch)
 
             # normalization
             prediction_max = torch.amax(prediction, dim=(-1, -2, -3), keepdim=True)
@@ -198,24 +213,27 @@ def benchmark(
                         .item()
                     )
                 else:
-                    if "LPIPS" in metric:
-                        if prediction.shape[1] == 1:
-                            # LPIPS needs 3 channels
-                            metrics_values[metric].append(
-                                metrics[metric](
-                                    prediction.repeat(1, 3, 1, 1), lensed.repeat(1, 3, 1, 1)
+                    try:
+                        if "LPIPS" in metric:
+                            if prediction.shape[1] == 1:
+                                # LPIPS needs 3 channels
+                                metrics_values[metric].append(
+                                    metrics[metric](
+                                        prediction.repeat(1, 3, 1, 1), lensed.repeat(1, 3, 1, 1)
+                                    )
+                                    .cpu()
+                                    .item()
                                 )
-                                .cpu()
-                                .item()
-                            )
+                            else:
+                                metrics_values[metric].append(
+                                    metrics[metric](prediction, lensed).cpu().item()
+                                )
                         else:
                             metrics_values[metric].append(
                                 metrics[metric](prediction, lensed).cpu().item()
                             )
-                    else:
-                        metrics_values[metric].append(
-                            metrics[metric](prediction, lensed).cpu().item()
-                        )
+                    except Exception as e:
+                        print(f"Error in metric {metric}: {e}")
 
             # compute metrics for unrolled output
             if unrolled_output_factor:

@@ -1,4 +1,4 @@
-# python scripts/recon/train_unrolled.py -cn train_coded_aperture
+# python scripts/recon/train_learning_based.py -cn train_coded_aperture
 defaults:
   - train_unrolledADMM
   - _self_

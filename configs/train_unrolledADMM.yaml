@@ -1,39 +1,52 @@
-# python scripts/recon/train_unrolled.py
+# python scripts/recon/train_learning_based.py
 hydra:
   job:
     chdir: True    # change to output folder
 
 
+wandb_project: lensless
 seed: 0
 start_delay: null
 
 # Dataset
 files:
-  dataset: /scratch/bezzam/DiffuserCam_mirflickr/dataset  # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
-  celeba_root: null   # path to parent directory of CelebA: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
-  psf: data/psf/diffusercam_psf.tiff
-  diffusercam_psf: True
+  # -- using local dataset
+  # dataset: /scratch/bezzam/DiffuserCam_mirflickr/dataset  # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  # celeba_root: null   # path to parent directory of CelebA: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
+  # psf: data/psf/diffusercam_psf.tiff
+  # diffusercam_psf: True
 
-  huggingface_dataset: null
-  huggingface_psf: null
+  # -- using huggingface dataset
+  dataset: bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM
+  huggingface_dataset: True
+  huggingface_psf: psf.tiff
+
+  # -- train/test split
   split_seed: null   # if null use train/test split from dataset
-  
   n_files: null    # null to use all for both train/test
-  downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
-  test_size: 0.15
+  test_size: null
 
+  # -- processing parameters
+  downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
+  downsample_lensed: 2
   input_snr: null    # adding shot noise at input (for measured dataset) at this SNR in dB
   vertical_shift: null
   horizontal_shift: null
+  rotate: False
+  save_psf: False
   crop: null
     # vertical: null
     # horizontal: null
   image_res: null   # for measured data, what resolution used at screen
-
   extra_eval: null  # dict of extra datasets to evaluate on
+
+alignment: null
+#   topright: null    # height, width
+  # height: null
 
 torch: True
 torch_device: 'cuda'
+device_ids: null    # for multi-gpu set list, e.g. [0, 1, 2, 3]
 measure: null       # if measuring data on-the-fly
 
 # test set example to visualize at the end of every epoch
@@ -130,14 +143,13 @@ simulation:
 
 training:
   batch_size: 8
-  epoch: 50
+  epoch: 25
   eval_batch_size: 10
   metric_for_best_model: null   # e.g. LPIPS_Vgg, null does test loss
   save_every: null
   #In case of instable training
   skip_NAN: True
   clip_grad: 1.0
-
   crop_preloss: False  # crop region for computing loss, files.crop should be set
 
 optimizer:
