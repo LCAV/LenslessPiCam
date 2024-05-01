@@ -1,4 +1,4 @@
-# python scripts/recon/train_unrolled.py -cn train_digicam_singlemask
+# python scripts/recon/train_learning_based.py -cn train_digicam_celeba
 defaults:
   - train_unrolledADMM
   - _self_
@@ -13,6 +13,7 @@ files:
   huggingface_psf: "psf_simulated.png"
   huggingface_dataset: True
   split_seed: 0
+  test_size: 0.15
   downsample: 2
   rotate: True   # if measurement is upside-down
   save_psf: False
@@ -34,14 +35,14 @@ alignment:
     random_vflip: False
     random_hflip: False
     quantize: False
-    # shifting when there is no files.downsample
+    # shifting when there is no files to downsample
     vertical_shift: -117
     horizontal_shift: -25
 
 training:
   batch_size: 4
   epoch: 25
-  eval_batch_size: 4
+  eval_batch_size: 16
   crop_preloss: True
 
 reconstruction:

@@ -35,7 +35,7 @@ from lensless import ADMM
 from tqdm import tqdm
 from joblib import Parallel, delayed
 import numpy as np
-from lensless.utils.dataset import DiffuserCamMirflickrHF, DigiCam
+from lensless.utils.dataset import DiffuserCamMirflickrHF, HFDataset
 from lensless.eval.metric import psnr, lpips
 from lensless.utils.image import resize
 
@@ -47,7 +47,7 @@ def recon_dataset(config):
     if config.dataset == "diffusercam":
         dataset = DiffuserCamMirflickrHF(split=config.split, downsample=config.downsample)
     else:
-        dataset = DigiCam(
+        dataset = HFDataset(
             huggingface_repo=config.dataset,
             split=config.split,
             downsample=config.downsample,

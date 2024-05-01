@@ -1,0 +1,14 @@
+# python scripts/recon/train_learning_based.py -cn train_unrolled_pre_post
+defaults:
+  - train_unrolledADMM
+  - _self_
+
+reconstruction:
+  method: unrolled_admm
+
+  pre_process:
+    network: UnetRes
+    depth: 2
+  post_process:
+    network: UnetRes
+    depth: 2

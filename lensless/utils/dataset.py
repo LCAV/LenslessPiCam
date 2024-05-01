@@ -1016,42 +1016,85 @@ class DiffuserCamMirflickrHF(DualDataset):
         return lensless, lensed
 
 
-class DigiCam(DualDataset):
+class HFDataset(DualDataset):
     def __init__(
         self,
         huggingface_repo,
         split,
+        n_files=None,
         psf=None,
+        rotate=False,  # just the lensless image
+        downsample=1,
+        downsample_lensed=1,
         display_res=None,
         sensor="rpi_hq",
         slm="adafruit",
-        rotate=False,
-        downsample=1,
         alignment=None,
-        save_psf=False,
-        simulation_config=None,
         return_mask_label=False,
+        save_psf=False,
         **kwargs,
     ):
+        """
+        Wrapper for lensless datasets on Hugging Face.
+
+        Parameters
+        ----------
+        huggingface_repo : str
+            Hugging Face repository ID.
+        split : str or :py:class:`torch.utils.data.Dataset`
+            Split of the dataset to use: 'train', 'test', or 'all'. If a Dataset object is given, it is used directly.
+        n_files : int, optional
+            Number of files to load from the dataset, by default None, namely all.
+        psf : str, optional
+            File name of the PSF at the repository. If None, it is assumed that there is a mask pattern from which the PSF is simulated, by default None.
+        rotate : bool, optional
+            If True, lensless images and PSF are rotated 180 degrees. Lensed/original image is not rotated! By default False.
+        downsample : float, optional
+            Downsample factor of the lensless images, by default 1.
+        downsample_lensed : float, optional
+            Downsample factor of the lensed images, by default 1.
+        display_res : tuple, optional
+            Resolution of images when displayed on screen during measurement.
+        sensor : str, optional
+            If `psf` not provided, the sensor to use for the PSF simulation, by default "rpi_hq".
+        slm : str, optional
+            If `psf` not provided, the SLM to use for the PSF simulation, by default "adafruit".
+        alignment : dict, optional
+            Alignment parameters between lensless and lensed data.
+            If "topright", "height", and "width" are provided, the region-of-interest from the reconstruction of ``lensless`` is extracted and ``lensed`` is reshaped to match.
+            If "crop" is provided, the region-of-interest is extracted from the simulated lensed image, namely a ``simulation`` configuration should be provided within ``alignment``.
+        return_mask_label : bool, optional
+            If multimask dataset, return the mask label (True) or the corresponding PSF (False).
+        save_psf : bool, optional
+            If multimask dataset, save the simulated PSFs.
+
+        """
 
         if isinstance(split, str):
+            if n_files is not None:
+                split = f"{split}[0:{n_files}]"
             self.dataset = load_dataset(huggingface_repo, split=split)
         elif isinstance(split, Dataset):
             self.dataset = split
         else:
             raise ValueError("split should be a string or a Dataset object")
+
         self.rotate = rotate
         self.display_res = display_res
         self.return_mask_label = return_mask_label
 
-        # deduce downsampling factor from measurement
+        # deduce downsampling factor from the first image
         data_0 = self.dataset[0]
         self.downsample_lensless = downsample
+        self.downsample_lensed = downsample_lensed
         lensless = np.array(data_0["lensless"])
         if self.downsample_lensless != 1.0:
             lensless = resize(lensless, factor=1 / self.downsample_lensless)
-        sensor_res = sensor_dict[sensor][SensorParam.RESOLUTION]
-        downsample_fact = min(sensor_res / lensless.shape[:2])
+        if psf is None:
+            sensor_res = sensor_dict[sensor][SensorParam.RESOLUTION]
+            downsample_fact = min(sensor_res / lensless.shape[:2])
+        else:
+            downsample_fact = 1
 
         # deduce recon shape from original image
         self.alignment = None
@@ -1071,6 +1114,7 @@ class DigiCam(DualDataset):
 
             # preparing ground-truth as simulated measurement of original
             elif "crop" in alignment:
+                assert "simulation" in alignment, "Simulation config should be provided"
                 self.crop = dict(alignment["crop"].copy())
                 self.crop["vertical"][0] = int(self.crop["vertical"][0] / downsample)
                 self.crop["vertical"][1] = int(self.crop["vertical"][1] / downsample)
@@ -1085,7 +1129,7 @@ class DigiCam(DualDataset):
             psf_fp = hf_hub_download(repo_id=huggingface_repo, filename=psf, repo_type="dataset")
             psf, _ = load_psf(
                 psf_fp,
-                downsample=downsample_fact,
+                shape=lensless.shape,
                 return_float=True,
                 return_bg=True,
                 flip=rotate,
@@ -1161,7 +1205,7 @@ class DigiCam(DualDataset):
             if "horizontal_shift" in simulation_config:
                 self.horizontal_shift = int(simulation_config["horizontal_shift"] / downsample)
 
-        super(DigiCam, self).__init__(**kwargs)
+        super(HFDataset, self).__init__(**kwargs)
 
     def __len__(self):
         return len(self.dataset)
@@ -1212,6 +1256,12 @@ class DigiCam(DualDataset):
         elif self.display_res is not None:
             lensed = resize(
                 lensed_np, shape=(*self.display_res, 3), interpolation=cv2.INTER_NEAREST
+            )
+        elif self.downsample_lensed != 1.0:
+            lensed = resize(
+                lensed_np,
+                factor=1 / self.downsample_lensed,
+                interpolation=cv2.INTER_NEAREST,
             )
 
         return lensless, lensed
@@ -1265,7 +1315,7 @@ def simulate_dataset(config, generator=None):
     Parameters
     ----------
     config : omegaconf.DictConfig
-        Configuration, e.g. from Hydra. See ``scripts/recon/train_unrolled.py`` for an example that uses this function.
+        Configuration, e.g. from Hydra. See ``scripts/recon/train_learning_based.py`` for an example that uses this function.
     generator : torch.Generator, optional
         Random number generator, by default ``None``.
     """

@@ -10,3 +10,5 @@ torch >= 2.0.0
 torchvision
 torchmetrics
 lpips
+wandb
+datasets
