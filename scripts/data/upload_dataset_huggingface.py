@@ -92,7 +92,6 @@ def upload_dataset(config):
         def downsample(f, output_dir):
             img = cv2.imread(f, cv2.IMREAD_UNCHANGED)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            print("Original shape:", img.shape)
             img = cv2.resize(
                 img,
                 (0, 0),
@@ -100,7 +99,6 @@ def upload_dataset(config):
                 fy=1 / config.lensless.downsample,
                 interpolation=cv2.INTER_LINEAR,
             )
-            print("Downsampled shape:", img.shape)
             new_fp = os.path.join(output_dir, os.path.basename(f))
             new_fp = new_fp.split(".")[0] + config.lensless.ext
             save_image(img, new_fp, normalize=False)
@@ -273,7 +271,7 @@ def upload_dataset(config):
     print(f"Total time: {(time.time() - start_time) / 60} minutes")
 
     # delete PNG files
-    if config.lensless.eight_norm:
+    if config.lensless.eight_norm or config.lensless.downsample:
         os.system(f"rm -rf {tmp_dir}")
 
 
