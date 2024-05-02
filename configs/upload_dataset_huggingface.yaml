@@ -15,6 +15,7 @@ lensless:
   dir: null
   ext: null  # for example: .png, .jpg
   eight_norm: False   # save as 8-bit normalized image
+  downsample: null
 
 lensed:
   dir: null
