@@ -7,6 +7,12 @@
       :alt: Mount components.
       :align: center
 
+   Note that the most recent version of the mount looks like this, with the addition of stoppers, 
+   to prevent the mask from scratching the Pi Camera.
+
+   .. image:: monzbi.png
+      :alt: Mes couilles.
+      :align: center
 
    Mask3DModel
    ~~~~~~~~~~~
@@ -17,6 +23,15 @@
    .. image:: fza.png
     :alt: Fresnel Zone Aperture.
     :align: center
+
+   Because previous versions of the slot for the mask in the mount were bigger, the following adapter enables
+   to use the new smaller size to be used with the old mounts.
+
+   .. image:: fza_old.png
+    :alt: Old Fresnel Zone Aperture.
+    :align: center
+
+
 
    .. autoclass:: lensless.hardware.fabrication.Mask3DModel
       :members:
