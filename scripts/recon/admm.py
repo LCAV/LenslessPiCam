@@ -40,7 +40,7 @@ def admm(config):
         gray=config["preprocess"]["gray"],
         single_psf=config["preprocess"]["single_psf"],
         shape=config["preprocess"]["shape"],
-        torch=config.torch,
+        use_torch=config.torch,
         torch_device=config.torch_device,
         bg_pix=config.preprocess.bg_pix,
         normalize=config.preprocess.normalize,
