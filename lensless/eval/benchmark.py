@@ -84,10 +84,6 @@ def benchmark(
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
 
-    alignment = None
-    if hasattr(dataset, "alignment"):
-        alignment = dataset.alignment
-
     if metrics is None:
         metrics = {
             "MSE": MSELoss().to(device),
@@ -156,13 +152,14 @@ def benchmark(
             prediction = prediction.reshape(-1, *prediction.shape[-3:]).movedim(-1, -3)
             lensed = lensed.reshape(-1, *lensed.shape[-3:]).movedim(-1, -3)
 
-            if alignment is not None:
-                prediction = prediction[
-                    ...,
-                    alignment["topright"][0] : alignment["topright"][0] + alignment["height"],
-                    alignment["topright"][1] : alignment["topright"][1] + alignment["width"],
-                ]
-                # expected that lensed is also reshaped accordingly
+            if hasattr(dataset, "alignment"):
+                if dataset.alignment is not None:
+                    prediction = dataset.extract_roi(prediction, axis=(-2, -1))
+                else:
+                    prediction, lensed = dataset.extract_roi(
+                        prediction, axis=(-2, -1), lensed=lensed
+                    )
+                assert np.all(lensed.shape == prediction.shape)
             elif crop is not None:
                 prediction = prediction[
                     ...,

@@ -7,7 +7,7 @@ hydra:
     chdir: True
 
 
-dataset: DiffuserCam   # DiffuserCam, DigiCamCelebA, DigiCamHF
+dataset: DiffuserCam   # DiffuserCam, DigiCamCelebA, HFDataset
 seed: 0
 
 huggingface:
@@ -88,6 +88,7 @@ simulation:
   scene2mask: 0.25   # [m]
   mask2sensor: 0.002   # [m]     
   # see waveprop.devices
+  use_waveprop: False    # for PSF simulation
   sensor: "rpi_hq"
   snr_db: 10
   # simulate different sensor resolution
