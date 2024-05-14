@@ -54,7 +54,7 @@ class Mask(abc.ABC):
         size=None,
         feature_size=None,
         psf_wavelength=[460e-9, 550e-9, 640e-9],
-        is_torch=False,
+        use_torch=False,
         torch_device="cpu",
         **kwargs,
     ):
@@ -73,6 +73,10 @@ class Mask(abc.ABC):
             Size of the feature (m). Only one of ``size`` or ``feature_size`` needs to be specified.
         psf_wavelength: list, optional
             List of wavelengths to simulate PSF (m). Default is [460e-9, 550e-9, 640e-9] nm (blue, green, red).
+        use_torch : bool, optional
+            If True, the mask is created as a torch tensor. Default is False.
+        torch_device : str, optional
+            Device to use for torch tensor. Default is 'cpu'.
         """
 
         resolution = np.array(resolution)
@@ -106,9 +110,9 @@ class Mask(abc.ABC):
             self.feature_size = feature_size
         self.distance_sensor = distance_sensor
 
-        if is_torch:
+        if use_torch:
             assert torch_available, "PyTorch is not available"
-        self.is_torch = is_torch
+        self.use_torch = use_torch
         self.torch_device = torch_device
 
         # create mask
@@ -177,7 +181,7 @@ class Mask(abc.ABC):
             self.distance_sensor is not None
         ), "Distance between mask and sensor should be specified."
 
-        if self.is_torch:
+        if self.use_torch:
             psf = torch.zeros(
                 tuple(self.resolution) + (len(self.psf_wavelength),),
                 dtype=torch.complex64,
@@ -191,13 +195,13 @@ class Mask(abc.ABC):
                 wv=wv,
                 d1=self.feature_size,
                 dz=self.distance_sensor,
-                dtype=np.float32 if not self.is_torch else torch.float32,
+                dtype=np.float32 if not self.use_torch else torch.float32,
                 bandlimit=True,
-                device=self.torch_device if self.is_torch else None,
+                device=self.torch_device if self.use_torch else None,
             )[0]
 
         # intensity PSF
-        if self.is_torch:
+        if self.use_torch:
             self.psf = torch.abs(psf) ** 2
         else:
             self.psf = np.abs(psf) ** 2
@@ -223,7 +227,7 @@ class Mask(abc.ABC):
         else:
             mask = self.mask
             title = "Mask"
-        if self.is_torch:
+        if self.use_torch:
             mask = mask.cpu().numpy()
 
         ax.imshow(
@@ -301,7 +305,7 @@ class CodedAperture(Mask):
 
         # output product if necessary
         if self.row is not None:
-            if self.is_torch:
+            if self.use_torch:
                 self.mask = torch.outer(self.row, self.col)
                 self.mask = torch.round((self.mask + 1) / 2).to(torch.uint8)
             else:
@@ -312,7 +316,7 @@ class CodedAperture(Mask):
         # resize to sensor shape
         if np.any(self.resolution != self.mask.shape):
 
-            if self.is_torch:
+            if self.use_torch:
                 self.mask = self.mask.unsqueeze(0).unsqueeze(0)
                 self.mask = torch.nn.functional.interpolate(
                     self.mask, size=tuple(self.resolution), mode="nearest"
@@ -491,7 +495,7 @@ class MultiLensArray(Mask):
             self.radius_range[0] < self.radius_range[1]
         ), "Minimum radius should be smaller than maximum radius"
         if self.radius is not None:
-            if self.is_torch:
+            if self.use_torch:
                 assert torch.all(self.radius >= 0)
             else:
                 assert np.all(self.radius >= 0)
@@ -504,7 +508,7 @@ class MultiLensArray(Mask):
             self.N = len(self.radius)
             circles = (
                 np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
-                if not self.is_torch
+                if not self.use_torch
                 else torch.tensor(
                     [(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)]
                 ).to(self.torch_device)
@@ -520,7 +524,7 @@ class MultiLensArray(Mask):
             self.radius = np.random.uniform(self.radius_range[0], self.radius_range[1], self.N)
             # radius get sorted in descending order
             self.loc, self.radius = self.place_spheres_on_plane(self.radius)
-            if self.is_torch:
+            if self.use_torch:
                 self.radius = torch.tensor(self.radius).to(self.torch_device)
                 self.loc = torch.tensor(self.loc).to(self.torch_device)
 
@@ -598,31 +602,31 @@ class MultiLensArray(Mask):
         self.phase_pattern = height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength
         self.mask = (
             np.exp(1j * self.phase_pattern)
-            if not self.is_torch
+            if not self.use_torch
             else torch.exp(1j * self.phase_pattern)
         )
 
     def create_height_map(self, radius, locs):
         height = (
             np.full((self.resolution[0], self.resolution[1]), self.min_height).astype(np.float32)
-            if not self.is_torch
+            if not self.use_torch
             else torch.full((self.resolution[0], self.resolution[1]), self.min_height).to(
                 self.torch_device, dtype=torch.float32
             )
         )
         x = (
             np.arange(self.resolution[0]).astype(np.float32)
-            if not self.is_torch
+            if not self.use_torch
             else torch.arange(self.resolution[0]).to(self.torch_device)
         )
         y = (
             np.arange(self.resolution[1]).astype(np.float32)
-            if not self.is_torch
+            if not self.use_torch
             else torch.arange(self.resolution[1]).to(self.torch_device)
         )
         X, Y = (
             np.meshgrid(x, y, indexing="ij")
-            if not self.is_torch
+            if not self.use_torch
             else torch.meshgrid(x, y, indexing="ij")
         )
         for idx, rad in enumerate(radius):
@@ -635,7 +639,7 @@ class MultiLensArray(Mask):
     def lens_contribution(self, x, y, radius, loc):
         return (
             np.sqrt(radius**2 - (x - loc[1]) ** 2 - (y - loc[0]) ** 2)
-            if not self.is_torch
+            if not self.use_torch
             else torch.sqrt(radius**2 - (x - loc[1]) ** 2 - (y - loc[0]) ** 2)
         )
 
