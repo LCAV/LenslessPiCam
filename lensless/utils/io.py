@@ -383,6 +383,8 @@ def load_data(
     bg_pix=(5, 25),
     plot=True,
     flip=False,
+    flip_ud=False,
+    flip_lr=False,
     bayer=False,
     blue_gain=None,
     red_gain=None,
@@ -391,7 +393,7 @@ def load_data(
     dtype=None,
     single_psf=False,
     shape=None,
-    torch=False,
+    use_torch=False,
     torch_device="cpu",
     normalize=False,
     bgr_input=True,
@@ -468,6 +470,8 @@ def load_data(
         bg_pix=bg_pix,
         return_bg=True,
         flip=flip,
+        flip_ud=flip_ud,
+        flip_lr=flip_lr,
         bayer=bayer,
         blue_gain=blue_gain,
         red_gain=red_gain,
@@ -482,6 +486,8 @@ def load_data(
     data = load_image(
         data_fp,
         flip=flip,
+        flip_ud=flip_ud,
+        flip_lr=flip_lr,
         bayer=bayer,
         blue_gain=blue_gain,
         red_gain=red_gain,
@@ -528,7 +534,7 @@ def load_data(
 
     psf = np.array(psf, dtype=dtype)
     data = np.array(data, dtype=dtype)
-    if torch:
+    if use_torch:
         import torch
 
         if dtype == np.float32:

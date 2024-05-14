@@ -270,7 +270,7 @@ def collect_dataset(config):
                             )[0]
 
                         # save image
-                        save_image(output, output_fp)
+                        save_image(output, output_fp, normalize=False)
 
                         # print range
                         print(f"{output_fp}, range: {output.min()} - {output.max()}")

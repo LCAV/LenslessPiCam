@@ -10,6 +10,8 @@
 import numpy as np
 from lensless.recon.recon import ReconstructionAlgorithm
 import inspect
+from lensless.utils.io import load_data
+import time
 
 try:
     import torch
@@ -229,9 +231,30 @@ class FISTA(GradientDescent):
 
     def _update(self, iter):
         self._image_est -= self._alpha * self._grad()
-        # xk = self._proj(self._image_est)
         xk = self._form_image()
         tk = (1 + np.sqrt(1 + 4 * self._tk**2)) / 2
         self._image_est = xk + (self._tk - 1) / tk * (xk - self._xk)
         self._tk = tk
         self._xk = xk
+
+
+def apply_gradient_descent(psf_fp, data_fp, n_iter, verbose=False, proj=non_neg, **kwargs):
+
+    # load data
+    psf, data = load_data(psf_fp=psf_fp, data_fp=data_fp, plot=False, **kwargs)
+
+    # create reconstruction object
+    recon = GradientDescent(psf, n_iter=n_iter, proj=proj)
+
+    # set data
+    recon.set_data(data)
+
+    # perform reconstruction
+    start_time = time.time()
+    res = recon.apply(plot=False)
+    proc_time = time.time() - start_time
+
+    if verbose:
+        print(f"Reconstruction time : {proc_time} s")
+        print(f"Reconstruction shape: {res.shape}")
+    return res

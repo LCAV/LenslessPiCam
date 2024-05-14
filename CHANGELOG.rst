@@ -36,6 +36,8 @@ Changed
 - For trainable masks, set trainable parameters inside the child class.
 - ``distance_sensor`` optional for ``lensless.hardware.mask.Mask``, e.g. don't need for fabrication.
 - More intuitive interface for MURA for coded aperture (``lensless.hardware.mask.CodedAperture``), i.e. directly pass prime number.
+- ``is_torch`` to ``use_torch`` in ``lensless.hardware.mask.Mask``
+- ``self.height_map`` as characterization of phase masks (instead of phase pattern which can change for each wavelength)
 
 
 Bugfix

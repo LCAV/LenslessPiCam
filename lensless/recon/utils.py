@@ -648,17 +648,12 @@ class Trainer:
             y = y.reshape(-1, *y.shape[-3:]).movedim(-1, -3)
 
             # extraction region of interest for loss
-            if (
-                hasattr(self.train_dataset, "alignment")
-                and self.train_dataset.alignment is not None
-            ):
-                alignment = self.train_dataset.alignment
-                y_pred = y_pred[
-                    ...,
-                    alignment["topright"][0] : alignment["topright"][0] + alignment["height"],
-                    alignment["topright"][1] : alignment["topright"][1] + alignment["width"],
-                ]
-                # expected that lensed is also reshaped accordingly
+            if hasattr(self.train_dataset, "alignment"):
+                if self.train_dataset.alignment is not None:
+                    y_pred = self.train_dataset.extract_roi(y_pred, axis=(-2, -1))
+                else:
+                    y_pred, y = self.train_dataset.extract_roi(y_pred, axis=(-2, -1), lensed=y)
+
             elif self.crop is not None:
                 y_pred = y_pred[
                     ...,
