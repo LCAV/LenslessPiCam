@@ -13,6 +13,25 @@ Unreleased
 Added
 ~~~~~
 
+- Nothing
+
+Changed
+~~~~~~~
+
+- Nothing
+
+Bugfix
+~~~~~~
+
+- Nothing
+
+
+1.0.7 - (2024-05-14)
+--------------------
+
+Added
+~~~~~
+
 - Script to upload measured datasets to Hugging Face: ``scripts/data/upload_dataset_huggingface.py``
 - Pytorch support for simulating PSFs of masks.
 - ``lensless.hardware.mask.MultiLensArray`` class for simulating multi-lens arrays.
