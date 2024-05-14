@@ -120,9 +120,9 @@ class Mask(abc.ABC):
         self.torch_device = torch_device
 
         # create mask
-        self.phase_pattern = None  # for phase masks
+        self.height_map = None  # for phase masks
         self.create_mask()  # creates self.mask
-        self.shape = self.mask.shape
+        self.shape = self.height_map.shape if self.height_map is not None else self.mask.shape
 
         # PSF
         assert hasattr(psf_wavelength, "__len__"), "psf_wavelength should be a list"
@@ -169,7 +169,31 @@ class Mask(abc.ABC):
         """
         pass
 
-    def compute_psf(self, distance_sensor=None):
+    def height_map_to_field(self, wavelength, return_phase=False):
+        """
+        Compute phase from height map.
+
+        Parameters
+        ----------
+        height_map: :py:class:`~numpy.ndarray`
+            Height map.
+        wavelength: float
+            Wavelength of the light (m).
+        return_phase: bool, optional
+            If True, return the phase instead of the field. Default is False.
+        """
+        assert self.height_map is not None, "Height map should be computed first."
+        assert self.refractive_index is not None, "Refractive index should be specified."
+
+        phase_pattern = self.height_map * (self.refractive_index - 1) * 2 * np.pi / wavelength
+        if return_phase:
+            return phase_pattern
+        else:
+            return (
+                np.exp(1j * phase_pattern) if not self.use_torch else torch.exp(1j * phase_pattern)
+            )
+
+    def compute_psf(self, distance_sensor=None, wavelength=None, intensity=True):
         """
         Compute the intensity PSF with bandlimited angular spectrum (BLAS) for each wavelength.
         Common to all types of masks.
@@ -178,12 +202,20 @@ class Mask(abc.ABC):
         ----------
         distance_sensor: float, optional
             Distance between mask and sensor (m). Default is the distance specified at initialization.
+        wavelength: float or array_like, optional
+            Wavelength(s) to compute the PSF (m). Default is the list of wavelengths specified at initialization.
         """
         if distance_sensor is not None:
             self.distance_sensor = distance_sensor
         assert (
             self.distance_sensor is not None
         ), "Distance between mask and sensor should be specified."
+
+        if wavelength is None:
+            wavelength = self.psf_wavelength
+        else:
+            if not hasattr(wavelength, "__len__"):
+                wavelength = [wavelength]
 
         if self.use_torch:
             psf = torch.zeros(
@@ -192,10 +224,10 @@ class Mask(abc.ABC):
                 device=self.torch_device,
             )
         else:
-            psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
-        for i, wv in enumerate(self.psf_wavelength):
+            psf = np.zeros(tuple(self.resolution) + (len(wavelength),), dtype=np.complex64)
+        for i, wv in enumerate(wavelength):
             psf[:, :, i] = angular_spectrum(
-                u_in=self.mask,
+                u_in=self.mask if self.height_map is None else self.height_map_to_field(wv),
                 wv=wv,
                 d1=self.feature_size,
                 dz=self.distance_sensor,
@@ -205,10 +237,12 @@ class Mask(abc.ABC):
             )[0]
 
         # intensity PSF
-        if self.use_torch:
-            self.psf = torch.abs(psf) ** 2
+        if intensity:
+            self.psf = np.abs(psf) ** 2 if not self.use_torch else torch.abs(psf) ** 2
         else:
-            self.psf = np.abs(psf) ** 2
+            self.psf = psf
+
+        return self.psf
 
     def plot(self, ax=None, **kwargs):
         """
@@ -225,12 +259,12 @@ class Mask(abc.ABC):
         if ax is None:
             _, ax = plt.subplots()
 
-        if self.phase_pattern is not None:
-            mask = self.phase_pattern
-            title = "Phase pattern"
+        if self.height_map is not None:
+            mask = self.height_map
+            title = "Height map"
         else:
             mask = self.mask
-            title = "Mask"
+            title = "Amplitude mask"
         if self.use_torch:
             mask = mask.cpu().numpy()
 
@@ -450,7 +484,6 @@ class MultiLensArray(Mask):
         radius=None,
         loc=None,
         refractive_index=1.2,
-        design_wv=532e-9,
         seed=0,
         min_height=1e-5,
         radius_range=(1e-4, 4e-4),
@@ -471,8 +504,6 @@ class MultiLensArray(Mask):
             Location of the lenses (m).
         refractive_index: float
             Refractive index of the mask substrate. Default is 1.2.
-        design_wv: float
-            Wavelength used to design the mask (m). Default is 532e-9.
         seed: int
             Seed for the random number generator. Default is 0.
         min_height: float
@@ -488,7 +519,6 @@ class MultiLensArray(Mask):
         self.radius = radius
         self.loc = loc
         self.refractive_index = refractive_index
-        self.wavelength = design_wv
         self.seed = seed
         self.min_height = min_height
         self.radius_range = radius_range
@@ -612,13 +642,7 @@ class MultiLensArray(Mask):
         # convert to pixels (assume same size for x and y)
         locs_pix = self.loc * (1 / self.feature_size[0])
         radius_pix = self.radius * (1 / self.feature_size[0])
-        height = self.create_height_map(radius_pix, locs_pix)
-        self.phase_pattern = height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength
-        self.mask = (
-            np.exp(1j * self.phase_pattern)
-            if not self.use_torch
-            else torch.exp(1j * self.phase_pattern)
-        )
+        self.height_map = self.create_height_map(radius_pix, locs_pix)
 
     def create_height_map(self, radius, locs):
         height = (
@@ -718,7 +742,7 @@ class PhaseContour(Mask):
         assert (
             self.distance_sensor is not None
         ), "Distance between mask and sensor should be specified."
-        phase_mask, height_map = phase_retrieval(
+        _, height_map = phase_retrieval(
             target_psf=self.target_psf,
             wv=self.design_wv,
             d1=self.feature_size,
@@ -728,8 +752,6 @@ class PhaseContour(Mask):
             height_map=True,
         )
         self.height_map = height_map
-        self.phase_pattern = phase_mask
-        self.mask = np.exp(1j * phase_mask)
 
 
 def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):
