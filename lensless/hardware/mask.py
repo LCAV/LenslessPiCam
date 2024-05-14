@@ -56,6 +56,7 @@ class Mask(abc.ABC):
         psf_wavelength=[460e-9, 550e-9, 640e-9],
         use_torch=False,
         torch_device="cpu",
+        centered=True,
         **kwargs,
     ):
         """
@@ -77,6 +78,8 @@ class Mask(abc.ABC):
             If True, the mask is created as a torch tensor. Default is False.
         torch_device : str, optional
             Device to use for torch tensor. Default is 'cpu'.
+        centered: bool, optional
+            If True, the mask is centered. Default is True.
         """
 
         resolution = np.array(resolution)
@@ -104,6 +107,7 @@ class Mask(abc.ABC):
         self.resolution = resolution
         self.resolution = (int(self.resolution[0]), int(self.resolution[1]))
         self.size = size
+        self.centered = centered
         if feature_size is None:
             self.feature_size = self.size / self.resolution
         else:
@@ -230,9 +234,17 @@ class Mask(abc.ABC):
         if self.use_torch:
             mask = mask.cpu().numpy()
 
-        ax.imshow(
-            mask, extent=(0, 1e3 * self.size[1], 1e3 * self.size[0], 0), cmap="gray", **kwargs
-        )
+        if self.centered:
+            extent = (
+                -self.size[1] / 2 * 1e3,
+                self.size[1] / 2 * 1e3,
+                self.size[0] / 2 * 1e3,
+                -self.size[0] / 2 * 1e3,
+            )
+        else:
+            extent = (0, self.size[1] * 1e3, self.size[0] * 1e3, 0)
+
+        ax.imshow(mask, extent=extent, cmap="gray", **kwargs)
         ax.set_title(title)
         ax.set_xlabel("[mm]")
         ax.set_ylabel("[mm]")
@@ -524,6 +536,8 @@ class MultiLensArray(Mask):
             self.radius = np.random.uniform(self.radius_range[0], self.radius_range[1], self.N)
             # radius get sorted in descending order
             self.loc, self.radius = self.place_spheres_on_plane(self.radius)
+            if self.centered:
+                self.loc = self.loc - np.array(self.size) / 2
             if self.use_torch:
                 self.radius = torch.tensor(self.radius).to(self.torch_device)
                 self.loc = torch.tensor(self.loc).to(self.torch_device)
@@ -624,6 +638,9 @@ class MultiLensArray(Mask):
             if not self.use_torch
             else torch.arange(self.resolution[1]).to(self.torch_device)
         )
+        if self.centered:
+            x = x - self.resolution[0] / 2
+            y = y - self.resolution[1] / 2
         X, Y = (
             np.meshgrid(x, y, indexing="ij")
             if not self.use_torch
