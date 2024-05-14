@@ -14,6 +14,7 @@ import torch
 from abc import abstractmethod
 from torch.utils.data import Dataset, Subset
 from torchvision import datasets, transforms
+from torchvision.transforms import functional as F
 from lensless.hardware.trainable_mask import prep_trainable_mask, AdafruitLCD
 from lensless.utils.simulation import FarFieldSimulator
 from lensless.utils.io import load_image, load_psf, save_image
@@ -26,6 +27,7 @@ from datasets import load_dataset
 from huggingface_hub import hf_hub_download
 import cv2
 from lensless.hardware.sensor import sensor_dict, SensorParam
+from scipy.ndimage import rotate
 
 
 def convert(text):
@@ -1032,6 +1034,7 @@ class HFDataset(DualDataset):
         alignment=None,
         return_mask_label=False,
         save_psf=False,
+        simulation_config=dict(),
         **kwargs,
     ):
         """
@@ -1061,12 +1064,14 @@ class HFDataset(DualDataset):
             If `psf` not provided, the SLM to use for the PSF simulation, by default "adafruit".
         alignment : dict, optional
             Alignment parameters between lensless and lensed data.
-            If "topright", "height", and "width" are provided, the region-of-interest from the reconstruction of ``lensless`` is extracted and ``lensed`` is reshaped to match.
+            If "top_left", "height", and "width" are provided, the region-of-interest from the reconstruction of ``lensless`` is extracted and ``lensed`` is reshaped to match.
             If "crop" is provided, the region-of-interest is extracted from the simulated lensed image, namely a ``simulation`` configuration should be provided within ``alignment``.
         return_mask_label : bool, optional
             If multimask dataset, return the mask label (True) or the corresponding PSF (False).
         save_psf : bool, optional
             If multimask dataset, save the simulated PSFs.
+        simulation_config : dict, optional
+            Simulation parameters for PSF if using a mask pattern.
 
         """
 
@@ -1101,11 +1106,11 @@ class HFDataset(DualDataset):
         self.crop = None
         if alignment is not None:
             # preparing ground-truth in expected shape
-            if "topright" in alignment:
+            if "top_left" in alignment:
                 self.alignment = dict(alignment.copy())
-                self.alignment["topright"] = (
-                    int(self.alignment["topright"][0] / downsample),
-                    int(self.alignment["topright"][1] / downsample),
+                self.alignment["top_left"] = (
+                    int(self.alignment["top_left"][0] / downsample),
+                    int(self.alignment["top_left"][1] / downsample),
                 )
                 self.alignment["height"] = int(self.alignment["height"] / downsample)
 
@@ -1159,6 +1164,9 @@ class HFDataset(DualDataset):
                     slm=slm,
                     downsample=downsample_fact,
                     flipud=rotate,
+                    use_waveprop=simulation_config.get("use_waveprop", False),
+                    scene2mask=simulation_config.get("scene2mask", None),
+                    mask2sensor=simulation_config.get("mask2sensor", None),
                 )
                 self.psf[label] = mask.get_psf().detach()
 
@@ -1172,6 +1180,7 @@ class HFDataset(DualDataset):
 
         else:
 
+            # single mask pattern
             mask_fp = hf_hub_download(
                 repo_id=huggingface_repo, filename="mask_pattern.npy", repo_type="dataset"
             )
@@ -1182,11 +1191,18 @@ class HFDataset(DualDataset):
                 slm=slm,
                 downsample=downsample_fact,
                 flipud=rotate,
+                use_waveprop=simulation_config.get("use_waveprop", False),
+                scene2mask=simulation_config.get("scene2mask", None),
+                mask2sensor=simulation_config.get("mask2sensor", None),
             )
             self.psf = mask.get_psf().detach()
             assert (
                 self.psf.shape[-3:-1] == lensless.shape[:2]
             ), "PSF shape should match lensless shape"
+
+            if save_psf:
+                # same viewable image of PSF
+                save_image(self.psf.squeeze().cpu().numpy(), "psf.png")
 
         # create simulator
         self.simulator = None
@@ -1233,6 +1249,7 @@ class HFDataset(DualDataset):
 
         lensless = lensless_np
         lensed = lensed_np
+
         if self.simulator is not None:
             # convert to torch
             lensless = torch.from_numpy(lensless_np)
@@ -1282,27 +1299,41 @@ class HFDataset(DualDataset):
         else:
             return lensless, lensed
 
-    def extract_roi(self, reconstruction, lensed=None):
-        assert len(reconstruction.shape) == 4, "Reconstruction should have shape [B, H, W, C]"
-        if lensed is not None:
-            assert len(lensed.shape) == 4, "Lensed should have shape [B, H, W, C]"
+    def extract_roi(self, reconstruction, lensed=None, axis=(1, 2)):
+        n_dim = len(reconstruction.shape)
+        assert max(axis) < n_dim, "Axis should be within the dimensions of the reconstruction."
 
         if self.alignment is not None:
-            top_right = self.alignment["topright"]
+            top_left = self.alignment["top_left"]
             height = self.alignment["height"]
             width = self.alignment["width"]
-            reconstruction = reconstruction[
-                :, top_right[0] : top_right[0] + height, top_right[1] : top_right[1] + width
-            ]
+
+            # extract according to axis
+            index = [slice(None)] * n_dim
+            index[axis[0]] = slice(top_left[0], top_left[0] + height)
+            index[axis[1]] = slice(top_left[1], top_left[1] + width)
+            reconstruction = reconstruction[tuple(index)]
+
+            # rotate if necessary
+            angle = self.alignment.get("angle", 0)
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction = F.rotate(reconstruction, angle, expand=False)
+            else:
+                reconstruction = rotate(reconstruction, angle, axes=axis, reshape=False)
+
         elif self.crop is not None:
             vertical = self.crop["vertical"]
             horizontal = self.crop["horizontal"]
-            reconstruction = reconstruction[
-                :, vertical[0] : vertical[1], horizontal[0] : horizontal[1]
-            ]
+
+            # extract according to axis
+            index = [slice(None)] * n_dim
+            index[axis[0]] = slice(vertical[0], vertical[1])
+            index[axis[1]] = slice(horizontal[0], horizontal[1])
+            reconstruction = reconstruction[tuple(index)]
             if lensed is not None:
-                lensed = lensed[:, vertical[0] : vertical[1], horizontal[0] : horizontal[1]]
-        if lensed is not None:
+                lensed = lensed[tuple(index)]
+
+        if self.alignment is None and lensed is not None:
             return reconstruction, lensed
         else:
             return reconstruction

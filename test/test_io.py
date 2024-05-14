@@ -33,7 +33,7 @@ def test_rgb2gray():
             downsample=downsample,
             plot=False,
             dtype="float32",
-            torch=is_torch,
+            use_torch=is_torch,
         )
         data = data[0]  # drop first depth dimension
 

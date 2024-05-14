@@ -115,7 +115,7 @@ def recon_dataset(config):
             scores = psnr(lensed[0], res), lpips(lensed[0], res)
 
             output_fp = os.path.join(output_folder, f"{i}.png")
-            save_image(res, output_fp)
+            save_image(res, output_fp, normalize=True)
             return scores
 
         n_jobs = config.apgd.n_jobs
@@ -178,7 +178,7 @@ def recon_dataset(config):
             else:
                 img = res[0]
             output_fp = os.path.join(output_folder, f"{i}.png")
-            save_image(img, output_fp)
+            save_image(img, output_fp, normalize=True)
 
     if len(psnr_scores) > 0:
         # print average metrics
