@@ -41,7 +41,7 @@ files:
   extra_eval: null  # dict of extra datasets to evaluate on
 
 alignment: null
-#   topright: null    # height, width
+#   top_left: null    # height, width
   # height: null
 
 torch: True

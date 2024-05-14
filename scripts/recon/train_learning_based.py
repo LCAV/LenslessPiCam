@@ -318,13 +318,7 @@ def train_learned(config):
                         res_np, lensed_np = test_set.extract_roi(
                             res_np, lensed=lensed_np, axis=(0, 1)
                         )
-                    # if alignment is not None:
-                    #     top_right = alignment["topright"]
-                    #     height = alignment["height"]
-                    #     width = alignment["width"]
-                    #     res_np = res_np[
-                    #         top_right[0] : top_right[0] + height, top_right[1] : top_right[1] + width
-                    #     ]
+
                     cropped = True
 
                 elif config.training.crop_preloss:

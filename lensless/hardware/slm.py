@@ -240,11 +240,11 @@ def adafruit_sub2full(
 
     # pad to full pattern
     pattern = np.zeros((3, 128, 160), dtype=np.uint8)
-    topleft = [center[0] - controllable_shape[1] // 2, center[1] - controllable_shape[2] // 2]
+    top_left = [center[0] - controllable_shape[1] // 2, center[1] - controllable_shape[2] // 2]
     pattern[
         :,
-        topleft[0] : topleft[0] + controllable_shape[1],
-        topleft[1] : topleft[1] + controllable_shape[2],
+        top_left[0] : top_left[0] + controllable_shape[1],
+        top_left[1] : top_left[1] + controllable_shape[2],
     ] = subpattern_rgb.astype(np.uint8)
     return pattern
 

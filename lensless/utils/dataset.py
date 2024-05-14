@@ -1064,7 +1064,7 @@ class HFDataset(DualDataset):
             If `psf` not provided, the SLM to use for the PSF simulation, by default "adafruit".
         alignment : dict, optional
             Alignment parameters between lensless and lensed data.
-            If "topright", "height", and "width" are provided, the region-of-interest from the reconstruction of ``lensless`` is extracted and ``lensed`` is reshaped to match.
+            If "top_left", "height", and "width" are provided, the region-of-interest from the reconstruction of ``lensless`` is extracted and ``lensed`` is reshaped to match.
             If "crop" is provided, the region-of-interest is extracted from the simulated lensed image, namely a ``simulation`` configuration should be provided within ``alignment``.
         return_mask_label : bool, optional
             If multimask dataset, return the mask label (True) or the corresponding PSF (False).
@@ -1106,11 +1106,11 @@ class HFDataset(DualDataset):
         self.crop = None
         if alignment is not None:
             # preparing ground-truth in expected shape
-            if "topright" in alignment:
+            if "top_left" in alignment:
                 self.alignment = dict(alignment.copy())
-                self.alignment["topright"] = (
-                    int(self.alignment["topright"][0] / downsample),
-                    int(self.alignment["topright"][1] / downsample),
+                self.alignment["top_left"] = (
+                    int(self.alignment["top_left"][0] / downsample),
+                    int(self.alignment["top_left"][1] / downsample),
                 )
                 self.alignment["height"] = int(self.alignment["height"] / downsample)
 
@@ -1304,14 +1304,14 @@ class HFDataset(DualDataset):
         assert max(axis) < n_dim, "Axis should be within the dimensions of the reconstruction."
 
         if self.alignment is not None:
-            top_right = self.alignment["topright"]
+            top_left = self.alignment["top_left"]
             height = self.alignment["height"]
             width = self.alignment["width"]
 
             # extract according to axis
             index = [slice(None)] * n_dim
-            index[axis[0]] = slice(top_right[0], top_right[0] + height)
-            index[axis[1]] = slice(top_right[1], top_right[1] + width)
+            index[axis[0]] = slice(top_left[0], top_left[0] + height)
+            index[axis[1]] = slice(top_left[1], top_left[1] + width)
             reconstruction = reconstruction[tuple(index)]
 
             # rotate if necessary
