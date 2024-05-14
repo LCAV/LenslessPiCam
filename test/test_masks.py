@@ -43,12 +43,13 @@ def test_phlatcam():
         feature_size=d1,
         distance_sensor=dz,
     )
-    assert np.all(mask.mask.shape == resolution)
+    assert np.all(mask.shape == resolution)
     desired_psf_shape = np.array(tuple(resolution) + (len(mask.psf_wavelength),))
     assert np.all(mask.psf.shape == desired_psf_shape)
 
+    u1 = mask.height_map_to_field(wavelength=mask.design_wv)
     Mp = np.sqrt(mask.target_psf) * np.exp(
-        1j * np.angle(fresnel_conv(mask.mask, mask.design_wv, d1, dz, dtype=np.float32)[0])
+        1j * np.angle(fresnel_conv(u1, mask.design_wv, d1, dz, dtype=np.float32)[0])
     )
     assert mse(abs(Mp), np.sqrt(mask.target_psf)) < 0.1
     assert psnr(abs(Mp), np.sqrt(mask.target_psf)) > 30
@@ -72,21 +73,21 @@ def test_classmethod():
     mask1 = CodedAperture.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz
     )
-    assert np.all(mask1.mask.shape == resolution)
+    assert np.all(mask1.shape == resolution)
     desired_psf_shape = np.array(tuple(resolution) + (len(mask1.psf_wavelength),))
     assert np.all(mask1.psf.shape == desired_psf_shape)
 
     mask2 = PhaseContour.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz
     )
-    assert np.all(mask2.mask.shape == resolution)
+    assert np.all(mask2.shape == resolution)
     desired_psf_shape = np.array(tuple(resolution) + (len(mask2.psf_wavelength),))
     assert np.all(mask2.psf.shape == desired_psf_shape)
 
     mask3 = FresnelZoneAperture.from_sensor(
         sensor_name="rpi_hq", downsample=downsample, distance_sensor=dz
     )
-    assert np.all(mask3.mask.shape == resolution)
+    assert np.all(mask3.shape == resolution)
     desired_psf_shape = np.array(tuple(resolution) + (len(mask3.psf_wavelength),))
     assert np.all(mask3.psf.shape == desired_psf_shape)
 
