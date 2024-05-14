@@ -23,7 +23,7 @@ Changed
 Bugfix
 ~~~~~~
 
-- Nothing
+- Wavelength input to ``compute_psf`` for Mask class.
 
 
 1.0.7 - (2024-05-14)
