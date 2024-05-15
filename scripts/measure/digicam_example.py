@@ -10,6 +10,7 @@ TODO: display image. At the moment should be done with `scripts/measure/remote_d
 
 
 import hydra
+from hydra.utils import to_absolute_path
 import numpy as np
 from lensless.hardware.slm import set_programmable_mask, adafruit_sub2full
 from lensless.hardware.utils import capture
@@ -34,7 +35,7 @@ def digicam(config):
 
     # load mask
     if mask_fp is not None:
-        mask_vals = np.load(mask_fp)
+        mask_vals = np.load(to_absolute_path(mask_fp))
     else:
         # create random mask within [0, 1]
         np.random.seed(seed)
@@ -58,7 +59,7 @@ def digicam(config):
     if measurement_fp is not None:
         # load image
         img = load_image(
-            measurement_fp,
+            to_absolute_path(measurement_fp),
             verbose=True,
         )
 
