@@ -45,7 +45,7 @@ def test_set_initial_est(algorithm):
             downsample=downsample,
             plot=False,
             gray=gray,
-            torch=False,
+            use_torch=False,
         )
         recon = algorithm(psf)
         assert recon._initial_est is None
@@ -71,7 +71,7 @@ def test_set_initial_est_unrolled(algorithm):
             downsample=downsample,
             plot=False,
             gray=gray,
-            torch=True,
+            use_torch=True,
         )
         recon = algorithm(psf)
         assert recon._initial_est is None
@@ -97,7 +97,7 @@ def test_recon_numpy(algorithm):
                 plot=False,
                 gray=gray,
                 dtype=dtype,
-                torch=False,
+                use_torch=False,
             )
             recon = algorithm(psf, dtype=dtype)
             recon.set_data(data)
@@ -120,7 +120,7 @@ def test_recon_torch(algorithm):
                 plot=False,
                 gray=gray,
                 dtype=dtype,
-                torch=True,
+                use_torch=True,
             )
             recon = algorithm(psf, dtype=dtype, n_iter=_n_iter)
             recon.set_data(data)
@@ -144,7 +144,7 @@ def test_apgd():
                             plot=False,
                             gray=gray,
                             dtype=dtype,
-                            torch=False,
+                            use_torch=False,
                         )
                         recon = APGD(
                             psf,

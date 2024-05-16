@@ -37,6 +37,7 @@ def load_image(
     shape=None,
     dtype=None,
     normalize=True,
+    bgr_input=True,
 ):
     """
     Load image as numpy array.
@@ -151,7 +152,7 @@ def load_image(
         )
 
     else:
-        if len(img.shape) == 3:
+        if len(img.shape) == 3 and bgr_input:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     original_dtype = img.dtype
@@ -223,6 +224,7 @@ def load_psf(
     single_psf=False,
     shape=None,
     use_3d=False,
+    bgr_input=True,
 ):
     """
     Load and process PSF for analysis or for reconstruction.
@@ -296,6 +298,7 @@ def load_psf(
             blue_gain=blue_gain,
             red_gain=red_gain,
             nbits_out=nbits_out,
+            bgr_input=bgr_input,
         )
 
     original_dtype = psf.dtype
@@ -345,7 +348,7 @@ def load_psf(
         bg = np.array(bg)
 
     # resize
-    if downsample != 1:
+    if downsample != 1 or shape is not None:
         psf = resize(psf, shape=shape, factor=1 / downsample)
 
     if single_psf:
@@ -381,6 +384,8 @@ def load_data(
     bg_pix=(5, 25),
     plot=True,
     flip=False,
+    flip_ud=False,
+    flip_lr=False,
     bayer=False,
     blue_gain=None,
     red_gain=None,
@@ -389,9 +394,10 @@ def load_data(
     dtype=None,
     single_psf=False,
     shape=None,
-    torch=False,
+    use_torch=False,
     torch_device="cpu",
     normalize=False,
+    bgr_input=True,
 ):
     """
     Load data for image reconstruction.
@@ -465,6 +471,8 @@ def load_data(
         bg_pix=bg_pix,
         return_bg=True,
         flip=flip,
+        flip_ud=flip_ud,
+        flip_lr=flip_lr,
         bayer=bayer,
         blue_gain=blue_gain,
         red_gain=red_gain,
@@ -472,12 +480,15 @@ def load_data(
         single_psf=single_psf,
         shape=shape,
         use_3d=use_3d,
+        bgr_input=bgr_input,
     )
 
     # load and process raw measurement
     data = load_image(
         data_fp,
         flip=flip,
+        flip_ud=flip_ud,
+        flip_lr=flip_lr,
         bayer=bayer,
         blue_gain=blue_gain,
         red_gain=red_gain,
@@ -486,6 +497,7 @@ def load_data(
         return_float=return_float,
         shape=shape,
         normalize=normalize if background_fp is None else False,
+        bgr_input=bgr_input,
     )
 
     if background_fp is not None:
@@ -499,6 +511,7 @@ def load_data(
             return_float=return_float,
             shape=shape,
             normalize=False,
+            bgr_input=bgr_input,
         )
         assert bg.shape == data.shape
 
@@ -544,7 +557,7 @@ def load_data(
 
     psf = np.array(psf, dtype=dtype)
     data = np.array(data, dtype=dtype)
-    if torch:
+    if use_torch:
         import torch
 
         if dtype == np.float32:

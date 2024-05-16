@@ -41,7 +41,7 @@ def gradient_descent(
         gray=config["preprocess"]["gray"],
         single_psf=config["preprocess"]["single_psf"],
         shape=config["preprocess"]["shape"],
-        torch=config.torch,
+        use_torch=config.torch,
         torch_device=config.torch_device,
     )
 

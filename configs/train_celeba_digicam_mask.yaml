@@ -1,5 +1,5 @@
 # fine-tune mask for PSF, but don't re-simulate
-# python scripts/recon/train_unrolled.py -cn train_celeba_digicam_mask
+# python scripts/recon/train_learning_based.py -cn train_celeba_digicam_mask
 defaults:
   - train_celeba_digicam
   - _self_

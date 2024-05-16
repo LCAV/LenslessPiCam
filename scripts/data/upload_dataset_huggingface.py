@@ -24,6 +24,8 @@ from huggingface_hub import upload_file
 from lensless.utils.dataset import natural_sort
 from tqdm import tqdm
 from lensless.utils.io import save_image
+import cv2
+from joblib import Parallel, delayed
 
 
 @hydra.main(
@@ -82,11 +84,30 @@ def upload_dataset(config):
     ]
     lensed_files = [os.path.join(config.lensed.dir, f + config.lensed.ext) for f in common_files]
 
+    if config.lensless.downsample is not None:
+
+        tmp_dir = config.lensless.dir + "_tmp"
+        os.makedirs(tmp_dir, exist_ok=True)
+
+        def downsample(f, output_dir):
+            img = cv2.imread(f, cv2.IMREAD_UNCHANGED)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = cv2.resize(
+                img,
+                (0, 0),
+                fx=1 / config.lensless.downsample,
+                fy=1 / config.lensless.downsample,
+                interpolation=cv2.INTER_LINEAR,
+            )
+            new_fp = os.path.join(output_dir, os.path.basename(f))
+            new_fp = new_fp.split(".")[0] + config.lensless.ext
+            save_image(img, new_fp, normalize=False)
+
+        Parallel(n_jobs=n_jobs)(delayed(downsample)(f, tmp_dir) for f in tqdm(lensless_files))
+        lensless_files = glob.glob(os.path.join(tmp_dir, f"*{config.lensless.ext[1:]}"))
+
     # convert to normalized 8 bit
     if config.lensless.eight_norm:
-
-        import cv2
-        from joblib import Parallel, delayed
 
         tmp_dir = config.lensless.dir + "_tmp"
         os.makedirs(tmp_dir, exist_ok=True)
@@ -94,12 +115,13 @@ def upload_dataset(config):
         # -- parallelize with joblib
         def save_8bit(f, output_dir, normalize=True):
             img = cv2.imread(f, cv2.IMREAD_UNCHANGED)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             new_fp = os.path.join(output_dir, os.path.basename(f))
-            new_fp = new_fp.split(".")[0] + ".png"
+            new_fp = new_fp.split(".")[0] + config.lensless.ext
             save_image(img, new_fp, normalize=normalize)
 
         Parallel(n_jobs=n_jobs)(delayed(save_8bit)(f, tmp_dir) for f in tqdm(lensless_files))
-        lensless_files = glob.glob(os.path.join(tmp_dir, "*png"))
+        lensless_files = glob.glob(os.path.join(tmp_dir, f"*{config.lensless.ext[1:]}"))
 
     # check for attribute
     df_attr = None
@@ -222,6 +244,7 @@ def upload_dataset(config):
 
     upload_file(
         path_or_fileobj=lensless_files[0],
+        # path_in_repo=f"lensless_example{config.lensless.ext}" if not config.lensless.eight_norm else f"lensless_example.png",
         path_in_repo=f"lensless_example{config.lensless.ext}",
         repo_id=repo_id,
         repo_type="dataset",
@@ -248,7 +271,7 @@ def upload_dataset(config):
     print(f"Total time: {(time.time() - start_time) / 60} minutes")
 
     # delete PNG files
-    if config.lensless.eight_norm:
+    if config.lensless.eight_norm or config.lensless.downsample:
         os.system(f"rm -rf {tmp_dir}")
 
 

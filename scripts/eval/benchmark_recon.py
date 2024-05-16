@@ -26,7 +26,7 @@ import pathlib as plib
 from lensless.eval.benchmark import benchmark
 import matplotlib.pyplot as plt
 from lensless import ADMM, FISTA, GradientDescent, NesterovGradientDescent
-from lensless.utils.dataset import DiffuserCamTestDataset, DigiCamCelebA, DigiCam
+from lensless.utils.dataset import DiffuserCamTestDataset, DigiCamCelebA, HFDataset
 from lensless.utils.io import save_image
 
 import torch
@@ -84,14 +84,15 @@ def benchmark_recon(config):
         _, benchmark_dataset = torch.utils.data.random_split(
             dataset, [train_size, test_size], generator=generator
         )
-    elif dataset == "DigiCamHF":
-        benchmark_dataset = DigiCam(
+    elif dataset == "HFDataset":
+        benchmark_dataset = HFDataset(
             huggingface_repo=config.huggingface.repo,
             split="test",
             display_res=config.huggingface.image_res,
             rotate=config.huggingface.rotate,
             downsample=config.huggingface.downsample,
             alignment=config.huggingface.alignment,
+            simulation_config=config.simulation,
         )
         if benchmark_dataset.multimask:
             # get first PSF for initialization

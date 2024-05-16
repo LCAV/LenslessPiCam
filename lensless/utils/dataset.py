@@ -14,6 +14,7 @@ import torch
 from abc import abstractmethod
 from torch.utils.data import Dataset, Subset
 from torchvision import datasets, transforms
+from torchvision.transforms import functional as F
 from lensless.hardware.trainable_mask import prep_trainable_mask, AdafruitLCD
 from lensless.utils.simulation import FarFieldSimulator
 from lensless.utils.io import load_image, load_psf, save_image
@@ -26,6 +27,7 @@ from datasets import load_dataset
 from huggingface_hub import hf_hub_download
 import cv2
 from lensless.hardware.sensor import sensor_dict, SensorParam
+from scipy.ndimage import rotate
 
 
 def convert(text):
@@ -1016,53 +1018,99 @@ class DiffuserCamMirflickrHF(DualDataset):
         return lensless, lensed
 
 
-class DigiCam(DualDataset):
+class HFDataset(DualDataset):
     def __init__(
         self,
         huggingface_repo,
         split,
+        n_files=None,
         psf=None,
+        rotate=False,  # just the lensless image
+        downsample=1,
+        downsample_lensed=1,
         display_res=None,
         sensor="rpi_hq",
         slm="adafruit",
-        rotate=False,
-        downsample=1,
         alignment=None,
-        save_psf=False,
-        simulation_config=None,
         return_mask_label=False,
+        save_psf=False,
+        simulation_config=dict(),
         **kwargs,
     ):
+        """
+        Wrapper for lensless datasets on Hugging Face.
+
+        Parameters
+        ----------
+        huggingface_repo : str
+            Hugging Face repository ID.
+        split : str or :py:class:`torch.utils.data.Dataset`
+            Split of the dataset to use: 'train', 'test', or 'all'. If a Dataset object is given, it is used directly.
+        n_files : int, optional
+            Number of files to load from the dataset, by default None, namely all.
+        psf : str, optional
+            File name of the PSF at the repository. If None, it is assumed that there is a mask pattern from which the PSF is simulated, by default None.
+        rotate : bool, optional
+            If True, lensless images and PSF are rotated 180 degrees. Lensed/original image is not rotated! By default False.
+        downsample : float, optional
+            Downsample factor of the lensless images, by default 1.
+        downsample_lensed : float, optional
+            Downsample factor of the lensed images, by default 1.
+        display_res : tuple, optional
+            Resolution of images when displayed on screen during measurement.
+        sensor : str, optional
+            If `psf` not provided, the sensor to use for the PSF simulation, by default "rpi_hq".
+        slm : str, optional
+            If `psf` not provided, the SLM to use for the PSF simulation, by default "adafruit".
+        alignment : dict, optional
+            Alignment parameters between lensless and lensed data.
+            If "top_left", "height", and "width" are provided, the region-of-interest from the reconstruction of ``lensless`` is extracted and ``lensed`` is reshaped to match.
+            If "crop" is provided, the region-of-interest is extracted from the simulated lensed image, namely a ``simulation`` configuration should be provided within ``alignment``.
+        return_mask_label : bool, optional
+            If multimask dataset, return the mask label (True) or the corresponding PSF (False).
+        save_psf : bool, optional
+            If multimask dataset, save the simulated PSFs.
+        simulation_config : dict, optional
+            Simulation parameters for PSF if using a mask pattern.
+
+        """
 
         if isinstance(split, str):
+            if n_files is not None:
+                split = f"{split}[0:{n_files}]"
             self.dataset = load_dataset(huggingface_repo, split=split)
         elif isinstance(split, Dataset):
             self.dataset = split
         else:
             raise ValueError("split should be a string or a Dataset object")
+
         self.rotate = rotate
         self.display_res = display_res
         self.return_mask_label = return_mask_label
 
-        # deduce downsampling factor from measurement
+        # deduce downsampling factor from the first image
         data_0 = self.dataset[0]
         self.downsample_lensless = downsample
+        self.downsample_lensed = downsample_lensed
         lensless = np.array(data_0["lensless"])
         if self.downsample_lensless != 1.0:
             lensless = resize(lensless, factor=1 / self.downsample_lensless)
-        sensor_res = sensor_dict[sensor][SensorParam.RESOLUTION]
-        downsample_fact = min(sensor_res / lensless.shape[:2])
+        if psf is None:
+            sensor_res = sensor_dict[sensor][SensorParam.RESOLUTION]
+            downsample_fact = min(sensor_res / lensless.shape[:2])
+        else:
+            downsample_fact = 1
 
         # deduce recon shape from original image
         self.alignment = None
         self.crop = None
         if alignment is not None:
             # preparing ground-truth in expected shape
-            if "topright" in alignment:
+            if "top_left" in alignment:
                 self.alignment = dict(alignment.copy())
-                self.alignment["topright"] = (
-                    int(self.alignment["topright"][0] / downsample),
-                    int(self.alignment["topright"][1] / downsample),
+                self.alignment["top_left"] = (
+                    int(self.alignment["top_left"][0] / downsample),
+                    int(self.alignment["top_left"][1] / downsample),
                 )
                 self.alignment["height"] = int(self.alignment["height"] / downsample)
 
@@ -1071,6 +1119,7 @@ class DigiCam(DualDataset):
 
             # preparing ground-truth as simulated measurement of original
             elif "crop" in alignment:
+                assert "simulation" in alignment, "Simulation config should be provided"
                 self.crop = dict(alignment["crop"].copy())
                 self.crop["vertical"][0] = int(self.crop["vertical"][0] / downsample)
                 self.crop["vertical"][1] = int(self.crop["vertical"][1] / downsample)
@@ -1085,7 +1134,7 @@ class DigiCam(DualDataset):
             psf_fp = hf_hub_download(repo_id=huggingface_repo, filename=psf, repo_type="dataset")
             psf, _ = load_psf(
                 psf_fp,
-                downsample=downsample_fact,
+                shape=lensless.shape,
                 return_float=True,
                 return_bg=True,
                 flip=rotate,
@@ -1115,6 +1164,9 @@ class DigiCam(DualDataset):
                     slm=slm,
                     downsample=downsample_fact,
                     flipud=rotate,
+                    use_waveprop=simulation_config.get("use_waveprop", False),
+                    scene2mask=simulation_config.get("scene2mask", None),
+                    mask2sensor=simulation_config.get("mask2sensor", None),
                 )
                 self.psf[label] = mask.get_psf().detach()
 
@@ -1128,6 +1180,7 @@ class DigiCam(DualDataset):
 
         else:
 
+            # single mask pattern
             mask_fp = hf_hub_download(
                 repo_id=huggingface_repo, filename="mask_pattern.npy", repo_type="dataset"
             )
@@ -1138,11 +1191,18 @@ class DigiCam(DualDataset):
                 slm=slm,
                 downsample=downsample_fact,
                 flipud=rotate,
+                use_waveprop=simulation_config.get("use_waveprop", False),
+                scene2mask=simulation_config.get("scene2mask", None),
+                mask2sensor=simulation_config.get("mask2sensor", None),
             )
             self.psf = mask.get_psf().detach()
             assert (
                 self.psf.shape[-3:-1] == lensless.shape[:2]
             ), "PSF shape should match lensless shape"
+
+            if save_psf:
+                # same viewable image of PSF
+                save_image(self.psf.squeeze().cpu().numpy(), "psf.png")
 
         # create simulator
         self.simulator = None
@@ -1161,7 +1221,7 @@ class DigiCam(DualDataset):
             if "horizontal_shift" in simulation_config:
                 self.horizontal_shift = int(simulation_config["horizontal_shift"] / downsample)
 
-        super(DigiCam, self).__init__(**kwargs)
+        super(HFDataset, self).__init__(**kwargs)
 
     def __len__(self):
         return len(self.dataset)
@@ -1189,6 +1249,7 @@ class DigiCam(DualDataset):
 
         lensless = lensless_np
         lensed = lensed_np
+
         if self.simulator is not None:
             # convert to torch
             lensless = torch.from_numpy(lensless_np)
@@ -1213,6 +1274,12 @@ class DigiCam(DualDataset):
             lensed = resize(
                 lensed_np, shape=(*self.display_res, 3), interpolation=cv2.INTER_NEAREST
             )
+        elif self.downsample_lensed != 1.0:
+            lensed = resize(
+                lensed_np,
+                factor=1 / self.downsample_lensed,
+                interpolation=cv2.INTER_NEAREST,
+            )
 
         return lensless, lensed
 
@@ -1232,27 +1299,41 @@ class DigiCam(DualDataset):
         else:
             return lensless, lensed
 
-    def extract_roi(self, reconstruction, lensed=None):
-        assert len(reconstruction.shape) == 4, "Reconstruction should have shape [B, H, W, C]"
-        if lensed is not None:
-            assert len(lensed.shape) == 4, "Lensed should have shape [B, H, W, C]"
+    def extract_roi(self, reconstruction, lensed=None, axis=(1, 2)):
+        n_dim = len(reconstruction.shape)
+        assert max(axis) < n_dim, "Axis should be within the dimensions of the reconstruction."
 
         if self.alignment is not None:
-            top_right = self.alignment["topright"]
+            top_left = self.alignment["top_left"]
             height = self.alignment["height"]
             width = self.alignment["width"]
-            reconstruction = reconstruction[
-                :, top_right[0] : top_right[0] + height, top_right[1] : top_right[1] + width
-            ]
+
+            # extract according to axis
+            index = [slice(None)] * n_dim
+            index[axis[0]] = slice(top_left[0], top_left[0] + height)
+            index[axis[1]] = slice(top_left[1], top_left[1] + width)
+            reconstruction = reconstruction[tuple(index)]
+
+            # rotate if necessary
+            angle = self.alignment.get("angle", 0)
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction = F.rotate(reconstruction, angle, expand=False)
+            else:
+                reconstruction = rotate(reconstruction, angle, axes=axis, reshape=False)
+
         elif self.crop is not None:
             vertical = self.crop["vertical"]
             horizontal = self.crop["horizontal"]
-            reconstruction = reconstruction[
-                :, vertical[0] : vertical[1], horizontal[0] : horizontal[1]
-            ]
+
+            # extract according to axis
+            index = [slice(None)] * n_dim
+            index[axis[0]] = slice(vertical[0], vertical[1])
+            index[axis[1]] = slice(horizontal[0], horizontal[1])
+            reconstruction = reconstruction[tuple(index)]
             if lensed is not None:
-                lensed = lensed[:, vertical[0] : vertical[1], horizontal[0] : horizontal[1]]
-        if lensed is not None:
+                lensed = lensed[tuple(index)]
+
+        if self.alignment is None and lensed is not None:
             return reconstruction, lensed
         else:
             return reconstruction
@@ -1265,7 +1346,7 @@ def simulate_dataset(config, generator=None):
     Parameters
     ----------
     config : omegaconf.DictConfig
-        Configuration, e.g. from Hydra. See ``scripts/recon/train_unrolled.py`` for an example that uses this function.
+        Configuration, e.g. from Hydra. See ``scripts/recon/train_learning_based.py`` for an example that uses this function.
     generator : torch.Generator, optional
         Random number generator, by default ``None``.
     """

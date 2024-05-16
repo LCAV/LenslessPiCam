@@ -13,6 +13,25 @@ Unreleased
 Added
 ~~~~~
 
+- Nothing
+
+Changed
+~~~~~~~
+
+- Nothing
+
+Bugfix
+~~~~~~
+
+- Nothing
+
+
+1.0.7 - (2024-05-14)
+--------------------
+
+Added
+~~~~~
+
 - Script to upload measured datasets to Hugging Face: ``scripts/data/upload_dataset_huggingface.py``
 - Pytorch support for simulating PSFs of masks.
 - ``lensless.hardware.mask.MultiLensArray`` class for simulating multi-lens arrays.
@@ -21,12 +40,13 @@ Added
 - ``lensless.utils.dataset.simulate_dataset`` for simulating a dataset given a mask/PSF.
 - Support for training/testing with multiple mask patterns in the dataset.
 - Multi-GPU support for training.
-- DigiCam dataset which interfaces with Hugging Face.
+- Dataset which interfaces with Hugging Face (``lensless.utils.dataset.HFDataset``).
 - Scripts for authentication.
 - DigiCam support for Telegram demo.
 - DiffuserCamMirflickr Hugging Face API.
 - Fallback for normalization if data not in 8bit range (``lensless.utils.io.save_image``).
 - Add utilities for fabricating masks with 3D printing (``lensless.hardware.fabrication``).
+- WandB support.
 
 Changed
 ~~~~~~~
@@ -35,6 +55,8 @@ Changed
 - For trainable masks, set trainable parameters inside the child class.
 - ``distance_sensor`` optional for ``lensless.hardware.mask.Mask``, e.g. don't need for fabrication.
 - More intuitive interface for MURA for coded aperture (``lensless.hardware.mask.CodedAperture``), i.e. directly pass prime number.
+- ``is_torch`` to ``use_torch`` in ``lensless.hardware.mask.Mask``
+- ``self.height_map`` as characterization of phase masks (instead of phase pattern which can change for each wavelength)
 
 
 Bugfix
@@ -151,7 +173,7 @@ Added
 -  Option to warm-start reconstruction algorithm with ``initial_est``.
 -  TrainableReconstructionAlgorithm class inherited from ReconstructionAlgorithm and torch.module for use with pytorch autograd and optimizers.
 -  Unrolled version of FISTA and ADMM as TrainableReconstructionAlgorithm with learnable parameters.
-- ``train_unrolled.py`` script for training unrolled algorithms.
+- ``train_learning_based.py`` script for training unrolled algorithms.
 - ``benchmark_recon.py`` script for benchmarking and comparing reconstruction algorithms.
 - Added ``reconstruction_error`` to ``ReconstructionAlgorithm`` .
 - Added support for npy/npz image in load_image.

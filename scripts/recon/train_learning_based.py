@@ -1,6 +1,6 @@
 # #############################################################################
-# train_unrolled.py
-# =================
+# train_learning_based.py
+# =======================
 # Authors :
 # Yohann PERRON [yohann.perron@gmail.com]
 # Eric BEZZAM [ebezzam@gmail.com]
@@ -10,28 +10,25 @@
 Train unrolled version of reconstruction algorithm.
 
 ```
-python scripts/recon/train_unrolled.py
+python scripts/recon/train_learning_based.py
 ```
 
 By default it uses the configuration from the file `configs/train_unrolledADMM.yaml`.
 
 To train pre- and post-processing networks, use the following command:
 ```
-python scripts/recon/train_unrolled.py -cn train_pre-post-processing
+python scripts/recon/train_learning_based.py -cn train_unrolled_pre_post
 ```
 
 To fine-tune the DiffuserCam PSF, use the following command:
 ```
-python scripts/recon/train_unrolled.py -cn fine-tune_PSF
+python scripts/recon/train_learning_based.py -cn fine-tune_PSF
 ```
 
-To train a PSF from scratch with a simulated dataset, use the following command:
-```
-python scripts/recon/train_unrolled.py -cn train_psf_from_scratch
-```
 
 """
 
+import wandb
 import logging
 import hydra
 from hydra.utils import get_original_cwd
@@ -43,7 +40,7 @@ from lensless import ADMM, UnrolledFISTA, UnrolledADMM, TrainableInversion
 from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     DigiCamCelebA,
-    DigiCam,
+    HFDataset,
     MyDataParallel,
     simulate_dataset,
 )
@@ -60,7 +57,16 @@ log = logging.getLogger(__name__)
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
-def train_unrolled(config):
+def train_learned(config):
+
+    if config.wandb_project is not None:
+        # start a new wandb run to track this script
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project=config.wandb_project,
+            # track hyperparameters and run metadata
+            config=dict(config),
+        )
 
     # set seed
     seed = config.seed
@@ -83,22 +89,23 @@ def train_unrolled(config):
     use_cuda = False
     if "cuda" in config.torch_device and torch.cuda.is_available():
         # if config.torch_device == "cuda" and torch.cuda.is_available():
-        log.info("Using GPU for training.")
+        log.info(f"Using GPU for training. Main device : {config.torch_device}")
         device = config.torch_device
         use_cuda = True
     else:
         log.info("Using CPU for training.")
         device = "cpu"
     device_ids = config.device_ids
+    if device_ids is not None:
+        log.info(f"Using multiple GPUs : {device_ids}")
 
     # load dataset and create dataloader
     train_set = None
     test_set = None
     psf = None
     crop = None
-    alignment = None  # very similar to crop, TODO: should switch to this approach
     mask = None
-    if "DiffuserCam" in config.files.dataset:
+    if "DiffuserCam" in config.files.dataset and config.files.huggingface_dataset is False:
 
         original_path = os.path.join(get_original_cwd(), config.files.dataset)
         psf_path = os.path.join(get_original_cwd(), config.files.psf)
@@ -122,15 +129,6 @@ def train_unrolled(config):
 
         # -- if learning mask
         mask = prep_trainable_mask(config, dataset.psf)
-        if mask is not None:
-            # plot initial PSF
-            psf_np = mask.get_psf().detach().cpu().numpy()[0, ...]
-            if config.trainable_mask.grayscale:
-                psf_np = psf_np[:, :, -1]
-
-            save_image(psf_np, os.path.join(save, "psf_initial.png"))
-            plot_image(psf_np, gamma=config.display.gamma)
-            plt.savefig(os.path.join(save, "psf_initial_plot.png"))
 
         psf = dataset.psf
 
@@ -167,17 +165,7 @@ def train_unrolled(config):
         mask = prep_trainable_mask(config, dataset.psf, downsample=downsample)
 
         if mask is not None:
-            # plot initial PSF
-            with torch.no_grad():
-                psf_np = mask.get_psf().detach().cpu().numpy()[0, ...]
-                if config.trainable_mask.grayscale:
-                    psf_np = psf_np[:, :, -1]
-
-            save_image(psf_np, os.path.join(save, "psf_initial.png"))
-            plot_image(psf_np, gamma=config.display.gamma)
-            plt.savefig(os.path.join(save, "psf_initial_plot.png"))
-
-            # save original PSF as well
+            # save original PSF
             psf_meas = dataset.psf.detach().cpu().numpy()[0, ...]
             plot_image(psf_meas, gamma=config.display.gamma)
             plt.savefig(os.path.join(save, "psf_meas_plot.png"))
@@ -200,8 +188,13 @@ def train_unrolled(config):
             generator = torch.Generator().manual_seed(seed)
 
             # - combine train and test into single dataset
-            train_dataset = load_dataset(config.files.dataset, split="train")
-            test_dataset = load_dataset(config.files.dataset, split="test")
+            train_split = "train"
+            test_split = "test"
+            if config.files.n_files is not None:
+                train_split = f"train[:{config.files.n_files}]"
+                test_split = f"test[:{config.files.n_files}]"
+            train_dataset = load_dataset(config.files.dataset, split=train_split)
+            test_dataset = load_dataset(config.files.dataset, split=test_split)
             dataset = concatenate_datasets([test_dataset, train_dataset])
 
             # - split into train and test
@@ -211,53 +204,58 @@ def train_unrolled(config):
                 dataset, [train_size, test_size], generator=generator
             )
 
-        train_set = DigiCam(
+        train_set = HFDataset(
             huggingface_repo=config.files.dataset,
             psf=config.files.huggingface_psf,
             split=split_train,
             display_res=config.files.image_res,
             rotate=config.files.rotate,
             downsample=config.files.downsample,
+            downsample_lensed=config.files.downsample_lensed,
             alignment=config.alignment,
             save_psf=config.files.save_psf,
+            n_files=config.files.n_files,
+            simulation_config=config.simulation,
         )
-        test_set = DigiCam(
+        test_set = HFDataset(
             huggingface_repo=config.files.dataset,
             psf=config.files.huggingface_psf,
             split=split_test,
             display_res=config.files.image_res,
             rotate=config.files.rotate,
             downsample=config.files.downsample,
+            downsample_lensed=config.files.downsample_lensed,
             alignment=config.alignment,
             save_psf=config.files.save_psf,
+            n_files=config.files.n_files,
+            simulation_config=config.simulation,
         )
         if train_set.multimask:
             # get first PSF for initialization
-            first_psf_key = list(train_set.psf.keys())[device_ids[0]]
+            if device_ids is not None:
+                first_psf_key = list(train_set.psf.keys())[device_ids[0]]
+            else:
+                first_psf_key = list(train_set.psf.keys())[0]
             psf = train_set.psf[first_psf_key].to(device)
         else:
             psf = train_set.psf.to(device)
         crop = test_set.crop  # same for train set
-        alignment = test_set.alignment
 
         # -- if learning mask
         mask = prep_trainable_mask(config, psf)
         if mask is not None:
             assert not train_set.multimask
-            # plot initial PSF
-            psf_np = mask.get_psf().detach().cpu().numpy()[0, ...]
-            if config.trainable_mask.grayscale:
-                psf_np = psf_np[:, :, -1]
-
-            save_image(psf_np, os.path.join(save, "psf_initial.png"))
-            plot_image(psf_np, gamma=config.display.gamma)
-            plt.savefig(os.path.join(save, "psf_initial_plot.png"))
 
     else:
 
         train_set, test_set, mask = simulate_dataset(config, generator=generator)
         psf = train_set.psf
         crop = train_set.crop
+
+    if not hasattr(train_set, "multimask"):
+        train_set.multimask = False
+    if not hasattr(test_set, "multimask"):
+        test_set.multimask = False
 
     assert train_set is not None
     # if not hasattr(test_set, "psfs"):
@@ -275,9 +273,11 @@ def train_unrolled(config):
         extra_eval_sets = dict()
         for eval_set in config.files.extra_eval:
 
-            extra_eval_sets[eval_set] = DigiCam(
+            extra_eval_sets[eval_set] = HFDataset(
                 split="test",
                 downsample=config.files.downsample,  # needs to be same size
+                n_files=config.files.n_files,
+                simulation_config=config.simulation,
                 **config.files.extra_eval[eval_set],
             )
 
@@ -311,13 +311,14 @@ def train_unrolled(config):
                 # -- plot lensed and res on top of each other
                 cropped = False
 
-                if alignment is not None:
-                    top_right = alignment["topright"]
-                    height = alignment["height"]
-                    width = alignment["width"]
-                    res_np = res_np[
-                        top_right[0] : top_right[0] + height, top_right[1] : top_right[1] + width
-                    ]
+                if hasattr(test_set, "alignment"):
+                    if test_set.alignment is not None:
+                        res_np = test_set.extract_roi(res_np, axis=(0, 1))
+                    else:
+                        res_np, lensed_np = test_set.extract_roi(
+                            res_np, lensed=lensed_np, axis=(0, 1)
+                        )
+
                     cropped = True
 
                 elif config.training.crop_preloss:
@@ -492,6 +493,7 @@ def train_unrolled(config):
         clip_grad=config.training.clip_grad,
         unrolled_output_factor=config.unrolled_output_factor,
         extra_eval_sets=extra_eval_sets if config.files.extra_eval is not None else None,
+        use_wandb=True if config.wandb_project is not None else False,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)
@@ -500,4 +502,4 @@ def train_unrolled(config):
 
 
 if __name__ == "__main__":
-    train_unrolled()
+    train_learned()

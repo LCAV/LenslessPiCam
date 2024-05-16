@@ -213,7 +213,7 @@ def liveview(config):
 
     # save image as viewable 8 bit
     fp = os.path.join(save, f"{fn}_8bit.png")
-    save_image(img, fp)
+    save_image(img, fp, normalize=True)
 
     # plot RGB
     if plot:

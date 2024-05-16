@@ -10,6 +10,8 @@
 import numpy as np
 from lensless.recon.recon import ReconstructionAlgorithm
 from scipy import fft
+from lensless.utils.io import load_data
+import time
 
 try:
     import torch
@@ -45,7 +47,7 @@ class ADMM(ReconstructionAlgorithm):
         norm="backward",
         # PnP
         denoiser=None,
-        **kwargs
+        **kwargs,
     ):
         """
 
@@ -393,3 +395,25 @@ def finite_diff_gram(shape, dtype=None, is_torch=False):
         return torch.fft.rfft2(gram, dim=(-3, -2))
     else:
         return fft.rfft2(gram, axes=(-3, -2))
+
+
+def apply_admm(psf_fp, data_fp, n_iter, verbose=False, **kwargs):
+
+    # load data
+    psf, data = load_data(psf_fp=psf_fp, data_fp=data_fp, plot=False, **kwargs)
+
+    # create reconstruction object
+    recon = ADMM(psf, n_iter=n_iter)
+
+    # set data
+    recon.set_data(data)
+
+    # perform reconstruction
+    start_time = time.time()
+    res = recon.apply(plot=False)
+    proc_time = time.time() - start_time
+
+    if verbose:
+        print(f"Reconstruction time : {proc_time} s")
+        print(f"Reconstruction shape: {res.shape}")
+    return res
