@@ -375,6 +375,7 @@ def load_psf(
 def load_data(
     psf_fp,
     data_fp,
+    background_fp=None,
     return_float=True,
     downsample=None,
     bg_pix=(5, 25),
@@ -484,8 +485,29 @@ def load_data(
         as_4d=True,
         return_float=return_float,
         shape=shape,
-        normalize=normalize,
+        normalize=normalize if background_fp is None else False,
     )
+
+    if background_fp is not None:
+        bg = load_image(
+            background_fp,
+            flip=flip,
+            bayer=bayer,
+            blue_gain=blue_gain,
+            red_gain=red_gain,
+            as_4d=True,
+            return_float=return_float,
+            shape=shape,
+            normalize=False,
+        )
+        assert bg.shape == data.shape
+
+        data -= bg
+        # clip to 0
+        data = np.clip(data, a_min=0, a_max=data.max())
+
+        if normalize:
+            data /= data.max()
 
     if data.shape != psf.shape:
         # in DiffuserCam dataset, images are already reshaped

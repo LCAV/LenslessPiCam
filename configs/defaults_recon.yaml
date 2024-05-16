@@ -9,6 +9,7 @@ input:
   data: data/raw_data/thumbs_up_rgb.png
   dtype: float32
   original: null   # ground truth image
+  background: null   # background image
 
 torch: False
 torch_device: 'cpu'
