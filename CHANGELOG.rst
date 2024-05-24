@@ -28,6 +28,7 @@ Added
 - Fallback for normalization if data not in 8bit range (``lensless.utils.io.save_image``).
 - Add utilities for fabricating masks with 3D printing (``lensless.hardware.fabrication``).
 - WandB support.
+- Script for Mask adapter generation and update new mount in doc
 
 Changed
 ~~~~~~~
