@@ -216,6 +216,7 @@ def train_learned(config):
             save_psf=config.files.save_psf,
             n_files=config.files.n_files,
             simulation_config=config.simulation,
+            force_rgb=config.files.force_rgb,
         )
         test_set = HFDataset(
             huggingface_repo=config.files.dataset,
@@ -229,6 +230,7 @@ def train_learned(config):
             save_psf=config.files.save_psf,
             n_files=config.files.n_files,
             simulation_config=config.simulation,
+            force_rgb=config.files.force_rgb,
         )
         if train_set.multimask:
             # get first PSF for initialization

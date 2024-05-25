@@ -39,6 +39,7 @@ files:
     # horizontal: null
   image_res: null   # for measured data, what resolution used at screen
   extra_eval: null  # dict of extra datasets to evaluate on
+  force_rgb: False
 
 alignment: null
 #   top_left: null    # height, width
@@ -62,7 +63,7 @@ display:
 save: True
 
 reconstruction:
-  # Method: unrolled_admm, unrolled_fista
+  # Method: unrolled_admm, unrolled_fista, trainable_inv
   method: unrolled_admm
   skip_unrolled: False
   init_processors: null   # model name
@@ -127,7 +128,8 @@ simulation:
   # these distance parameters are typically fixed for a given PSF
   # for DiffuserCam psf # for tape_rgb psf     
   scene2mask: 10e-2     # scene2mask: 40e-2       
-  mask2sensor: 9e-3     # mask2sensor: 4e-3       
+  mask2sensor: 9e-3     # mask2sensor: 4e-3    
+  deadspace: True    # whether to account for deadspace for programmable mask   
   # see waveprop.devices
   use_waveprop: False    # for PSF simulation
   sensor: "rpi_hq"

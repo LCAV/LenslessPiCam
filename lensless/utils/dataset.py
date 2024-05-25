@@ -28,6 +28,7 @@ from huggingface_hub import hf_hub_download
 import cv2
 from lensless.hardware.sensor import sensor_dict, SensorParam
 from scipy.ndimage import rotate
+import warnings
 
 
 def convert(text):
@@ -1035,6 +1036,7 @@ class HFDataset(DualDataset):
         return_mask_label=False,
         save_psf=False,
         simulation_config=dict(),
+        force_rgb=False,
         **kwargs,
     ):
         """
@@ -1087,6 +1089,7 @@ class HFDataset(DualDataset):
         self.rotate = rotate
         self.display_res = display_res
         self.return_mask_label = return_mask_label
+        self.force_rgb = force_rgb  # if some data is not 3D
 
         # deduce downsampling factor from the first image
         data_0 = self.dataset[0]
@@ -1105,7 +1108,6 @@ class HFDataset(DualDataset):
         self.alignment = None
         self.crop = None
         if alignment is not None:
-            # preparing ground-truth in expected shape
             if "top_left" in alignment:
                 self.alignment = dict(alignment.copy())
                 self.alignment["top_left"] = (
@@ -1117,9 +1119,7 @@ class HFDataset(DualDataset):
                 original_aspect_ratio = display_res[1] / display_res[0]
                 self.alignment["width"] = int(self.alignment["height"] * original_aspect_ratio)
 
-            # preparing ground-truth as simulated measurement of original
             elif "crop" in alignment:
-                assert "simulation" in alignment, "Simulation config should be provided"
                 self.crop = dict(alignment["crop"].copy())
                 self.crop["vertical"][0] = int(self.crop["vertical"][0] / downsample)
                 self.crop["vertical"][1] = int(self.crop["vertical"][1] / downsample)
@@ -1139,6 +1139,7 @@ class HFDataset(DualDataset):
                 return_bg=True,
                 flip=rotate,
                 bg_pix=(0, 15),
+                force_rgb=force_rgb,
             )
             self.psf = torch.from_numpy(psf)
 
@@ -1167,6 +1168,7 @@ class HFDataset(DualDataset):
                     use_waveprop=simulation_config.get("use_waveprop", False),
                     scene2mask=simulation_config.get("scene2mask", None),
                     mask2sensor=simulation_config.get("mask2sensor", None),
+                    deadspace=simulation_config.get("deadspace", True),
                 )
                 self.psf[label] = mask.get_psf().detach()
 
@@ -1194,6 +1196,7 @@ class HFDataset(DualDataset):
                 use_waveprop=simulation_config.get("use_waveprop", False),
                 scene2mask=simulation_config.get("scene2mask", None),
                 mask2sensor=simulation_config.get("mask2sensor", None),
+                deadspace=simulation_config.get("deadspace", True),
             )
             self.psf = mask.get_psf().detach()
             assert (
@@ -1231,6 +1234,21 @@ class HFDataset(DualDataset):
         # load image
         lensless_np = np.array(self.dataset[idx]["lensless"])
         lensed_np = np.array(self.dataset[idx]["lensed"])
+
+        if self.force_rgb:
+            if len(lensless_np.shape) == 2:
+                warnings.warn(f"Converting lensless[{idx}] to RGB")
+                lensless_np = np.stack([lensless_np] * 3, axis=2)
+            elif len(lensless_np.shape) == 3:
+                pass
+            else:
+                raise ValueError(f"lensless[{idx}] should be 2D or 3D")
+
+            if len(lensed_np.shape) == 2:
+                warnings.warn(f"Converting lensed[{idx}] to RGB")
+                lensed_np = np.stack([lensed_np] * 3, axis=2)
+            elif len(lensed_np.shape) == 3:
+                pass
 
         # convert to float
         if lensless_np.dtype == np.uint8:

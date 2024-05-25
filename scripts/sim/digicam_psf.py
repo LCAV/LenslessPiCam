@@ -12,6 +12,7 @@ from lensless.hardware.sensor import VirtualSensor
 from lensless.hardware.slm import get_programmable_mask, get_intensity_psf
 from waveprop.devices import slm_dict
 from waveprop.devices import SLMParam as SLMParam_wp
+from huggingface_hub import hf_hub_download
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="sim_digicam_psf")
@@ -19,7 +20,25 @@ def digicam_psf(config):
 
     output_folder = os.getcwd()
 
-    fp = to_absolute_path(config.digicam.pattern)
+    # get file paths
+    fp_psf = None
+    if config.huggingface_repo is not None:
+        # download from huggingface
+        fp = hf_hub_download(
+            repo_id=config.huggingface_repo,
+            filename=config.huggingface_mask_pattern,
+            repo_type="dataset",
+        )
+        if config.huggingface_psf is not None:
+            fp_psf = hf_hub_download(
+                repo_id=config.huggingface_repo,
+                filename=config.huggingface_psf,
+                repo_type="dataset",
+            )
+    else:
+        fp = to_absolute_path(config.digicam.pattern)
+        if config.digicam.psf is not None:
+            fp_psf = to_absolute_path(config.digicam.psf)
     bn = os.path.basename(fp).split(".")[0]
 
     # digicam config
@@ -27,7 +46,10 @@ def digicam_psf(config):
     ap_shape = np.array(config.digicam.ap_shape)
     rotate_angle = config.digicam.rotate
     slm_param = slm_dict[config.digicam.slm]
-    sensor = VirtualSensor.from_name(config.digicam.sensor, downsample=config.digicam.downsample)
+    sensor = VirtualSensor.from_name(
+        config.digicam.sensor,
+        downsample=config.digicam.downsample if config.digicam.downsample > 1 else None,
+    )
 
     # simulation parameters
     scene2mask = config.sim.scene2mask
@@ -110,6 +132,7 @@ def digicam_psf(config):
         rotate=rotate_angle,
         flipud=config.sim.flipud,
         color_filter=color_filter,
+        deadspace=config.sim.deadspace,
     )
 
     if config.digicam.vertical_shift is not None:
@@ -151,10 +174,9 @@ def digicam_psf(config):
 
     # plot
     psf_meas = None
-    if config.digicam.psf is not None:
-        fp_psf = to_absolute_path(config.digicam.psf)
+    if fp_psf is not None:
         if os.path.exists(fp_psf):
-            psf_meas = load_psf(fp_psf)
+            psf_meas = load_psf(fp_psf, downsample=config.digicam.downsample)
         else:
             print("Could not load PSF image from: ", fp_psf)
 
@@ -163,7 +185,8 @@ def digicam_psf(config):
     ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
     ax.set_axis_off()
     fig.add_axes(ax)
-    ax.imshow(psf_in_np)
+    # ax.imshow(psf_in_np / np.max(psf_in_np))
+    plot_image(psf_in_np, gamma=config.digicam.gamma, normalize=True, ax=ax)
     ax.set_xticks([])
     ax.set_yticks([])
     plt.savefig(fp)
@@ -188,7 +211,7 @@ def digicam_psf(config):
 
         plt.figure()
         plt.imshow(psf_in_np_norm, alpha=0.7)
-        plt.imshow(psf_meas_norm, alpha=0.7)
+        plt.imshow(psf_meas_norm, alpha=0.4)
         plt.savefig(fp)
 
     # save PSF as png
