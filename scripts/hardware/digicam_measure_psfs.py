@@ -8,7 +8,7 @@ from PIL import Image
 SATURATION_THRESHOLD = 0.01
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="digicam")
+@hydra.main(version_base=None, config_path="../../configs", config_name="digicam_config")
 def config_digicam(config):
 
     rpi_username = config.rpi.username

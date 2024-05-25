@@ -11,7 +11,7 @@ from lensless.hardware.aperture import rect_aperture, circ_aperture
 from lensless.hardware.utils import set_mask_sensor_distance
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="digicam")
+@hydra.main(version_base=None, config_path="../../configs", config_name="digicam_config")
 def config_digicam(config):
 
     rpi_username = config.rpi.username
