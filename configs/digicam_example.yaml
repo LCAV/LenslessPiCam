@@ -1,0 +1,40 @@
+# python scripts/measure/digicam_example.py
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+rpi:
+  username: null
+  hostname: null
+
+# mask parameters
+mask:
+  fp: null  # provide path, otherwise generate with seed
+  seed: 1
+  shape: [54, 26]
+  center: [57, 77]
+
+# measurement parameters
+capture:
+  fp: null
+  exp: 0.5
+  sensor: rpi_hq
+  script: ~/LenslessPiCam/scripts/measure/on_device_capture.py
+  iso: 100
+  config_pause: 1
+  sensor_mode: "0"
+  nbits_out: 8
+  nbits_capture: 12
+  legacy: True
+  gray: False
+  fn: raw_data
+  bayer: True
+  awb_gains: [1.6, 1.2]
+  rgb: True
+  down: 8
+  flip: True
+
+# reconstruction parameters
+recon:
+  torch_device: 'cpu'
+  n_iter: 100    # number of iterations of ADMM
