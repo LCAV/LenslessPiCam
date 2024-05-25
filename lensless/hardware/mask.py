@@ -219,7 +219,7 @@ class Mask(abc.ABC):
 
         if self.use_torch:
             psf = torch.zeros(
-                tuple(self.resolution) + (len(self.psf_wavelength),),
+                tuple(self.resolution) + (len(wavelength),),
                 dtype=torch.complex64,
                 device=self.torch_device,
             )
