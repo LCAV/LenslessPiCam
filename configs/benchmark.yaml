@@ -86,7 +86,8 @@ simulation:
   # mask2sensor: 9e-3     # mask2sensor: 4e-3  
   # -- for CelebA
   scene2mask: 0.25   # [m]
-  mask2sensor: 0.002   # [m]     
+  mask2sensor: 0.002   # [m] 
+  deadspace: True    # whether to account for deadspace for programmable mask      
   # see waveprop.devices
   use_waveprop: False    # for PSF simulation
   sensor: "rpi_hq"

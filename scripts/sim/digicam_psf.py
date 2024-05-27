@@ -206,7 +206,6 @@ def digicam_psf(config):
         # plot overlayed
         fp = os.path.join(output_folder, "psf_overlay.png")
         psf_meas_norm = psf_meas[0] / np.max(psf_meas)
-        # psf_meas_norm = gamma_correction(psf_meas_norm, gamma=config.digicam.gamma)
         psf_in_np_norm = psf_in_np / np.max(psf_in_np)
 
         plt.figure()

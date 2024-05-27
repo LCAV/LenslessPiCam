@@ -19,6 +19,7 @@ from lensless import ADMM
 from lensless.utils.io import save_image
 from lensless.hardware.trainable_mask import AdafruitLCD
 from lensless.utils.io import load_image
+from lensless.utils.image import gamma_correction
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="digicam_example")
@@ -32,6 +33,7 @@ def digicam(config):
     mask_center = config.mask.center
     torch_device = config.recon.torch_device
     capture_config = config.capture
+    simulation_config = config.simulation
 
     # load mask
     if mask_fp is not None:
@@ -48,13 +50,26 @@ def digicam(config):
         slm="adafruit",
         downsample=capture_config["down"],
         flipud=capture_config["flip"],
+        use_waveprop=simulation_config.get("use_waveprop", False),
+        scene2mask=simulation_config.get("scene2mask", None),
+        mask2sensor=simulation_config.get("mask2sensor", None),
+        deadspace=simulation_config.get("deadspace", True),
         # color_filter=color_filter,
     )
     psf = mask.get_psf().to(torch_device).detach()
     psf_fp = "digicam_psf.png"
-    save_image(psf[0].cpu().numpy(), psf_fp)
+
+    psf_np = psf[0].cpu().numpy()
+    gamma = simulation_config.get("gamma", None)
+    if gamma is not None:
+        psf_np = psf_np / psf_np.max()
+        psf_np = gamma_correction(psf_np, gamma=gamma)
+
+    save_image(psf_np, psf_fp)
     print(f"PSF shape: {psf.shape}")
     print(f"PSF saved to {psf_fp}")
+
+    raise ValueError
 
     if measurement_fp is not None:
         # load image
