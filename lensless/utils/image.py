@@ -32,7 +32,7 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
     Parameters
     ----------
     img : :py:class:`~numpy.ndarray`
-        Downsampled image.
+        Image to downsample
     factor : int or float
         Resizing factor.
     shape : tuple
