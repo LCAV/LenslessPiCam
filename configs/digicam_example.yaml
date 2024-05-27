@@ -10,7 +10,7 @@ rpi:
 # mask parameters
 mask:
   fp: null  # provide path, otherwise generate with seed
-  seed: 1
+  seed: 0
   shape: [54, 26]
   center: [57, 77]
 

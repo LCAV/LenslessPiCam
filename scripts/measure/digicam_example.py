@@ -72,7 +72,7 @@ def digicam(config):
         )
 
         # -- set mask
-        print("Setting mask")
+        print("Setting mask...")
         set_programmable_mask(
             pattern,
             "adafruit",
@@ -81,7 +81,7 @@ def digicam(config):
         )
 
         # -- capture
-        print("Capturing")
+        print("Capturing...")
         localfile, img = capture(
             rpi_username=rpi_username,
             rpi_hostname=rpi_hostname,
