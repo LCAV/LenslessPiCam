@@ -54,8 +54,9 @@ class Mask(abc.ABC):
         size=None,
         feature_size=None,
         psf_wavelength=[460e-9, 550e-9, 640e-9],
-        is_torch=False,
+        use_torch=False,
         torch_device="cpu",
+        centered=True,
         **kwargs,
     ):
         """
@@ -73,6 +74,12 @@ class Mask(abc.ABC):
             Size of the feature (m). Only one of ``size`` or ``feature_size`` needs to be specified.
         psf_wavelength: list, optional
             List of wavelengths to simulate PSF (m). Default is [460e-9, 550e-9, 640e-9] nm (blue, green, red).
+        use_torch : bool, optional
+            If True, the mask is created as a torch tensor. Default is False.
+        torch_device : str, optional
+            Device to use for torch tensor. Default is 'cpu'.
+        centered: bool, optional
+            If True, the mask is centered. Default is True.
         """
 
         resolution = np.array(resolution)
@@ -100,21 +107,22 @@ class Mask(abc.ABC):
         self.resolution = resolution
         self.resolution = (int(self.resolution[0]), int(self.resolution[1]))
         self.size = size
+        self.centered = centered
         if feature_size is None:
             self.feature_size = self.size / self.resolution
         else:
             self.feature_size = feature_size
         self.distance_sensor = distance_sensor
 
-        if is_torch:
+        if use_torch:
             assert torch_available, "PyTorch is not available"
-        self.is_torch = is_torch
+        self.use_torch = use_torch
         self.torch_device = torch_device
 
         # create mask
-        self.phase_pattern = None  # for phase masks
+        self.height_map = None  # for phase masks
         self.create_mask()  # creates self.mask
-        self.shape = self.mask.shape
+        self.shape = self.height_map.shape if self.height_map is not None else self.mask.shape
 
         # PSF
         assert hasattr(psf_wavelength, "__len__"), "psf_wavelength should be a list"
@@ -161,7 +169,31 @@ class Mask(abc.ABC):
         """
         pass
 
-    def compute_psf(self, distance_sensor=None):
+    def height_map_to_field(self, wavelength, return_phase=False):
+        """
+        Compute phase from height map.
+
+        Parameters
+        ----------
+        height_map: :py:class:`~numpy.ndarray`
+            Height map.
+        wavelength: float
+            Wavelength of the light (m).
+        return_phase: bool, optional
+            If True, return the phase instead of the field. Default is False.
+        """
+        assert self.height_map is not None, "Height map should be computed first."
+        assert self.refractive_index is not None, "Refractive index should be specified."
+
+        phase_pattern = self.height_map * (self.refractive_index - 1) * 2 * np.pi / wavelength
+        if return_phase:
+            return phase_pattern
+        else:
+            return (
+                np.exp(1j * phase_pattern) if not self.use_torch else torch.exp(1j * phase_pattern)
+            )
+
+    def compute_psf(self, distance_sensor=None, wavelength=None, intensity=True):
         """
         Compute the intensity PSF with bandlimited angular spectrum (BLAS) for each wavelength.
         Common to all types of masks.
@@ -170,6 +202,8 @@ class Mask(abc.ABC):
         ----------
         distance_sensor: float, optional
             Distance between mask and sensor (m). Default is the distance specified at initialization.
+        wavelength: float or array_like, optional
+            Wavelength(s) to compute the PSF (m). Default is the list of wavelengths specified at initialization.
         """
         if distance_sensor is not None:
             self.distance_sensor = distance_sensor
@@ -177,30 +211,38 @@ class Mask(abc.ABC):
             self.distance_sensor is not None
         ), "Distance between mask and sensor should be specified."
 
-        if self.is_torch:
+        if wavelength is None:
+            wavelength = self.psf_wavelength
+        else:
+            if not hasattr(wavelength, "__len__"):
+                wavelength = [wavelength]
+
+        if self.use_torch:
             psf = torch.zeros(
                 tuple(self.resolution) + (len(self.psf_wavelength),),
                 dtype=torch.complex64,
                 device=self.torch_device,
             )
         else:
-            psf = np.zeros(tuple(self.resolution) + (len(self.psf_wavelength),), dtype=np.complex64)
-        for i, wv in enumerate(self.psf_wavelength):
+            psf = np.zeros(tuple(self.resolution) + (len(wavelength),), dtype=np.complex64)
+        for i, wv in enumerate(wavelength):
             psf[:, :, i] = angular_spectrum(
-                u_in=self.mask,
+                u_in=self.mask if self.height_map is None else self.height_map_to_field(wv),
                 wv=wv,
                 d1=self.feature_size,
                 dz=self.distance_sensor,
-                dtype=np.float32 if not self.is_torch else torch.float32,
+                dtype=np.float32 if not self.use_torch else torch.float32,
                 bandlimit=True,
-                device=self.torch_device if self.is_torch else None,
+                device=self.torch_device if self.use_torch else None,
             )[0]
 
         # intensity PSF
-        if self.is_torch:
-            self.psf = torch.abs(psf) ** 2
+        if intensity:
+            self.psf = np.abs(psf) ** 2 if not self.use_torch else torch.abs(psf) ** 2
         else:
-            self.psf = np.abs(psf) ** 2
+            self.psf = psf
+
+        return self.psf
 
     def plot(self, ax=None, **kwargs):
         """
@@ -217,18 +259,26 @@ class Mask(abc.ABC):
         if ax is None:
             _, ax = plt.subplots()
 
-        if self.phase_pattern is not None:
-            mask = self.phase_pattern
-            title = "Phase pattern"
+        if self.height_map is not None:
+            mask = self.height_map
+            title = "Height map"
         else:
             mask = self.mask
-            title = "Mask"
-        if self.is_torch:
+            title = "Amplitude mask"
+        if self.use_torch:
             mask = mask.cpu().numpy()
 
-        ax.imshow(
-            mask, extent=(0, 1e3 * self.size[1], 1e3 * self.size[0], 0), cmap="gray", **kwargs
-        )
+        if self.centered:
+            extent = (
+                -self.size[1] / 2 * 1e3,
+                self.size[1] / 2 * 1e3,
+                self.size[0] / 2 * 1e3,
+                -self.size[0] / 2 * 1e3,
+            )
+        else:
+            extent = (0, self.size[1] * 1e3, self.size[0] * 1e3, 0)
+
+        ax.imshow(mask, extent=extent, cmap="gray", **kwargs)
         ax.set_title(title)
         ax.set_xlabel("[mm]")
         ax.set_ylabel("[mm]")
@@ -301,7 +351,7 @@ class CodedAperture(Mask):
 
         # output product if necessary
         if self.row is not None:
-            if self.is_torch:
+            if self.use_torch:
                 self.mask = torch.outer(self.row, self.col)
                 self.mask = torch.round((self.mask + 1) / 2).to(torch.uint8)
             else:
@@ -312,7 +362,7 @@ class CodedAperture(Mask):
         # resize to sensor shape
         if np.any(self.resolution != self.mask.shape):
 
-            if self.is_torch:
+            if self.use_torch:
                 self.mask = self.mask.unsqueeze(0).unsqueeze(0)
                 self.mask = torch.nn.functional.interpolate(
                     self.mask, size=tuple(self.resolution), mode="nearest"
@@ -434,7 +484,6 @@ class MultiLensArray(Mask):
         radius=None,
         loc=None,
         refractive_index=1.2,
-        design_wv=532e-9,
         seed=0,
         min_height=1e-5,
         radius_range=(1e-4, 4e-4),
@@ -455,8 +504,6 @@ class MultiLensArray(Mask):
             Location of the lenses (m).
         refractive_index: float
             Refractive index of the mask substrate. Default is 1.2.
-        design_wv: float
-            Wavelength used to design the mask (m). Default is 532e-9.
         seed: int
             Seed for the random number generator. Default is 0.
         min_height: float
@@ -472,7 +519,6 @@ class MultiLensArray(Mask):
         self.radius = radius
         self.loc = loc
         self.refractive_index = refractive_index
-        self.wavelength = design_wv
         self.seed = seed
         self.min_height = min_height
         self.radius_range = radius_range
@@ -491,7 +537,7 @@ class MultiLensArray(Mask):
             self.radius_range[0] < self.radius_range[1]
         ), "Minimum radius should be smaller than maximum radius"
         if self.radius is not None:
-            if self.is_torch:
+            if self.use_torch:
                 assert torch.all(self.radius >= 0)
             else:
                 assert np.all(self.radius >= 0)
@@ -504,7 +550,7 @@ class MultiLensArray(Mask):
             self.N = len(self.radius)
             circles = (
                 np.array([(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)])
-                if not self.is_torch
+                if not self.use_torch
                 else torch.tensor(
                     [(self.loc[i][0], self.loc[i][1], self.radius[i]) for i in range(self.N)]
                 ).to(self.torch_device)
@@ -520,7 +566,9 @@ class MultiLensArray(Mask):
             self.radius = np.random.uniform(self.radius_range[0], self.radius_range[1], self.N)
             # radius get sorted in descending order
             self.loc, self.radius = self.place_spheres_on_plane(self.radius)
-            if self.is_torch:
+            if self.centered:
+                self.loc = self.loc - np.array(self.size) / 2
+            if self.use_torch:
                 self.radius = torch.tensor(self.radius).to(self.torch_device)
                 self.loc = torch.tensor(self.loc).to(self.torch_device)
 
@@ -594,35 +642,32 @@ class MultiLensArray(Mask):
         # convert to pixels (assume same size for x and y)
         locs_pix = self.loc * (1 / self.feature_size[0])
         radius_pix = self.radius * (1 / self.feature_size[0])
-        height = self.create_height_map(radius_pix, locs_pix)
-        self.phase_pattern = height * (self.refractive_index - 1) * 2 * np.pi / self.wavelength
-        self.mask = (
-            np.exp(1j * self.phase_pattern)
-            if not self.is_torch
-            else torch.exp(1j * self.phase_pattern)
-        )
+        self.height_map = self.create_height_map(radius_pix, locs_pix)
 
     def create_height_map(self, radius, locs):
         height = (
             np.full((self.resolution[0], self.resolution[1]), self.min_height).astype(np.float32)
-            if not self.is_torch
+            if not self.use_torch
             else torch.full((self.resolution[0], self.resolution[1]), self.min_height).to(
                 self.torch_device, dtype=torch.float32
             )
         )
         x = (
             np.arange(self.resolution[0]).astype(np.float32)
-            if not self.is_torch
+            if not self.use_torch
             else torch.arange(self.resolution[0]).to(self.torch_device)
         )
         y = (
             np.arange(self.resolution[1]).astype(np.float32)
-            if not self.is_torch
+            if not self.use_torch
             else torch.arange(self.resolution[1]).to(self.torch_device)
         )
+        if self.centered:
+            x = x - self.resolution[0] / 2
+            y = y - self.resolution[1] / 2
         X, Y = (
             np.meshgrid(x, y, indexing="ij")
-            if not self.is_torch
+            if not self.use_torch
             else torch.meshgrid(x, y, indexing="ij")
         )
         for idx, rad in enumerate(radius):
@@ -635,7 +680,7 @@ class MultiLensArray(Mask):
     def lens_contribution(self, x, y, radius, loc):
         return (
             np.sqrt(radius**2 - (x - loc[1]) ** 2 - (y - loc[0]) ** 2)
-            if not self.is_torch
+            if not self.use_torch
             else torch.sqrt(radius**2 - (x - loc[1]) ** 2 - (y - loc[0]) ** 2)
         )
 
@@ -697,7 +742,7 @@ class PhaseContour(Mask):
         assert (
             self.distance_sensor is not None
         ), "Distance between mask and sensor should be specified."
-        phase_mask, height_map = phase_retrieval(
+        _, height_map = phase_retrieval(
             target_psf=self.target_psf,
             wv=self.design_wv,
             d1=self.feature_size,
@@ -707,8 +752,6 @@ class PhaseContour(Mask):
             height_map=True,
         )
         self.height_map = height_map
-        self.phase_pattern = phase_mask
-        self.mask = np.exp(1j * phase_mask)
 
 
 def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):

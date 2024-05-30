@@ -84,10 +84,10 @@ def apply_pretrained(config):
     if save:
         print(f"Saving images to {os.getcwd()}")
         alignment = test_set.alignment
-        top_right = alignment["topright"]
+        top_left = alignment["top_left"]
         height = alignment["height"]
         width = alignment["width"]
-        res_np = img[top_right[0] : top_right[0] + height, top_right[1] : top_right[1] + width]
+        res_np = img[top_left[0] : top_left[0] + height, top_left[1] : top_left[1] + width]
         lensed_np = lensed[0].cpu().numpy()
         save_image(lensed_np, f"original_idx{idx}.png")
         save_image(res_np, f"{model_name}_idx{idx}.png")

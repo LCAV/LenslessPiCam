@@ -378,11 +378,14 @@ def load_psf(
 def load_data(
     psf_fp,
     data_fp,
+    background_fp=None,
     return_float=True,
     downsample=None,
     bg_pix=(5, 25),
     plot=True,
     flip=False,
+    flip_ud=False,
+    flip_lr=False,
     bayer=False,
     blue_gain=None,
     red_gain=None,
@@ -391,7 +394,7 @@ def load_data(
     dtype=None,
     single_psf=False,
     shape=None,
-    torch=False,
+    use_torch=False,
     torch_device="cpu",
     normalize=False,
     bgr_input=True,
@@ -468,6 +471,8 @@ def load_data(
         bg_pix=bg_pix,
         return_bg=True,
         flip=flip,
+        flip_ud=flip_ud,
+        flip_lr=flip_lr,
         bayer=bayer,
         blue_gain=blue_gain,
         red_gain=red_gain,
@@ -482,6 +487,8 @@ def load_data(
     data = load_image(
         data_fp,
         flip=flip,
+        flip_ud=flip_ud,
+        flip_lr=flip_lr,
         bayer=bayer,
         blue_gain=blue_gain,
         red_gain=red_gain,
@@ -489,9 +496,31 @@ def load_data(
         as_4d=True,
         return_float=return_float,
         shape=shape,
-        normalize=normalize,
+        normalize=normalize if background_fp is None else False,
         bgr_input=bgr_input,
     )
+
+    if background_fp is not None:
+        bg = load_image(
+            background_fp,
+            flip=flip,
+            bayer=bayer,
+            blue_gain=blue_gain,
+            red_gain=red_gain,
+            as_4d=True,
+            return_float=return_float,
+            shape=shape,
+            normalize=False,
+            bgr_input=bgr_input,
+        )
+        assert bg.shape == data.shape
+
+        data -= bg
+        # clip to 0
+        data = np.clip(data, a_min=0, a_max=data.max())
+
+        if normalize:
+            data /= data.max()
 
     if data.shape != psf.shape:
         # in DiffuserCam dataset, images are already reshaped
@@ -528,7 +557,7 @@ def load_data(
 
     psf = np.array(psf, dtype=dtype)
     data = np.array(data, dtype=dtype)
-    if torch:
+    if use_torch:
         import torch
 
         if dtype == np.float32:

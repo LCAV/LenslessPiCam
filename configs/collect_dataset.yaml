@@ -24,6 +24,7 @@ min_level: 200
 max_tries: 6
 
 masks: null   # for multi-mask measurements
+recon: null   # parameters for reconstruction (for debugging purposes, not recommended to do during actual measurement as it will significantly increase the time)
 
 # -- display parameters
 display:

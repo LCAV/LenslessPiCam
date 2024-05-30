@@ -104,7 +104,6 @@ def train_learned(config):
     test_set = None
     psf = None
     crop = None
-    alignment = None  # very similar to crop, TODO: should switch to this approach
     mask = None
     if "DiffuserCam" in config.files.dataset and config.files.huggingface_dataset is False:
 
@@ -216,6 +215,7 @@ def train_learned(config):
             alignment=config.alignment,
             save_psf=config.files.save_psf,
             n_files=config.files.n_files,
+            simulation_config=config.simulation,
         )
         test_set = HFDataset(
             huggingface_repo=config.files.dataset,
@@ -228,6 +228,7 @@ def train_learned(config):
             alignment=config.alignment,
             save_psf=config.files.save_psf,
             n_files=config.files.n_files,
+            simulation_config=config.simulation,
         )
         if train_set.multimask:
             # get first PSF for initialization
@@ -239,7 +240,6 @@ def train_learned(config):
         else:
             psf = train_set.psf.to(device)
         crop = test_set.crop  # same for train set
-        alignment = test_set.alignment
 
         # -- if learning mask
         mask = prep_trainable_mask(config, psf)
@@ -277,6 +277,7 @@ def train_learned(config):
                 split="test",
                 downsample=config.files.downsample,  # needs to be same size
                 n_files=config.files.n_files,
+                simulation_config=config.simulation,
                 **config.files.extra_eval[eval_set],
             )
 
@@ -310,13 +311,14 @@ def train_learned(config):
                 # -- plot lensed and res on top of each other
                 cropped = False
 
-                if alignment is not None:
-                    top_right = alignment["topright"]
-                    height = alignment["height"]
-                    width = alignment["width"]
-                    res_np = res_np[
-                        top_right[0] : top_right[0] + height, top_right[1] : top_right[1] + width
-                    ]
+                if hasattr(test_set, "alignment"):
+                    if test_set.alignment is not None:
+                        res_np = test_set.extract_roi(res_np, axis=(0, 1))
+                    else:
+                        res_np, lensed_np = test_set.extract_roi(
+                            res_np, lensed=lensed_np, axis=(0, 1)
+                        )
+
                     cropped = True
 
                 elif config.training.crop_preloss:

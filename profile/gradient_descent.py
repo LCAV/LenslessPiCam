@@ -97,7 +97,7 @@ psf, data = load_data(
     plot=False,
     gray=gray,
     dtype=dtype,
-    torch=True,
+    use_torch=True,
 )
 
 recon = FISTA(psf, dtype=dtype)
@@ -120,7 +120,7 @@ psf, data = load_data(
     plot=False,
     gray=gray,
     dtype=dtype,
-    torch=True,
+    use_torch=True,
     torch_device="cuda",
 )
 

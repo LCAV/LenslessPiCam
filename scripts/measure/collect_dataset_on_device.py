@@ -89,6 +89,22 @@ def collect_dataset(config):
                 mask_vals = np.random.uniform(0, 1, config.masks.shape)
                 np.save(mask_fp, mask_vals)
 
+    recon = None
+    if config.recon is not None:
+        # initialize ADMM reconstruction
+        from lensless import ADMM
+        from lensless.utils.io import load_psf
+
+        psf, bg = load_psf(
+            fp=config.recon.psf,
+            downsample=config.capture.down,   # assume full resolution PSF
+            return_bg=True
+        )
+        recon = ADMM(psf, n_iter=config.recon.n_iter)
+
+        recon_dir = plib.Path(output_dir) / "recon"
+        recon_dir.mkdir(exist_ok=True)
+
     # assert input directory exists
     assert os.path.exists(input_dir)
 
@@ -270,7 +286,7 @@ def collect_dataset(config):
                             )[0]
 
                         # save image
-                        save_image(output, output_fp)
+                        save_image(output, output_fp, normalize=False)
 
                         # print range
                         print(f"{output_fp}, range: {output.min()} - {output.max()}")
@@ -314,6 +330,23 @@ def collect_dataset(config):
                     exposure_vals.append(current_shutter_speed / 1e6)
                     brightness_vals.append(current_screen_brightness)
                     n_tries_vals.append(n_tries)
+
+        if recon is not None:
+
+            # normalize and remove background
+            output = output.astype(np.float32)
+            output /= output.max()
+            output -= bg
+            output = np.clip(output, a_min=0, a_max=output.max())
+
+            # set data
+            output = output[np.newaxis, :, :, :]
+            recon.set_data(output)
+
+            # reconstruct and save
+            res = recon.apply()
+            recon_fp = recon_dir / output_fp.name
+            save_image(res, recon_fp)
 
         # check if runtime is exceeded
         if config.runtime:

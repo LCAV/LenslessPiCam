@@ -29,6 +29,9 @@ def admm(config):
     psf, data = load_data(
         psf_fp=to_absolute_path(config.input.psf),
         data_fp=to_absolute_path(config.input.data),
+        background_fp=to_absolute_path(config.input.background)
+        if config.input.background is not None
+        else None,
         dtype=config.input.dtype,
         downsample=config["preprocess"]["downsample"],
         bayer=config["preprocess"]["bayer"],
@@ -40,7 +43,7 @@ def admm(config):
         gray=config["preprocess"]["gray"],
         single_psf=config["preprocess"]["single_psf"],
         shape=config["preprocess"]["shape"],
-        torch=config.torch,
+        use_torch=config.torch,
         torch_device=config.torch_device,
         bg_pix=config.preprocess.bg_pix,
         normalize=config.preprocess.normalize,

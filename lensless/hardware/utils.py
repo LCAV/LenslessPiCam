@@ -200,8 +200,7 @@ def capture(
         if verbose:
             print(f"\nCopying over picture as {localfile}...")
         os.system(
-            'scp "%s@%s:%s" %s >%s'
-            % (rpi_username, rpi_hostname, remotefile, localfile, NULL_FILE)
+            'scp "%s@%s:%s" %s >%s' % (rpi_username, rpi_hostname, remotefile, localfile, NULL_FILE)
         )
 
         if rgb or gray:
@@ -243,6 +242,7 @@ def display(
     rpi_username,
     rpi_hostname,
     screen_res,
+    image_res=None,
     brightness=100,
     rot90=0,
     pad=0,
@@ -280,6 +280,8 @@ def display(
     prep_command = f"{rpi_python} {script} --fp {remote_tmp_file} \
         --pad {pad} --vshift {vshift} --hshift {hshift} --screen_res {screen_res[0]} {screen_res[1]} \
         --brightness {brightness} --rot90 {rot90} --output_path {display_path} "
+    if image_res is not None:
+        prep_command += f" --image_res {image_res[0]} {image_res[1]}"
     if verbose:
         print(f"COMMAND : {prep_command}")
     subprocess.Popen(
