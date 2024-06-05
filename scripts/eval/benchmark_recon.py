@@ -28,6 +28,7 @@ import matplotlib.pyplot as plt
 from lensless import ADMM, FISTA, GradientDescent, NesterovGradientDescent
 from lensless.utils.dataset import DiffuserCamTestDataset, DigiCamCelebA, HFDataset
 from lensless.utils.io import save_image
+from lensless.recon.model_dict import download_model, load_model
 
 import torch
 from torch.utils.data import Subset
@@ -85,12 +86,42 @@ def benchmark_recon(config):
             dataset, [train_size, test_size], generator=generator
         )
     elif dataset == "HFDataset":
+
+        split_test = "test"
+        if config.huggingface.split_seed is not None:
+            from datasets import load_dataset, concatenate_datasets
+
+            seed = config.huggingface.split_seed
+            generator = torch.Generator().manual_seed(seed)
+
+            # - combine train and test into single dataset
+            train_split = "train"
+            test_split = "test"
+            if config.n_files is not None:
+                train_split = f"train[:{config.n_files}]"
+                test_split = f"test[:{config.n_files}]"
+            train_dataset = load_dataset(config.huggingface.repo, split=train_split)
+            test_dataset = load_dataset(config.huggingface.repo, split=test_split)
+            dataset = concatenate_datasets([test_dataset, train_dataset])
+
+            # - split into train and test
+            train_size = int((1 - config.files.test_size) * len(dataset))
+            test_size = len(dataset) - train_size
+            _, split_test = torch.utils.data.random_split(
+                dataset, [train_size, test_size], generator=generator
+            )
+
         benchmark_dataset = HFDataset(
             huggingface_repo=config.huggingface.repo,
-            split="test",
+            psf=config.huggingface.psf,
+            n_files=n_files,
+            split=split_test,
             display_res=config.huggingface.image_res,
             rotate=config.huggingface.rotate,
+            flipud=config.huggingface.flipud,
+            flip_lensed=config.huggingface.flip_lensed,
             downsample=config.huggingface.downsample,
+            downsample_lensed=config.huggingface.downsample_lensed,
             alignment=config.huggingface.alignment,
             simulation_config=config.simulation,
         )
@@ -107,65 +138,71 @@ def benchmark_recon(config):
     print(f"Data shape :  {benchmark_dataset[0][0].shape}")
 
     model_list = []  # list of algoritms to benchmark
-    if "ADMM" in config.algorithms:
-        model_list.append(
-            (
-                "ADMM",
-                ADMM(
-                    psf,
-                    mu1=config.admm.mu1,
-                    mu2=config.admm.mu2,
-                    mu3=config.admm.mu3,
-                    tau=config.admm.tau,
-                ),
+    for algo in config.algorithms:
+        if algo == "ADMM":
+            model_list.append(
+                (
+                    "ADMM",
+                    ADMM(
+                        psf,
+                        mu1=config.admm.mu1,
+                        mu2=config.admm.mu2,
+                        mu3=config.admm.mu3,
+                        tau=config.admm.tau,
+                    ),
+                )
             )
-        )
-    if "ADMM_Monakhova2019" in config.algorithms:
-        model_list.append(("ADMM_Monakhova2019", ADMM(psf, mu1=1e-4, mu2=1e-4, mu3=1e-4, tau=2e-3)))
-    if "ADMM_PnP" in config.algorithms:
-        model_list.append(
-            (
-                "ADMM_PnP",
-                ADMM(
-                    psf,
-                    mu1=config.admm.mu1,
-                    mu2=config.admm.mu2,
-                    mu3=config.admm.mu3,
-                    tau=config.admm.tau,
-                    denoiser={"network": "DruNet", "noise_level": 30, "use_dual": False},
-                ),
+        if algo == "ADMM_Monakhova2019":
+            model_list.append(
+                ("ADMM_Monakhova2019", ADMM(psf, mu1=1e-4, mu2=1e-4, mu3=1e-4, tau=2e-3))
             )
-        )
-    if "FISTA_PnP" in config.algorithms:
-        model_list.append(
-            (
-                "FISTA_PnP",
-                FISTA(
-                    psf,
-                    tk=config.fista.tk,
-                    denoiser={"network": "DruNet", "noise_level": 30},
-                ),
+        if algo == "ADMM_PnP":
+            model_list.append(
+                (
+                    "ADMM_PnP",
+                    ADMM(
+                        psf,
+                        mu1=config.admm.mu1,
+                        mu2=config.admm.mu2,
+                        mu3=config.admm.mu3,
+                        tau=config.admm.tau,
+                        denoiser={"network": "DruNet", "noise_level": 30, "use_dual": False},
+                    ),
+                )
             )
-        )
-    if "FISTA" in config.algorithms:
-        model_list.append(("FISTA", FISTA(psf, tk=config.fista.tk)))
-    if "GradientDescent" in config.algorithms:
-        model_list.append(("GradientDescent", GradientDescent(psf)))
-    if "NesterovGradientDescent" in config.algorithms:
-        model_list.append(
-            (
-                "NesterovGradientDescent",
-                NesterovGradientDescent(psf, p=config.nesterov.p, mu=config.nesterov.mu),
+        if algo == "FISTA_PnP":
+            model_list.append(
+                (
+                    "FISTA_PnP",
+                    FISTA(
+                        psf,
+                        tk=config.fista.tk,
+                        denoiser={"network": "DruNet", "noise_level": 30},
+                    ),
+                )
             )
-        )
-    # APGD is not supported yet
-    # if "APGD" in config.algorithms:
-    #     from lensless import APGD
-
-    #     model_list.append(("APGD", APGD(psf)))
+        if algo == "FISTA":
+            model_list.append(("FISTA", FISTA(psf, tk=config.fista.tk)))
+        if algo == "GradientDescent":
+            model_list.append(("GradientDescent", GradientDescent(psf)))
+        if algo == "NesterovGradientDescent":
+            model_list.append(
+                (
+                    "NesterovGradientDescent",
+                    NesterovGradientDescent(psf, p=config.nesterov.p, mu=config.nesterov.mu),
+                )
+            )
+        if "hf" in algo:
+            param = algo.split(":")
+            camera = param[1]
+            dataset = param[2]
+            model_name = param[3]
+            model_path = download_model(camera=camera, dataset=dataset, model=model_name)
+            model_list.append((algo, load_model(model_path, psf, device)))
 
     results = {}
     output_dir = None
+
     if config.save_idx is not None:
 
         assert np.max(config.save_idx) < len(
@@ -197,29 +234,52 @@ def benchmark_recon(config):
             os.mkdir(model_name)
 
         results[model_name] = dict()
-        for n_iter in n_iter_range:
 
-            print(f"Running benchmark for {model_name} with {n_iter} iterations")
-
-            if config.save_idx is not None:
-                output_dir = os.path.join(model_name, str(n_iter))
-                os.mkdir(output_dir)
+        if "hf" in model_name:
+            # trained algorithm (fixed number of iterations)
+            print(f"Running benchmark for {model_name}")
 
             result = benchmark(
                 model,
                 benchmark_dataset,
-                batchsize=1,
-                n_iter=n_iter,
+                batchsize=config.batchsize,
                 save_idx=config.save_idx,
-                output_dir=output_dir,
+                output_dir=model_name,
                 crop=crop,
             )
-            results[model_name][int(n_iter)] = result
+            results[model_name] = result
 
             # -- save results as easy to read JSON
             results_path = "results.json"
             with open(results_path, "w") as f:
                 json.dump(results, f, indent=4)
+
+        else:
+            # iterative algorithm
+
+            for n_iter in n_iter_range:
+
+                print(f"Running benchmark for {model_name} with {n_iter} iterations")
+
+                if config.save_idx is not None:
+                    output_dir = os.path.join(model_name, str(n_iter))
+                    os.mkdir(output_dir)
+
+                result = benchmark(
+                    model,
+                    benchmark_dataset,
+                    batchsize=1,
+                    n_iter=n_iter,
+                    save_idx=config.save_idx,
+                    output_dir=output_dir,
+                    crop=crop,
+                )
+                results[model_name][int(n_iter)] = result
+
+                # -- save results as easy to read JSON
+                results_path = "results.json"
+                with open(results_path, "w") as f:
+                    json.dump(results, f, indent=4)
     proc_time = (time.time() - start_time) / 60
     print(f"Total processing time: {proc_time:.2f} min")
 
@@ -283,7 +343,11 @@ def benchmark_recon(config):
 
     # for each metrics plot the results comparing each model
     metrics_to_plot = ["SSIM", "PSNR", "MSE", "LPIPS_Vgg", "LPIPS_Alex", "ReconstructionError"]
-    available_metrics = list(results[model_name][n_iter_range[0]].keys())
+
+    if "hf" in model_name:
+        available_metrics = list(results[model_name].keys())
+    else:
+        available_metrics = list(results[model_name][n_iter_range[0]].keys())
     metrics_to_plot = [metric for metric in metrics_to_plot if metric in available_metrics]
     # print metrics being skipped
     skipped_metrics = [metric for metric in metrics_to_plot if metric not in available_metrics]
@@ -293,6 +357,9 @@ def benchmark_recon(config):
         plt.figure()
         # plot benchmarked algorithm
         for model_name in results.keys():
+            if "hf" in model_name:
+                # doesn't change over number of iterations as assumed fixed unrolled
+                continue
             plt.plot(
                 n_iter_range,
                 [results[model_name][n_iter][metric] for n_iter in n_iter_range],

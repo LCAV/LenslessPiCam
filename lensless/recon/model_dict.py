@@ -71,12 +71,26 @@ model_dict = {
             "admm_simulated_psf": "bezzam/digicam-celeba-admm-simulated-psf",
         },
         "mirflickr_single_25k": {
+            # simulated PSF (without waveprop, with deadspace)
             "U10": "bezzam/digicam-mirflickr-single-25k-unrolled-admm10",
             "Unet8M": "bezzam/digicam-mirflickr-single-25k-unet8M",
             "TrainInv+Unet8M": "bezzam/digicam-mirflickr-single-25k-trainable-inv-unet8M",
             "U10+Unet8M": "bezzam/digicam-mirflickr-single-25k-unrolled-admm10-unet8M",
             "Unet4M+TrainInv+Unet4M": "bezzam/digicam-mirflickr-single-25k-unet4M-trainable-inv-unet4M",
             "Unet4M+U10+Unet4M": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M",
+            # simulated PSF (with waveprop, with deadspace)
+            "U10_wave": "bezzam/digicam-mirflickr-single-25k-unrolled-admm10-wave",
+            "Unet8M_wave": "bezzam/digicam-mirflickr-single-25k-unet8M-wave",
+            "TrainInv+Unet8M_wave": "bezzam/digicam-mirflickr-single-25k-trainable-inv-unet8M-wave",
+            "U10+Unet8M_wave": "bezzam/digicam-mirflickr-single-25k-unrolled-admm10-unet8M-wave",
+            "Unet4M+TrainInv+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-unet4M-trainable-inv-unet4M-wave",
+            "Unet4M+U10+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-wave",
+            # measured PSF
+            "Unet4M+U10+Unet4M_measured": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-measured",
+            # simulated PSF (with waveprop, no deadspace)
+            "Unet4M+U10+Unet4M_wave_nodead": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-wave-nodead",
+            # simulated PSF (without waveprop, no deadspace)
+            "Unet4M+U10+Unet4M_nodead": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-nodead",
         },
         "mirflickr_multi_25k": {
             "Unet8M": "bezzam/digicam-mirflickr-multi-25k-unet8M",
