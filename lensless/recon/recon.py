@@ -616,10 +616,17 @@ class ReconstructionAlgorithm(abc.ABC):
             prediction = convolver._pad(prediction)
         Fx = convolver.convolve(prediction)
         Fy = lensless
+
         if not convolver.pad:
             Fx = convolver._crop(Fx)
 
+        # don't reduce batch dimension
         if self.is_torch:
-            return torch.norm(Fx - Fy)
+            return torch.sum(torch.sqrt((Fx - Fy) ** 2), dim=(-1, -2, -3, -4)) / np.prod(
+                prediction.shape[1:]
+            )
+
         else:
-            return np.linalg.norm(Fx - Fy)
+            return np.sum(np.sqrt((Fx - Fy) ** 2), axis=(-1, -2, -3, -4)) / np.prod(
+                prediction.shape[1:]
+            )
