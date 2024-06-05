@@ -520,3 +520,74 @@ class CodedApertureConnection(Connection):
         )
 
         return model
+
+
+def create_mask_adapter(
+    fp, mask_w, mask_h, mask_d, adapter_w=12.90, adapter_h=9.90, support_w=0.4, support_d=0.4
+):
+    """
+    Create and store an adapter for a mask given its measurements.
+    Warning: Friction-fitted parts are to be made 0.05-0.1 mm smaller
+    (ex: mask's width must fit in adapter's, adapter's width must fit in mount's, ...)
+
+    Parameters
+    ----------
+    fp : string
+        Folder in which to store the generated stl file.
+    mask_w : float
+        Length of the mask's width in mm.
+    mask_h : float
+        Length of the mask's height in mm.
+    mask_d : float
+        Thickness of the mask in mm.
+    adapter_w : float
+        Length of the adapter's width in mm.
+        default: current mount dim (13 - 0.1 mm)
+    adapter_h : float
+        Length of the adapter's height in mm.
+        default: current mount dim (1.5 - 0.1 mm)
+    support_w : float
+        Width of the small extrusion to support the mask in mm
+        default : current mount's dim (10 - 0.1 mm)
+    support_d : float
+        Thickness of the small extrusion to support the mask in mm
+    """
+    epsilon = 0.2
+
+    # Make sure the dimension are realistic
+    assert mask_w < adapter_w - epsilon, "mask's width too big"
+    assert mask_h < adapter_h - epsilon, "mask's height too big"
+    assert mask_w - 2 * support_w > epsilon, "mask's support too big"
+    assert mask_h - 2 * support_w > epsilon, "mask's support too big"
+    assert os.path.exists(fp), "folder does not exist"
+
+    file_name = os.path.join(fp, "mask_adapter.stl")
+
+    # Prevent accidental overwrite
+    if os.path.isfile(file_name):
+        print("Warning: already find mask_adapter.stl at " + fp)
+        if input("Overwrite ? y/n") != "y":
+            print("Abort adapter generation.")
+            return
+
+    # Construct the outer layer of the mask
+    adapter = (
+        cq.Workplane("front")
+        .rect(adapter_w, adapter_h)
+        .rect(mask_w, mask_h)
+        .extrude(mask_d + support_d)
+    )
+
+    # Construct the dent to keep the mask secure
+    support = (
+        cq.Workplane("front")
+        .rect(mask_w, mask_h)
+        .rect(mask_w - 2 * support_w, mask_h - 2 * support_w)
+        .extrude(support_d)
+    )
+
+    # Join the 2 shape in one
+    adapter = adapter.union(support)
+
+    # Save into path
+    cq.exporters.export(adapter, file_name)
