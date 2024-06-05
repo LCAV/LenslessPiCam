@@ -15,6 +15,7 @@ Added
 
 - Option to pass background image to ``utils.io.load_data``.
 - Option to set image resolution with ``hardware.utils.display`` function.
+- Add utility for mask adapter generation in ``lenseless.hardware.fabrication``
 
 Changed
 ~~~~~~~
