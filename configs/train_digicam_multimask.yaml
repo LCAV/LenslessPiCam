@@ -17,7 +17,7 @@ files:
   # TODO: these parameters should be in the dataset?
   image_res: [900, 1200]  # used during measurement
   rotate: True   # if measurement is upside-down
-  save_psf: False
+  save_psf: True
 
   extra_eval: 
     singlemask: 
@@ -58,3 +58,8 @@ reconstruction:
     depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
     nc: [32,64,116,128]
 
+simulation:
+  use_waveprop: True
+  deadspace: True
+  scene2mask: 0.3
+  mask2sensor: 0.002

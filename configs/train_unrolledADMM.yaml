@@ -40,6 +40,7 @@ files:
   image_res: null   # for measured data, what resolution used at screen
   extra_eval: null  # dict of extra datasets to evaluate on
   force_rgb: False
+  simulate_lensless: False   # False to use measured data
 
 alignment: null
 #   top_left: null    # height, width

@@ -98,6 +98,7 @@ def train_learned(config):
     device_ids = config.device_ids
     if device_ids is not None:
         log.info(f"Using multiple GPUs : {device_ids}")
+        assert device_ids[0] == int(device.split(":")[1])
 
     # load dataset and create dataloader
     train_set = None
@@ -217,6 +218,7 @@ def train_learned(config):
             n_files=config.files.n_files,
             simulation_config=config.simulation,
             force_rgb=config.files.force_rgb,
+            simulate_lensless=config.files.simulate_lensless,
         )
         test_set = HFDataset(
             huggingface_repo=config.files.dataset,
@@ -231,6 +233,7 @@ def train_learned(config):
             n_files=config.files.n_files,
             simulation_config=config.simulation,
             force_rgb=config.files.force_rgb,
+            simulate_lensless=False,  # in general evaluate on measured (set to False)
         )
         if train_set.multimask:
             # get first PSF for initialization
@@ -280,6 +283,7 @@ def train_learned(config):
                 downsample=config.files.downsample,  # needs to be same size
                 n_files=config.files.n_files,
                 simulation_config=config.simulation,
+                simulate_lensless=False,  # in general evaluate on measured
                 **config.files.extra_eval[eval_set],
             )
 
