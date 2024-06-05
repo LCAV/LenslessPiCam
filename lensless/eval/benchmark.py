@@ -86,16 +86,17 @@ def benchmark(
 
     if metrics is None:
         metrics = {
-            "MSE": MSELoss().to(device),
-            # "MAE": L1Loss().to(device),
+            "MSE": MSELoss(reduction="mean").to(device),
             "LPIPS_Vgg": lpip.LearnedPerceptualImagePatchSimilarity(
-                net_type="vgg", normalize=True
+                net_type="vgg", normalize=True, reduction="sum"
             ).to(device),
             # "LPIPS_Alex": lpip.LearnedPerceptualImagePatchSimilarity(
             #     net_type="alex", normalize=True
             # ).to(device),
-            "PSNR": psnr.PeakSignalNoiseRatio().to(device),
-            "SSIM": StructuralSimilarityIndexMeasure().to(device),
+            "PSNR": psnr.PeakSignalNoiseRatio(reduction=None, dim=(1, 2, 3), data_range=(0, 1)).to(
+                device
+            ),
+            "SSIM": StructuralSimilarityIndexMeasure(reduction=None, data_range=(0, 1)).to(device),
             "ReconstructionError": None,
         }
 
@@ -110,8 +111,11 @@ def benchmark(
     dataloader = DataLoader(dataset, batch_size=batchsize, pin_memory=(device != "cpu"))
     model.reset()
     idx = 0
+    weights = []  # for averaging batches
     with torch.no_grad():
         for batch in tqdm(dataloader):
+            weights.append(len(batch[0]))
+
             if hasattr(dataset, "multimask"):
                 if dataset.multimask:
                     lensless, lensed, psfs = batch
@@ -202,13 +206,9 @@ def benchmark(
             # compute metrics
             for metric in metrics:
                 if metric == "ReconstructionError":
-                    metrics_values[metric].append(
-                        model.reconstruction_error(
-                            prediction=prediction_original, lensless=lensless
-                        )
-                        .cpu()
-                        .item()
-                    )
+                    metrics_values[metric] += model.reconstruction_error(
+                        prediction=prediction_original, lensless=lensless
+                    ).tolist()
                 else:
                     try:
                         if "LPIPS" in metric:
@@ -225,10 +225,16 @@ def benchmark(
                                 metrics_values[metric].append(
                                     metrics[metric](prediction, lensed).cpu().item()
                                 )
-                        else:
+                        elif metric == "MSE":
                             metrics_values[metric].append(
-                                metrics[metric](prediction, lensed).cpu().item()
+                                metrics[metric](prediction, lensed).cpu().item() * len(batch[0])
                             )
+                        else:
+                            vals = metrics[metric](prediction, lensed).cpu()
+                            if hasattr(vals.tolist(), "__len__"):
+                                metrics_values[metric] += vals.tolist()
+                            else:
+                                metrics_values[metric].append(vals.item())
                     except Exception as e:
                         print(f"Error in metric {metric}: {e}")
 
@@ -260,7 +266,7 @@ def benchmark(
                         if "LPIPS" in metric:
                             if unrolled_out.shape[1] == 1:
                                 # LPIPS needs 3 channels
-                                metrics_values[metric].append(
+                                metrics_values[metric + "_unrolled"].append(
                                     metrics[metric](
                                         unrolled_out.repeat(1, 3, 1, 1), lensed.repeat(1, 3, 1, 1)
                                     )
@@ -271,10 +277,16 @@ def benchmark(
                                 metrics_values[metric + "_unrolled"].append(
                                     metrics[metric](unrolled_out, lensed).cpu().item()
                                 )
-                        else:
+                        elif metric == "MSE":
                             metrics_values[metric + "_unrolled"].append(
-                                metrics[metric](unrolled_out, lensed).cpu().item()
+                                metrics[metric](unrolled_out, lensed).cpu().item() * len(batch[0])
                             )
+                        else:
+                            vals = metrics[metric](unrolled_out, lensed).cpu()
+                            if hasattr(vals.tolist(), "__len__"):
+                                metrics_values[metric + "_unrolled"] += vals.tolist()
+                            else:
+                                metrics_values[metric + "_unrolled"].append(vals.item())
 
             model.reset()
             idx += batchsize
@@ -282,7 +294,10 @@ def benchmark(
     # average metrics
     if return_average:
         for metric in metrics:
-            metrics_values[metric] = np.mean(metrics_values[metric])
+            if "MSE" in metric or "ReconstructionError" in metric or "LPIPS" in metric:
+                metrics_values[metric] = np.sum(metrics_values[metric]) / len(dataset)
+            else:
+                metrics_values[metric] = np.mean(metrics_values[metric])
 
     return metrics_values
 
