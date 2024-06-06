@@ -68,8 +68,8 @@ def collect_dataset(config):
     start_idx = config.start_idx
     if os.path.exists(output_dir):
         files = list(plib.Path(output_dir).glob(f"*.{config.output_file_ext}"))
-        start_idx = len(files)
-        print("\nNumber of completed measurements :", start_idx)
+        n_completed_files = len(files)
+        print("\nNumber of completed measurements :", n_completed_files)
         output_dir = plib.Path(output_dir)
         if config.masks is not None:
             mask_dir = plib.Path(output_dir) / "masks"
