@@ -221,6 +221,7 @@ def get_max_val(img, nbits=None):
 def bayer2rgb_cc(
     img,
     nbits,
+    down=None,
     blue_gain=None,
     red_gain=None,
     black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
@@ -269,6 +270,10 @@ def bayer2rgb_cc(
     # demosaic Bayer data
     img = cv2.cvtColor(img, cv2.COLOR_BayerRG2RGB)
 
+    # downsample
+    if down is not None:
+        img = resize(img[None, ...], factor=1 / down, interpolation=cv2.INTER_CUBIC)[0]
+
     # correction
     img = img - black_level
     if red_gain:
@@ -277,6 +282,7 @@ def bayer2rgb_cc(
         img[:, :, 2] *= blue_gain
     img = img / (2**nbits - 1 - black_level)
     img[img > 1] = 1
+
     img = (img.reshape(-1, 3, order="F") @ ccm.T).reshape(img.shape, order="F")
     img[img < 0] = 0
     img[img > 1] = 1
