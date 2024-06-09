@@ -373,8 +373,14 @@ def train_learned(config):
         nc=config.reconstruction.post_process.nc,
         device=device,
         device_ids=device_ids,
+        concatenate_compensation=True if config.reconstruction.compensation is not None else False,
     )
     post_proc_delay = config.reconstruction.post_process.delay
+    if config.reconstruction.post_process.network is not None:
+        if config.reconstruction.compensation is not None:
+            assert (
+                config.reconstruction.compensation[-1] == config.reconstruction.post_process.nc[-1]
+            )
 
     if config.reconstruction.post_process.train_last_layer:
         for name, param in post_process.named_parameters():
@@ -424,6 +430,7 @@ def train_learned(config):
             post_process=post_process if post_proc_delay is None else None,
             skip_unrolled=config.reconstruction.skip_unrolled,
             return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
+            compensation=config.reconstruction.compensation,
         )
     elif config.reconstruction.method == "unrolled_admm":
         recon = UnrolledADMM(
@@ -437,6 +444,7 @@ def train_learned(config):
             post_process=post_process if post_proc_delay is None else None,
             skip_unrolled=config.reconstruction.skip_unrolled,
             return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
+            compensation=config.reconstruction.compensation,
         )
     elif config.reconstruction.method == "trainable_inv":
         recon = TrainableInversion(

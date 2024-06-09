@@ -93,8 +93,11 @@ model_dict = {
             "Unet4M+U10+Unet4M_nodead": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-nodead",
         },
         "mirflickr_multi_25k": {
+            # simulated PSFs (without waveprop, with deadspace)
             "Unet8M": "bezzam/digicam-mirflickr-multi-25k-unet8M",
             "Unet4M+U10+Unet4M": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm10-unet4M",
+            # simulated PSF (with waveprop, with deadspace)
+            "Unet4M+U10+Unet4M_wave": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm10-unet4M-wave",
         },
     },
 }

@@ -100,8 +100,12 @@ def benchmark_recon(config):
             if config.n_files is not None:
                 train_split = f"train[:{config.n_files}]"
                 test_split = f"test[:{config.n_files}]"
-            train_dataset = load_dataset(config.huggingface.repo, split=train_split)
-            test_dataset = load_dataset(config.huggingface.repo, split=test_split)
+            train_dataset = load_dataset(
+                config.huggingface.repo, split=train_split, cache_dir=config.huggingface.cache_dir
+            )
+            test_dataset = load_dataset(
+                config.huggingface.repo, split=test_split, cache_dir=config.huggingface.cache_dir
+            )
             dataset = concatenate_datasets([test_dataset, train_dataset])
 
             # - split into train and test
@@ -113,6 +117,7 @@ def benchmark_recon(config):
 
         benchmark_dataset = HFDataset(
             huggingface_repo=config.huggingface.repo,
+            cache_dir=config.huggingface.cache_dir,
             psf=config.huggingface.psf,
             n_files=n_files,
             split=split_test,

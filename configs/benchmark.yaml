@@ -13,6 +13,7 @@ batchsize: 1    # must be 1 for iterative approaches
 
 huggingface:
   repo: "bezzam/DigiCam-Mirflickr-MultiMask-25K"
+  cache_dir: null    # where to read/write dataset. Defaults to `"~/.cache/huggingface/datasets"`.
   psf: null   # null for simulating PSF
   image_res: [900, 1200]  # used during measurement
   rotate: True   # if measurement is upside-down

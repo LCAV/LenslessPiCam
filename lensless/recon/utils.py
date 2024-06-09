@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import time
 import os
 import torch
+from torch import nn
 from lensless.eval.benchmark import benchmark
 from lensless.hardware.trainable_mask import TrainableMask
 from tqdm import tqdm
@@ -21,6 +22,115 @@ from lensless.recon.drunet.network_unet import UNetRes
 from lensless.utils.io import save_image
 from lensless.utils.plot import plot_image
 from lensless.utils.dataset import SimulatedDatasetTrainableMask
+
+
+def double_cnn_max_pool(c_in, c_out, cnn_kernel=3, max_pool=2):
+    return nn.Sequential(
+        nn.Conv2d(
+            in_channels=c_in,
+            out_channels=c_out,
+            kernel_size=cnn_kernel,
+            padding="same",
+            bias=False,
+        ),
+        nn.BatchNorm2d(c_out),
+        nn.ReLU(),
+        nn.Conv2d(
+            in_channels=c_out,
+            out_channels=c_out,
+            kernel_size=cnn_kernel,
+            padding="same",
+            bias=False,
+        ),
+        nn.BatchNorm2d(c_out),
+        nn.ReLU(),
+        nn.MaxPool2d(kernel_size=max_pool),
+    )
+
+
+class CompensationBranch(nn.Module):
+    """
+    Compensation branch for unrolled algorithm, as in "Robust Reconstruction With Deep Learning to Handle Model Mismatch in Lensless Imaging" (2021).
+    """
+
+    def __init__(self, nc, cnn_kernel=3, max_pool=2, in_channel=3):
+        """
+
+        Parameters
+        ----------
+        nc : list
+            Number of channels for each layer of the compensation branch.
+        cnn_kernel : int, optional
+            Kernel size for convolutional layers, by default 3.
+        max_pool : int, optional
+            Kernel size for max pooling layers, by default 2.
+        in_channel : int, optional
+            Number of input channels, by default 3 for RGB.
+        """
+        super(CompensationBranch, self).__init__()
+
+        self.n_iter = len(nc)
+
+        # layers along the compensation branch, f^C in paper
+        branch_layers = [
+            double_cnn_max_pool(in_channel, nc[0], cnn_kernel=cnn_kernel, max_pool=max_pool)
+        ]
+        self.branch_layers = nn.ModuleList(
+            branch_layers
+            + [
+                double_cnn_max_pool(
+                    nc[i] * 2,  # due to concatenation with intermediate layer
+                    nc[i + 1],
+                    cnn_kernel=cnn_kernel,
+                    max_pool=max_pool,
+                )
+                for i in range(self.n_iter - 1)
+            ]
+        )
+
+        # residual layers for intermediate output, \tilde{f}^C in paper
+        # -- not mentinoed in paper, but added more max-pooling for later residual layers, otherwise dimensions don't match
+        self.residual_layers = nn.ModuleList(
+            [
+                double_cnn_max_pool(
+                    in_channel, nc[i], cnn_kernel=cnn_kernel, max_pool=max_pool ** (i + 1)
+                )
+                for i in range(self.n_iter - 1)
+            ]
+        )
+
+    def forward(self, x, return_NCHW=True):
+        """
+        Input must be original input and intermediate outputs: (b, s1, s2, ... , s^{K-1}), where K is the number of iterations.
+
+        See p. 1085 of "Robust Reconstruction With Deep Learning to Handle Model Mismatch in Lensless Imaging" (2021) for more details.
+        """
+        assert len(x) == self.n_iter, "Input must have the same length as the number of iterations."
+        n_depth = x[0].shape[-4]
+        h_apo_k = self.branch_layers[0](convert_to_NCHW(x[0]))  # h^{'}_k
+        for k in range(self.n_iter - 1):  # eq. 18-21
+            # \tilde{h}_k
+            h_k = torch.cat([h_apo_k, self.residual_layers[k](convert_to_NCHW(x[k + 1]))], axis=1)
+            h_apo_k = self.branch_layers[k + 1](h_k)  # h^{'}_k
+
+        if return_NCHW:
+            return h_apo_k
+        else:
+            return convert_to_NDCHW(h_apo_k, n_depth)
+
+
+# convert from NDHWC to NCHW
+def convert_to_NCHW(image):
+    image = image.movedim(-1, -3)
+    image = image.reshape(-1, *image.shape[-3:])
+    return image
+
+
+# convert back to NDHWC
+def convert_to_NDCHW(image, depth):
+    image = image.movedim(-3, -1)
+    image = image.reshape(-1, depth, *image.shape[-3:])
+    return image
 
 
 def load_drunet(model_path=None, n_channels=3, requires_grad=False):
@@ -79,7 +189,7 @@ def load_drunet(model_path=None, n_channels=3, requires_grad=False):
     return model
 
 
-def apply_denoiser(model, image, noise_level=10, mode="inference"):
+def apply_denoiser(model, image, noise_level=10, mode="inference", compensation_output=None):
     """
     Apply a pre-trained denoising model with input in the format Channel, Height, Width.
     An additionnal channel is added for the noise level as done in Drunet.
@@ -132,9 +242,9 @@ def apply_denoiser(model, image, noise_level=10, mode="inference"):
     # apply model
     if mode == "inference":
         with torch.no_grad():
-            image = model(image)
+            image = model(image, compensation_output)
     elif mode == "train":
-        image = model(image)
+        image = model(image, compensation_output)
     else:
         raise ValueError("mode must be 'inference' or 'train'")
 
@@ -187,13 +297,14 @@ def get_drunet_function_v2(model, mode="inference"):
         Mode to use for model. Can be "inference" or "train".
     """
 
-    def process(image, noise_level):
+    def process(image, noise_level, compensation_output=None):
         x_max = torch.amax(image, dim=(-1, -2, -3, -4), keepdim=True) + 1e-6
         image = apply_denoiser(
             model,
             image / x_max,
             noise_level=noise_level,
             mode=mode,
+            compensation_output=compensation_output,
         )
         image = torch.clip(image, min=0.0) * x_max.to(image.device)
         return image
@@ -223,7 +334,9 @@ def measure_gradient(model):
     return total_norm
 
 
-def create_process_network(network, depth=4, device="cpu", nc=None, device_ids=None):
+def create_process_network(
+    network, depth=4, device="cpu", nc=None, device_ids=None, concatenate_compensation=False
+):
     """
     Helper function to create a process network.
 
@@ -248,6 +361,9 @@ def create_process_network(network, depth=4, device="cpu", nc=None, device_ids=N
         assert len(nc) == 4
 
     if network == "DruNet":
+        assert (
+            concatenate_compensation is False
+        ), "DruNet does not support concatenation of compensation branch."
         from lensless.recon.utils import load_drunet
 
         process = load_drunet(requires_grad=True)
@@ -264,6 +380,7 @@ def create_process_network(network, depth=4, device="cpu", nc=None, device_ids=N
             act_mode="R",
             downsample_mode="strideconv",
             upsample_mode="convtranspose",
+            concatenate_compensation=concatenate_compensation,
         )
         process_name = "UnetRes_d" + str(depth)
     else:
@@ -629,6 +746,7 @@ class Trainer:
                 self.recon._set_psf(self.mask.get_psf().to(self.device))
 
             # forward pass
+            # torch.autograd.set_detect_anomaly(True)    # for debugging
             y_pred = self.recon.forward(batch=X, psfs=psfs)
             if self.unrolled_output_factor:
                 unrolled_out = y_pred[1]

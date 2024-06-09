@@ -102,6 +102,9 @@ reconstruction:
     freeze: null
     unfreeze: null
     train_last_layer: False
+  # number of channels for each compensation layer, list should equal to the number of layers (n_iter)
+  # and the last element should be equal to last layer of post_process.nc
+  compensation: null   
 
 #Trainable Mask
 trainable_mask:

@@ -1040,6 +1040,7 @@ class HFDataset(DualDataset):
         simulation_config=dict(),
         simulate_lensless=False,
         force_rgb=False,
+        cache_dir=None,
         **kwargs,
     ):
         """
@@ -1083,7 +1084,7 @@ class HFDataset(DualDataset):
         if isinstance(split, str):
             if n_files is not None:
                 split = f"{split}[0:{n_files}]"
-            self.dataset = load_dataset(huggingface_repo, split=split)
+            self.dataset = load_dataset(huggingface_repo, split=split, cache_dir=cache_dir)
         elif isinstance(split, Dataset):
             self.dataset = split
         else:

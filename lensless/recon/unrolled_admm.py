@@ -235,5 +235,5 @@ class UnrolledADMM(TrainableReconstructionAlgorithm):
 
     def _form_image(self):
         image = self._convolver._crop(self._image_est)
-        image[image < 0] = 0
+        image = torch.clamp(image, min=0)
         return image
