@@ -202,8 +202,18 @@ def benchmark_recon(config):
             camera = param[1]
             dataset = param[2]
             model_name = param[3]
+            algo_config = config.get(algo)
+            if algo_config is not None:
+                skip_pre = algo_config.get("skip_pre", False)
+                skip_post = algo_config.get("skip_post", False)
+            else:
+                skip_pre = False
+                skip_post = False
+
             model_path = download_model(camera=camera, dataset=dataset, model=model_name)
-            model_list.append((algo, load_model(model_path, psf, device)))
+            model_list.append(
+                (algo, load_model(model_path, psf, device, skip_pre=skip_pre, skip_post=skip_post))
+            )
 
     results = {}
     output_dir = None

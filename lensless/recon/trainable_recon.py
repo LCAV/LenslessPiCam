@@ -52,6 +52,8 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         pre_process=None,
         post_process=None,
         skip_unrolled=False,
+        skip_pre=False,
+        skip_post=False,
         return_unrolled_output=False,
         legacy_denoiser=False,
         compensation=None,
@@ -96,6 +98,8 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         self.set_pre_process(pre_process)
         self.set_post_process(post_process)
         self.skip_unrolled = skip_unrolled
+        self.skip_pre = skip_pre
+        self.skip_post = skip_post
         self.return_unrolled_output = return_unrolled_output
         self.compensation_branch = compensation
         if compensation is not None:
@@ -238,7 +242,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             )
 
         # pre process data
-        if self.pre_process is not None:
+        if self.pre_process is not None and not self.skip_pre:
             device_before = self._data.device
             self._data = self.pre_process(self._data, self.pre_process_param)
             self._data = self._data.to(device_before)
@@ -260,7 +264,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             image_est = self._data
 
         # post process data
-        if self.post_process is not None:
+        if self.post_process is not None and not self.skip_post:
             compensation_output = None
             if self.compensation_branch is not None:
                 compensation_output = self.compensation_branch(compensation_branch_inputs)
@@ -321,7 +325,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
         """
         pre_processed_image = None
-        if self.pre_process is not None:
+        if self.pre_process is not None and not self.skip_pre:
             self._data = self.pre_process(self._data, self.pre_process_param)
             if output_intermediate:
                 pre_processed_image = self._data[0, ...].clone()
@@ -346,7 +350,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
         # post process data
         pre_post_process_image = None
-        if self.post_process is not None:
+        if self.post_process is not None and not self.skip_post:
             # apply post process
             if output_intermediate:
                 pre_post_process_image = im.clone()

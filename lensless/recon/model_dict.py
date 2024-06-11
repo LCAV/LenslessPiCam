@@ -150,7 +150,15 @@ def download_model(camera, dataset, model, local_model_dir=None):
     return model_dir
 
 
-def load_model(model_path, psf, device="cpu", legacy_denoiser=False, verbose=True):
+def load_model(
+    model_path,
+    psf,
+    device="cpu",
+    legacy_denoiser=False,
+    verbose=True,
+    skip_pre=False,
+    skip_post=False,
+):
 
     """
     Load best model from model path.
@@ -227,6 +235,8 @@ def load_model(model_path, psf, device="cpu", legacy_denoiser=False, verbose=Tru
             n_iter=config["reconstruction"]["unrolled_admm"]["n_iter"],
             skip_unrolled=config["reconstruction"]["skip_unrolled"],
             legacy_denoiser=legacy_denoiser,
+            skip_pre=skip_pre,
+            skip_post=skip_post,
         )
     elif config["reconstruction"]["method"] == "trainable_inv":
         recon = TrainableInversion(
@@ -235,6 +245,8 @@ def load_model(model_path, psf, device="cpu", legacy_denoiser=False, verbose=Tru
             post_process=post_process,
             K=config["reconstruction"]["trainable_inv"]["K"],
             legacy_denoiser=legacy_denoiser,
+            skip_pre=skip_pre,
+            skip_post=skip_post,
         )
 
     if mask is not None:
@@ -243,11 +255,6 @@ def load_model(model_path, psf, device="cpu", legacy_denoiser=False, verbose=Tru
 
     if "device_ids" in config.keys() and config["device_ids"] is not None:
         model_state_dict = remove_data_parallel(model_state_dict)
-
-    # # return model_state_dict
-    # if "_psf" in model_state_dict:
-    #     # TODO: should not have to do this...
-    #     del model_state_dict["_psf"]
 
     recon.load_state_dict(model_state_dict)
 

@@ -87,6 +87,8 @@ reconstruction:
     tau: 2e-4
   trainable_inv:
     K: 1e-4
+  multi_wiener:
+    nc: [64, 128, 256, 512, 512]
   pre_process: 
     network : null  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
@@ -172,3 +174,4 @@ loss: 'l2'
 # set lpips to false to deactivate. Otherwise, give the weigth for the loss (the main loss l2/l1 always having a weigth of 1)
 lpips: 1.0
 unrolled_output_factor: False   # whether to account for unrolled output in loss (there must post-processor)
+pre_proc_aux: False   # factor for auxiliary pre-processor loss to promote measurement consistency -> ||pre_proc(y) - Ax||

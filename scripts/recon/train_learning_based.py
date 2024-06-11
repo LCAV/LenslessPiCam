@@ -37,6 +37,7 @@ import numpy as np
 import time
 from lensless.hardware.trainable_mask import prep_trainable_mask
 from lensless import ADMM, UnrolledFISTA, UnrolledADMM, TrainableInversion
+from lensless.recon.multi_wiener import MultiWiener
 from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     DigiCamCelebA,
@@ -454,6 +455,15 @@ def train_learned(config):
             post_process=post_process if post_proc_delay is None else None,
             return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
         )
+    elif config.reconstruction.method == "multi_wiener":
+        recon = MultiWiener(
+            in_channels=3,
+            out_channels=3,
+            psf=psf,
+            psf_channels=3,
+            nc=config.reconstruction.multi_wiener.nc,
+        )
+
     else:
         raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
 
