@@ -1041,6 +1041,7 @@ class HFDataset(DualDataset):
         simulate_lensless=False,
         force_rgb=False,
         cache_dir=None,
+        single_channel_psf=False,
         **kwargs,
     ):
         """
@@ -1102,6 +1103,7 @@ class HFDataset(DualDataset):
         self.downsample_lensless = downsample
         self.downsample_lensed = downsample_lensed
         lensless = np.array(data_0["lensless"])
+
         if self.downsample_lensless != 1.0:
             lensless = resize(lensless, factor=1 / self.downsample_lensless)
         if psf is None:
@@ -1159,6 +1161,7 @@ class HFDataset(DualDataset):
                 flip_ud=flipud,
                 bg_pix=(0, 15),
                 force_rgb=force_rgb,
+                single_psf=single_channel_psf,
             )
             self.psf = torch.from_numpy(psf)
 

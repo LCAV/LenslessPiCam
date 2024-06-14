@@ -36,6 +36,7 @@ def benchmark(
     save_idx=None,
     output_dir=None,
     unrolled_output_factor=False,
+    pre_process_aux=False,
     return_average=True,
     snr=None,
     use_wandb=False,
@@ -106,6 +107,8 @@ def benchmark(
         for key in output_metrics:
             if key != "ReconstructionError":
                 metrics_values[key + "_unrolled"] = []
+    if pre_process_aux:
+        metrics_values["ReconstructionError_PreProc"] = []
 
     # loop over batches
     dataloader = DataLoader(dataset, batch_size=batchsize, pin_memory=(device != "cpu"))
@@ -141,14 +144,18 @@ def benchmark(
                     model._set_psf(psfs[0])
                 model.set_data(lensless)
                 prediction = model.apply(
-                    plot=False, save=False, output_intermediate=unrolled_output_factor, **kwargs
+                    plot=False,
+                    save=False,
+                    output_intermediate=unrolled_output_factor or pre_process_aux,
+                    **kwargs,
                 )
 
             else:
                 prediction = model.forward(lensless, psfs, **kwargs)
 
-            if unrolled_output_factor:
-                unrolled_out = prediction[-1]
+            if unrolled_output_factor or pre_process_aux:
+                pre_process_out = prediction[2]
+                unrolled_out = prediction[1]
                 prediction = prediction[0]
             prediction_original = prediction.clone()
 
@@ -245,7 +252,17 @@ def benchmark(
                 unrolled_out = unrolled_out.reshape(-1, *unrolled_out.shape[-3:]).movedim(-1, -3)
 
                 # -- extraction region of interest
-                if crop is not None:
+                if hasattr(dataset, "alignment"):
+                    if dataset.alignment is not None:
+                        unrolled_out = dataset.extract_roi(unrolled_out, axis=(-2, -1))
+                    else:
+                        unrolled_out = dataset.extract_roi(
+                            unrolled_out,
+                            axis=(-2, -1),
+                            # lensed=lensed   # lensed already extracted before
+                        )
+                    assert np.all(lensed.shape == unrolled_out.shape)
+                elif crop is not None:
                     unrolled_out = unrolled_out[
                         ...,
                         crop["vertical"][0] : crop["vertical"][1],
@@ -288,13 +305,20 @@ def benchmark(
                             else:
                                 metrics_values[metric + "_unrolled"].append(vals.item())
 
+            # compute metrics for pre-processed output
+            if pre_process_aux:
+                metrics_values["ReconstructionError_PreProc"] += model.reconstruction_error(
+                    prediction=prediction_original, lensless=pre_process_out
+                ).tolist()
+
             model.reset()
             idx += batchsize
 
     # average metrics
     if return_average:
-        for metric in metrics:
-            if "MSE" in metric or "ReconstructionError" in metric or "LPIPS" in metric:
+        for metric in metrics_values.keys():
+            if "MSE" in metric or "LPIPS" in metric:
+                # differently because metrics are grouped into bathces
                 metrics_values[metric] = np.sum(metrics_values[metric]) / len(dataset)
             else:
                 metrics_values[metric] = np.mean(metrics_values[metric])

@@ -15,6 +15,7 @@ from lensless.recon.unrolled_admm import UnrolledADMM
 from lensless.recon.trainable_inversion import TrainableInversion
 from lensless.hardware.trainable_mask import prep_trainable_mask
 import yaml
+from lensless.recon.multi_wiener import MultiWiener
 from huggingface_hub import snapshot_download
 from collections import OrderedDict
 
@@ -98,6 +99,17 @@ model_dict = {
             "Unet4M+U10+Unet4M": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm10-unet4M",
             # simulated PSF (with waveprop, with deadspace)
             "Unet4M+U10+Unet4M_wave": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm10-unet4M-wave",
+        },
+    },
+    "tapecam": {
+        "mirflickr": {
+            "U5+Unet8M": "bezzam/tapecam-mirflickr-unrolled-admm5-unet8M",
+            "TrainInv+Unet8M": "bezzam/tapecam-mirflickr-trainable-inv-unet8M",
+            "MMCN4M+Unet4M": "bezzam/tapecam-mirflickr-mmcn-unet4M",
+            "MWDN8M": "bezzam/tapecam-mirflickr-mwdn-8M",
+            "Unet4M+TrainInv+Unet4M": "bezzam/tapecam-mirflickr-unet4M-trainable-inv-unet4M",
+            "Unet4M+U5+Unet4M": "bezzam/tapecam-mirflickr-unet4M-unrolled-admm5-unet4M",
+            "Unet2M+MMCN+Unet2M": "bezzam/tapecam-mirflickr-unet2M-mmcn-unet2M",
         },
     },
 }
@@ -225,6 +237,10 @@ def load_model(
             if "nc" in config["reconstruction"]["post_process"].keys()
             else None,
             device=device,
+            # get from dict
+            concatenate_compensation=True
+            if config["reconstruction"].get("compensation", None) is not None
+            else False,
         )
 
     if config["reconstruction"]["method"] == "unrolled_admm":
@@ -237,6 +253,7 @@ def load_model(
             legacy_denoiser=legacy_denoiser,
             skip_pre=skip_pre,
             skip_post=skip_post,
+            compensation=config["reconstruction"].get("compensation", None),
         )
     elif config["reconstruction"]["method"] == "trainable_inv":
         recon = TrainableInversion(
@@ -248,6 +265,15 @@ def load_model(
             skip_pre=skip_pre,
             skip_post=skip_post,
         )
+    elif config["reconstruction"]["method"] == "multi_wiener":
+        recon = MultiWiener(
+            in_channels=3,
+            out_channels=3,
+            psf=psf,
+            psf_channels=3,
+            nc=config["reconstruction"]["multi_wiener"]["nc"],
+        )
+        recon.to(device)
 
     if mask is not None:
         psf_learned = torch.nn.Parameter(psf_learned)

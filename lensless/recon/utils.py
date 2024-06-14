@@ -418,6 +418,7 @@ class Trainer:
         crop=None,
         clip_grad=1.0,
         unrolled_output_factor=False,
+        pre_proc_aux=False,
         extra_eval_sets=None,
         use_wandb=False,
         # for adding components during training
@@ -613,6 +614,14 @@ class Trainer:
             assert self.post_process_unfreeze is None
             assert self.post_process_freeze is None
 
+        # -- adding pre-processed output to loss
+        self.pre_proc_aux = pre_proc_aux
+        if self.pre_proc_aux:
+            assert self.pre_process is not None
+            assert self.pre_process_delay is None
+            assert self.pre_process_unfreeze is None
+            assert self.pre_process_freeze is None
+
         # optimizer
         self.clip_grad_norm = clip_grad
         self.optimizer_config = optimizer
@@ -641,6 +650,10 @@ class Trainer:
             # -- add unrolled metrics
             for key in ["MSE", "MAE", "LPIPS_Vgg", "LPIPS_Alex", "PSNR", "SSIM"]:
                 self.metrics[key + "_unrolled"] = []
+        if self.pre_proc_aux:
+            self.metrics[
+                "ReconstructionError_PreProc"
+            ] = []  # reconstruction error of ||pre_proc(y) - A * camera_inversion(y)||
         if metric_for_best_model is not None:
             assert metric_for_best_model in self.metrics.keys()
         if extra_eval_sets is not None:
@@ -748,9 +761,8 @@ class Trainer:
             # forward pass
             # torch.autograd.set_detect_anomaly(True)    # for debugging
             y_pred = self.recon.forward(batch=X, psfs=psfs)
-            if self.unrolled_output_factor:
-                unrolled_out = y_pred[1]
-                y_pred = y_pred[0]
+            if self.unrolled_output_factor or self.pre_proc_aux:
+                y_pred, camera_inv_out, pre_proc_out = y_pred[0], y_pred[1], y_pred[2]
 
             # normalizing each output
             eps = 1e-12
@@ -762,18 +774,20 @@ class Trainer:
             y = y / y_max
 
             # convert to CHW for loss and remove depth
-            y_pred = y_pred.reshape(-1, *y_pred.shape[-3:]).movedim(-1, -3)
+            y_pred_crop = y_pred.reshape(-1, *y_pred.shape[-3:]).movedim(-1, -3)
             y = y.reshape(-1, *y.shape[-3:]).movedim(-1, -3)
 
             # extraction region of interest for loss
             if hasattr(self.train_dataset, "alignment"):
                 if self.train_dataset.alignment is not None:
-                    y_pred = self.train_dataset.extract_roi(y_pred, axis=(-2, -1))
+                    y_pred_crop = self.train_dataset.extract_roi(y_pred_crop, axis=(-2, -1))
                 else:
-                    y_pred, y = self.train_dataset.extract_roi(y_pred, axis=(-2, -1), lensed=y)
+                    y_pred_crop, y = self.train_dataset.extract_roi(
+                        y_pred_crop, axis=(-2, -1), lensed=y
+                    )
 
             elif self.crop is not None:
-                y_pred = y_pred[
+                y_pred_crop = y_pred_crop[
                     ...,
                     self.crop["vertical"][0] : self.crop["vertical"][1],
                     self.crop["horizontal"][0] : self.crop["horizontal"][1],
@@ -784,19 +798,19 @@ class Trainer:
                     self.crop["horizontal"][0] : self.crop["horizontal"][1],
                 ]
 
-            loss_v = self.Loss(y_pred, y)
+            loss_v = self.Loss(y_pred_crop, y)
 
             # add LPIPS loss
             if self.lpips:
 
-                if y_pred.shape[1] == 1:
+                if y_pred_crop.shape[1] == 1:
                     # if only one channel, repeat for LPIPS
-                    y_pred = y_pred.repeat(1, 3, 1, 1)
+                    y_pred_crop = y_pred_crop.repeat(1, 3, 1, 1)
                     y = y.repeat(1, 3, 1, 1)
 
                 # value for LPIPS needs to be in range [-1, 1]
                 loss_v = loss_v + self.lpips * torch.mean(
-                    self.Loss_lpips(2 * y_pred - 1, 2 * y - 1)
+                    self.Loss_lpips(2 * y_pred_crop - 1, 2 * y - 1)
                 )
             if self.use_mask and self.l1_mask:
                 for p in self.mask.parameters():
@@ -805,36 +819,64 @@ class Trainer:
 
             if self.unrolled_output_factor:
                 # -- normalize
-                unrolled_out_max = torch.amax(unrolled_out, dim=(-1, -2, -3), keepdim=True) + eps
-                unrolled_out = unrolled_out / unrolled_out_max
+                unrolled_out_max = torch.amax(camera_inv_out, dim=(-1, -2, -3), keepdim=True) + eps
+                camera_inv_out_norm = camera_inv_out / unrolled_out_max
 
                 # -- convert to CHW for loss and remove depth
-                unrolled_out = unrolled_out.reshape(-1, *unrolled_out.shape[-3:]).movedim(-1, -3)
+                camera_inv_out_norm = camera_inv_out_norm.reshape(
+                    -1, *camera_inv_out.shape[-3:]
+                ).movedim(-1, -3)
 
                 # -- extraction region of interest for loss
-                if self.crop is not None:
-                    unrolled_out = unrolled_out[
+                if hasattr(self.train_dataset, "alignment"):
+                    if self.train_dataset.alignment is not None:
+                        camera_inv_out_norm = self.train_dataset.extract_roi(
+                            camera_inv_out_norm, axis=(-2, -1)
+                        )
+                    else:
+                        camera_inv_out_norm = self.train_dataset.extract_roi(
+                            camera_inv_out_norm,
+                            axis=(-2, -1),
+                            # y=y   # lensed already extracted before
+                        )
+                    assert np.all(y.shape == camera_inv_out_norm.shape)
+                elif self.crop is not None:
+                    camera_inv_out_norm = camera_inv_out_norm[
                         ...,
                         self.crop["vertical"][0] : self.crop["vertical"][1],
                         self.crop["horizontal"][0] : self.crop["horizontal"][1],
                     ]
 
                 # -- compute unrolled output loss
-                loss_unrolled = self.Loss(unrolled_out, y)
+                loss_unrolled = self.Loss(camera_inv_out_norm, y)
 
                 # -- add LPIPS loss
                 if self.lpips:
-                    if unrolled_out.shape[1] == 1:
+                    if camera_inv_out_norm.shape[1] == 1:
                         # if only one channel, repeat for LPIPS
-                        unrolled_out = unrolled_out.repeat(1, 3, 1, 1)
+                        camera_inv_out_norm = camera_inv_out_norm.repeat(1, 3, 1, 1)
 
                     # value for LPIPS needs to be in range [-1, 1]
                     loss_unrolled = loss_unrolled + self.lpips * torch.mean(
-                        self.Loss_lpips(2 * unrolled_out - 1, 2 * y - 1)
+                        self.Loss_lpips(2 * camera_inv_out_norm - 1, 2 * y - 1)
                     )
 
                 # -- add unrolled loss to total loss
                 loss_v = loss_v + self.unrolled_output_factor * loss_unrolled
+
+            if self.pre_proc_aux:
+                # -- normalize
+                unrolled_out_max = torch.amax(camera_inv_out, dim=(-1, -2, -3), keepdim=True) + eps
+                camera_inv_out_norm = camera_inv_out / unrolled_out_max
+
+                err = torch.mean(
+                    self.recon.reconstruction_error(
+                        prediction=camera_inv_out_norm,
+                        # prediction=y_pred,
+                        lensless=pre_proc_out,
+                    )
+                )
+                loss_v = loss_v + self.pre_proc_aux * err
 
             # backward pass
             loss_v.backward()
@@ -923,6 +965,7 @@ class Trainer:
             output_dir=output_dir,
             crop=self.crop,
             unrolled_output_factor=self.unrolled_output_factor,
+            pre_process_aux=self.pre_proc_aux,
             use_wandb=self.use_wandb,
             epoch=epoch,
         )
@@ -949,6 +992,8 @@ class Trainer:
                 if self.lpips is not None:
                     unrolled_loss += self.lpips * current_metrics["LPIPS_Vgg_unrolled"]
                 eval_loss += self.unrolled_output_factor * unrolled_loss
+            if self.pre_proc_aux:
+                eval_loss += self.pre_proc_aux * current_metrics["ReconstructionError_PreProc"]
         else:
             eval_loss = current_metrics[self.metrics["metric_for_best_model"]]
 

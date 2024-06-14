@@ -209,6 +209,7 @@ def train_learned(config):
         train_set = HFDataset(
             huggingface_repo=config.files.dataset,
             psf=config.files.huggingface_psf,
+            single_channel_psf=config.files.single_channel_psf,
             split=split_train,
             display_res=config.files.image_res,
             rotate=config.files.rotate,
@@ -224,6 +225,7 @@ def train_learned(config):
         test_set = HFDataset(
             huggingface_repo=config.files.dataset,
             psf=config.files.huggingface_psf,
+            single_channel_psf=config.files.single_channel_psf,
             split=split_test,
             display_res=config.files.image_res,
             rotate=config.files.rotate,
@@ -393,10 +395,23 @@ def train_learned(config):
 
     # initialize pre- and post processor with another model
     if config.reconstruction.init_processors is not None:
-        from lensless.recon.model_dict import load_model, model_dict
+        from lensless.recon.model_dict import load_model, download_model
+
+        if "hf" in config.reconstruction.init_processors:
+            param = config.reconstruction.init_processors.split(":")
+            camera = param[1]
+            dataset = param[2]
+            model_name = param[3]
+            model_path = download_model(camera=camera, dataset=dataset, model=model_name)
+
+        elif "local" in config.reconstruction.init_processors:
+            model_path = config.reconstruction.init_processors.split(":")[1]
+
+        else:
+            raise ValueError(f"{config.reconstruction.init_processors} is not a supported model")
 
         model_orig = load_model(
-            model_dict["diffusercam"]["mirflickr"][config.reconstruction.init_processors],
+            model_path=model_path,
             psf=psf,
             device=device,
         )
@@ -430,7 +445,9 @@ def train_learned(config):
             pre_process=pre_process if pre_proc_delay is None else None,
             post_process=post_process if post_proc_delay is None else None,
             skip_unrolled=config.reconstruction.skip_unrolled,
-            return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
+            return_intermediate=True
+            if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
+            else False,
             compensation=config.reconstruction.compensation,
         )
     elif config.reconstruction.method == "unrolled_admm":
@@ -444,16 +461,21 @@ def train_learned(config):
             pre_process=pre_process if pre_proc_delay is None else None,
             post_process=post_process if post_proc_delay is None else None,
             skip_unrolled=config.reconstruction.skip_unrolled,
-            return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
+            return_intermediate=True
+            if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
+            else False,
             compensation=config.reconstruction.compensation,
         )
     elif config.reconstruction.method == "trainable_inv":
+        assert config.trainable_mask.mask_type == "TrainablePSF"
         recon = TrainableInversion(
             psf,
             K=config.reconstruction.trainable_inv.K,
             pre_process=pre_process if pre_proc_delay is None else None,
             post_process=post_process if post_proc_delay is None else None,
-            return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
+            return_intermediate=True
+            if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
+            else False,
         )
     elif config.reconstruction.method == "multi_wiener":
         recon = MultiWiener(
@@ -516,6 +538,7 @@ def train_learned(config):
         post_process_unfreeze=config.reconstruction.post_process.unfreeze,
         clip_grad=config.training.clip_grad,
         unrolled_output_factor=config.unrolled_output_factor,
+        pre_proc_aux=config.pre_proc_aux,
         extra_eval_sets=extra_eval_sets if config.files.extra_eval is not None else None,
         use_wandb=True if config.wandb_project is not None else False,
     )

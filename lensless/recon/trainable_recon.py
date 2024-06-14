@@ -54,7 +54,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         skip_unrolled=False,
         skip_pre=False,
         skip_post=False,
-        return_unrolled_output=False,
+        return_intermediate=False,
         legacy_denoiser=False,
         compensation=None,
         **kwargs,
@@ -100,7 +100,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         self.skip_unrolled = skip_unrolled
         self.skip_pre = skip_pre
         self.skip_post = skip_post
-        self.return_unrolled_output = return_unrolled_output
+        self.return_intermediate = return_intermediate
         self.compensation_branch = compensation
         if compensation is not None:
             from lensless.recon.utils import CompensationBranch
@@ -112,11 +112,12 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
                 len(compensation) == n_iter
             ), "compensation_nc must have the same length as n_iter"
             self.compensation_branch = CompensationBranch(compensation)
+            self.compensation_branch = self.compensation_branch.to(self._psf.device)
 
-        if self.return_unrolled_output:
+        if self.return_intermediate:
             assert (
-                post_process is not None
-            ), "If return_unrolled_output is True, post_process must be defined."
+                post_process is not None or pre_process is not None
+            ), "If return_intermediate is True, post_process or pre_process must be defined."
         if self.skip_unrolled:
             assert (
                 post_process is not None or pre_process is not None
@@ -246,6 +247,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             device_before = self._data.device
             self._data = self.pre_process(self._data, self.pre_process_param)
             self._data = self._data.to(device_before)
+        pre_processed = self._data
 
         self.reset(batch_size=batch_size)
 
@@ -273,8 +275,8 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         else:
             final_est = image_est
 
-        if self.return_unrolled_output:
-            return final_est, image_est
+        if self.return_intermediate:
+            return final_est, image_est, pre_processed
         else:
             return final_est
 
@@ -365,7 +367,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
                 plt.savefig(plib.Path(save) / "final.png")
 
         if output_intermediate:
-            return im, pre_processed_image, pre_post_process_image
+            return im, pre_post_process_image, pre_processed_image
         elif plot:
             return im, ax
         else:

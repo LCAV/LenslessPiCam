@@ -20,6 +20,7 @@ files:
   dataset: bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM
   huggingface_dataset: True
   huggingface_psf: psf.tiff
+  single_channel_psf: False    # whether to sum all PSF channels into one
 
   # -- train/test split
   split_seed: null   # if null use train/test split from dataset
@@ -67,7 +68,11 @@ reconstruction:
   # Method: unrolled_admm, unrolled_fista, trainable_inv
   method: unrolled_admm
   skip_unrolled: False
-  init_processors: null   # model name
+
+  # initialize with "init_processors"
+  # -- for HuggingFace model use "hf:camera:dataset:model_name"
+  # -- for local model use "local:model_path"
+  init_processors: null
   init_pre: True   # if `init_processors`, set pre-procesor is available
   init_post: True   # if `init_processors`, set post-procesor is available
 
@@ -149,7 +154,6 @@ simulation:
   max_val: 255
 
 #Training
-
 training:
   batch_size: 8
   epoch: 25
@@ -174,4 +178,6 @@ loss: 'l2'
 # set lpips to false to deactivate. Otherwise, give the weigth for the loss (the main loss l2/l1 always having a weigth of 1)
 lpips: 1.0
 unrolled_output_factor: False   # whether to account for unrolled output in loss (there must post-processor)
-pre_proc_aux: False   # factor for auxiliary pre-processor loss to promote measurement consistency -> ||pre_proc(y) - Ax||
+# factor for auxiliary pre-processor loss to promote measurement consistency -> ||pre_proc(y) - A * camera_inversion(y)||
+# -- use camera inversion output so that doesn't include enhancements / coloring by post-processor
+pre_proc_aux: False
