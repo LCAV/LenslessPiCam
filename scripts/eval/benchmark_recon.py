@@ -28,6 +28,7 @@ import matplotlib.pyplot as plt
 from lensless import ADMM, FISTA, GradientDescent, NesterovGradientDescent
 from lensless.utils.dataset import DiffuserCamTestDataset, DigiCamCelebA, HFDataset
 from lensless.utils.io import save_image
+from lensless.utils.image import gamma_correction
 from lensless.recon.model_dict import download_model, load_model
 
 import torch
@@ -129,6 +130,7 @@ def benchmark_recon(config):
             downsample_lensed=config.huggingface.downsample_lensed,
             alignment=config.huggingface.alignment,
             simulation_config=config.simulation,
+            single_channel_psf=config.huggingface.single_channel_psf,
         )
         if benchmark_dataset.multimask:
             # get first PSF for initialization
@@ -199,6 +201,9 @@ def benchmark_recon(config):
             )
         if "hf" in algo:
             param = algo.split(":")
+            assert (
+                len(param) == 4
+            ), "hf model requires following format: hf:camera:dataset:model_name"
             camera = param[1]
             dataset = param[2]
             model_name = param[3]
@@ -211,13 +216,20 @@ def benchmark_recon(config):
                 skip_post = False
 
             model_path = download_model(camera=camera, dataset=dataset, model=model_name)
-            model_list.append(
-                (algo, load_model(model_path, psf, device, skip_pre=skip_pre, skip_post=skip_post))
-            )
+            model = load_model(model_path, psf, device, skip_pre=skip_pre, skip_post=skip_post)
+            model.eval()
+            model_list.append((algo, model))
 
     results = {}
     output_dir = None
 
+    # save PSF
+    psf_np = psf.cpu().numpy()[0]
+    psf_np = psf_np / np.max(psf_np)
+    psf_np = gamma_correction(psf_np, gamma=config.gamma_psf)
+    save_image(psf_np, fp="psf.png")
+
+    # save ground truth and lensless images
     if config.save_idx is not None:
 
         assert np.max(config.save_idx) < len(
@@ -225,9 +237,11 @@ def benchmark_recon(config):
         ), "save_idx values must be smaller than dataset size"
 
         os.mkdir("GROUND_TRUTH")
+        os.mkdir("LENSLESS")
         for idx in config.save_idx:
-            ground_truth = benchmark_dataset[idx][1]
+            lensless, ground_truth = benchmark_dataset[idx]
             ground_truth_np = ground_truth.cpu().numpy()[0]
+            lensless_np = lensless.cpu().numpy()[0]
 
             if crop is not None:
                 ground_truth_np = ground_truth_np[
@@ -238,6 +252,10 @@ def benchmark_recon(config):
             save_image(
                 ground_truth_np,
                 fp=os.path.join("GROUND_TRUTH", f"{idx}.png"),
+            )
+            save_image(
+                lensless_np,
+                fp=os.path.join("LENSLESS", f"{idx}.png"),
             )
     # benchmark each model for different number of iteration and append result to results
     # -- batchsize has to equal 1 as baseline models don't support batch processing

@@ -1164,6 +1164,9 @@ class HFDataset(DualDataset):
                 single_psf=single_channel_psf,
             )
             self.psf = torch.from_numpy(psf)
+            if single_channel_psf:
+                # replicate across three channels
+                self.psf = self.psf.repeat(1, 1, 1, 3)
 
         elif "mask_label" in data_0:
             self.multimask = True

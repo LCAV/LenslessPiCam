@@ -99,7 +99,16 @@ def WieNer(blur, psf, delta):
 
 
 class MultiWiener(nn.Module):
-    def __init__(self, in_channels, out_channels, psf, psf_channels=1, nc=None):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        psf,
+        psf_channels=1,
+        nc=None,
+        pre_process=None,
+        skip_pre=False,
+    ):
         """
         Parameters
         ----------
@@ -165,6 +174,46 @@ class MultiWiener(nn.Module):
         self._n_iter = 1
         self._convolver = RealFFTConvolve2D(psf, pad=True)
 
+        self.set_pre_process(pre_process)
+        self.skip_pre = skip_pre
+
+    def _prepare_process_block(self, process):
+        """
+        Method for preparing the pre or post process block.
+        Parameters
+        ----------
+            process : :py:class:`function` or :py:class:`~torch.nn.Module`, optional
+                Pre or post process block to prepare.
+        """
+        if isinstance(process, torch.nn.Module):
+            # If the post_process is a torch module, we assume it is a DruNet like network.
+            from lensless.recon.utils import get_drunet_function_v2
+
+            process_model = process
+            process_function = get_drunet_function_v2(process_model, mode="train")
+        elif process is not None:
+            # Otherwise, we assume it is a function.
+            assert callable(process), "pre_process must be a callable function"
+            process_function = process
+            process_model = None
+        else:
+            process_function = None
+            process_model = None
+
+        if process_function is not None:
+            process_param = torch.nn.Parameter(torch.tensor([1.0], device=self._psf.device))
+        else:
+            process_param = None
+
+        return process_function, process_model, process_param
+
+    def set_pre_process(self, pre_process):
+        (
+            self.pre_process,
+            self.pre_process_model,
+            self.pre_process_param,
+        ) = self._prepare_process_block(pre_process)
+
     def forward(self, batch, psfs=None):
 
         if psfs is None:
@@ -177,6 +226,12 @@ class MultiWiener(nn.Module):
         n_depth = batch[0].shape[-4]
         if n_depth > 1:
             raise NotImplementedError("3D not implemented yet.")
+
+        # pre process data
+        if self.pre_process is not None and not self.skip_pre:
+            device_before = batch.device
+            batch = self.pre_process(batch, self.pre_process_param)
+            batch = batch.to(device_before)
 
         # pad to multiple of 8
         batch = convert_to_NCHW(batch)

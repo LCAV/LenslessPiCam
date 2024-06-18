@@ -484,6 +484,7 @@ def train_learned(config):
             psf=psf,
             psf_channels=3,
             nc=config.reconstruction.multi_wiener.nc,
+            pre_process=pre_process if pre_proc_delay is None else None,
         )
 
     else:

@@ -25,6 +25,7 @@ huggingface:
   downsample: 1
   downsample_lensed: 1
   split_seed: null
+  single_channel_psf: False
 
 device: "cuda"
 # numbers of iterations to benchmark
@@ -40,6 +41,8 @@ algorithms: ["ADMM", "ADMM_Monakhova2019", "FISTA"] #["ADMM", "ADMM_Monakhova201
 baseline: "MONAKHOVA 100iter"
 
 save_idx: [0, 1, 2, 3, 4]   # provide index of files to save e.g. [1, 5, 10]
+gamma_psf: 1.5    # gamma factor for PSF
+
 
 # Hyperparameters
 nesterov:

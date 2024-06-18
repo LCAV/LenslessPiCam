@@ -740,6 +740,7 @@ class Trainer:
         mean_loss = 0.0
         i = 1.0
         pbar = tqdm(data_loader)
+        self.recon.train()
         for batch in pbar:
 
             # get batch
@@ -957,6 +958,7 @@ class Trainer:
             output_dir = os.path.join(output_dir, str(epoch))
 
         # benchmarking
+        self.recon.eval()
         current_metrics = benchmark(
             self.recon,
             self.test_dataset,
