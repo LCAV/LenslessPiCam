@@ -41,14 +41,14 @@ class DoubleConv(nn.Module):
 class Down(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
-        self.avgpool_conv = nn.Sequential(
+        self.pool_conv = nn.Sequential(
             # nn.AvgPool2d(2),
-            nn.MaxPool2d(2),
+            nn.MaxPool2d(2),  # original paper says max-pooling
             DoubleConv(in_channels, out_channels),
         )
 
     def forward(self, x):
-        return self.avgpool_conv(x)
+        return self.pool_conv(x)
 
 
 class Up(nn.Module):
@@ -120,9 +120,9 @@ class MultiWiener(nn.Module):
         """
         assert in_channels == 1 or in_channels == 3, "in_channels must be 1 or 3"
         assert out_channels == 1 or out_channels == 3, "out_channels must be 1 or 3"
+        assert in_channels >= out_channels
         if nc is None:
             nc = [64, 128, 256, 512, 512]
-        # assert nc[-1] == nc[-2], "Last two channels must be the same"
 
         super(MultiWiener, self).__init__()
         self.in_channels = in_channels
@@ -172,7 +172,7 @@ class MultiWiener(nn.Module):
             self._psf, (self.left, self.right, self.top, self.bottom), mode="constant", value=0
         )
         self._n_iter = 1
-        self._convolver = RealFFTConvolve2D(psf, pad=True)
+        self._convolver = RealFFTConvolve2D(psf, pad=True, rgb=True if out_channels == 3 else False)
 
         self.set_pre_process(pre_process)
         self.skip_pre = skip_pre

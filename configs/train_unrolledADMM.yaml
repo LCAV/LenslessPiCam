@@ -34,6 +34,8 @@ files:
   vertical_shift: null
   horizontal_shift: null
   rotate: False
+  flipud: False
+  flip_lensed: False
   save_psf: False
   crop: null
     # vertical: null

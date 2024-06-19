@@ -213,6 +213,8 @@ def train_learned(config):
             split=split_train,
             display_res=config.files.image_res,
             rotate=config.files.rotate,
+            flipud=config.files.flipud,
+            flip_lensed=config.files.flip_lensed,
             downsample=config.files.downsample,
             downsample_lensed=config.files.downsample_lensed,
             alignment=config.alignment,
@@ -229,6 +231,8 @@ def train_learned(config):
             split=split_test,
             display_res=config.files.image_res,
             rotate=config.files.rotate,
+            flipud=config.files.flipud,
+            flip_lensed=config.files.flip_lensed,
             downsample=config.files.downsample,
             downsample_lensed=config.files.downsample_lensed,
             alignment=config.alignment,
@@ -478,11 +482,19 @@ def train_learned(config):
             else False,
         )
     elif config.reconstruction.method == "multi_wiener":
+
+        if config.files.single_channel_psf:
+            psf = psf[..., 0].unsqueeze(-1)
+            psf_channels = 1
+        else:
+            psf_channels = 3
+        print(psf.shape)
+
         recon = MultiWiener(
             in_channels=3,
             out_channels=3,
             psf=psf,
-            psf_channels=3,
+            psf_channels=psf_channels,
             nc=config.reconstruction.multi_wiener.nc,
             pre_process=pre_process if pre_proc_delay is None else None,
         )
