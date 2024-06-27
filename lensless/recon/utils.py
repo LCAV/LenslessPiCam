@@ -24,13 +24,13 @@ from lensless.utils.plot import plot_image
 from lensless.utils.dataset import SimulatedDatasetTrainableMask
 
 
-def double_cnn_max_pool(c_in, c_out, cnn_kernel=3, max_pool=2):
+def double_cnn_max_pool(c_in, c_out, cnn_kernel=3, max_pool=2, padding=1, stride=1):
     return nn.Sequential(
         nn.Conv2d(
             in_channels=c_in,
             out_channels=c_out,
             kernel_size=cnn_kernel,
-            padding="same",
+            padding=padding,
             bias=False,
         ),
         nn.BatchNorm2d(c_out),
@@ -39,13 +39,42 @@ def double_cnn_max_pool(c_in, c_out, cnn_kernel=3, max_pool=2):
             in_channels=c_out,
             out_channels=c_out,
             kernel_size=cnn_kernel,
-            padding="same",
+            padding=padding,
             bias=False,
         ),
         nn.BatchNorm2d(c_out),
         nn.ReLU(),
-        nn.MaxPool2d(kernel_size=max_pool),
+        # don't pass stride=1, otherwise no pooling/downsampling..
+        nn.MaxPool2d(kernel_size=max_pool, padding=0) if max_pool else nn.Identity(),
     )
+
+
+class ResBlock(nn.Module):
+    def __init__(self, c_in, c_out, cnn_kernel=3, max_pool=2, padding=1, stride=1):
+        super(ResBlock, self).__init__()
+        # assert c_in == c_out, "Input and output channels must be the same for residual block."
+
+        # conv layers for residual need to be the same size
+        self.double_conv = double_cnn_max_pool(
+            c_in, c_in, cnn_kernel=cnn_kernel, max_pool=False, padding=padding, stride=stride
+        )
+
+        # pooling
+        self.pooling = nn.Sequential(
+            nn.Conv2d(
+                in_channels=c_in,
+                out_channels=c_out,
+                kernel_size=cnn_kernel,
+                padding=padding,
+                bias=False,
+            ),
+            nn.BatchNorm2d(c_out),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=max_pool, padding=0),
+        )
+
+    def forward(self, x):
+        return self.pooling(x + self.double_conv(x))
 
 
 class CompensationBranch(nn.Module):
@@ -53,7 +82,9 @@ class CompensationBranch(nn.Module):
     Compensation branch for unrolled algorithm, as in "Robust Reconstruction With Deep Learning to Handle Model Mismatch in Lensless Imaging" (2021).
     """
 
-    def __init__(self, nc, cnn_kernel=3, max_pool=2, in_channel=3):
+    def __init__(
+        self, nc, cnn_kernel=3, max_pool=2, in_channel=3, residual=True, padding=1, stride=1
+    ):
         """
 
         Parameters
@@ -66,6 +97,8 @@ class CompensationBranch(nn.Module):
             Kernel size for max pooling layers, by default 2.
         in_channel : int, optional
             Number of input channels, by default 3 for RGB.
+        residual : bool, optional
+            Whether to use residual block or simply double conv for intermediate layers, by default True.
         """
         super(CompensationBranch, self).__init__()
 
@@ -73,7 +106,14 @@ class CompensationBranch(nn.Module):
 
         # layers along the compensation branch, f^C in paper
         branch_layers = [
-            double_cnn_max_pool(in_channel, nc[0], cnn_kernel=cnn_kernel, max_pool=max_pool)
+            double_cnn_max_pool(
+                in_channel,
+                nc[0],
+                cnn_kernel=cnn_kernel,
+                max_pool=max_pool,
+                padding=padding,
+                stride=stride,
+            )
         ]
         self.branch_layers = nn.ModuleList(
             branch_layers
@@ -83,6 +123,8 @@ class CompensationBranch(nn.Module):
                     nc[i + 1],
                     cnn_kernel=cnn_kernel,
                     max_pool=max_pool,
+                    padding=padding,
+                    stride=stride,
                 )
                 for i in range(self.n_iter - 1)
             ]
@@ -92,8 +134,29 @@ class CompensationBranch(nn.Module):
         # -- not mentinoed in paper, but added more max-pooling for later residual layers, otherwise dimensions don't match
         self.residual_layers = nn.ModuleList(
             [
-                double_cnn_max_pool(
-                    in_channel, nc[i], cnn_kernel=cnn_kernel, max_pool=max_pool ** (i + 1)
+                # double_cnn_max_pool(
+                #     in_channel, nc[i], cnn_kernel=cnn_kernel, max_pool=max_pool ** (i + 1)
+                # )
+                # B.sequential(
+                #     B.ResBlock(in_channel, in_channel, bias=False, mode="CRC", padding=padding, stride=stride),
+                #     B.downsample_maxpool(in_channel, nc[i], bias=False, mode=str(max_pool ** (i + 1)), padding=padding, stride=stride)
+                # ) if residual
+                ResBlock(
+                    in_channel,
+                    nc[i],
+                    cnn_kernel=cnn_kernel,
+                    max_pool=max_pool ** (i + 1),
+                    padding=padding,
+                    stride=stride,
+                )
+                if residual
+                else double_cnn_max_pool(
+                    in_channel,
+                    nc[i],
+                    cnn_kernel=cnn_kernel,
+                    max_pool=max_pool ** (i + 1),
+                    padding=padding,
+                    stride=stride,
                 )
                 for i in range(self.n_iter - 1)
             ]
@@ -110,6 +173,7 @@ class CompensationBranch(nn.Module):
         h_apo_k = self.branch_layers[0](convert_to_NCHW(x[0]))  # h^{'}_k
         for k in range(self.n_iter - 1):  # eq. 18-21
             # \tilde{h}_k
+            # import pudb; pudb.set_trace()
             h_k = torch.cat([h_apo_k, self.residual_layers[k](convert_to_NCHW(x[k + 1]))], axis=1)
             h_apo_k = self.branch_layers[k + 1](h_k)  # h^{'}_k
 

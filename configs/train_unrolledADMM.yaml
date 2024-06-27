@@ -16,6 +16,8 @@ files:
   # psf: data/psf/diffusercam_psf.tiff
   # diffusercam_psf: True
 
+  cache_dir: null    # where to read/write dataset. Defaults to `"~/.cache/huggingface/datasets"`.
+
   # -- using huggingface dataset
   dataset: bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM
   huggingface_dataset: True

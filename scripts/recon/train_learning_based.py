@@ -195,8 +195,12 @@ def train_learned(config):
             if config.files.n_files is not None:
                 train_split = f"train[:{config.files.n_files}]"
                 test_split = f"test[:{config.files.n_files}]"
-            train_dataset = load_dataset(config.files.dataset, split=train_split)
-            test_dataset = load_dataset(config.files.dataset, split=test_split)
+            train_dataset = load_dataset(
+                config.files.dataset, split=train_split, cache_dir=config.files.cache_dir
+            )
+            test_dataset = load_dataset(
+                config.files.dataset, split=test_split, cache_dir=config.files.cache_dir
+            )
             dataset = concatenate_datasets([test_dataset, train_dataset])
 
             # - split into train and test
@@ -208,6 +212,7 @@ def train_learned(config):
 
         train_set = HFDataset(
             huggingface_repo=config.files.dataset,
+            cache_dir=config.files.cache_dir,
             psf=config.files.huggingface_psf,
             single_channel_psf=config.files.single_channel_psf,
             split=split_train,
@@ -226,6 +231,7 @@ def train_learned(config):
         )
         test_set = HFDataset(
             huggingface_repo=config.files.dataset,
+            cache_dir=config.files.cache_dir,
             psf=config.files.huggingface_psf,
             single_channel_psf=config.files.single_channel_psf,
             split=split_test,
@@ -488,7 +494,6 @@ def train_learned(config):
             psf_channels = 1
         else:
             psf_channels = 3
-        print(psf.shape)
 
         recon = MultiWiener(
             in_channels=3,

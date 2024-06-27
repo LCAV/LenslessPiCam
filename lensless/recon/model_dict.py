@@ -53,6 +53,16 @@ model_dict = {
             # baseline benchmarks which don't have model file but use ADMM
             "admm_fista": "bezzam/diffusercam-mirflickr-admm-fista",
             "admm_pnp": "bezzam/diffusercam-mirflickr-admm-pnp",
+            # -- TCI submission
+            "TrainInv+Unet8M": "bezzam/diffusercam-mirflickr-trainable-inv-unet8M",
+            "Unet4M+U5+Unet4M": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M",
+            "MWDN8M": "bezzam/diffusercam-mirflickr-mwdn-8M",
+            "Unet2M+MWDN6M": "bezzam/diffusercam-mirflickr-unet2M-mwdn-6M",
+            "Unet4M+TrainInv+Unet4M": "bezzam/diffusercam-mirflickr-unet4M-trainable-inv-unet4M",
+            "MMCN4M+Unet4M": "bezzam/diffusercam-mirflickr-mmcn-unet4M",
+            "U5+Unet8M": "bezzam/diffusercam-mirflickr-unrolled-admm5-unet8M",
+            "Unet2M+MMCN+Unet2M": "bezzam/diffusercam-mirflickr-unet2M-mmcn-unet2M",
+            "Unet4M+U20+Unet4M": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm20-unet4M",
         },
     },
     "digicam": {
@@ -70,6 +80,12 @@ model_dict = {
             # baseline benchmarks which don't have model file but use ADMM
             "admm_measured_psf": "bezzam/digicam-celeba-admm-measured-psf",
             "admm_simulated_psf": "bezzam/digicam-celeba-admm-simulated-psf",
+            # TCI submission (using waveprop simulation)
+            "U5+Unet8M_wave": "bezzam/digicam-celeba-unrolled-admm5-unet8M",
+            "TrainInv+Unet8M_wave": "bezzam/digicam-celeba-trainable-inv-unet8M_wave",
+            "MWDN8M_wave": "bezzam/digicam-celeba-mwnn-8M",
+            "MMCN4M+Unet4M_wave": "bezzam/digicam-celeba-mmcn-unet4M",
+            "Unet2M+MWDN6M_wave": "bezzam/digicam-celeba-unet2M-mwdn-6M",
         },
         "mirflickr_single_25k": {
             # simulated PSF (without waveprop, with deadspace)
@@ -86,9 +102,12 @@ model_dict = {
             "Unet4M+U10+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-wave",
             "TrainInv+Unet8M_wave": "bezzam/digicam-mirflickr-single-25k-trainable-inv-unet8M-wave",
             "U5+Unet8M_wave": "bezzam/digicam-mirflickr-single-25k-unrolled-admm5-unet8M-wave",
+            "Unet4M+U5+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm5-unet4M-wave",
             "MWDN8M_wave": "bezzam/digicam-mirflickr-single-25k-mwdn-8M",
             "MMCN4M+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-mmcn-unet4M",
+            "Unet2M+MMCN+Unet2M_wave": "bezzam/digicam-mirflickr-single-25k-unet2M-mmcn-unet2M-wave",
             "Unet4M+TrainInv+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-unet4M-trainable-inv-unet4M-wave",
+            "Unet2M+MWDN6M_wave": "bezzam/digicam-mirflickr-single-25k-unet2M-mwdn-6M",
             # measured PSF
             "Unet4M+U10+Unet4M_measured": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-measured",
             # simulated PSF (with waveprop, no deadspace)
@@ -270,11 +289,25 @@ def load_model(
             skip_post=skip_post,
         )
     elif config["reconstruction"]["method"] == "multi_wiener":
+
+        if config["files"].get("single_channel_psf", False):
+
+            if torch.sum(psf[..., 0] - psf[..., 1]) != 0:
+                # need to sum difference channels
+                raise ValueError("PSF channels are not the same")
+                # psf = np.sum(psf, axis=3)
+
+            else:
+                psf = psf[..., 0].unsqueeze(-1)
+            psf_channels = 1
+        else:
+            psf_channels = 3
+
         recon = MultiWiener(
             in_channels=3,
             out_channels=3,
             psf=psf,
-            psf_channels=3,
+            psf_channels=psf_channels,
             nc=config["reconstruction"]["multi_wiener"]["nc"],
             pre_process=pre_process,
         )
@@ -286,6 +319,13 @@ def load_model(
 
     if "device_ids" in config.keys() and config["device_ids"] is not None:
         model_state_dict = remove_data_parallel(model_state_dict)
+
+    # hotfixes for loading models
+    if config["reconstruction"]["method"] == "multi_wiener":
+        # replace "avgpool_conv" with "pool_conv"
+        model_state_dict = {
+            k.replace("avgpool_conv", "pool_conv"): v for k, v in model_state_dict.items()
+        }
 
     recon.load_state_dict(model_state_dict)
 
