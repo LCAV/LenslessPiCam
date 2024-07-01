@@ -17,6 +17,7 @@ from scipy.ndimage import rotate as rotate_func
 try:
     import torch
     from torchvision import transforms
+    from torchvision.transforms.functional import InterpolationMode
 
     torch_available = True
 except ImportError:
@@ -123,13 +124,7 @@ def set_programmable_mask(pattern, device, rpi_username=None, rpi_hostname=None,
 
 
 def get_programmable_mask(
-    vals,
-    sensor,
-    slm_param,
-    rotate=None,
-    flipud=False,
-    nbits=8,
-    color_filter=None,
+    vals, sensor, slm_param, rotate=None, flipud=False, nbits=8, color_filter=None, deadspace=True
 ):
     """
     Get mask as a numpy or torch array. Return same type.
@@ -148,6 +143,8 @@ def get_programmable_mask(
         Flip mask vertically.
     nbits : int, optional
         Number of bits/levels to quantize mask to.
+    deadspace: bool, optional
+        Whether to include deadspace around mask. Default is True.
 
     """
 
@@ -161,9 +158,8 @@ def get_programmable_mask(
     # -- prepare SLM mask
     n_active_slm_pixels = vals.shape
     n_color_filter = np.prod(slm_param["color_filter"].shape[:2])
-    pixel_pitch = slm_param[SLMParam_wp.PITCH]
-    centers = get_centers(n_active_slm_pixels, pixel_pitch=pixel_pitch)
 
+    # -- prepare color filter
     if color_filter is None and SLMParam_wp.COLOR_FILTER in slm_param.keys():
         color_filter = slm_param[SLMParam_wp.COLOR_FILTER]
         if isinstance(vals, torch.Tensor):
@@ -180,36 +176,84 @@ def get_programmable_mask(
         else:
             raise ValueError("color_filter must be numpy array or torch tensor")
 
-    d1 = sensor.pitch
-    _height_pixel, _width_pixel = (slm_param[SLMParam_wp.CELL_SIZE] / d1).astype(int)
-
+    # -- prepare mask
     if use_torch:
         mask = torch.zeros((n_color_filter,) + tuple(sensor.resolution)).to(vals)
         slm_vals_flat = vals.flatten()
     else:
         mask = np.zeros((n_color_filter,) + tuple(sensor.resolution), dtype=dtype)
         slm_vals_flat = vals.reshape(-1)
+    pixel_pitch = slm_param[SLMParam_wp.PITCH]
+    d1 = sensor.pitch
+    if deadspace:
 
-    for i, _center in enumerate(centers):
+        centers = get_centers(n_active_slm_pixels, pixel_pitch=pixel_pitch)
 
-        _center_pixel = (_center / d1 + sensor.resolution / 2).astype(int)
-        _center_top_left_pixel = (
-            _center_pixel[0] - np.floor(_height_pixel / 2).astype(int),
-            _center_pixel[1] + 1 - np.floor(_width_pixel / 2).astype(int),
+        _height_pixel, _width_pixel = (slm_param[SLMParam_wp.CELL_SIZE] / d1).astype(int)
+
+        for i, _center in enumerate(centers):
+
+            _center_pixel = (_center / d1 + sensor.resolution / 2).astype(int)
+            _center_top_left_pixel = (
+                _center_pixel[0] - np.floor(_height_pixel / 2).astype(int),
+                _center_pixel[1] + 1 - np.floor(_width_pixel / 2).astype(int),
+            )
+            color_filter_idx = i // n_active_slm_pixels[1] % n_color_filter
+
+            mask_val = slm_vals_flat[i] * color_filter[color_filter_idx][0]
+            if isinstance(mask_val, np.ndarray):
+                mask_val = mask_val[:, np.newaxis, np.newaxis]
+            elif isinstance(mask_val, torch.Tensor):
+                mask_val = mask_val.unsqueeze(-1).unsqueeze(-1)
+            mask[
+                :,
+                _center_top_left_pixel[0] : _center_top_left_pixel[0] + _height_pixel,
+                _center_top_left_pixel[1] : _center_top_left_pixel[1] + _width_pixel,
+            ] = mask_val
+
+    else:
+
+        # use color filter to turn mask into RGB
+        if use_torch:
+            active_mask_rgb = torch.zeros((n_color_filter,) + n_active_slm_pixels).to(vals)
+        else:
+            active_mask_rgb = np.zeros((n_color_filter,) + n_active_slm_pixels, dtype=dtype)
+
+        # TODO avoid for loop
+        for i in range(n_active_slm_pixels[0]):
+            row_idx = i % color_filter.shape[0]
+            for j in range(n_active_slm_pixels[1]):
+
+                col_idx = j % color_filter.shape[1]
+                color_filter_idx = color_filter[row_idx, col_idx]
+                active_mask_rgb[
+                    :, n_active_slm_pixels[0] - i - 1, n_active_slm_pixels[1] - j - 1
+                ] = (vals[i, j] * color_filter_idx)
+
+        # size of active pixels in pixels
+        n_active_dim = np.around(slm_param[SLMParam_wp.PITCH] * n_active_slm_pixels / d1).astype(
+            int
         )
+        # n_active_dim = np.around(slm_param[SLMParam_wp.CELL_SIZE] * n_active_slm_pixels / d1).astype(int)
 
-        color_filter_idx = i // n_active_slm_pixels[1] % n_color_filter
+        # resize to n_active_dim
+        if use_torch:
+            mask_active = transforms.functional.resize(
+                active_mask_rgb, n_active_dim, interpolation=InterpolationMode.NEAREST
+            )
+        else:
+            # TODO check
+            mask_active = np.zeros((n_color_filter,) + tuple(n_active_dim), dtype=dtype)
+            for i in range(n_color_filter):
+                mask_active[i] = np.resize(active_mask_rgb[i], n_active_dim)
 
-        mask_val = slm_vals_flat[i] * color_filter[color_filter_idx][0]
-        if isinstance(mask_val, np.ndarray):
-            mask_val = mask_val[:, np.newaxis, np.newaxis]
-        elif isinstance(mask_val, torch.Tensor):
-            mask_val = mask_val.unsqueeze(-1).unsqueeze(-1)
+        # pad to full mask
+        top_left = (sensor.resolution - n_active_dim) // 2
         mask[
             :,
-            _center_top_left_pixel[0] : _center_top_left_pixel[0] + _height_pixel,
-            _center_top_left_pixel[1] : _center_top_left_pixel[1] + _width_pixel,
-        ] = mask_val
+            top_left[0] : top_left[0] + n_active_dim[0],
+            top_left[1] : top_left[1] + n_active_dim[1],
+        ] = mask_active
 
     # # quantize mask
     # if use_torch:

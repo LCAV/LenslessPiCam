@@ -41,9 +41,9 @@ import click
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from lensless.utils.image import rgb2gray
+from lensless.utils.image import rgb2gray, gamma_correction, resize
 from lensless.utils.plot import plot_image, pixel_histogram, plot_cross_section, plot_autocorr2d
-from lensless.utils.io import load_image
+from lensless.utils.io import load_image, load_psf, save_image
 
 
 @click.command()
@@ -121,15 +121,26 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
         fig_gray, ax_gray = plt.subplots(ncols=2, nrows=1, num="Grayscale", figsize=(15, 5))
 
     # load PSF/image
-    img = load_image(
-        fp,
-        verbose=True,
-        bayer=bayer,
-        blue_gain=bg,
-        red_gain=rg,
-        nbits_out=nbits,
-        back=back,
-    )
+    if lensless:
+        img = load_psf(
+            fp,
+            verbose=True,
+            bayer=bayer,
+            blue_gain=bg,
+            red_gain=rg,
+            nbits_out=nbits,
+            return_float=False,
+        )[0]
+    else:
+        img = load_image(
+            fp,
+            verbose=True,
+            bayer=bayer,
+            blue_gain=bg,
+            red_gain=rg,
+            nbits_out=nbits,
+            back=back,
+        )
     if nbits is None:
         nbits = int(np.ceil(np.log2(img.max())))
 
@@ -193,6 +204,17 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
     if bayer and save is not None:
         cv2.imwrite(save, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
         print(f"\nColor-corrected RGB image saved to: {save}")
+
+        # save 8bit version for visualization
+        if gamma is not None:
+            img = img / img.max()
+            img = gamma_correction(img, gamma=gamma)
+        # -- downsample
+        img = resize(img, factor=1 / 4)
+        print(img.shape)
+        save_8bit = save.replace(".png", "_8bit.png")
+        save_image(img, save_8bit, normalize=True)
+        print(f"\n8bit version saved to: {save_8bit}")
 
     plt.show()
 

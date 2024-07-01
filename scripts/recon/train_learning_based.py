@@ -37,6 +37,7 @@ import numpy as np
 import time
 from lensless.hardware.trainable_mask import prep_trainable_mask
 from lensless import ADMM, UnrolledFISTA, UnrolledADMM, TrainableInversion
+from lensless.recon.multi_wiener import MultiWiener
 from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     DigiCamCelebA,
@@ -98,6 +99,7 @@ def train_learned(config):
     device_ids = config.device_ids
     if device_ids is not None:
         log.info(f"Using multiple GPUs : {device_ids}")
+        assert device_ids[0] == int(device.split(":")[1])
 
     # load dataset and create dataloader
     train_set = None
@@ -193,8 +195,12 @@ def train_learned(config):
             if config.files.n_files is not None:
                 train_split = f"train[:{config.files.n_files}]"
                 test_split = f"test[:{config.files.n_files}]"
-            train_dataset = load_dataset(config.files.dataset, split=train_split)
-            test_dataset = load_dataset(config.files.dataset, split=test_split)
+            train_dataset = load_dataset(
+                config.files.dataset, split=train_split, cache_dir=config.files.cache_dir
+            )
+            test_dataset = load_dataset(
+                config.files.dataset, split=test_split, cache_dir=config.files.cache_dir
+            )
             dataset = concatenate_datasets([test_dataset, train_dataset])
 
             # - split into train and test
@@ -206,29 +212,41 @@ def train_learned(config):
 
         train_set = HFDataset(
             huggingface_repo=config.files.dataset,
+            cache_dir=config.files.cache_dir,
             psf=config.files.huggingface_psf,
+            single_channel_psf=config.files.single_channel_psf,
             split=split_train,
             display_res=config.files.image_res,
             rotate=config.files.rotate,
+            flipud=config.files.flipud,
+            flip_lensed=config.files.flip_lensed,
             downsample=config.files.downsample,
             downsample_lensed=config.files.downsample_lensed,
             alignment=config.alignment,
             save_psf=config.files.save_psf,
             n_files=config.files.n_files,
             simulation_config=config.simulation,
+            force_rgb=config.files.force_rgb,
+            simulate_lensless=config.files.simulate_lensless,
         )
         test_set = HFDataset(
             huggingface_repo=config.files.dataset,
+            cache_dir=config.files.cache_dir,
             psf=config.files.huggingface_psf,
+            single_channel_psf=config.files.single_channel_psf,
             split=split_test,
             display_res=config.files.image_res,
             rotate=config.files.rotate,
+            flipud=config.files.flipud,
+            flip_lensed=config.files.flip_lensed,
             downsample=config.files.downsample,
             downsample_lensed=config.files.downsample_lensed,
             alignment=config.alignment,
             save_psf=config.files.save_psf,
             n_files=config.files.n_files,
             simulation_config=config.simulation,
+            force_rgb=config.files.force_rgb,
+            simulate_lensless=False,  # in general evaluate on measured (set to False)
         )
         if train_set.multimask:
             # get first PSF for initialization
@@ -278,6 +296,7 @@ def train_learned(config):
                 downsample=config.files.downsample,  # needs to be same size
                 n_files=config.files.n_files,
                 simulation_config=config.simulation,
+                simulate_lensless=False,  # in general evaluate on measured
                 **config.files.extra_eval[eval_set],
             )
 
@@ -367,8 +386,14 @@ def train_learned(config):
         nc=config.reconstruction.post_process.nc,
         device=device,
         device_ids=device_ids,
+        concatenate_compensation=True if config.reconstruction.compensation is not None else False,
     )
     post_proc_delay = config.reconstruction.post_process.delay
+    if config.reconstruction.post_process.network is not None:
+        if config.reconstruction.compensation is not None:
+            assert (
+                config.reconstruction.compensation[-1] == config.reconstruction.post_process.nc[-1]
+            )
 
     if config.reconstruction.post_process.train_last_layer:
         for name, param in post_process.named_parameters():
@@ -380,10 +405,23 @@ def train_learned(config):
 
     # initialize pre- and post processor with another model
     if config.reconstruction.init_processors is not None:
-        from lensless.recon.model_dict import load_model, model_dict
+        from lensless.recon.model_dict import load_model, download_model
+
+        if "hf" in config.reconstruction.init_processors:
+            param = config.reconstruction.init_processors.split(":")
+            camera = param[1]
+            dataset = param[2]
+            model_name = param[3]
+            model_path = download_model(camera=camera, dataset=dataset, model=model_name)
+
+        elif "local" in config.reconstruction.init_processors:
+            model_path = config.reconstruction.init_processors.split(":")[1]
+
+        else:
+            raise ValueError(f"{config.reconstruction.init_processors} is not a supported model")
 
         model_orig = load_model(
-            model_dict["diffusercam"]["mirflickr"][config.reconstruction.init_processors],
+            model_path=model_path,
             psf=psf,
             device=device,
         )
@@ -417,7 +455,10 @@ def train_learned(config):
             pre_process=pre_process if pre_proc_delay is None else None,
             post_process=post_process if post_proc_delay is None else None,
             skip_unrolled=config.reconstruction.skip_unrolled,
-            return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
+            return_intermediate=True
+            if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
+            else False,
+            compensation=config.reconstruction.compensation,
         )
     elif config.reconstruction.method == "unrolled_admm":
         recon = UnrolledADMM(
@@ -430,16 +471,39 @@ def train_learned(config):
             pre_process=pre_process if pre_proc_delay is None else None,
             post_process=post_process if post_proc_delay is None else None,
             skip_unrolled=config.reconstruction.skip_unrolled,
-            return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
+            return_intermediate=True
+            if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
+            else False,
+            compensation=config.reconstruction.compensation,
         )
     elif config.reconstruction.method == "trainable_inv":
+        assert config.trainable_mask.mask_type == "TrainablePSF"
         recon = TrainableInversion(
             psf,
             K=config.reconstruction.trainable_inv.K,
             pre_process=pre_process if pre_proc_delay is None else None,
             post_process=post_process if post_proc_delay is None else None,
-            return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
+            return_intermediate=True
+            if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
+            else False,
         )
+    elif config.reconstruction.method == "multi_wiener":
+
+        if config.files.single_channel_psf:
+            psf = psf[..., 0].unsqueeze(-1)
+            psf_channels = 1
+        else:
+            psf_channels = 3
+
+        recon = MultiWiener(
+            in_channels=3,
+            out_channels=3,
+            psf=psf,
+            psf_channels=psf_channels,
+            nc=config.reconstruction.multi_wiener.nc,
+            pre_process=pre_process if pre_proc_delay is None else None,
+        )
+
     else:
         raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
 
@@ -492,6 +556,7 @@ def train_learned(config):
         post_process_unfreeze=config.reconstruction.post_process.unfreeze,
         clip_grad=config.training.clip_grad,
         unrolled_output_factor=config.unrolled_output_factor,
+        pre_proc_aux=config.pre_proc_aux,
         extra_eval_sets=extra_eval_sets if config.files.extra_eval is not None else None,
         use_wandb=True if config.wandb_project is not None else False,
     )

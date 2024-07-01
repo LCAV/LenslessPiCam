@@ -240,6 +240,20 @@ def upload_dataset(config):
                 repo_type="dataset",
                 token=hf_token,
             )
+
+            # viewable version of file
+            img = cv2.imread(fp, cv2.IMREAD_UNCHANGED)
+            local_fp = f"{f}_viewable8bit.png"
+            remote_fn = f"{f}_viewable8bit.png"
+            save_image(img, local_fp, normalize=True)
+            upload_file(
+                path_or_fileobj=local_fp,
+                path_in_repo=remote_fn,
+                repo_id=repo_id,
+                repo_type="dataset",
+                token=hf_token,
+            )
+
     dataset_dict.push_to_hub(repo_id, token=hf_token)
 
     upload_file(

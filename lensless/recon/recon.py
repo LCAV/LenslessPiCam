@@ -255,6 +255,7 @@ class ReconstructionAlgorithm(abc.ABC):
         assert len(psf.shape) == 4, "PSF must be 4D: (depth, height, width, channels)."
         assert psf.shape[3] == 3 or psf.shape[3] == 1, "PSF must either be rgb (3) or grayscale (1)"
         self._psf = psf
+        self._npix = np.prod(self._psf.shape)
         self._n_iter = n_iter
 
         self._psf_shape = np.array(self._psf.shape)
@@ -611,15 +612,18 @@ class ReconstructionAlgorithm(abc.ABC):
         if lensless is None:
             lensless = self._data
 
-        convolver = self._convolver
+        # convolver = self._convolver
+        convolver = RealFFTConvolve2D(self._psf.to(prediction.device), **self._convolver_param)
         if not convolver.pad:
             prediction = convolver._pad(prediction)
-        Fx = convolver.convolve(prediction)
-        Fy = lensless
-        if not convolver.pad:
-            Fx = convolver._crop(Fx)
+        Hx = convolver.convolve(prediction)
 
+        if not convolver.pad:
+            Hx = convolver._crop(Hx)
+
+        # don't reduce batch dimension
         if self.is_torch:
-            return torch.norm(Fx - Fy)
+            return torch.sum(torch.sqrt((Hx - lensless) ** 2), dim=(-1, -2, -3, -4)) / self._npix
+
         else:
-            return np.linalg.norm(Fx - Fy)
+            return np.sum(np.sqrt((Hx - lensless) ** 2), axis=(-1, -2, -3, -4)) / self._npix

@@ -28,6 +28,7 @@ from huggingface_hub import hf_hub_download
 import cv2
 from lensless.hardware.sensor import sensor_dict, SensorParam
 from scipy.ndimage import rotate
+import warnings
 
 
 def convert(text):
@@ -1026,6 +1027,8 @@ class HFDataset(DualDataset):
         n_files=None,
         psf=None,
         rotate=False,  # just the lensless image
+        flipud=False,
+        flip_lensed=False,
         downsample=1,
         downsample_lensed=1,
         display_res=None,
@@ -1035,6 +1038,10 @@ class HFDataset(DualDataset):
         return_mask_label=False,
         save_psf=False,
         simulation_config=dict(),
+        simulate_lensless=False,
+        force_rgb=False,
+        cache_dir=None,
+        single_channel_psf=False,
         **kwargs,
     ):
         """
@@ -1078,21 +1085,25 @@ class HFDataset(DualDataset):
         if isinstance(split, str):
             if n_files is not None:
                 split = f"{split}[0:{n_files}]"
-            self.dataset = load_dataset(huggingface_repo, split=split)
+            self.dataset = load_dataset(huggingface_repo, split=split, cache_dir=cache_dir)
         elif isinstance(split, Dataset):
             self.dataset = split
         else:
             raise ValueError("split should be a string or a Dataset object")
 
         self.rotate = rotate
+        self.flipud = flipud
+        self.flip_lensed = flip_lensed
         self.display_res = display_res
         self.return_mask_label = return_mask_label
+        self.force_rgb = force_rgb  # if some data is not 3D
 
         # deduce downsampling factor from the first image
         data_0 = self.dataset[0]
         self.downsample_lensless = downsample
         self.downsample_lensed = downsample_lensed
         lensless = np.array(data_0["lensless"])
+
         if self.downsample_lensless != 1.0:
             lensless = resize(lensless, factor=1 / self.downsample_lensless)
         if psf is None:
@@ -1105,8 +1116,7 @@ class HFDataset(DualDataset):
         self.alignment = None
         self.crop = None
         if alignment is not None:
-            # preparing ground-truth in expected shape
-            if "top_left" in alignment:
+            if alignment.get("top_left", None) is not None:
                 self.alignment = dict(alignment.copy())
                 self.alignment["top_left"] = (
                     int(self.alignment["top_left"][0] / downsample),
@@ -1117,9 +1127,19 @@ class HFDataset(DualDataset):
                 original_aspect_ratio = display_res[1] / display_res[0]
                 self.alignment["width"] = int(self.alignment["height"] * original_aspect_ratio)
 
-            # preparing ground-truth as simulated measurement of original
-            elif "crop" in alignment:
-                assert "simulation" in alignment, "Simulation config should be provided"
+            if alignment.get("topright", None) is not None:
+                # typo in original configuration
+                self.alignment = dict(alignment.copy())
+                self.alignment["top_left"] = (
+                    int(self.alignment["topright"][0] / downsample),
+                    int(self.alignment["topright"][1] / downsample),
+                )
+                self.alignment["height"] = int(self.alignment["height"] / downsample)
+
+                original_aspect_ratio = display_res[1] / display_res[0]
+                self.alignment["width"] = int(self.alignment["height"] * original_aspect_ratio)
+
+            elif alignment.get("crop", None) is not None:
                 self.crop = dict(alignment["crop"].copy())
                 self.crop["vertical"][0] = int(self.crop["vertical"][0] / downsample)
                 self.crop["vertical"][1] = int(self.crop["vertical"][1] / downsample)
@@ -1138,9 +1158,15 @@ class HFDataset(DualDataset):
                 return_float=True,
                 return_bg=True,
                 flip=rotate,
+                flip_ud=flipud,
                 bg_pix=(0, 15),
+                force_rgb=force_rgb,
+                single_psf=single_channel_psf,
             )
             self.psf = torch.from_numpy(psf)
+            if single_channel_psf:
+                # replicate across three channels
+                self.psf = self.psf.repeat(1, 1, 1, 3)
 
         elif "mask_label" in data_0:
             self.multimask = True
@@ -1163,10 +1189,11 @@ class HFDataset(DualDataset):
                     sensor=sensor,
                     slm=slm,
                     downsample=downsample_fact,
-                    flipud=rotate,
+                    flipud=rotate or flipud,  # TODO separate commands?
                     use_waveprop=simulation_config.get("use_waveprop", False),
                     scene2mask=simulation_config.get("scene2mask", None),
                     mask2sensor=simulation_config.get("mask2sensor", None),
+                    deadspace=simulation_config.get("deadspace", True),
                 )
                 self.psf[label] = mask.get_psf().detach()
 
@@ -1190,10 +1217,11 @@ class HFDataset(DualDataset):
                 sensor=sensor,
                 slm=slm,
                 downsample=downsample_fact,
-                flipud=rotate,
+                flipud=rotate or flipud,  # TODO separate commands?
                 use_waveprop=simulation_config.get("use_waveprop", False),
                 scene2mask=simulation_config.get("scene2mask", None),
                 mask2sensor=simulation_config.get("mask2sensor", None),
+                deadspace=simulation_config.get("deadspace", True),
             )
             self.psf = mask.get_psf().detach()
             assert (
@@ -1205,21 +1233,29 @@ class HFDataset(DualDataset):
                 save_image(self.psf.squeeze().cpu().numpy(), "psf.png")
 
         # create simulator
+        self.simulate_lensless = simulate_lensless
+        if simulate_lensless:
+            assert (
+                alignment is not None and alignment.get("simulation") is not None
+            ), "Need simulation parameters for lensless images"
         self.simulator = None
-        self.vertical_shift = None
-        self.horizontal_shift = None
         if alignment is not None and "simulation" in alignment:
             simulation_config = dict(alignment["simulation"].copy())
             simulation_config["output_dim"] = tuple(self.psf.shape[-3:-1])
+            if simulation_config.get("vertical_shift", None) is not None:
+                simulation_config["vertical_shift"] = int(
+                    simulation_config["vertical_shift"] / downsample
+                )
+            if simulation_config.get("horizontal_shift", None) is not None:
+                simulation_config["horizontal_shift"] = int(
+                    simulation_config["horizontal_shift"] / downsample
+                )
             simulator = FarFieldSimulator(
+                psf=self.psf if self.simulate_lensless else None,
                 is_torch=True,
                 **simulation_config,
             )
             self.simulator = simulator
-            if "vertical_shift" in simulation_config:
-                self.vertical_shift = int(simulation_config["vertical_shift"] / downsample)
-            if "horizontal_shift" in simulation_config:
-                self.horizontal_shift = int(simulation_config["horizontal_shift"] / downsample)
 
         super(HFDataset, self).__init__(**kwargs)
 
@@ -1231,6 +1267,21 @@ class HFDataset(DualDataset):
         # load image
         lensless_np = np.array(self.dataset[idx]["lensless"])
         lensed_np = np.array(self.dataset[idx]["lensed"])
+
+        if self.force_rgb:
+            if len(lensless_np.shape) == 2:
+                warnings.warn(f"Converting lensless[{idx}] to RGB")
+                lensless_np = np.stack([lensless_np] * 3, axis=2)
+            elif len(lensless_np.shape) == 3:
+                pass
+            else:
+                raise ValueError(f"lensless[{idx}] should be 2D or 3D")
+
+            if len(lensed_np.shape) == 2:
+                warnings.warn(f"Converting lensed[{idx}] to RGB")
+                lensed_np = np.stack([lensed_np] * 3, axis=2)
+            elif len(lensed_np.shape) == 3:
+                pass
 
         # convert to float
         if lensless_np.dtype == np.uint8:
@@ -1257,12 +1308,13 @@ class HFDataset(DualDataset):
 
             # project original image to lensed space
             with torch.no_grad():
-                lensed = self.simulator.propagate_image(lensed, return_object_plane=True)
 
-            if self.vertical_shift is not None:
-                lensed = torch.roll(lensed, self.vertical_shift, dims=-3)
-            if self.horizontal_shift is not None:
-                lensed = torch.roll(lensed, self.horizontal_shift, dims=-2)
+                if self.simulate_lensless:
+                    lensless, lensed = self.simulator.propagate_image(
+                        lensed, return_object_plane=True
+                    )
+                else:
+                    lensed = self.simulator.propagate_image(lensed, return_object_plane=True)
 
         elif self.alignment is not None:
             lensed = resize(
@@ -1285,8 +1337,17 @@ class HFDataset(DualDataset):
 
     def __getitem__(self, idx):
         lensless, lensed = super().__getitem__(idx)
-        if self.rotate:
-            lensless = torch.rot90(lensless, dims=(-3, -2), k=2)
+        if not self.simulate_lensless:
+            if self.rotate:
+                lensless = torch.rot90(lensless, dims=(-3, -2), k=2)
+            if self.flipud:
+                lensless = torch.flip(lensless, dims=(-3,))
+
+        if self.flip_lensed:
+            if self.rotate:
+                lensed = torch.rot90(lensed, dims=(-3, -2), k=2)
+            if self.flipud:
+                lensed = torch.flip(lensed, dims=(-3,))
 
         # return corresponding PSF
         if self.multimask:

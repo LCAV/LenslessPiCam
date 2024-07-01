@@ -225,6 +225,7 @@ def load_psf(
     shape=None,
     use_3d=False,
     bgr_input=True,
+    force_rgb=False,
 ):
     """
     Load and process PSF for analysis or for reconstruction.
@@ -304,6 +305,12 @@ def load_psf(
     original_dtype = psf.dtype
     max_val = get_max_val(psf)
     psf = np.array(psf, dtype=dtype)
+
+    if force_rgb:
+        if len(psf.shape) == 2:
+            psf = np.stack([psf] * 3, axis=2)
+        elif len(psf.shape) == 3:
+            pass
 
     if use_3d:
         if len(psf.shape) == 3:

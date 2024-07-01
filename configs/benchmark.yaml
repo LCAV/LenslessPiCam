@@ -9,15 +9,23 @@ hydra:
 
 dataset: DiffuserCam   # DiffuserCam, DigiCamCelebA, HFDataset
 seed: 0
+batchsize: 1    # must be 1 for iterative approaches
 
 huggingface:
   repo: "bezzam/DigiCam-Mirflickr-MultiMask-25K"
+  cache_dir: null    # where to read/write dataset. Defaults to `"~/.cache/huggingface/datasets"`.
+  psf: null   # null for simulating PSF
   image_res: [900, 1200]  # used during measurement
   rotate: True   # if measurement is upside-down
+  flipud: False
+  flip_lensed: False   # if rotate or flipud is True, apply to lensed
   alignment:
     top_left: [80, 100]  # height, width
     height: 200
   downsample: 1
+  downsample_lensed: 1
+  split_seed: null
+  single_channel_psf: False
 
 device: "cuda"
 # numbers of iterations to benchmark
@@ -33,6 +41,8 @@ algorithms: ["ADMM", "ADMM_Monakhova2019", "FISTA"] #["ADMM", "ADMM_Monakhova201
 baseline: "MONAKHOVA 100iter"
 
 save_idx: [0, 1, 2, 3, 4]   # provide index of files to save e.g. [1, 5, 10]
+gamma_psf: 1.5    # gamma factor for PSF
+
 
 # Hyperparameters
 nesterov:
@@ -86,7 +96,8 @@ simulation:
   # mask2sensor: 9e-3     # mask2sensor: 4e-3  
   # -- for CelebA
   scene2mask: 0.25   # [m]
-  mask2sensor: 0.002   # [m]     
+  mask2sensor: 0.002   # [m] 
+  deadspace: True    # whether to account for deadspace for programmable mask      
   # see waveprop.devices
   use_waveprop: False    # for PSF simulation
   sensor: "rpi_hq"

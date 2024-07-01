@@ -15,6 +15,7 @@ from lensless.recon.unrolled_admm import UnrolledADMM
 from lensless.recon.trainable_inversion import TrainableInversion
 from lensless.hardware.trainable_mask import prep_trainable_mask
 import yaml
+from lensless.recon.multi_wiener import MultiWiener
 from huggingface_hub import snapshot_download
 from collections import OrderedDict
 
@@ -52,6 +53,16 @@ model_dict = {
             # baseline benchmarks which don't have model file but use ADMM
             "admm_fista": "bezzam/diffusercam-mirflickr-admm-fista",
             "admm_pnp": "bezzam/diffusercam-mirflickr-admm-pnp",
+            # -- TCI submission
+            "TrainInv+Unet8M": "bezzam/diffusercam-mirflickr-trainable-inv-unet8M",
+            "Unet4M+U5+Unet4M": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M",
+            "MWDN8M": "bezzam/diffusercam-mirflickr-mwdn-8M",
+            "Unet2M+MWDN6M": "bezzam/diffusercam-mirflickr-unet2M-mwdn-6M",
+            "Unet4M+TrainInv+Unet4M": "bezzam/diffusercam-mirflickr-unet4M-trainable-inv-unet4M",
+            "MMCN4M+Unet4M": "bezzam/diffusercam-mirflickr-mmcn-unet4M",
+            "U5+Unet8M": "bezzam/diffusercam-mirflickr-unrolled-admm5-unet8M",
+            "Unet2M+MMCN+Unet2M": "bezzam/diffusercam-mirflickr-unet2M-mmcn-unet2M",
+            "Unet4M+U20+Unet4M": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm20-unet4M",
         },
     },
     "digicam": {
@@ -69,18 +80,59 @@ model_dict = {
             # baseline benchmarks which don't have model file but use ADMM
             "admm_measured_psf": "bezzam/digicam-celeba-admm-measured-psf",
             "admm_simulated_psf": "bezzam/digicam-celeba-admm-simulated-psf",
+            # TCI submission (using waveprop simulation)
+            "U5+Unet8M_wave": "bezzam/digicam-celeba-unrolled-admm5-unet8M",
+            "TrainInv+Unet8M_wave": "bezzam/digicam-celeba-trainable-inv-unet8M_wave",
+            "MWDN8M_wave": "bezzam/digicam-celeba-mwnn-8M",
+            "MMCN4M+Unet4M_wave": "bezzam/digicam-celeba-mmcn-unet4M",
+            "Unet2M+MWDN6M_wave": "bezzam/digicam-celeba-unet2M-mwdn-6M",
         },
         "mirflickr_single_25k": {
+            # simulated PSF (without waveprop, with deadspace)
             "U10": "bezzam/digicam-mirflickr-single-25k-unrolled-admm10",
             "Unet8M": "bezzam/digicam-mirflickr-single-25k-unet8M",
             "TrainInv+Unet8M": "bezzam/digicam-mirflickr-single-25k-trainable-inv-unet8M",
             "U10+Unet8M": "bezzam/digicam-mirflickr-single-25k-unrolled-admm10-unet8M",
             "Unet4M+TrainInv+Unet4M": "bezzam/digicam-mirflickr-single-25k-unet4M-trainable-inv-unet4M",
             "Unet4M+U10+Unet4M": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M",
+            # simulated PSF (with waveprop, with deadspace)
+            "U10_wave": "bezzam/digicam-mirflickr-single-25k-unrolled-admm10-wave",
+            "U10+Unet8M_wave": "bezzam/digicam-mirflickr-single-25k-unrolled-admm10-unet8M-wave",
+            "Unet8M_wave": "bezzam/digicam-mirflickr-single-25k-unet8M-wave",
+            "Unet4M+U10+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-wave",
+            "TrainInv+Unet8M_wave": "bezzam/digicam-mirflickr-single-25k-trainable-inv-unet8M-wave",
+            "U5+Unet8M_wave": "bezzam/digicam-mirflickr-single-25k-unrolled-admm5-unet8M-wave",
+            "Unet4M+U5+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm5-unet4M-wave",
+            "MWDN8M_wave": "bezzam/digicam-mirflickr-single-25k-mwdn-8M",
+            "MMCN4M+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-mmcn-unet4M",
+            "Unet2M+MMCN+Unet2M_wave": "bezzam/digicam-mirflickr-single-25k-unet2M-mmcn-unet2M-wave",
+            "Unet4M+TrainInv+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-unet4M-trainable-inv-unet4M-wave",
+            "Unet2M+MWDN6M_wave": "bezzam/digicam-mirflickr-single-25k-unet2M-mwdn-6M",
+            # measured PSF
+            "Unet4M+U10+Unet4M_measured": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-measured",
+            # simulated PSF (with waveprop, no deadspace)
+            "Unet4M+U10+Unet4M_wave_nodead": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-wave-nodead",
+            # simulated PSF (without waveprop, no deadspace)
+            "Unet4M+U10+Unet4M_nodead": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-nodead",
         },
         "mirflickr_multi_25k": {
+            # simulated PSFs (without waveprop, with deadspace)
             "Unet8M": "bezzam/digicam-mirflickr-multi-25k-unet8M",
             "Unet4M+U10+Unet4M": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm10-unet4M",
+            # simulated PSF (with waveprop, with deadspace)
+            "Unet4M+U10+Unet4M_wave": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm10-unet4M-wave",
+        },
+    },
+    "tapecam": {
+        "mirflickr": {
+            "U5+Unet8M": "bezzam/tapecam-mirflickr-unrolled-admm5-unet8M",
+            "TrainInv+Unet8M": "bezzam/tapecam-mirflickr-trainable-inv-unet8M",
+            "MMCN4M+Unet4M": "bezzam/tapecam-mirflickr-mmcn-unet4M",
+            "MWDN8M": "bezzam/tapecam-mirflickr-mwdn-8M",
+            "Unet4M+TrainInv+Unet4M": "bezzam/tapecam-mirflickr-unet4M-trainable-inv-unet4M",
+            "Unet4M+U5+Unet4M": "bezzam/tapecam-mirflickr-unet4M-unrolled-admm5-unet4M",
+            "Unet2M+MMCN+Unet2M": "bezzam/tapecam-mirflickr-unet2M-mmcn-unet2M",
+            "Unet2M+MWDN6M": "bezzam/tapecam-mirflickr-unet2M-mwdn-6M",
         },
     },
 }
@@ -133,7 +185,15 @@ def download_model(camera, dataset, model, local_model_dir=None):
     return model_dir
 
 
-def load_model(model_path, psf, device="cpu", legacy_denoiser=False, verbose=True):
+def load_model(
+    model_path,
+    psf,
+    device="cpu",
+    legacy_denoiser=False,
+    verbose=True,
+    skip_pre=False,
+    skip_post=False,
+):
 
     """
     Load best model from model path.
@@ -200,6 +260,10 @@ def load_model(model_path, psf, device="cpu", legacy_denoiser=False, verbose=Tru
             if "nc" in config["reconstruction"]["post_process"].keys()
             else None,
             device=device,
+            # get from dict
+            concatenate_compensation=True
+            if config["reconstruction"].get("compensation", None) is not None
+            else False,
         )
 
     if config["reconstruction"]["method"] == "unrolled_admm":
@@ -210,6 +274,9 @@ def load_model(model_path, psf, device="cpu", legacy_denoiser=False, verbose=Tru
             n_iter=config["reconstruction"]["unrolled_admm"]["n_iter"],
             skip_unrolled=config["reconstruction"]["skip_unrolled"],
             legacy_denoiser=legacy_denoiser,
+            skip_pre=skip_pre,
+            skip_post=skip_post,
+            compensation=config["reconstruction"].get("compensation", None),
         )
     elif config["reconstruction"]["method"] == "trainable_inv":
         recon = TrainableInversion(
@@ -218,7 +285,33 @@ def load_model(model_path, psf, device="cpu", legacy_denoiser=False, verbose=Tru
             post_process=post_process,
             K=config["reconstruction"]["trainable_inv"]["K"],
             legacy_denoiser=legacy_denoiser,
+            skip_pre=skip_pre,
+            skip_post=skip_post,
         )
+    elif config["reconstruction"]["method"] == "multi_wiener":
+
+        if config["files"].get("single_channel_psf", False):
+
+            if torch.sum(psf[..., 0] - psf[..., 1]) != 0:
+                # need to sum difference channels
+                raise ValueError("PSF channels are not the same")
+                # psf = np.sum(psf, axis=3)
+
+            else:
+                psf = psf[..., 0].unsqueeze(-1)
+            psf_channels = 1
+        else:
+            psf_channels = 3
+
+        recon = MultiWiener(
+            in_channels=3,
+            out_channels=3,
+            psf=psf,
+            psf_channels=psf_channels,
+            nc=config["reconstruction"]["multi_wiener"]["nc"],
+            pre_process=pre_process,
+        )
+        recon.to(device)
 
     if mask is not None:
         psf_learned = torch.nn.Parameter(psf_learned)
@@ -227,10 +320,12 @@ def load_model(model_path, psf, device="cpu", legacy_denoiser=False, verbose=Tru
     if "device_ids" in config.keys() and config["device_ids"] is not None:
         model_state_dict = remove_data_parallel(model_state_dict)
 
-    # # return model_state_dict
-    # if "_psf" in model_state_dict:
-    #     # TODO: should not have to do this...
-    #     del model_state_dict["_psf"]
+    # hotfixes for loading models
+    if config["reconstruction"]["method"] == "multi_wiener":
+        # replace "avgpool_conv" with "pool_conv"
+        model_state_dict = {
+            k.replace("avgpool_conv", "pool_conv"): v for k, v in model_state_dict.items()
+        }
 
     recon.load_state_dict(model_state_dict)
 

@@ -24,7 +24,7 @@ except ImportError:
 
 
 class RealFFTConvolve2D:
-    def __init__(self, psf, dtype=None, pad=True, norm="ortho", **kwargs):
+    def __init__(self, psf, dtype=None, pad=True, norm="ortho", rgb=None, **kwargs):
         """
         Linear operator that performs convolution in Fourier domain, and assumes
         real-valued signals.
@@ -56,7 +56,10 @@ class RealFFTConvolve2D:
             len(psf.shape) >= 4
         ), "Expected 4D PSF of shape ([batch], depth, width, height, channels)"
         self._use_3d = psf.shape[-4] != 1
-        self._is_rgb = psf.shape[-1] == 3
+        if rgb is None:
+            self._is_rgb = psf.shape[-1] == 3
+        else:
+            self._is_rgb = rgb
         assert self._is_rgb or psf.shape[-1] == 1
 
         # save normalization
@@ -80,7 +83,7 @@ class RealFFTConvolve2D:
         self._padded_shape = 2 * self._psf_shape[-3:-1] - 1
         self._padded_shape = np.array([next_fast_len(i) for i in self._padded_shape])
         self._padded_shape = list(
-            np.r_[self._psf_shape[-4], self._padded_shape, self._psf_shape[-1]]
+            np.r_[self._psf_shape[-4], self._padded_shape, 3 if self._is_rgb else 1]
         )
         self._start_idx = (self._padded_shape[-3:-1] - self._psf_shape[-3:-1]) // 2
         self._end_idx = self._start_idx + self._psf_shape[-3:-1]

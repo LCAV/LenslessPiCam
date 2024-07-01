@@ -46,6 +46,8 @@ def apply_pretrained(config):
         downsample=model_config["files"]["downsample"],
         alignment=model_config["alignment"],
         save_psf=model_config["files"]["save_psf"],
+        simulation_config=model_config["simulation"],
+        force_rgb=model_config["files"].get("force_rgb", False),
     )
     test_set.psf = test_set.psf.to(device)
     print("Test set size: ", len(test_set))
