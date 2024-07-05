@@ -13,6 +13,7 @@ from lensless.hardware.slm import get_programmable_mask, get_intensity_psf
 from waveprop.devices import slm_dict
 from waveprop.devices import SLMParam as SLMParam_wp
 from huggingface_hub import hf_hub_download
+from lensless.utils.image import gamma_correction
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="sim_digicam_psf")
@@ -137,15 +138,21 @@ def digicam_psf(config):
 
     if config.digicam.vertical_shift is not None:
         if config.use_torch:
-            mask = torch.roll(mask, config.digicam.vertical_shift, dims=1)
+            mask = torch.roll(
+                mask, config.digicam.vertical_shift // config.digicam.downsample, dims=1
+            )
         else:
-            mask = np.roll(mask, config.digicam.vertical_shift, axis=1)
+            mask = np.roll(mask, config.digicam.vertical_shift // config.digicam.downsample, axis=1)
 
     if config.digicam.horizontal_shift is not None:
         if config.use_torch:
-            mask = torch.roll(mask, config.digicam.horizontal_shift, dims=2)
+            mask = torch.roll(
+                mask, config.digicam.horizontal_shift // config.digicam.downsample, dims=2
+            )
         else:
-            mask = np.roll(mask, config.digicam.horizontal_shift, axis=2)
+            mask = np.roll(
+                mask, config.digicam.horizontal_shift // config.digicam.downsample, axis=2
+            )
 
     # -- plot mask
     if config.use_torch:
@@ -215,6 +222,9 @@ def digicam_psf(config):
 
     # save PSF as png
     fp = os.path.join(output_folder, f"{bn}_SIM_psf.png")
+    # if config.digicam.gamma > 1:
+    #     psf_in_np = psf_in_np / psf_in_np.max()
+    #     psf_in_np = gamma_correction(psf_in_np, gamma=config.digicam.gamma)
     save_image(psf_in_np, fp)
 
     proc_time = time.time() - start_time
