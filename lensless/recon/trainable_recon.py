@@ -57,6 +57,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         return_intermediate=False,
         legacy_denoiser=False,
         compensation=None,
+        compensation_residual=True,
         **kwargs,
     ):
         """
@@ -111,7 +112,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             assert (
                 len(compensation) == n_iter
             ), "compensation_nc must have the same length as n_iter"
-            self.compensation_branch = CompensationBranch(compensation)
+            self.compensation_branch = CompensationBranch(
+                compensation, residual=compensation_residual
+            )
             self.compensation_branch = self.compensation_branch.to(self._psf.device)
 
         if self.return_intermediate:

@@ -1042,6 +1042,7 @@ class HFDataset(DualDataset):
         force_rgb=False,
         cache_dir=None,
         single_channel_psf=False,
+        random_flip=False,
         **kwargs,
     ):
         """
@@ -1077,6 +1078,8 @@ class HFDataset(DualDataset):
             If multimask dataset, return the mask label (True) or the corresponding PSF (False).
         save_psf : bool, optional
             If multimask dataset, save the simulated PSFs.
+        random_flip : bool, optional
+            If True, randomly flip the lensless images vertically and horizonally with equal probability. By default, no flipping.
         simulation_config : dict, optional
             Simulation parameters for PSF if using a mask pattern.
 
@@ -1097,6 +1100,9 @@ class HFDataset(DualDataset):
         self.display_res = display_res
         self.return_mask_label = return_mask_label
         self.force_rgb = force_rgb  # if some data is not 3D
+
+        # augmentation
+        self.random_flip = random_flip
 
         # deduce downsampling factor from the first image
         data_0 = self.dataset[0]
@@ -1349,6 +1355,26 @@ class HFDataset(DualDataset):
             if self.flipud:
                 lensed = torch.flip(lensed, dims=(-3,))
 
+        flip_lr = False
+        flip_ud = False
+        if self.random_flip:
+            flip_lr = torch.rand(1) > 0.5
+            flip_ud = torch.rand(1) > 0.5
+            if (flip_lr or flip_ud) and self.multimask:
+                mask_label = self.dataset[idx]["mask_label"]
+                psf_flip = self.psf[mask_label].clone()
+            else:
+                psf_flip = self.psf.clone()
+
+            if flip_lr:
+                lensless = torch.flip(lensless, dims=(-2,))
+                lensed = torch.flip(lensed, dims=(-2,))
+                psf_flip = torch.flip(psf_flip, dims=(-2,))
+            if flip_ud:
+                lensless = torch.flip(lensless, dims=(-3,))
+                lensed = torch.flip(lensed, dims=(-3,))
+                psf_flip = torch.flip(psf_flip, dims=(-3,))
+
         # return corresponding PSF
         if self.multimask:
             mask_label = self.dataset[idx]["mask_label"]
@@ -1356,13 +1382,62 @@ class HFDataset(DualDataset):
             if self.return_mask_label:
                 return lensless, lensed, mask_label
             else:
-                return lensless, lensed, self.psf[mask_label]
+                if not self.random_flip:
+                    return lensless, lensed, self.psf[mask_label]
+                else:
+                    return lensless, lensed, psf_flip, flip_lr, flip_ud
         else:
-            return lensless, lensed
+            if not self.random_flip:
+                return lensless, lensed
+            else:
+                return lensless, lensed, psf_flip, flip_lr, flip_ud
 
-    def extract_roi(self, reconstruction, lensed=None, axis=(1, 2)):
+    def extract_roi(self, reconstruction, lensed=None, axis=(1, 2), flip_lr=None, flip_ud=None):
+        """
+        Parameters
+        ----------
+        flip_lr : torch.Tensor, optional
+            Tensor of booleans indicating whether to flip the reconstruction left-right, by default None.
+        flip_ud : bool, optional
+            Tensor of booleans indicating whether to flip the reconstruction up-down, by default None.
+        """
         n_dim = len(reconstruction.shape)
         assert max(axis) < n_dim, "Axis should be within the dimensions of the reconstruction."
+
+        # add batch dimension
+        if n_dim == 3:
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction = reconstruction.unsqueeze(0)
+                if lensed is not None:
+                    lensed = lensed.unsqueeze(0)
+            else:
+                reconstruction = reconstruction[np.newaxis]
+                if lensed is not None:
+                    lensed = lensed[np.newaxis]
+            # increment axis
+            axis = (axis[0] + 1, axis[1] + 1)
+
+        # flip before alignment, as alignment parameters are assuming no flip
+        if flip_lr is not None:
+            flip_lr = flip_lr.squeeze().tolist()
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction[flip_lr] = torch.flip(reconstruction[flip_lr], dims=(axis[1],))
+                if lensed is not None:
+                    lensed[flip_lr] = torch.flip(lensed[flip_lr], dims=(axis[1],))
+            else:
+                reconstruction[flip_lr] = np.flip(reconstruction[flip_lr], axis=axis[1])
+                if lensed is not None:
+                    lensed[flip_lr] = np.flip(lensed[flip_lr], axis=axis[1])
+        if flip_ud is not None:
+            flip_ud = flip_ud.squeeze().tolist()
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction[flip_ud] = torch.flip(reconstruction[flip_ud], dims=(axis[0],))
+                if lensed is not None:
+                    lensed[flip_ud] = torch.flip(lensed[flip_ud], dims=(axis[0],))
+            else:
+                reconstruction[flip_ud] = np.flip(reconstruction[flip_ud], axis=axis[0])
+                if lensed is not None:
+                    lensed[flip_ud] = np.flip(lensed[flip_ud], axis=axis[0])
 
         if self.alignment is not None:
             top_left = self.alignment["top_left"]
@@ -1393,6 +1468,37 @@ class HFDataset(DualDataset):
             reconstruction = reconstruction[tuple(index)]
             if lensed is not None:
                 lensed = lensed[tuple(index)]
+
+        # flip back
+        if flip_lr is not None:
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction[flip_lr] = torch.flip(reconstruction[flip_lr], dims=(axis[1],))
+                if lensed is not None:
+                    lensed[flip_lr] = torch.flip(lensed[flip_lr], dims=(axis[1],))
+            else:
+                reconstruction[flip_lr] = np.flip(reconstruction[flip_lr], axis=axis[1])
+                if lensed is not None:
+                    lensed[flip_lr] = np.flip(lensed[flip_lr], axis=axis[1])
+        if flip_ud is not None:
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction[flip_ud] = torch.flip(reconstruction[flip_ud], dims=(axis[0],))
+                if lensed is not None:
+                    lensed[flip_ud] = torch.flip(lensed[flip_ud], dims=(axis[0],))
+            else:
+                reconstruction[flip_ud] = np.flip(reconstruction[flip_ud], axis=axis[0])
+                if lensed is not None:
+                    lensed[flip_ud] = np.flip(lensed[flip_ud], axis=axis[0])
+
+        # remove batch dimension
+        if n_dim == 3:
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction = reconstruction.squeeze(0)
+                if lensed is not None:
+                    lensed = lensed.squeeze(0)
+            else:
+                reconstruction = reconstruction[0]
+                if lensed is not None:
+                    lensed = lensed[0]
 
         if self.alignment is None and lensed is not None:
             return reconstruction, lensed

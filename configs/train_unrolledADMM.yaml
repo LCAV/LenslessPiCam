@@ -46,6 +46,7 @@ files:
   extra_eval: null  # dict of extra datasets to evaluate on
   force_rgb: False
   simulate_lensless: False   # False to use measured data
+  random_flip: False
 
 alignment: null
 #   top_left: null    # height, width
@@ -115,7 +116,8 @@ reconstruction:
     train_last_layer: False
   # number of channels for each compensation layer, list should equal to the number of layers (n_iter)
   # and the last element should be equal to last layer of post_process.nc
-  compensation: null   
+  compensation: null  
+  compensation_residual: True   # whether to use residual connection for compensation branch 
 
 #Trainable Mask
 trainable_mask:

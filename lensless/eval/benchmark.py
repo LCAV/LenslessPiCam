@@ -119,16 +119,28 @@ def benchmark(
         for batch in tqdm(dataloader):
             weights.append(len(batch[0]))
 
-            if hasattr(dataset, "multimask"):
-                if dataset.multimask:
-                    lensless, lensed, psfs = batch
-                    psfs = psfs.to(device)
-                else:
-                    lensless, lensed = batch
-                    psfs = None
+            flip_lr = None
+            flip_ud = None
+            if dataset.random_flip:
+                lensless, lensed, psfs, flip_lr, flip_ud = batch
+                psfs = psfs.to(device)
+            elif dataset.multimask:
+                lensless, lensed, psfs = batch
+                psfs = psfs.to(device)
             else:
                 lensless, lensed = batch
                 psfs = None
+
+            # if hasattr(dataset, "multimask"):
+            #     if dataset.multimask:
+            #         lensless, lensed, psfs = batch
+            #         psfs = psfs.to(device)
+            #     else:
+            #         lensless, lensed = batch
+            #         psfs = None
+            # else:
+            #     lensless, lensed = batch
+            #     psfs = None
 
             lensless = lensless.to(device)
             lensed = lensed.to(device)
@@ -165,13 +177,16 @@ def benchmark(
 
             if hasattr(dataset, "alignment"):
                 if dataset.alignment is not None:
-                    prediction = dataset.extract_roi(prediction, axis=(-2, -1))
+                    prediction = dataset.extract_roi(
+                        prediction, axis=(-2, -1), flip_lr=flip_lr, flip_ud=flip_ud
+                    )
                 else:
                     prediction, lensed = dataset.extract_roi(
-                        prediction, axis=(-2, -1), lensed=lensed
+                        prediction, axis=(-2, -1), lensed=lensed, flip_lr=flip_lr, flip_ud=flip_ud
                     )
                 assert np.all(lensed.shape == prediction.shape)
             elif crop is not None:
+                assert flip_lr is None and flip_ud is None
                 prediction = prediction[
                     ...,
                     crop["vertical"][0] : crop["vertical"][1],

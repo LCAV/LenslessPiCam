@@ -42,14 +42,14 @@ alignment:
 training:
   batch_size: 4
   epoch: 25
-  eval_batch_size: 16
+  eval_batch_size: 4
   crop_preloss: True
 
 reconstruction:
   method: unrolled_admm
   unrolled_admm:
     # Number of iterations
-    n_iter: 10
+    n_iter: 5
     # Hyperparameters
     mu1: 1e-4
     mu2: 1e-4

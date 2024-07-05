@@ -145,8 +145,9 @@ class UNetRes(nn.Module):
         self.concatenate_compensation = concatenate_compensation
         if concatenate_compensation:
             self.m_body = B.sequential(
+                B.conv(nc[3] + concatenate_compensation, nc[3], bias=False, mode="C" + act_mode),
                 *[
-                    B.ResBlock(nc[3] * 2, nc[3] * 2, bias=False, mode="C" + act_mode + "C")
+                    B.ResBlock(nc[3], nc[3], bias=False, mode="C" + act_mode + "C")
                     for _ in range(nb)
                 ]
             )
@@ -169,9 +170,7 @@ class UNetRes(nn.Module):
             raise NotImplementedError("upsample mode [{:s}] is not found".format(upsample_mode))
 
         self.m_up3 = B.sequential(
-            upsample_block(
-                nc[3] * 2 if concatenate_compensation else nc[3], nc[2], bias=False, mode="2"
-            ),
+            upsample_block(nc[3], nc[2], bias=False, mode="2"),
             *[B.ResBlock(nc[2], nc[2], bias=False, mode="C" + act_mode + "C") for _ in range(nb)]
         )
         self.m_up2 = B.sequential(
@@ -200,7 +199,7 @@ class UNetRes(nn.Module):
             latent = x4
 
         x = self.m_body(latent)
-        x = self.m_up3(x + latent)
+        x = self.m_up3(x + x4)
         x = self.m_up2(x + x3)
         x = self.m_up1(x + x2)
         x = self.m_tail(x + x1)

@@ -55,6 +55,7 @@ class Up(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
 
+        # or us ConvTranspose2d? https://github.com/milesial/Pytorch-UNet/blob/21d7850f2af30a9695bbeea75f3136aa538cfc4a/unet/unet_parts.py#L53
         self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
         self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
 
@@ -66,18 +67,6 @@ class Up(nn.Module):
 
         x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2])
         x = torch.cat([x2, x1], dim=1)
-        return self.conv(x)
-
-
-class UpDec(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super().__init__()
-
-        self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
-        self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
-
-    def forward(self, x):
-        x = self.up(x)
         return self.conv(x)
 
 

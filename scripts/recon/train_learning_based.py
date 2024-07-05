@@ -228,6 +228,7 @@ def train_learned(config):
             simulation_config=config.simulation,
             force_rgb=config.files.force_rgb,
             simulate_lensless=config.files.simulate_lensless,
+            random_flip=config.files.random_flip,
         )
         test_set = HFDataset(
             huggingface_repo=config.files.dataset,
@@ -247,6 +248,7 @@ def train_learned(config):
             simulation_config=config.simulation,
             force_rgb=config.files.force_rgb,
             simulate_lensless=False,  # in general evaluate on measured (set to False)
+            # random_flip=config.files.random_flip,   # shouldn't flip test set, just for testing
         )
         if train_set.multimask:
             # get first PSF for initialization
@@ -308,9 +310,12 @@ def train_learned(config):
 
             for i, _idx in enumerate(config.eval_disp_idx):
 
-                if test_set.multimask:
-                    # multimask
-                    # lensless, lensed, _ = test_set[_idx]  # using wrong PSF
+                flip_lr = None
+                flip_ud = None
+                if test_set.random_flip:
+                    lensless, lensed, psf, flip_lr, flip_ud = test_set[_idx]
+                    psf = psf.to(device)
+                elif test_set.multimask:
                     lensless, lensed, psf = test_set[_idx]
                     psf = psf.to(device)
                 else:
@@ -321,7 +326,6 @@ def train_learned(config):
                 res = recon.apply(disp_iter=None, plot=False, n_iter=10)
                 res_np = res[0].cpu().numpy()
                 res_np = res_np / res_np.max()
-
                 lensed_np = lensed[0].cpu().numpy()
 
                 lensless_np = lensless[0].cpu().numpy()
@@ -329,19 +333,20 @@ def train_learned(config):
 
                 # -- plot lensed and res on top of each other
                 cropped = False
-
                 if hasattr(test_set, "alignment"):
                     if test_set.alignment is not None:
-                        res_np = test_set.extract_roi(res_np, axis=(0, 1))
+                        res_np = test_set.extract_roi(
+                            res_np, axis=(0, 1), flip_lr=flip_lr, flip_ud=flip_ud
+                        )
                     else:
                         res_np, lensed_np = test_set.extract_roi(
-                            res_np, lensed=lensed_np, axis=(0, 1)
+                            res_np, lensed=lensed_np, axis=(0, 1), flip_lr=flip_lr, flip_ud=flip_ud
                         )
-
                     cropped = True
 
                 elif config.training.crop_preloss:
                     assert crop is not None
+                    assert flip_lr is None and flip_ud is None
 
                     res_np = res_np[
                         crop["vertical"][0] : crop["vertical"][1],
@@ -386,14 +391,11 @@ def train_learned(config):
         nc=config.reconstruction.post_process.nc,
         device=device,
         device_ids=device_ids,
-        concatenate_compensation=True if config.reconstruction.compensation is not None else False,
+        concatenate_compensation=config.reconstruction.compensation[-1]
+        if config.reconstruction.compensation is not None
+        else False,
     )
     post_proc_delay = config.reconstruction.post_process.delay
-    if config.reconstruction.post_process.network is not None:
-        if config.reconstruction.compensation is not None:
-            assert (
-                config.reconstruction.compensation[-1] == config.reconstruction.post_process.nc[-1]
-            )
 
     if config.reconstruction.post_process.train_last_layer:
         for name, param in post_process.named_parameters():
@@ -459,6 +461,7 @@ def train_learned(config):
             if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
             else False,
             compensation=config.reconstruction.compensation,
+            compensation_residual=config.reconstruction.compensation_residual,
         )
     elif config.reconstruction.method == "unrolled_admm":
         recon = UnrolledADMM(
@@ -475,6 +478,7 @@ def train_learned(config):
             if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
             else False,
             compensation=config.reconstruction.compensation,
+            compensation_residual=config.reconstruction.compensation_residual,
         )
     elif config.reconstruction.method == "trainable_inv":
         assert config.trainable_mask.mask_type == "TrainablePSF"
@@ -524,6 +528,12 @@ def train_learned(config):
     if mask is not None:
         n_param += sum(p.numel() for p in mask.parameters() if p.requires_grad)
     log.info(f"Training model with {n_param} parameters")
+    if pre_process is not None:
+        n_param = sum(p.numel() for p in pre_process.parameters() if p.requires_grad)
+        log.info(f"-- Pre-process model with {n_param} parameters")
+    if post_process is not None:
+        n_param = sum(p.numel() for p in post_process.parameters() if p.requires_grad)
+        log.info(f"-- Post-process model with {n_param} parameters")
 
     log.info(f"Setup time : {time.time() - start_time} s")
     log.info(f"PSF shape : {psf.shape}")

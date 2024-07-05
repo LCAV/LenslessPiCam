@@ -239,7 +239,9 @@ def benchmark_recon(config):
         os.mkdir("GROUND_TRUTH")
         os.mkdir("LENSLESS")
         for idx in config.save_idx:
-            lensless, ground_truth = benchmark_dataset[idx]
+            lensless, ground_truth = benchmark_dataset[idx][
+                :2
+            ]  # take first two in case multimask dataset
             ground_truth_np = ground_truth.cpu().numpy()[0]
             lensless_np = lensless.cpu().numpy()[0]
 

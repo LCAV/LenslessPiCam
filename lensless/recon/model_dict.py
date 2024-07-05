@@ -63,6 +63,7 @@ model_dict = {
             "U5+Unet8M": "bezzam/diffusercam-mirflickr-unrolled-admm5-unet8M",
             "Unet2M+MMCN+Unet2M": "bezzam/diffusercam-mirflickr-unet2M-mmcn-unet2M",
             "Unet4M+U20+Unet4M": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm20-unet4M",
+            "Unet4M+U10+Unet4M": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm10-unet4M",
         },
     },
     "digicam": {
@@ -86,6 +87,9 @@ model_dict = {
             "MWDN8M_wave": "bezzam/digicam-celeba-mwnn-8M",
             "MMCN4M+Unet4M_wave": "bezzam/digicam-celeba-mmcn-unet4M",
             "Unet2M+MWDN6M_wave": "bezzam/digicam-celeba-unet2M-mwdn-6M",
+            "Unet4M+TrainInv+Unet4M_wave": "bezzam/digicam-celeba-unet4M-trainable-inv-unet4M_wave",
+            "Unet2M+MMCN+Unet2M_wave": "bezzam/digicam-celeba-unet2M-mmcn-unet2M",
+            "Unet4M+U5+Unet4M_wave": "bezzam/digicam-celeba-unet4M-unrolled-admm5-unet4M",
         },
         "mirflickr_single_25k": {
             # simulated PSF (without waveprop, with deadspace)
@@ -133,6 +137,7 @@ model_dict = {
             "Unet4M+U5+Unet4M": "bezzam/tapecam-mirflickr-unet4M-unrolled-admm5-unet4M",
             "Unet2M+MMCN+Unet2M": "bezzam/tapecam-mirflickr-unet2M-mmcn-unet2M",
             "Unet2M+MWDN6M": "bezzam/tapecam-mirflickr-unet2M-mwdn-6M",
+            "Unet4M+U10+Unet4M": "bezzam/tapecam-mirflickr-unet4M-unrolled-admm10-unet4M",
         },
     },
 }
@@ -261,7 +266,7 @@ def load_model(
             else None,
             device=device,
             # get from dict
-            concatenate_compensation=True
+            concatenate_compensation=config["reconstruction"]["compensation"][-1]
             if config["reconstruction"].get("compensation", None) is not None
             else False,
         )
@@ -277,6 +282,7 @@ def load_model(
             skip_pre=skip_pre,
             skip_post=skip_post,
             compensation=config["reconstruction"].get("compensation", None),
+            compensation_residual=config["reconstruction"].get("compensation_residual", False),
         )
     elif config["reconstruction"]["method"] == "trainable_inv":
         recon = TrainableInversion(

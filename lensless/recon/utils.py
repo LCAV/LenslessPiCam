@@ -24,7 +24,7 @@ from lensless.utils.plot import plot_image
 from lensless.utils.dataset import SimulatedDatasetTrainableMask
 
 
-def double_cnn_max_pool(c_in, c_out, cnn_kernel=3, max_pool=2, padding=1, stride=1):
+def double_cnn_max_pool(c_in, c_out, cnn_kernel=3, max_pool=2, padding=1, skip_last_relu=False):
     return nn.Sequential(
         nn.Conv2d(
             in_channels=c_in,
@@ -43,35 +43,36 @@ def double_cnn_max_pool(c_in, c_out, cnn_kernel=3, max_pool=2, padding=1, stride
             bias=False,
         ),
         nn.BatchNorm2d(c_out),
-        nn.ReLU(),
+        nn.ReLU() if not skip_last_relu else nn.Identity(),
         # don't pass stride=1, otherwise no pooling/downsampling..
         nn.MaxPool2d(kernel_size=max_pool, padding=0) if max_pool else nn.Identity(),
     )
 
 
 class ResBlock(nn.Module):
-    def __init__(self, c_in, c_out, cnn_kernel=3, max_pool=2, padding=1, stride=1):
+    def __init__(self, c_in, c_out, cnn_kernel=3, max_pool=2, padding=1):
         super(ResBlock, self).__init__()
-        # assert c_in == c_out, "Input and output channels must be the same for residual block."
+        assert c_in == c_out, "Input and output channels must be the same for residual block."
 
         # conv layers for residual need to be the same size
         self.double_conv = double_cnn_max_pool(
-            c_in, c_in, cnn_kernel=cnn_kernel, max_pool=False, padding=padding, stride=stride
+            c_in, c_in, cnn_kernel=cnn_kernel, max_pool=False, padding=padding, skip_last_relu=True
         )
 
         # pooling
         self.pooling = nn.Sequential(
-            nn.Conv2d(
-                in_channels=c_in,
-                out_channels=c_out,
-                kernel_size=cnn_kernel,
-                padding=padding,
-                bias=False,
-            ),
-            nn.BatchNorm2d(c_out),
+            # nn.Conv2d(
+            #     in_channels=c_in,
+            #     out_channels=c_out,
+            #     kernel_size=cnn_kernel,
+            #     padding=padding,
+            #     bias=False,
+            # ),
+            # nn.BatchNorm2d(c_out),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=max_pool, padding=0),
         )
+        # self.pooling = nn.MaxPool2d(kernel_size=max_pool, padding=0)
 
     def forward(self, x):
         return self.pooling(x + self.double_conv(x))
@@ -82,9 +83,7 @@ class CompensationBranch(nn.Module):
     Compensation branch for unrolled algorithm, as in "Robust Reconstruction With Deep Learning to Handle Model Mismatch in Lensless Imaging" (2021).
     """
 
-    def __init__(
-        self, nc, cnn_kernel=3, max_pool=2, in_channel=3, residual=True, padding=1, stride=1
-    ):
+    def __init__(self, nc, cnn_kernel=3, max_pool=2, in_channel=3, residual=True, padding=1):
         """
 
         Parameters
@@ -112,19 +111,18 @@ class CompensationBranch(nn.Module):
                 cnn_kernel=cnn_kernel,
                 max_pool=max_pool,
                 padding=padding,
-                stride=stride,
             )
         ]
         self.branch_layers = nn.ModuleList(
             branch_layers
             + [
                 double_cnn_max_pool(
-                    nc[i] * 2,  # due to concatenation with intermediate layer
+                    # nc[i] * 2,  # due to concatenation with intermediate layer
+                    nc[i] + 3,  # due to concatenation with intermediate layer
                     nc[i + 1],
                     cnn_kernel=cnn_kernel,
                     max_pool=max_pool,
                     padding=padding,
-                    stride=stride,
                 )
                 for i in range(self.n_iter - 1)
             ]
@@ -143,11 +141,10 @@ class CompensationBranch(nn.Module):
                 # ) if residual
                 ResBlock(
                     in_channel,
-                    nc[i],
+                    in_channel,
                     cnn_kernel=cnn_kernel,
                     max_pool=max_pool ** (i + 1),
                     padding=padding,
-                    stride=stride,
                 )
                 if residual
                 else double_cnn_max_pool(
@@ -156,7 +153,6 @@ class CompensationBranch(nn.Module):
                     cnn_kernel=cnn_kernel,
                     max_pool=max_pool ** (i + 1),
                     padding=padding,
-                    stride=stride,
                 )
                 for i in range(self.n_iter - 1)
             ]
@@ -173,7 +169,6 @@ class CompensationBranch(nn.Module):
         h_apo_k = self.branch_layers[0](convert_to_NCHW(x[0]))  # h^{'}_k
         for k in range(self.n_iter - 1):  # eq. 18-21
             # \tilde{h}_k
-            # import pudb; pudb.set_trace()
             h_k = torch.cat([h_apo_k, self.residual_layers[k](convert_to_NCHW(x[k + 1]))], axis=1)
             h_apo_k = self.branch_layers[k + 1](h_k)  # h^{'}_k
 
@@ -412,6 +407,8 @@ def create_process_network(
         Depth of network.
     device : str
         Device to use for computation. Can be "cpu" or "cuda". Defaults to "cpu".
+    concatenate_compensation : int
+        Number of channels in last layer of compensation branch.
 
     Returns
     -------
@@ -617,6 +614,7 @@ class Trainer:
         self.train_multimask = False
         if hasattr(train_dataset, "multimask"):
             self.train_multimask = train_dataset.multimask
+        self.train_random_flip = train_dataset.random_flip
 
         # check if Subset and if simulating dataset
         self.simulated_dataset_trainable_mask = False
@@ -808,7 +806,12 @@ class Trainer:
         for batch in pbar:
 
             # get batch
-            if self.train_multimask:
+            flip_lr = None
+            flip_ud = None
+            if self.train_random_flip:
+                X, y, psfs, flip_lr, flip_ud = batch
+                psfs = psfs.to(self.device)
+            elif self.train_multimask:
                 X, y, psfs = batch
                 psfs = psfs.to(self.device)
             else:
@@ -845,13 +848,16 @@ class Trainer:
             # extraction region of interest for loss
             if hasattr(self.train_dataset, "alignment"):
                 if self.train_dataset.alignment is not None:
-                    y_pred_crop = self.train_dataset.extract_roi(y_pred_crop, axis=(-2, -1))
+                    y_pred_crop = self.train_dataset.extract_roi(
+                        y_pred_crop, axis=(-2, -1), flip_lr=flip_lr, flip_ud=flip_ud
+                    )
                 else:
                     y_pred_crop, y = self.train_dataset.extract_roi(
-                        y_pred_crop, axis=(-2, -1), lensed=y
+                        y_pred_crop, axis=(-2, -1), lensed=y, flip_lr=flip_lr, flip_ud=flip_ud
                     )
 
             elif self.crop is not None:
+                assert flip_lr is None and flip_ud is None
                 y_pred_crop = y_pred_crop[
                     ...,
                     self.crop["vertical"][0] : self.crop["vertical"][1],
