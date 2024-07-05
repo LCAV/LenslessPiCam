@@ -6,6 +6,7 @@ click>=8.0.1
 # waveprop>=0.0.10     # for simulation
 waveprop @ git+https://github.com/ebezzam/waveprop.git
 slm_controller @ git+https://github.com/ebezzam/slm-controller.git
+perlin_numpy @ git+https://github.com/pvigier/perlin-numpy.git@5e26837db14042e51166eb6cad4c0df2c1907016
 
 # Library for learning algorithm
 torch >= 2.0.0
