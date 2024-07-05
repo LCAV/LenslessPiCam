@@ -8,6 +8,7 @@ rpi:
   hostname: null
 
 # mask parameters
+psf: null   # if not provided, simulate with parameters below
 mask:
   fp: null  # provide path, otherwise generate with seed
   seed: 0
