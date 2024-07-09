@@ -14,6 +14,7 @@ To test on local machine, set dummy=True (which will just copy the files over).
 
 import numpy as np
 import hydra
+from hydra.utils import to_absolute_path
 import time
 import os
 import pathlib as plib
@@ -67,8 +68,8 @@ def collect_dataset(config):
     start_idx = config.start_idx
     if os.path.exists(output_dir):
         files = list(plib.Path(output_dir).glob(f"*.{config.output_file_ext}"))
-        start_idx = len(files)
-        print("\nNumber of completed measurements :", start_idx)
+        n_completed_files = len(files)
+        print("\nNumber of completed measurements :", n_completed_files)
         output_dir = plib.Path(output_dir)
         if config.masks is not None:
             mask_dir = plib.Path(output_dir) / "masks"
@@ -88,6 +89,26 @@ def collect_dataset(config):
                 mask_fp = mask_dir / f"mask_{i}.npy"
                 mask_vals = np.random.uniform(0, 1, config.masks.shape)
                 np.save(mask_fp, mask_vals)
+
+    recon = None
+    if config.recon is not None:
+        print("Initializing ADMM recon...")
+        # initialize ADMM reconstruction
+        from lensless import ADMM
+        from lensless.utils.io import load_psf
+
+        psf, bg = load_psf(
+            fp=to_absolute_path(config.recon.psf),
+            downsample=config.capture.down,  # assume full resolution PSF
+            return_bg=True,
+        )
+
+        print("PSF shape: ", psf.shape)
+        recon = ADMM(psf, n_iter=config.recon.n_iter)
+
+        recon_dir = plib.Path(output_dir) / "recon"
+        recon_dir.mkdir(exist_ok=True)
+        print("Finished initializing ADMM recon.")
 
     # assert input directory exists
     assert os.path.exists(input_dir)
@@ -234,8 +255,8 @@ def collect_dataset(config):
 
                     # -- take picture
                     max_pixel_val = 0
-                    fact_increase = 2
-                    fact_decrease = 1.5
+                    fact_increase = config.capture.fact_increase
+                    fact_decrease = config.capture.fact_decrease
                     n_tries = 0
 
                     camera.shutter_speed = init_shutter_speed
@@ -256,6 +277,7 @@ def collect_dataset(config):
                         # convert to RGB
                         output = bayer2rgb_cc(
                             output_bayer,
+                            down=down,
                             nbits=12,
                             blue_gain=float(g[1]),
                             red_gain=float(g[0]),
@@ -264,10 +286,10 @@ def collect_dataset(config):
                             nbits_out=8,
                         )
 
-                        if down:
-                            output = resize(
-                                output[None, ...], factor=1 / down, interpolation=cv2.INTER_CUBIC
-                            )[0]
+                        # if down:
+                        #     output = resize(
+                        #         output[None, ...], factor=1 / down, interpolation=cv2.INTER_CUBIC
+                        #     )[0]
 
                         # save image
                         save_image(output, output_fp, normalize=False)
@@ -289,31 +311,55 @@ def collect_dataset(config):
 
                         elif max_pixel_val > MAX_LEVEL:
 
-                            # decrease exposure
-                            current_shutter_speed = int(current_shutter_speed / fact_decrease)
-                            camera.shutter_speed = current_shutter_speed
-                            time.sleep(config.capture.config_pause)
-                            print(f"decreasing shutter speed to {current_shutter_speed}")
+                            if current_shutter_speed > 13098:  # TODO: minimum for RPi HQ
+                                # decrease exposure
+                                current_shutter_speed = int(current_shutter_speed / fact_decrease)
+                                camera.shutter_speed = current_shutter_speed
+                                time.sleep(config.capture.config_pause)
+                                print(f"decreasing shutter speed to {current_shutter_speed}")
 
-                            # # decrease screen brightness
-                            # current_screen_brightness = current_screen_brightness - 10
-                            # screen_res = np.array(config.display.screen_res)
-                            # hshift = config.display.hshift
-                            # vshift = config.display.vshift
-                            # pad = config.display.pad
-                            # brightness = current_screen_brightness
-                            # display_image_path = config.display.output_fp
-                            # rot90 = config.display.rot90
-                            # os.system(
-                            #     f"python scripts/measure/prep_display_image.py --fp {_file} --output_path {display_image_path} --screen_res {screen_res[0]} {screen_res[1]} --hshift {hshift} --vshift {vshift} --pad {pad} --brightness {brightness} --rot90 {rot90}"
-                            # )
-                            # print(f"decreasing screen brightness to {current_screen_brightness}")
+                            else:
 
-                            # time.sleep(config.display.delay)
+                                # decrease screen brightness
+                                current_screen_brightness = current_screen_brightness - 10
+                                screen_res = np.array(config.display.screen_res)
+                                hshift = config.display.hshift
+                                vshift = config.display.vshift
+                                pad = config.display.pad
+                                brightness = current_screen_brightness
+                                display_image_path = config.display.output_fp
+                                rot90 = config.display.rot90
+
+                                display_command = f"python scripts/measure/prep_display_image.py --fp {_file} --output_path {display_image_path} --screen_res {screen_res[0]} {screen_res[1]} --hshift {hshift} --vshift {vshift} --pad {pad} --brightness {brightness} --rot90 {rot90}"
+                                if config.display.landscape:
+                                    display_command += " --landscape"
+                                if config.display.image_res is not None:
+                                    display_command += f" --image_res {config.display.image_res[0]} {config.display.image_res[1]}"
+                                # print(display_command)
+                                os.system(display_command)
+
+                                time.sleep(config.display.delay)
 
                     exposure_vals.append(current_shutter_speed / 1e6)
                     brightness_vals.append(current_screen_brightness)
                     n_tries_vals.append(n_tries)
+
+        if recon is not None:
+
+            # normalize and remove background
+            output = output.astype(np.float32)
+            output /= output.max()
+            output -= bg
+            output = np.clip(output, a_min=0, a_max=output.max())
+
+            # set data
+            output = output[np.newaxis, :, :, :]
+            recon.set_data(output)
+
+            # reconstruct and save
+            res = recon.apply()
+            recon_fp = recon_dir / output_fp.name
+            save_image(res, recon_fp)
 
         # check if runtime is exceeded
         if config.runtime:

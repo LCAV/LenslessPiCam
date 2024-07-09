@@ -494,9 +494,9 @@ class ReconstructionAlgorithm(abc.ABC):
     def apply(
         self,
         n_iter=None,
-        disp_iter=10,
+        disp_iter=-1,
         plot_pause=0.2,
-        plot=True,
+        plot=False,
         save=False,
         gamma=None,
         ax=None,
