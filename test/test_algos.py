@@ -33,7 +33,7 @@ downsample = 16
 _n_iter = 5
 
 # classical algorithms
-standard_algos = [GradientDescent, NesterovGradientDescent, ADMM]
+standard_algos = [GradientDescent, NesterovGradientDescent, FISTA, ADMM]
 
 
 @pytest.mark.parametrize("algorithm", standard_algos)
