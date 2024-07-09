@@ -9,7 +9,7 @@ import glob
 from lensless.utils.dataset import natural_sort
 
 
-dir_path = "/root/mirflickr/mirflickr25k"
+dir_path = "/dev/shm/mirflickr"
 
 # get all jpg files
 files = natural_sort(glob.glob(os.path.join(dir_path, "*.jpg")))

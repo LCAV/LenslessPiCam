@@ -6,10 +6,11 @@ defaults:
 
 dataset: HFDataset
 batchsize: 4
-device: "cuda:0"
+device: "cuda:3"
 
 huggingface:
   repo: "bezzam/DigiCam-Mirflickr-SingleMask-25K"
+  cache_dir: /dev/shm
   psf: null   # null for simulating PSF
   image_res: [900, 1200]  # used during measurement
   rotate: True   # if measurement is upside-down
@@ -20,26 +21,48 @@ huggingface:
     height: 200
   downsample: 1
 
-algorithms: [
-  ## - simulated PSF (simulation.use_waveprop=True, simulation.deadspace=True)
-  "hf:digicam:mirflickr_single_25k:U10_wave",
-  "hf:digicam:mirflickr_single_25k:Unet8M_wave",
-  "hf:digicam:mirflickr_single_25k:TrainInv+Unet8M_wave",
-  "hf:digicam:mirflickr_single_25k:U10+Unet8M_wave",
-  "hf:digicam:mirflickr_single_25k:Unet4M+TrainInv+Unet4M_wave",
-  "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_wave"
 
-  ## -- below models need to set correct PSF simulation
-  # ## - measured PSF (huggingface.psf=psf_measured.png)
-  # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_measured",
-  # ## - simulated PSF (simulation.use_waveprop=True, simulation.deadspace=False)
-  # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_wave_nodead",
-  # ## - simulated PSF (simulation.use_waveprop=False, simulation.deadspace=True)
-  # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M",
-  # ## - simulated PSF (simulation.use_waveprop=False, simulation.deadspace=False)
-  # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_nodead"
+algorithms: [
+  "ADMM",
+  "hf:digicam:mirflickr_single_25k:U5+Unet8M_wave",
+  "hf:digicam:mirflickr_single_25k:TrainInv+Unet8M_wave",
+  "hf:digicam:mirflickr_single_25k:MMCN4M+Unet4M_wave",
+  "hf:digicam:mirflickr_single_25k:MWDN8M_wave",
+  "hf:digicam:mirflickr_single_25k:Unet4M+TrainInv+Unet4M_wave",
+  "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave",
+  "hf:digicam:mirflickr_single_25k:Unet2M+MMCN+Unet2M_wave",
+  "hf:digicam:mirflickr_single_25k:Unet2M+MWDN6M_wave",
+  "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_wave",
+
+  # ## -- reconstructions trained on other datasets/systems
+  # "hf:diffusercam:mirflickr:Unet4M+U10+Unet4M",
+  # "hf:tapecam:mirflickr:Unet4M+U10+Unet4M",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave",
+  # "hf:digicam:celeba_26k:Unet4M+U5+Unet4M_wave",
 ]
+
+
+# algorithms: [
+#   # ## - simulated PSF (simulation.use_waveprop=True, simulation.deadspace=True)
+#   # "hf:digicam:mirflickr_single_25k:U10_wave",
+#   # "hf:digicam:mirflickr_single_25k:Unet8M_wave",
+#   # "hf:digicam:mirflickr_single_25k:TrainInv+Unet8M_wave",
+#   # "hf:digicam:mirflickr_single_25k:U10+Unet8M_wave",
+#   # "hf:digicam:mirflickr_single_25k:Unet4M+TrainInv+Unet4M_wave",
+#   # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_wave"
+
+#   ## -- below models need to set correct PSF simulation
+#   # ## - measured PSF (huggingface.psf=psf_measured.png)
+#   # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_measured",
+#   # ## - simulated PSF (simulation.use_waveprop=True, simulation.deadspace=False)
+#   # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_wave_nodead",
+#   # ## - simulated PSF (simulation.use_waveprop=False, simulation.deadspace=True)
+#   # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M",
+#   # ## - simulated PSF (simulation.use_waveprop=False, simulation.deadspace=False)
+#   # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_nodead"
+# ]
 save_idx: [1, 2, 4, 5, 9]
+n_iter_range: [100]    # for ADMM
 
 # simulating PSF
 simulation:

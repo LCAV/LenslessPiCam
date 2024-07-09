@@ -471,12 +471,13 @@ def load_data(
     use_3d = psf_fp.endswith(".npy") or psf_fp.endswith(".npz")
 
     # load and process PSF data
-    psf, bg = load_psf(
+    bg = None
+    res = load_psf(
         psf_fp,
         downsample=downsample,
         return_float=return_float,
         bg_pix=bg_pix,
-        return_bg=True,
+        return_bg=True if bg_pix is not None else False,
         flip=flip,
         flip_ud=flip_ud,
         flip_lr=flip_lr,
@@ -489,6 +490,10 @@ def load_data(
         use_3d=use_3d,
         bgr_input=bgr_input,
     )
+    if bg_pix is not None:
+        psf, bg = res
+    else:
+        psf = res
 
     # load and process raw measurement
     data = load_image(
