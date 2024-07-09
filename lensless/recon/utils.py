@@ -746,10 +746,21 @@ class Trainer:
 
     def set_optimizer(self, last_epoch=-1):
 
-        parameters = [{"params": self.recon.parameters()}]
-        self.optimizer = getattr(torch.optim, self.optimizer_config.type)(
-            parameters, lr=self.optimizer_config.lr
-        )
+        if self.optimizer_config.type == "AdamW":
+            print("USING ADAMW")
+            self.optimizer = torch.optim.AdamW(
+                [
+                    {'params': [p for p in self.recon.parameters() if p.dim() > 1]},
+                    {'params': [p for p in self.recon.parameters() if p.dim() <= 1], 'weight_decay': 0}  # no weight decay on bias terms
+                ],
+                lr=self.optimizer_config.lr, weight_decay=0.01
+            )
+        else:
+            print(f"USING {self.optimizer_config.type}")
+            parameters = [{"params": self.recon.parameters()}]
+            self.optimizer = getattr(torch.optim, self.optimizer_config.type)(
+                parameters, lr=self.optimizer_config.lr
+            )
 
         # Scheduler
         if self.optimizer_config.slow_start:
@@ -762,6 +773,18 @@ class Trainer:
                 else:
                     return 1
 
+            self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+                self.optimizer, lr_lambda=learning_rate_function, last_epoch=last_epoch
+            )
+
+        elif self.optimizer_config.final_lr:
+
+            assert self.optimizer_config.final_lr < self.optimizer_config.lr
+
+            # linearly decrease learning rate to final_lr
+            def learning_rate_function(epoch):
+                return 1 - (epoch / self.optimizer_config.final_lr)
+            
             self.scheduler = torch.optim.lr_scheduler.LambdaLR(
                 self.optimizer, lr_lambda=learning_rate_function, last_epoch=last_epoch
             )
