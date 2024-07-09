@@ -569,6 +569,7 @@ def train_learned(config):
         pre_proc_aux=config.pre_proc_aux,
         extra_eval_sets=extra_eval_sets if config.files.extra_eval is not None else None,
         use_wandb=True if config.wandb_project is not None else False,
+        n_epoch=config.training.epoch,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)

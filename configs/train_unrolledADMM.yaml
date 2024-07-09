@@ -175,6 +175,7 @@ optimizer:
   type: Adam  # Adam, SGD... (Pytorch class)
   lr: 1e-4
   final_lr: False   # if set, linearly decay to this value
+  exp_decay: False  # if set, exponentially decay with this value
   slow_start: False  #float how much to reduce lr for first epoch
   # Decay LR in step fashion: https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html
   step: False     # int, period of learning rate decay. False to not apply

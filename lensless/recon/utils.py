@@ -491,6 +491,7 @@ class Trainer:
         post_process_delay=None,
         post_process_freeze=None,
         post_process_unfreeze=None,
+        n_epoch=None,
     ):
         """
         Class to train a reconstruction algorithm. Inspired by Trainer from `HuggingFace <https://huggingface.co/docs/transformers/main_classes/trainer>`__.
@@ -687,6 +688,7 @@ class Trainer:
         # optimizer
         self.clip_grad_norm = clip_grad
         self.optimizer_config = optimizer
+        self.n_epoch = n_epoch
         self.set_optimizer()
 
         # metrics
@@ -750,10 +752,14 @@ class Trainer:
             print("USING ADAMW")
             self.optimizer = torch.optim.AdamW(
                 [
-                    {'params': [p for p in self.recon.parameters() if p.dim() > 1]},
-                    {'params': [p for p in self.recon.parameters() if p.dim() <= 1], 'weight_decay': 0}  # no weight decay on bias terms
+                    {"params": [p for p in self.recon.parameters() if p.dim() > 1]},
+                    {
+                        "params": [p for p in self.recon.parameters() if p.dim() <= 1],
+                        "weight_decay": 0,
+                    },  # no weight decay on bias terms
                 ],
-                lr=self.optimizer_config.lr, weight_decay=0.01
+                lr=self.optimizer_config.lr,
+                weight_decay=0.01,
             )
         else:
             print(f"USING {self.optimizer_config.type}")
@@ -780,11 +786,28 @@ class Trainer:
         elif self.optimizer_config.final_lr:
 
             assert self.optimizer_config.final_lr < self.optimizer_config.lr
+            assert self.n_epoch is not None
 
-            # linearly decrease learning rate to final_lr
+            # # linear decay
+            # def learning_rate_function(epoch):
+            #     slope = (start / final - 1) / (n_epoch)
+            #     return 1 / (1 + slope * epoch)
+
+            # exponential decay
             def learning_rate_function(epoch):
-                return 1 - (epoch / self.optimizer_config.final_lr)
-            
+                final_decay = self.optimizer_config.final_lr / self.optimizer_config.lr
+                final_decay = final_decay ** (1 / (self.n_epoch - 1))
+                return final_decay**epoch
+
+            self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+                self.optimizer, lr_lambda=learning_rate_function, last_epoch=last_epoch
+            )
+
+        elif self.optimizer_config.exp_decay:
+
+            def learning_rate_function(epoch):
+                return self.optimizer_config.exp_decay**epoch
+
             self.scheduler = torch.optim.lr_scheduler.LambdaLR(
                 self.optimizer, lr_lambda=learning_rate_function, last_epoch=last_epoch
             )
