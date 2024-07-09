@@ -812,6 +812,24 @@ class Trainer:
                 self.optimizer, lr_lambda=learning_rate_function, last_epoch=last_epoch
             )
 
+        elif self.optimizer_config.cosine_decay_warmup:
+
+            total_iterations = len(self.train_dataloader) * self.n_epoch
+            warmup_steps = int(0.05 * total_iterations)
+
+            def cosine_decay_with_warmup(step, warmup_steps, total_steps):
+                if step < warmup_steps:
+                    return step / warmup_steps
+                progress = (step - warmup_steps) / (total_steps - warmup_steps)
+                return 0.5 * (1 + math.cos(math.pi * progress))
+
+            self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+                self.optimizer,
+                lr_lambda=lambda step: cosine_decay_with_warmup(
+                    step, warmup_steps, total_iterations
+                ),
+            )
+
         elif self.optimizer_config.step:
 
             self.scheduler = torch.optim.lr_scheduler.StepLR(
