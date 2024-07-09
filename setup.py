@@ -27,7 +27,8 @@ setuptools.setup(
     python_requires=">=3.8.1, <=3.11.9",
     install_requires=[
         "opencv-python>=4.5.1.48",
-        "numpy>=1.26",
+        "numpy==1.26.4; python_version=='3.11'",
+        "numpy>=1.22",
         "scipy>=1.7.0",
         "image>=1.5.33",
         "matplotlib>=3.4.2",
