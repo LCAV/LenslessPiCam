@@ -1355,13 +1355,15 @@ class HFDataset(DualDataset):
             if self.flipud:
                 lensed = torch.flip(lensed, dims=(-3,))
 
+        if self.multimask:
+            mask_label = self.dataset[idx]["mask_label"]
+
         flip_lr = False
         flip_ud = False
         if self.random_flip:
             flip_lr = torch.rand(1) > 0.5
             flip_ud = torch.rand(1) > 0.5
-            if (flip_lr or flip_ud) and self.multimask:
-                mask_label = self.dataset[idx]["mask_label"]
+            if self.multimask:
                 psf_flip = self.psf[mask_label].clone()
             else:
                 psf_flip = self.psf.clone()
@@ -1377,8 +1379,6 @@ class HFDataset(DualDataset):
 
         # return corresponding PSF
         if self.multimask:
-            mask_label = self.dataset[idx]["mask_label"]
-
             if self.return_mask_label:
                 return lensless, lensed, mask_label
             else:
