@@ -334,7 +334,7 @@ def train_learned(config):
                     lensed = rotate_HWC(lensed, rotate_angle)
                     psf_recon = rotate_HWC(psf_recon, rotate_angle)
 
-                    save_image(psf_recon[0].numpy(), f"psf_{_idx}.png")
+                    save_image(psf_recon[0].cpu().numpy(), f"psf_{_idx}.png")
 
                 recon = ADMM(psf_recon)
 
