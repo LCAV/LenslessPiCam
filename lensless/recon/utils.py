@@ -689,6 +689,7 @@ class Trainer:
         self.clip_grad_norm = clip_grad
         self.optimizer_config = optimizer
         self.n_epoch = n_epoch
+        self.lr_step_epoch = optimizer.lr_step_epoch
         self.set_optimizer()
 
         # metrics
@@ -814,7 +815,10 @@ class Trainer:
 
         elif self.optimizer_config.cosine_decay_warmup:
 
-            total_iterations = len(self.train_dataloader) * self.n_epoch
+            if self.lr_step_epoch:
+                total_iterations = self.n_epoch
+            else:
+                total_iterations = len(self.train_dataloader) * self.n_epoch
             warmup_steps = int(0.05 * total_iterations)
 
             def cosine_decay_with_warmup(step, warmup_steps, total_steps):
@@ -1050,6 +1054,8 @@ class Trainer:
                     continue
 
             self.optimizer.step()
+            if not self.lr_step_epoch:
+                self.scheduler.step()
             self.optimizer.zero_grad(set_to_none=True)
 
             # update mask
@@ -1293,7 +1299,8 @@ class Trainer:
             mean_loss = self.train_epoch(self.train_dataloader)
             # offset because of evaluate before loop
             self.on_epoch_end(mean_loss, save_pt, epoch + 1, disp=disp)
-            self.scheduler.step()
+            if self.lr_step_epoch:
+                self.scheduler.step()
 
         self.print(f"Train time [hour] : {(time.time() - start_time) / 3600} h")
 

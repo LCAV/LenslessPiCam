@@ -174,6 +174,7 @@ training:
 optimizer:
   type: Adam  # Adam, SGD... (Pytorch class)
   lr: 1e-4
+  lr_step_epoch: True   # True -> update LR at end of each epoch, False at the end of each mini-batch
   final_lr: False   # if set, linearly decay to this value
   exp_decay: False  # if set, exponentially decay with this value
   slow_start: False  #float how much to reduce lr for first epoch
