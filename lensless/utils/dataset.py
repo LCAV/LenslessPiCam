@@ -18,12 +18,12 @@ from torchvision.transforms import functional as F
 from lensless.hardware.trainable_mask import prep_trainable_mask, AdafruitLCD
 from lensless.utils.simulation import FarFieldSimulator
 from lensless.utils.io import load_image, load_psf, save_image
-from lensless.utils.image import is_grayscale, resize, rgb2gray
+from lensless.utils.image import is_grayscale, resize, rgb2gray, rotate_HWC
 import re
 from lensless.hardware.utils import capture
 from lensless.hardware.utils import display
 from lensless.hardware.slm import set_programmable_mask, adafruit_sub2full
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 from huggingface_hub import hf_hub_download
 import cv2
 from lensless.hardware.sensor import sensor_dict, SensorParam
@@ -1363,19 +1363,20 @@ class HFDataset(DualDataset):
         if self.random_flip:
             flip_lr = torch.rand(1) > 0.5
             flip_ud = torch.rand(1) > 0.5
+
             if self.multimask:
-                psf_flip = self.psf[mask_label].clone()
+                psf_aug = self.psf[mask_label].clone()
             else:
-                psf_flip = self.psf.clone()
+                psf_aug = self.psf.clone()
 
             if flip_lr:
                 lensless = torch.flip(lensless, dims=(-2,))
                 lensed = torch.flip(lensed, dims=(-2,))
-                psf_flip = torch.flip(psf_flip, dims=(-2,))
+                psf_aug = torch.flip(psf_aug, dims=(-2,))
             if flip_ud:
                 lensless = torch.flip(lensless, dims=(-3,))
                 lensed = torch.flip(lensed, dims=(-3,))
-                psf_flip = torch.flip(psf_flip, dims=(-3,))
+                psf_aug = torch.flip(psf_aug, dims=(-3,))
 
         # return corresponding PSF
         if self.multimask:
@@ -1385,14 +1386,16 @@ class HFDataset(DualDataset):
                 if not self.random_flip:
                     return lensless, lensed, self.psf[mask_label]
                 else:
-                    return lensless, lensed, psf_flip, flip_lr, flip_ud
+                    return lensless, lensed, psf_aug, flip_lr, flip_ud
         else:
             if not self.random_flip:
                 return lensless, lensed
             else:
-                return lensless, lensed, psf_flip, flip_lr, flip_ud
+                return lensless, lensed, psf_aug, flip_lr, flip_ud
 
-    def extract_roi(self, reconstruction, lensed=None, axis=(1, 2), flip_lr=None, flip_ud=None):
+    def extract_roi(
+        self, reconstruction, lensed=None, axis=(1, 2), flip_lr=None, flip_ud=None, rotate_aug=False
+    ):
         """
         Parameters
         ----------
@@ -1417,7 +1420,7 @@ class HFDataset(DualDataset):
             # increment axis
             axis = (axis[0] + 1, axis[1] + 1)
 
-        # flip before alignment, as alignment parameters are assuming no flip
+        # flip/rotate before alignment, as alignment parameters are assuming no flip/rotate
         if flip_lr is not None:
             flip_lr = flip_lr.squeeze().tolist()
             if isinstance(reconstruction, torch.Tensor):
@@ -1438,6 +1441,17 @@ class HFDataset(DualDataset):
                 reconstruction[flip_ud] = np.flip(reconstruction[flip_ud], axis=axis[0])
                 if lensed is not None:
                     lensed[flip_ud] = np.flip(lensed[flip_ud], axis=axis[0])
+        if rotate_aug:
+            assert isinstance(rotate_aug, float)
+            if isinstance(reconstruction, torch.Tensor):
+                assert axis == (-2, -1), "Only ...HW rotation is supported for torch.Tensor"
+                reconstruction = F.rotate(reconstruction, -rotate_aug, expand=False)
+                if lensed is not None:
+                    lensed = F.rotate(lensed, -rotate_aug, expand=False)
+            else:
+                reconstruction = rotate(reconstruction, angle=-rotate_aug, axes=axis, reshape=False)
+                if lensed is not None:
+                    lensed = rotate(lensed, angle=-rotate_aug, axes=axis, reshape=False)
 
         if self.alignment is not None:
             top_left = self.alignment["top_left"]
@@ -1452,9 +1466,9 @@ class HFDataset(DualDataset):
 
             # rotate if necessary
             angle = self.alignment.get("angle", 0)
-            if isinstance(reconstruction, torch.Tensor):
+            if isinstance(reconstruction, torch.Tensor) and angle:
                 reconstruction = F.rotate(reconstruction, angle, expand=False)
-            else:
+            elif angle:
                 reconstruction = rotate(reconstruction, angle, axes=axis, reshape=False)
 
         elif self.crop is not None:
@@ -1469,7 +1483,7 @@ class HFDataset(DualDataset):
             if lensed is not None:
                 lensed = lensed[tuple(index)]
 
-        # flip back
+        # flip/rotate back
         if flip_lr is not None:
             if isinstance(reconstruction, torch.Tensor):
                 reconstruction[flip_lr] = torch.flip(reconstruction[flip_lr], dims=(axis[1],))
@@ -1488,6 +1502,16 @@ class HFDataset(DualDataset):
                 reconstruction[flip_ud] = np.flip(reconstruction[flip_ud], axis=axis[0])
                 if lensed is not None:
                     lensed[flip_ud] = np.flip(lensed[flip_ud], axis=axis[0])
+        if rotate_aug:
+            if isinstance(reconstruction, torch.Tensor):
+                assert axis == (-2, -1), "Only ...HW rotation is supported for torch.Tensor"
+                reconstruction = F.rotate(reconstruction, rotate_aug, expand=False)
+                if lensed is not None:
+                    lensed = F.rotate(lensed, rotate_aug, expand=False)
+            else:
+                reconstruction = rotate(reconstruction, angle=rotate_aug, axes=axis, reshape=False)
+                if lensed is not None:
+                    lensed = rotate(lensed, angle=rotate_aug, axes=axis, reshape=False)
 
         # remove batch dimension
         if n_dim == 3:

@@ -22,6 +22,7 @@ from lensless.recon.drunet.network_unet import UNetRes
 from lensless.utils.io import save_image
 from lensless.utils.plot import plot_image
 from lensless.utils.dataset import SimulatedDatasetTrainableMask
+from lensless.utils.image import rotate_HWC
 
 
 def double_cnn_max_pool(c_in, c_out, cnn_kernel=3, max_pool=2, padding=1, skip_last_relu=False):
@@ -479,6 +480,7 @@ class Trainer:
         crop=None,
         clip_grad=1.0,
         unrolled_output_factor=False,
+        random_rotate=False,
         pre_proc_aux=False,
         extra_eval_sets=None,
         use_wandb=False,
@@ -616,6 +618,7 @@ class Trainer:
         if hasattr(train_dataset, "multimask"):
             self.train_multimask = train_dataset.multimask
         self.train_random_flip = train_dataset.random_flip
+        self.random_rotate = random_rotate
 
         # check if Subset and if simulating dataset
         self.simulated_dataset_trainable_mask = False
@@ -886,6 +889,18 @@ class Trainer:
                 X, y = batch
                 psfs = None
 
+            random_rotate = False
+            if self.random_rotate:
+                random_rotate = np.random.uniform(-self.random_rotate, self.random_rotate)
+                X = rotate_HWC(X, random_rotate)
+                y = rotate_HWC(y, random_rotate)
+                if psfs is None:
+                    psf_single = self.recon._psf
+                    psf_single = rotate_HWC(psf_single, random_rotate)
+                    self.recon._set_psf(psf_single.to(self.device))
+                else:
+                    psfs = rotate_HWC(psfs, random_rotate)
+
             # send to device
             X = X.to(self.device)
             y = y.to(self.device)
@@ -917,11 +932,20 @@ class Trainer:
             if hasattr(self.train_dataset, "alignment"):
                 if self.train_dataset.alignment is not None:
                     y_pred_crop = self.train_dataset.extract_roi(
-                        y_pred_crop, axis=(-2, -1), flip_lr=flip_lr, flip_ud=flip_ud
+                        y_pred_crop,
+                        axis=(-2, -1),
+                        flip_lr=flip_lr,
+                        flip_ud=flip_ud,
+                        rotate_aug=random_rotate,
                     )
                 else:
                     y_pred_crop, y = self.train_dataset.extract_roi(
-                        y_pred_crop, axis=(-2, -1), lensed=y, flip_lr=flip_lr, flip_ud=flip_ud
+                        y_pred_crop,
+                        axis=(-2, -1),
+                        lensed=y,
+                        flip_lr=flip_lr,
+                        flip_ud=flip_ud,
+                        rotate_aug=random_rotate,
                     )
 
             elif self.crop is not None:

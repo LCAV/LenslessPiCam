@@ -15,7 +15,7 @@ from lensless.hardware.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_
 try:
     import torch
     import torchvision.transforms as tf
-    from torchvision.transforms.functional import rgb_to_grayscale
+    from torchvision.transforms.functional import rgb_to_grayscale, rotate
 
     torch_available = True
 except ImportError:
@@ -76,6 +76,29 @@ def resize(img, factor=None, shape=None, interpolation=cv2.INTER_CUBIC):
             resized = np.expand_dims(resized, axis=-1)
 
     return np.clip(resized, min_val, max_val)
+
+
+def rotate_HWC(img, angle):
+
+    # to CHW
+    img = img.movedim(-1, -3)
+
+    remove_depth_dim = False
+    if len(img.shape) == 5:
+        # remove singleton depth dimension before, otherwise doesn't work..
+        if img.shape[1] == 1:
+            img = img.squeeze(1)
+            remove_depth_dim = True
+
+    # rotate
+    img_rot = rotate(img, angle, expand=False)
+
+    if remove_depth_dim:
+        img_rot = img_rot.unsqueeze(1)
+
+    # to HWC
+    img_rot = img_rot.movedim(-3, -1)
+    return img_rot
 
 
 def is_grayscale(img):
