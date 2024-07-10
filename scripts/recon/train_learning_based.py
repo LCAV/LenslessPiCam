@@ -313,16 +313,32 @@ def train_learned(config):
                 flip_lr = None
                 flip_ud = None
                 if test_set.random_flip:
-                    lensless, lensed, psf, flip_lr, flip_ud = test_set[_idx]
-                    psf = psf.to(device)
+                    lensless, lensed, psf_recon, flip_lr, flip_ud = test_set[_idx]
+                    psf_recon = psf_recon.to(device)
                 elif test_set.multimask:
                     lensless, lensed, psf = test_set[_idx]
-                    psf = psf.to(device)
+                    psf_recon = psf_recon.to(device)
                 else:
                     lensless, lensed = test_set[_idx]
-                recon = ADMM(psf)
+                    psf_recon = psf.clone()
 
-                recon.set_data(lensless.to(psf.device))
+                rotate_angle = False
+                if config.files.random_rotate:
+                    from lensless.utils.image import rotate_HWC
+
+                    rotate_angle = np.random.uniform(
+                        -config.files.random_rotate, config.files.random_rotate
+                    )
+                    print(f"Rotate angle : {rotate_angle}")
+                    lensless = rotate_HWC(lensless, rotate_angle)
+                    lensed = rotate_HWC(lensed, rotate_angle)
+                    psf_recon = rotate_HWC(psf_recon, rotate_angle)
+
+                    save_image(psf_recon[0].numpy(), f"psf_{_idx}.png")
+
+                recon = ADMM(psf_recon)
+
+                recon.set_data(lensless.to(psf_recon.device))
                 res = recon.apply(disp_iter=None, plot=False, n_iter=10)
                 res_np = res[0].cpu().numpy()
                 res_np = res_np / res_np.max()
@@ -336,11 +352,20 @@ def train_learned(config):
                 if hasattr(test_set, "alignment"):
                     if test_set.alignment is not None:
                         res_np = test_set.extract_roi(
-                            res_np, axis=(0, 1), flip_lr=flip_lr, flip_ud=flip_ud
+                            res_np,
+                            axis=(0, 1),
+                            flip_lr=flip_lr,
+                            flip_ud=flip_ud,
+                            rotate_aug=rotate_angle,
                         )
                     else:
                         res_np, lensed_np = test_set.extract_roi(
-                            res_np, lensed=lensed_np, axis=(0, 1), flip_lr=flip_lr, flip_ud=flip_ud
+                            res_np,
+                            lensed=lensed_np,
+                            axis=(0, 1),
+                            flip_lr=flip_lr,
+                            flip_ud=flip_ud,
+                            rotate_aug=rotate_angle,
                         )
                     cropped = True
 
@@ -570,6 +595,7 @@ def train_learned(config):
         extra_eval_sets=extra_eval_sets if config.files.extra_eval is not None else None,
         use_wandb=True if config.wandb_project is not None else False,
         n_epoch=config.training.epoch,
+        random_rotate=config.files.random_rotate,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)
