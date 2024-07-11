@@ -71,6 +71,10 @@ display:
 save: True
 
 reconstruction:
+
+  # initialize with Hugging Face model from model_dict, use "hf:camera:dataset:model_name"
+  init: null
+
   # Method: unrolled_admm, unrolled_fista, trainable_inv
   method: unrolled_admm
   skip_unrolled: False
@@ -176,8 +180,8 @@ optimizer:
   type: Adam  # Adam, SGD... (Pytorch class)
   lr: 1e-4
   lr_step_epoch: True   # True -> update LR at end of each epoch, False at the end of each mini-batch
-  final_lr: False   # if set, linearly decay to this value
-  exp_decay: False  # if set, exponentially decay with this value
+  final_lr: False   # if set, exponentially decay *to* this value
+  exp_decay: False  # if set, exponentially decay *with* this value
   slow_start: False  #float how much to reduce lr for first epoch
   cosine_decay_warmup: False  # if set, cosine decay with warmup of 5%
   # Decay LR in step fashion: https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html

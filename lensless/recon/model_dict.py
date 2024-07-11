@@ -18,6 +18,7 @@ import yaml
 from lensless.recon.multi_wiener import MultiWiener
 from huggingface_hub import snapshot_download
 from collections import OrderedDict
+from lensless.utils.dataset import MyDataParallel
 
 
 model_dir_path = os.path.join(os.path.dirname(__file__), "..", "..", "models")
@@ -129,6 +130,7 @@ model_dict = {
             # simulated PSF (with waveprop, with deadspace)
             "Unet4M+U10+Unet4M_wave": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm10-unet4M-wave",
             "Unet4M+U5+Unet4M_wave": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm5-unet4M-wave",
+            "Unet4M+U5+Unet4M_wave_aux1": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm5-unet4M-wave-aux1",
         },
     },
     "tapecam": {
@@ -199,6 +201,7 @@ def load_model(
     model_path,
     psf,
     device="cpu",
+    device_ids=None,
     legacy_denoiser=False,
     verbose=True,
     skip_pre=False,
@@ -328,7 +331,7 @@ def load_model(
         psf_learned = torch.nn.Parameter(psf_learned)
         recon._set_psf(psf_learned)
 
-    if "device_ids" in config.keys() and config["device_ids"] is not None:
+    if config["device_ids"] is not None:
         model_state_dict = remove_data_parallel(model_state_dict)
 
     # hotfixes for loading models
@@ -339,5 +342,17 @@ def load_model(
         }
 
     recon.load_state_dict(model_state_dict)
+
+    if device_ids is not None:
+        if recon.pre_process is not None:
+            pre_proc = torch.nn.DataParallel(recon.pre_process_model, device_ids=device_ids)
+            pre_proc = pre_proc.to(device)
+            recon.set_pre_process(pre_proc)
+        if recon.post_process is not None:
+            post_proc = torch.nn.DataParallel(recon.post_process_model, device_ids=device_ids)
+            post_proc = post_proc.to(device)
+            recon.set_post_process(post_proc)
+        recon = MyDataParallel(recon, device_ids=device_ids)
+    recon.to(device)
 
     return recon

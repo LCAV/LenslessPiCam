@@ -52,6 +52,7 @@ import torch
 from lensless.utils.io import save_image
 from lensless.utils.plot import plot_image
 import matplotlib.pyplot as plt
+from lensless.recon.model_dict import load_model, download_model
 
 # A logger for this file
 log = logging.getLogger(__name__)
@@ -432,7 +433,6 @@ def train_learned(config):
 
     # initialize pre- and post processor with another model
     if config.reconstruction.init_processors is not None:
-        from lensless.recon.model_dict import load_model, download_model
 
         if "hf" in config.reconstruction.init_processors:
             param = config.reconstruction.init_processors.split(":")
@@ -472,74 +472,86 @@ def train_learned(config):
                     dict_params2_post[name1].data.copy_(param1.data)
 
     # create reconstruction algorithm
-    if config.reconstruction.method == "unrolled_fista":
-        recon = UnrolledFISTA(
-            psf,
-            n_iter=config.reconstruction.unrolled_fista.n_iter,
-            tk=config.reconstruction.unrolled_fista.tk,
-            pad=True,
-            learn_tk=config.reconstruction.unrolled_fista.learn_tk,
-            pre_process=pre_process if pre_proc_delay is None else None,
-            post_process=post_process if post_proc_delay is None else None,
-            skip_unrolled=config.reconstruction.skip_unrolled,
-            return_intermediate=True
-            if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
-            else False,
-            compensation=config.reconstruction.compensation,
-            compensation_residual=config.reconstruction.compensation_residual,
-        )
-    elif config.reconstruction.method == "unrolled_admm":
-        recon = UnrolledADMM(
-            psf,
-            n_iter=config.reconstruction.unrolled_admm.n_iter,
-            mu1=config.reconstruction.unrolled_admm.mu1,
-            mu2=config.reconstruction.unrolled_admm.mu2,
-            mu3=config.reconstruction.unrolled_admm.mu3,
-            tau=config.reconstruction.unrolled_admm.tau,
-            pre_process=pre_process if pre_proc_delay is None else None,
-            post_process=post_process if post_proc_delay is None else None,
-            skip_unrolled=config.reconstruction.skip_unrolled,
-            return_intermediate=True
-            if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
-            else False,
-            compensation=config.reconstruction.compensation,
-            compensation_residual=config.reconstruction.compensation_residual,
-        )
-    elif config.reconstruction.method == "trainable_inv":
-        assert config.trainable_mask.mask_type == "TrainablePSF"
-        recon = TrainableInversion(
-            psf,
-            K=config.reconstruction.trainable_inv.K,
-            pre_process=pre_process if pre_proc_delay is None else None,
-            post_process=post_process if post_proc_delay is None else None,
-            return_intermediate=True
-            if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
-            else False,
-        )
-    elif config.reconstruction.method == "multi_wiener":
+    if config.reconstruction.init is not None:
+        assert config.reconstruction.init_processors is None
 
-        if config.files.single_channel_psf:
-            psf = psf[..., 0].unsqueeze(-1)
-            psf_channels = 1
-        else:
-            psf_channels = 3
-
-        recon = MultiWiener(
-            in_channels=3,
-            out_channels=3,
-            psf=psf,
-            psf_channels=psf_channels,
-            nc=config.reconstruction.multi_wiener.nc,
-            pre_process=pre_process if pre_proc_delay is None else None,
-        )
+        param = config.reconstruction.init.split(":")
+        assert len(param) == 4, "hf model requires following format: hf:camera:dataset:model_name"
+        camera = param[1]
+        dataset = param[2]
+        model_name = param[3]
+        model_path = download_model(camera=camera, dataset=dataset, model=model_name)
+        recon = load_model(model_path, psf, device, device_ids=device_ids)
 
     else:
-        raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
+        if config.reconstruction.method == "unrolled_fista":
+            recon = UnrolledFISTA(
+                psf,
+                n_iter=config.reconstruction.unrolled_fista.n_iter,
+                tk=config.reconstruction.unrolled_fista.tk,
+                pad=True,
+                learn_tk=config.reconstruction.unrolled_fista.learn_tk,
+                pre_process=pre_process if pre_proc_delay is None else None,
+                post_process=post_process if post_proc_delay is None else None,
+                skip_unrolled=config.reconstruction.skip_unrolled,
+                return_intermediate=True
+                if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
+                else False,
+                compensation=config.reconstruction.compensation,
+                compensation_residual=config.reconstruction.compensation_residual,
+            )
+        elif config.reconstruction.method == "unrolled_admm":
+            recon = UnrolledADMM(
+                psf,
+                n_iter=config.reconstruction.unrolled_admm.n_iter,
+                mu1=config.reconstruction.unrolled_admm.mu1,
+                mu2=config.reconstruction.unrolled_admm.mu2,
+                mu3=config.reconstruction.unrolled_admm.mu3,
+                tau=config.reconstruction.unrolled_admm.tau,
+                pre_process=pre_process if pre_proc_delay is None else None,
+                post_process=post_process if post_proc_delay is None else None,
+                skip_unrolled=config.reconstruction.skip_unrolled,
+                return_intermediate=True
+                if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
+                else False,
+                compensation=config.reconstruction.compensation,
+                compensation_residual=config.reconstruction.compensation_residual,
+            )
+        elif config.reconstruction.method == "trainable_inv":
+            assert config.trainable_mask.mask_type == "TrainablePSF"
+            recon = TrainableInversion(
+                psf,
+                K=config.reconstruction.trainable_inv.K,
+                pre_process=pre_process if pre_proc_delay is None else None,
+                post_process=post_process if post_proc_delay is None else None,
+                return_intermediate=True
+                if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
+                else False,
+            )
+        elif config.reconstruction.method == "multi_wiener":
 
-    if device_ids is not None:
-        recon = MyDataParallel(recon, device_ids=device_ids)
-    if use_cuda:
-        recon.to(device)
+            if config.files.single_channel_psf:
+                psf = psf[..., 0].unsqueeze(-1)
+                psf_channels = 1
+            else:
+                psf_channels = 3
+
+            recon = MultiWiener(
+                in_channels=3,
+                out_channels=3,
+                psf=psf,
+                psf_channels=psf_channels,
+                nc=config.reconstruction.multi_wiener.nc,
+                pre_process=pre_process if pre_proc_delay is None else None,
+            )
+
+        else:
+            raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
+
+        if device_ids is not None:
+            recon = MyDataParallel(recon, device_ids=device_ids)
+        if use_cuda:
+            recon.to(device)
 
     # constructing algorithm name by appending pre and post process
     algorithm_name = config.reconstruction.method
