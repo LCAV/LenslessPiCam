@@ -23,6 +23,7 @@ files:
   huggingface_dataset: True
   huggingface_psf: psf.tiff
   single_channel_psf: False    # whether to sum all PSF channels into one
+  hf_simulated: False
 
   # -- train/test split
   split_seed: null   # if null use train/test split from dataset

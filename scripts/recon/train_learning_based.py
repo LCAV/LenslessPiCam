@@ -44,6 +44,7 @@ from lensless.utils.dataset import (
     HFDataset,
     MyDataParallel,
     simulate_dataset,
+    HFSimulated,
 )
 from torch.utils.data import Subset
 from lensless.recon.utils import create_process_network
@@ -211,26 +212,41 @@ def train_learned(config):
                 dataset, [train_size, test_size], generator=generator
             )
 
-        train_set = HFDataset(
-            huggingface_repo=config.files.dataset,
-            cache_dir=config.files.cache_dir,
-            psf=config.files.huggingface_psf,
-            single_channel_psf=config.files.single_channel_psf,
-            split=split_train,
-            display_res=config.files.image_res,
-            rotate=config.files.rotate,
-            flipud=config.files.flipud,
-            flip_lensed=config.files.flip_lensed,
-            downsample=config.files.downsample,
-            downsample_lensed=config.files.downsample_lensed,
-            alignment=config.alignment,
-            save_psf=config.files.save_psf,
-            n_files=config.files.n_files,
-            simulation_config=config.simulation,
-            force_rgb=config.files.force_rgb,
-            simulate_lensless=config.files.simulate_lensless,
-            random_flip=config.files.random_flip,
-        )
+        if config.files.hf_simulated:
+            # simulate lensless by using measured PSF
+            train_set = HFSimulated(
+                huggingface_repo=config.files.dataset,
+                split=split_train,
+                n_files=config.files.n_files,
+                psf=config.files.huggingface_psf,
+                downsample=config.files.downsample,
+                cache_dir=config.files.cache_dir,
+                single_channel_psf=config.files.single_channel_psf,
+                flipud=config.files.flipud,
+            )
+
+        else:
+            train_set = HFDataset(
+                huggingface_repo=config.files.dataset,
+                cache_dir=config.files.cache_dir,
+                psf=config.files.huggingface_psf,
+                single_channel_psf=config.files.single_channel_psf,
+                split=split_train,
+                display_res=config.files.image_res,
+                rotate=config.files.rotate,
+                flipud=config.files.flipud,
+                flip_lensed=config.files.flip_lensed,
+                downsample=config.files.downsample,
+                downsample_lensed=config.files.downsample_lensed,
+                alignment=config.alignment,
+                save_psf=config.files.save_psf,
+                n_files=config.files.n_files,
+                simulation_config=config.simulation,
+                force_rgb=config.files.force_rgb,
+                simulate_lensless=config.files.simulate_lensless,
+                random_flip=config.files.random_flip,
+            )
+
         test_set = HFDataset(
             huggingface_repo=config.files.dataset,
             cache_dir=config.files.cache_dir,
@@ -249,8 +265,8 @@ def train_learned(config):
             simulation_config=config.simulation,
             force_rgb=config.files.force_rgb,
             simulate_lensless=False,  # in general evaluate on measured (set to False)
-            # random_flip=config.files.random_flip,   # shouldn't flip test set, just for testing
         )
+
         if train_set.multimask:
             # get first PSF for initialization
             if device_ids is not None:
