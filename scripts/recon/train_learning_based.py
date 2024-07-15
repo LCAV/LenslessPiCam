@@ -223,6 +223,8 @@ def train_learned(config):
                 cache_dir=config.files.cache_dir,
                 single_channel_psf=config.files.single_channel_psf,
                 flipud=config.files.flipud,
+                display_res=config.files.image_res,
+                alignment=config.alignment,
             )
 
         else:
