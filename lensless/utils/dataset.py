@@ -1209,11 +1209,10 @@ class HFSimulated(DualDataset):
             return lensless, lensed, self.psf[mask_label]
         return lensless, lensed
 
-    def extract_roi(self, reconstruction, axis=(1, 2), **kwargs):
+    def extract_roi(self, reconstruction, lensed=None, axis=(1, 2), **kwargs):
         """
         Extract region of interest from lensless and lensed images.
         """
-        assert self.alignment is not None, "Alignment parameters should be provided."
 
         n_dim = len(reconstruction.shape)
         assert max(axis) < n_dim, "Axis should be within the dimensions of the reconstruction."
@@ -1228,22 +1227,23 @@ class HFSimulated(DualDataset):
             axis = (axis[0] + 1, axis[1] + 1)
 
         # extract
-        top_left = self.alignment["top_left"]
-        height = self.alignment["height"]
-        width = self.alignment["width"]
+        if self.alignment is not None:
+            top_left = self.alignment["top_left"]
+            height = self.alignment["height"]
+            width = self.alignment["width"]
 
-        # extract according to axis
-        index = [slice(None)] * n_dim
-        index[axis[0]] = slice(top_left[0], top_left[0] + height)
-        index[axis[1]] = slice(top_left[1], top_left[1] + width)
-        reconstruction = reconstruction[tuple(index)]
+            # extract according to axis
+            index = [slice(None)] * n_dim
+            index[axis[0]] = slice(top_left[0], top_left[0] + height)
+            index[axis[1]] = slice(top_left[1], top_left[1] + width)
+            reconstruction = reconstruction[tuple(index)]
 
-        # rotate if necessary
-        angle = self.alignment.get("angle", 0)
-        if isinstance(reconstruction, torch.Tensor) and angle:
-            reconstruction = F.rotate(reconstruction, angle, expand=False)
-        elif angle:
-            reconstruction = rotate(reconstruction, angle, axes=axis, reshape=False)
+            # rotate if necessary
+            angle = self.alignment.get("angle", 0)
+            if isinstance(reconstruction, torch.Tensor) and angle:
+                reconstruction = F.rotate(reconstruction, angle, expand=False)
+            elif angle:
+                reconstruction = rotate(reconstruction, angle, axes=axis, reshape=False)
 
         # remove batch dimension
         if n_dim == 3:
@@ -1252,7 +1252,7 @@ class HFSimulated(DualDataset):
             else:
                 reconstruction = reconstruction[0]
 
-        return reconstruction
+        return reconstruction, lensed
 
 
 class HFDataset(DualDataset):
