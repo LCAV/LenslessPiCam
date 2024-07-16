@@ -30,6 +30,7 @@ import cv2
 from lensless.hardware.sensor import sensor_dict, SensorParam
 from scipy.ndimage import rotate
 import warnings
+from waveprop.noise import add_shot_noise
 from PIL import Image
 
 
@@ -169,8 +170,6 @@ class DualDataset(Dataset):
 
         # add noise
         if self.input_snr is not None:
-            from waveprop.noise import add_shot_noise
-
             lensless = add_shot_noise(lensless, self.input_snr)
 
         # flip image x and y if needed
@@ -1037,6 +1036,7 @@ class HFSimulated(DualDataset):
         sensor="rpi_hq",
         slm="adafruit",
         simulation_config=dict(),
+        snr_db=40,
         **kwargs,
     ):
         """
@@ -1131,6 +1131,7 @@ class HFSimulated(DualDataset):
         self.crop = None
         self.random_flip = None
         self.flipud = flipud
+        self.snr_db = snr_db
 
         self.display_res = display_res
         self.alignment = None
@@ -1193,6 +1194,11 @@ class HFSimulated(DualDataset):
             mask_label = self.dataset[idx]["mask_label"]
             self.convolver.set_psf(self.psf[mask_label])
         lensless = self.convolver.convolve(lensed)
+
+        # add noise
+        if self.snr_db is not None:
+            lensless = add_shot_noise(lensless, self.snr_db)
+
         if lensless.max() > 1:
             print("CLIPPING!")
             lensless /= lensless.max()
@@ -1252,6 +1258,8 @@ class HFSimulated(DualDataset):
             else:
                 reconstruction = reconstruction[0]
 
+        if lensed is None:
+            return reconstruction
         return reconstruction, lensed
 
 
