@@ -11,6 +11,7 @@ import cv2
 from lensless.utils.image import print_image_info
 from lensless.utils.io import load_image
 import logging
+import cadquery as cq
 
 logging.getLogger("paramiko").setLevel(logging.WARNING)
 
