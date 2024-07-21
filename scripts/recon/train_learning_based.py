@@ -223,6 +223,8 @@ def train_learned(config):
                 cache_dir=config.files.cache_dir,
                 single_channel_psf=config.files.single_channel_psf,
                 flipud=config.files.flipud,
+                display_res=config.files.image_res,
+                alignment=config.alignment,
             )
 
         else:
@@ -333,7 +335,7 @@ def train_learned(config):
                     lensless, lensed, psf_recon, flip_lr, flip_ud = test_set[_idx]
                     psf_recon = psf_recon.to(device)
                 elif test_set.multimask:
-                    lensless, lensed, psf = test_set[_idx]
+                    lensless, lensed, psf_recon = test_set[_idx]
                     psf_recon = psf_recon.to(device)
                 else:
                     lensless, lensed = test_set[_idx]
@@ -439,7 +441,7 @@ def train_learned(config):
     )
     post_proc_delay = config.reconstruction.post_process.delay
 
-    if config.reconstruction.post_process.train_last_layer:
+    if post_process is not None and config.reconstruction.post_process.train_last_layer:
         for name, param in post_process.named_parameters():
             if "m_tail" in name:
                 param.requires_grad = True
@@ -497,7 +499,13 @@ def train_learned(config):
         dataset = param[2]
         model_name = param[3]
         model_path = download_model(camera=camera, dataset=dataset, model=model_name)
-        recon = load_model(model_path, psf, device, device_ids=device_ids)
+        recon = load_model(
+            model_path,
+            psf,
+            device,
+            device_ids=device_ids,
+            train_last_layer=config.reconstruction.post_process.train_last_layer,
+        )
 
     else:
         if config.reconstruction.method == "unrolled_fista":

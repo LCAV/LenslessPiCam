@@ -116,6 +116,7 @@ model_dict = {
             "Unet2M+MWDN6M_wave": "bezzam/digicam-mirflickr-single-25k-unet2M-mwdn-6M",
             "Unet4M+U5+Unet4M_wave_aux1": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm5-unet4M-wave-aux1",
             "Unet4M+U5+Unet4M_wave_flips": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm5-unet4M-wave-flips",
+            "Unet4M+U5+Unet4M_wave_flips_rotate10": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm5-unet4M-wave-flips-rotate10",
             # measured PSF
             "Unet4M+U10+Unet4M_measured": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-measured",
             # simulated PSF (with waveprop, no deadspace)
@@ -131,6 +132,7 @@ model_dict = {
             "Unet4M+U10+Unet4M_wave": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm10-unet4M-wave",
             "Unet4M+U5+Unet4M_wave": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm5-unet4M-wave",
             "Unet4M+U5+Unet4M_wave_aux1": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm5-unet4M-wave-aux1",
+            "Unet4M+U5+Unet4M_wave_flips": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm5-unet4M-wave-flips",
         },
     },
     "tapecam": {
@@ -145,6 +147,8 @@ model_dict = {
             "Unet2M+MWDN6M": "bezzam/tapecam-mirflickr-unet2M-mwdn-6M",
             "Unet4M+U10+Unet4M": "bezzam/tapecam-mirflickr-unet4M-unrolled-admm10-unet4M",
             "Unet4M+U5+Unet4M_flips": "bezzam/tapecam-mirflickr-unet4M-unrolled-admm5-unet4M-flips",
+            "Unet4M+U5+Unet4M_flips_rotate10": "bezzam/tapecam-mirflickr-unet4M-unrolled-admm5-unet4M-flips-rotate10",
+            "Unet4M+U5+Unet4M_aux1": "bezzam/tapecam-mirflickr-unet4M-unrolled-admm5-unet4M-aux1",
         },
     },
 }
@@ -206,6 +210,7 @@ def load_model(
     verbose=True,
     skip_pre=False,
     skip_post=False,
+    train_last_layer=False,
 ):
 
     """
@@ -278,6 +283,14 @@ def load_model(
             if config["reconstruction"].get("compensation", None) is not None
             else False,
         )
+
+        if train_last_layer:
+            for param in post_process.parameters():
+                for name, param in post_process.named_parameters():
+                    if "m_tail" in name:
+                        param.requires_grad = True
+                    else:
+                        param.requires_grad = False
 
     if config["reconstruction"]["method"] == "unrolled_admm":
         recon = UnrolledADMM(
