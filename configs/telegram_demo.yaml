@@ -3,6 +3,7 @@ token: null
 whitelist: []
 idle: False     # run without processing commands
 time_offset: 7200  # offset in seconds to correct for time difference
+setup_fp: null
 
 # usernames and IP address
 rpi_username: null

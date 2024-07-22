@@ -115,6 +115,11 @@ def get_user_folder_from_query(query):
     return os.path.join(OUTPUT_FOLDER, user_subfolder)
 
 
+async def remove_busy_flag(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global BUSY
+    BUSY = False
+
+
 async def check_incoming_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     global BUSY, queries_count
@@ -807,13 +812,12 @@ async def exposure_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
 
     # -- phase mask
-    vals = {0.02: "very low", 0.05: "low", 0.1: "medium", 0.2: "high", 0.5: "very high"}
+    vals = {0.02: "very low", 0.04: "low", 0.06: "medium", 0.08: "high", 0.1: "very high"}
     # # -- tape based
     # vals = {0.02: "very low", 0.035: "low", 0.05: "medium", 0.065: "high", 0.08: "very high"}
     # # -- digicam
     # vals = {0.25: "very low", 0.5: "low", 0.75: "medium", 1: "high", 1.25: "very high"}
 
-    current_exp = vals[EXPOSURE]
     if EXPOSURE in vals:
         del vals[EXPOSURE]
     keys = list(vals.keys())
@@ -834,7 +838,7 @@ async def exposure_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
-        f"Please specify a value for the camera exposure. Current value is '{current_exp}' ({EXPOSURE} seconds).",
+        f"Please specify a value for the camera exposure. Current value is ({EXPOSURE} seconds).",
         reply_markup=reply_markup,
     )
 
@@ -895,7 +899,7 @@ def main(config) -> None:
     global TOKEN, WHITELIST_USERS, RPI_USERNAME, RPI_HOSTNAME, RPI_LENSED_USERNAME, RPI_LENSED_HOSTNAME, CONFIG_FN, TIME_OFFSET
     global DEFAULT_ALGO, ALGO_TEXT, HELP_TEXT, supported_algos, supported_input
     global OVERLAY_ALPHA, OVERLAY_1, OVERLAY_2, OVERLAY_3, FILES_CAPTURE_CONFIG
-    global PSF_FP, BACKGROUND_FP, MASK_PARAM
+    global PSF_FP, BACKGROUND_FP, MASK_PARAM, SETUP_FP
     global VSHIFT, IMAGE_RES
 
     TOKEN = config.token
@@ -904,6 +908,10 @@ def main(config) -> None:
     WHITELIST_USERS = config.whitelist
     if WHITELIST_USERS is None:
         WHITELIST_USERS = []
+
+    if config.setup_fp is not None:
+        SETUP_FP = config.setup_fp
+        assert os.path.exists(SETUP_FP)
 
     RPI_USERNAME = config.rpi_username
     RPI_HOSTNAME = config.rpi_hostname
@@ -938,7 +946,7 @@ def main(config) -> None:
         # f"of your own pictures, you can use the {input_commands} commands to set "
         # "the image on the display with one of our inputs. Or even send an emoij 😎"
         f"\n\n⚠️ Try one of the {input_commands} commands to use images we've configured. "
-        "Or even send an emoij 😎 "
+        # "Or even send an emoji 😎 "
         "You can also send your own image (but brightness/exposure may need to be adjusted)."
         "\n\nAll previous data is overwritten "
         "when a new image is sent, and everything is deleted when the process running on the "
@@ -1014,6 +1022,7 @@ def main(config) -> None:
         # on different commands - answer in Telegram
         application.add_handler(CommandHandler("start", start))
         application.add_handler(CommandHandler("help", help_command))
+        application.add_handler(CommandHandler("notbusy", remove_busy_flag))
 
         for file_input in supported_input:
             assert file_input in FILES_CAPTURE_CONFIG.keys()
