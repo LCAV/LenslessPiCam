@@ -379,6 +379,7 @@ def load_data(
     psf_fp,
     data_fp,
     background_fp=None,
+    return_bg=False,
     return_float=True,
     downsample=None,
     bg_pix=(5, 25),
@@ -515,7 +516,7 @@ def load_data(
         )
         assert bg.shape == data.shape
 
-        data -= bg
+        data -= bg # TODO
         # clip to 0
         data = np.clip(data, a_min=0, a_max=data.max())
 
@@ -525,6 +526,9 @@ def load_data(
     if data.shape != psf.shape:
         # in DiffuserCam dataset, images are already reshaped
         data = resize(data, shape=psf.shape)
+
+        if background_fp is not None:
+            bg = resize(bg, shape=psf.shape)
 
     if data.shape[3] > 1 and psf.shape[3] == 1:
         warnings.warn(
@@ -568,7 +572,10 @@ def load_data(
         psf = torch.from_numpy(psf).type(torch_dtype).to(torch_device)
         data = torch.from_numpy(data).type(torch_dtype).to(torch_device)
 
-    return psf, data
+    if return_bg:
+        return psf, data, bg
+    else:
+        return psf, data
 
 
 def save_image(img, fp, max_val=255, normalize=True):

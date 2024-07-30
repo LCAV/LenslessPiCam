@@ -1,0 +1,25 @@
+# Background simulation and reconstruction
+
+files:
+
+  #original: data/dark_tree_raw.png
+  original: data/ambient_tree_raw.png
+  psf: data/tape_psf.png
+  background: data/ambient_black_screen.png
+  is_noisy_measurement: True
+
+  downsample: 2
+  grayscale: False
+  #dataset: "bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM"
+
+save: True
+
+admm:
+  snr_db: 10
+  n_iter: 5
+  disp_iter: 5
+  # Hyperparameters
+  mu1: 1e-6
+  mu2: 1e-5
+  mu3: 4e-5
+  tau: 0.0001
