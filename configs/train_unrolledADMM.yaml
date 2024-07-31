@@ -49,6 +49,7 @@ files:
   simulate_lensless: False   # False to use measured data
   random_flip: False
   random_rotate: False
+  random_shifts: False
 
 alignment: null
 #   top_left: null    # height, width

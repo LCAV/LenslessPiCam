@@ -156,6 +156,7 @@ class MultiWiener(nn.Module):
         self.left = (8 - img_shape[1] % 8) // 2
         self.right = (8 - img_shape[1] % 8) - self.left
 
+        self._psf_shape = psf.shape
         self._psf = convert_to_NCHW(psf)
         self._psf = torch.nn.functional.pad(
             self._psf, (self.left, self.right, self.top, self.bottom), mode="constant", value=0
@@ -203,7 +204,7 @@ class MultiWiener(nn.Module):
             self.pre_process_param,
         ) = self._prepare_process_block(pre_process)
 
-    def forward(self, batch, psfs=None):
+    def forward(self, batch, psfs=None, **kwargs):
 
         if psfs is None:
             psf = self._psf.to(batch.device)
@@ -275,6 +276,25 @@ class MultiWiener(nn.Module):
     def reset(self, batch_size=1):
         # no state variables
         return
+
+    def set_data(self, data):
+        assert len(data.shape) >= 3, "Data must be at least 3D: [..., width, height, channel]."
+
+        # assert same shapes
+        assert np.all(
+            self._psf_shape[-3:-1] == np.array(data.shape)[-3:-1]
+        ), "PSF and data shape mismatch"
+
+        if len(data.shape) == 3:
+            self._data = data[None, None, ...]
+        elif len(data.shape) == 4:
+            self._data = data[None, ...]
+        else:
+            self._data = data
+
+    def apply(self, **kwargs):
+        # apply to data
+        return self.forward(self._data, **kwargs)
 
     def reconstruction_error(self, prediction, lensless):
         convolver = self._convolver

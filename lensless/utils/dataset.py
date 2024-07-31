@@ -31,6 +31,7 @@ from lensless.hardware.sensor import sensor_dict, SensorParam
 from scipy.ndimage import rotate
 import warnings
 from waveprop.noise import add_shot_noise
+from lensless.utils.image import shift_with_pad
 from PIL import Image
 
 
@@ -1638,7 +1639,14 @@ class HFDataset(DualDataset):
                 return lensless, lensed, psf_aug, flip_lr, flip_ud
 
     def extract_roi(
-        self, reconstruction, lensed=None, axis=(1, 2), flip_lr=None, flip_ud=None, rotate_aug=False
+        self,
+        reconstruction,
+        lensed=None,
+        axis=(1, 2),
+        flip_lr=None,
+        flip_ud=None,
+        rotate_aug=False,
+        shift_aug=None,
     ):
         """
         Parameters
@@ -1696,6 +1704,12 @@ class HFDataset(DualDataset):
                 reconstruction = rotate(reconstruction, angle=-rotate_aug, axes=axis, reshape=False)
                 if lensed is not None:
                     lensed = rotate(lensed, angle=-rotate_aug, axes=axis, reshape=False)
+        if shift_aug is not None:
+            assert isinstance(shift_aug, tuple)
+            neg_shift = (-shift_aug[0], -shift_aug[1])
+            reconstruction = shift_with_pad(reconstruction, neg_shift, axis=axis)
+            if lensed is not None:
+                lensed = shift_with_pad(lensed, neg_shift, axis=axis)
 
         if self.alignment is not None:
             top_left = self.alignment["top_left"]
@@ -1756,6 +1770,11 @@ class HFDataset(DualDataset):
                 reconstruction = rotate(reconstruction, angle=rotate_aug, axes=axis, reshape=False)
                 if lensed is not None:
                     lensed = rotate(lensed, angle=rotate_aug, axes=axis, reshape=False)
+
+        if shift_aug is not None:
+            reconstruction = shift_with_pad(reconstruction, shift_aug, axis=axis)
+            if lensed is not None:
+                lensed = shift_with_pad(lensed, shift_aug, axis=axis)
 
         # remove batch dimension
         if n_dim == 3:

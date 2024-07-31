@@ -321,6 +321,10 @@ class ReconstructionAlgorithm(abc.ABC):
                 raise NotImplementedError(f"Unsupported denoiser: {denoiser['network']}")
             self._denoiser_noise_level = denoiser["noise_level"]
 
+        # used inside trainable recon
+        self.compensation_branch = None
+        self.compensation_branch_inputs = None
+
         if reset:
             self.reset()
 
@@ -560,8 +564,13 @@ class ReconstructionAlgorithm(abc.ABC):
             ax = None
             disp_iter = n_iter + 1
 
+        if self.compensation_branch is not None:
+            self.compensation_branch_inputs = [self._data]
+
         for i in range(n_iter):
             self._update(i)
+            if self.compensation_branch is not None and i < self._n_iter - 1:
+                self.compensation_branch_inputs.append(self._form_image())
 
             if (plot or save) and (i + 1) % disp_iter == 0:
                 self._progress()

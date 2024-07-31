@@ -1,4 +1,4 @@
-# python scripts/recon/train_learning_based.py -cn train_mirflickr_tape
+# python scripts/recon/train_learning_based.py -cn train_mirflickr_diffuser
 defaults:
   - train_unrolledADMM
   - _self_

@@ -35,6 +35,7 @@ from hydra.utils import get_original_cwd
 import os
 import numpy as np
 import time
+from lensless.utils.image import shift_with_pad
 from lensless.hardware.trainable_mask import prep_trainable_mask
 from lensless import ADMM, UnrolledFISTA, UnrolledADMM, TrainableInversion
 from lensless.recon.multi_wiener import MultiWiener
@@ -353,7 +354,30 @@ def train_learned(config):
                     lensed = rotate_HWC(lensed, rotate_angle)
                     psf_recon = rotate_HWC(psf_recon, rotate_angle)
 
+                shift = None
+                if config.files.random_shifts:
+
+                    shift = np.random.randint(
+                        -config.files.random_shifts, config.files.random_shifts, 2
+                    )
+                    print(f"Shift : {shift}")
+                    lensless = shift_with_pad(lensless, shift, axis=(1, 2))
+                    lensed = shift_with_pad(lensed, shift, axis=(1, 2))
+                    psf_recon = shift_with_pad(psf_recon, shift, axis=(1, 2))
+                    # lensless = torch.roll(lensless, tuple(shift), (1, 2))
+                    # lensed = torch.roll(lensed, tuple(shift), (1, 2))
+                    # psf_recon = torch.roll(psf_recon, tuple(shift), (1, 2))
+                    shift = tuple(shift)
+
+                if config.files.random_rotate or config.files.random_shifts:
+
                     save_image(psf_recon[0].cpu().numpy(), f"psf_{_idx}.png")
+
+                # lensless[:, -1] = 0
+                # lensless[:, :, -1] = 0
+                # fake_shift = np.ones(2).astype(int) * 1
+                # lensless = shift_with_pad(lensless, tuple(fake_shift), axis=(1, 2))
+                # lensless = shift_with_pad(lensless, tuple(-1 * fake_shift), axis=(1, 2))
 
                 recon = ADMM(psf_recon)
 
@@ -376,6 +400,7 @@ def train_learned(config):
                             flip_lr=flip_lr,
                             flip_ud=flip_ud,
                             rotate_aug=rotate_angle,
+                            shift_aug=shift,
                         )
                     else:
                         res_np, lensed_np = test_set.extract_roi(
@@ -385,6 +410,7 @@ def train_learned(config):
                             flip_lr=flip_lr,
                             flip_ud=flip_ud,
                             rotate_aug=rotate_angle,
+                            shift_aug=shift,
                         )
                     cropped = True
 
@@ -632,6 +658,7 @@ def train_learned(config):
         use_wandb=True if config.wandb_project is not None else False,
         n_epoch=config.training.epoch,
         random_rotate=config.files.random_rotate,
+        # random_shift=config.files.random_shifts,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)

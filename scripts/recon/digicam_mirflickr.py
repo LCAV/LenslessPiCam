@@ -82,6 +82,9 @@ def apply_pretrained(config):
         # load best model
         recon = load_model(model_path, psf, device)
 
+    # print data shape
+    print(f"Data shape :  {lensless.shape}")
+
     # apply reconstruction
     start_time = time.time()
     for _ in range(n_trials):

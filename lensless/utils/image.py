@@ -101,6 +101,43 @@ def rotate_HWC(img, angle):
     return img_rot
 
 
+def shift_with_pad(img, shift, pad_mode="constant", axis=(0, 1)):
+    n_dim = len(img.shape)
+
+    # padding for shifting
+    pad_width = [(0, 0) for _ in range(n_dim)]
+    for i, s in zip(axis, shift):
+        if s < 0:
+            pad_width[i] = (0, -s)
+        else:
+            pad_width[i] = (s, 0)
+    pad_width = tuple(pad_width)
+
+    # slice after padding
+    slice_obj = [slice(None) for _ in range(n_dim)]
+    for i, s in zip(axis, shift):
+        if s < 0:
+            slice_obj[i] = slice(-s, None)
+        elif s == 0:
+            slice_obj[i] = slice(None)
+        else:
+            slice_obj[i] = slice(None, -s)
+
+    if torch_available and isinstance(img, torch.Tensor):
+
+        # concatenate all tuples into single one for torch padding
+        # -- in reverse order as pytorch pads dimensions in reverse order
+        pad_width_torch = tuple([item for sublist in pad_width[::-1] for item in sublist])
+        shifted = torch.nn.functional.pad(img, pad=pad_width_torch, mode=pad_mode)
+
+    else:
+        shifted = np.pad(img, pad_width=pad_width, mode=pad_mode)
+
+    shifted = shifted[tuple(slice_obj)]
+
+    return shifted
+
+
 def is_grayscale(img):
     """
     Check if image is RGB. Assuming image is of shape ([depth,] height, width, color).

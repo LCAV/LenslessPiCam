@@ -356,10 +356,15 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         # post process data
         pre_post_process_image = None
         if self.post_process is not None and not self.skip_post:
+
+            compensation_output = None
+            if self.compensation_branch is not None:
+                compensation_output = self.compensation_branch(self.compensation_branch_inputs)
+
             # apply post process
             if output_intermediate:
                 pre_post_process_image = im.clone()
-            im = self.post_process(im, self.post_process_param)
+            im = self.post_process(im, self.post_process_param, compensation_output)
 
         if plot:
             ax = plot_image(self._get_numpy_data(im[0]), ax=ax, gamma=gamma)

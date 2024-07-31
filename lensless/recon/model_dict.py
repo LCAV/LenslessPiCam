@@ -65,6 +65,19 @@ model_dict = {
             "Unet2M+MMCN+Unet2M": "bezzam/diffusercam-mirflickr-unet2M-mmcn-unet2M",
             "Unet4M+U20+Unet4M": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm20-unet4M",
             "Unet4M+U10+Unet4M": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm10-unet4M",
+            # fine-tuning tapecam
+            "Unet4M+U5+Unet4M_ft_tapecam": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-ft-tapecam",
+            "Unet4M+U5+Unet4M_ft_tapecam_post": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-ft-tapecam-post",
+            "Unet4M+U5+Unet4M_ft_tapecam_pre": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-ft-tapecam-pre",
+        },
+        "mirflickr_sim": {
+            "Unet4M+U5+Unet4M": "bezzam/diffusercam-mirflickr-sim-unet4M-unrolled-admm5-unet4M",
+            "Unet4M+U5+Unet4M_ft_tapecam": "bezzam/diffusercam-mirflickr-sim-unet4M-unrolled-admm5-unet4M-ft-tapecam",
+            "Unet4M+U5+Unet4M_ft_tapecam_post": "bezzam/diffusercam-mirflickr-sim-unet4M-unrolled-admm5-unet4M-ft-tapecam-post",
+            "Unet4M+U5+Unet4M_ft_tapecam_pre": "bezzam/diffusercam-mirflickr-sim-unet4M-unrolled-admm5-unet4M-ft-tapecam-pre",
+            "Unet4M+U5+Unet4M_ft_digicam_multi_post": "bezzam/diffusercam-mirflickr-sim-unet4M-unrolled-admm5-unet4M-ft-digicam-multi-post",
+            "Unet4M+U5+Unet4M_ft_digicam_multi_pre": "bezzam/diffusercam-mirflickr-sim-unet4M-unrolled-admm5-unet4M-ft-digicam-multi-pre",
+            "Unet4M+U5+Unet4M_ft_digicam_multi": "bezzam/diffusercam-mirflickr-sim-unet4M-unrolled-admm5-unet4M-ft-digicam-multi",
         },
     },
     "digicam": {
@@ -123,6 +136,9 @@ model_dict = {
             "Unet4M+U10+Unet4M_wave_nodead": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-wave-nodead",
             # simulated PSF (without waveprop, no deadspace)
             "Unet4M+U10+Unet4M_nodead": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-nodead",
+            # finetune
+            "Unet4M+U5+Unet4M_ft_flips": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm5-unet4M-ft-flips",
+            "Unet4M+U5+Unet4M_ft_flips_rotate10": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm5-unet4M-ft-flips-rotate10",
         },
         "mirflickr_multi_25k": {
             # simulated PSFs (without waveprop, with deadspace)
@@ -258,87 +274,109 @@ def load_model(
     pre_process = None
     post_process = None
 
-    if config["reconstruction"]["pre_process"]["network"] is not None:
+    if config["reconstruction"].get("init", None):
 
-        pre_process, _ = create_process_network(
-            network=config["reconstruction"]["pre_process"]["network"],
-            depth=config["reconstruction"]["pre_process"]["depth"],
-            nc=config["reconstruction"]["pre_process"]["nc"]
-            if "nc" in config["reconstruction"]["pre_process"].keys()
-            else None,
-            device=device,
-        )
+        init_model = config["reconstruction"]["init"]
+        assert config["reconstruction"].get("init_processors", None) is None
 
-    if config["reconstruction"]["post_process"]["network"] is not None:
-
-        post_process, _ = create_process_network(
-            network=config["reconstruction"]["post_process"]["network"],
-            depth=config["reconstruction"]["post_process"]["depth"],
-            nc=config["reconstruction"]["post_process"]["nc"]
-            if "nc" in config["reconstruction"]["post_process"].keys()
-            else None,
-            device=device,
-            # get from dict
-            concatenate_compensation=config["reconstruction"]["compensation"][-1]
-            if config["reconstruction"].get("compensation", None) is not None
-            else False,
-        )
-
-        if train_last_layer:
-            for param in post_process.parameters():
-                for name, param in post_process.named_parameters():
-                    if "m_tail" in name:
-                        param.requires_grad = True
-                    else:
-                        param.requires_grad = False
-
-    if config["reconstruction"]["method"] == "unrolled_admm":
-        recon = UnrolledADMM(
-            psf if mask is None else psf_learned,
-            pre_process=pre_process,
-            post_process=post_process,
-            n_iter=config["reconstruction"]["unrolled_admm"]["n_iter"],
-            skip_unrolled=config["reconstruction"]["skip_unrolled"],
-            legacy_denoiser=legacy_denoiser,
-            skip_pre=skip_pre,
-            skip_post=skip_post,
-            compensation=config["reconstruction"].get("compensation", None),
-            compensation_residual=config["reconstruction"].get("compensation_residual", False),
-        )
-    elif config["reconstruction"]["method"] == "trainable_inv":
-        recon = TrainableInversion(
+        param = init_model.split(":")
+        assert len(param) == 4, "hf model requires following format: hf:camera:dataset:model_name"
+        camera = param[1]
+        dataset = param[2]
+        model_name = param[3]
+        model_path = download_model(camera=camera, dataset=dataset, model=model_name)
+        recon = load_model(
+            model_path,
             psf,
-            pre_process=pre_process,
-            post_process=post_process,
-            K=config["reconstruction"]["trainable_inv"]["K"],
-            legacy_denoiser=legacy_denoiser,
-            skip_pre=skip_pre,
-            skip_post=skip_post,
+            device,
+            device_ids=device_ids,
+            train_last_layer=config["reconstruction"]["post_process"]["train_last_layer"],
         )
-    elif config["reconstruction"]["method"] == "multi_wiener":
 
-        if config["files"].get("single_channel_psf", False):
+    else:
 
-            if torch.sum(psf[..., 0] - psf[..., 1]) != 0:
-                # need to sum difference channels
-                raise ValueError("PSF channels are not the same")
-                # psf = np.sum(psf, axis=3)
+        if config["reconstruction"]["pre_process"]["network"] is not None:
 
+            pre_process, _ = create_process_network(
+                network=config["reconstruction"]["pre_process"]["network"],
+                depth=config["reconstruction"]["pre_process"]["depth"],
+                nc=config["reconstruction"]["pre_process"]["nc"]
+                if "nc" in config["reconstruction"]["pre_process"].keys()
+                else None,
+                device=device,
+            )
+
+        if config["reconstruction"]["post_process"]["network"] is not None:
+
+            post_process, _ = create_process_network(
+                network=config["reconstruction"]["post_process"]["network"],
+                depth=config["reconstruction"]["post_process"]["depth"],
+                nc=config["reconstruction"]["post_process"]["nc"]
+                if "nc" in config["reconstruction"]["post_process"].keys()
+                else None,
+                device=device,
+                # get from dict
+                concatenate_compensation=config["reconstruction"]["compensation"][-1]
+                if config["reconstruction"].get("compensation", None) is not None
+                else False,
+            )
+
+            if train_last_layer:
+                for param in post_process.parameters():
+                    for name, param in post_process.named_parameters():
+                        if "m_tail" in name:
+                            param.requires_grad = True
+                        else:
+                            param.requires_grad = False
+
+        if config["reconstruction"]["method"] == "unrolled_admm":
+
+            recon = UnrolledADMM(
+                psf if mask is None else psf_learned,
+                pre_process=pre_process,
+                post_process=post_process,
+                n_iter=config["reconstruction"]["unrolled_admm"]["n_iter"],
+                skip_unrolled=config["reconstruction"]["skip_unrolled"],
+                legacy_denoiser=legacy_denoiser,
+                skip_pre=skip_pre,
+                skip_post=skip_post,
+                compensation=config["reconstruction"].get("compensation", None),
+                compensation_residual=config["reconstruction"].get("compensation_residual", False),
+            )
+        elif config["reconstruction"]["method"] == "trainable_inv":
+            recon = TrainableInversion(
+                psf,
+                pre_process=pre_process,
+                post_process=post_process,
+                K=config["reconstruction"]["trainable_inv"]["K"],
+                legacy_denoiser=legacy_denoiser,
+                skip_pre=skip_pre,
+                skip_post=skip_post,
+            )
+        elif config["reconstruction"]["method"] == "multi_wiener":
+
+            if config["files"].get("single_channel_psf", False):
+
+                if torch.sum(psf[..., 0] - psf[..., 1]) != 0:
+                    # need to sum difference channels
+                    raise ValueError("PSF channels are not the same")
+                    # psf = np.sum(psf, axis=3)
+
+                else:
+                    psf = psf[..., 0].unsqueeze(-1)
+                psf_channels = 1
             else:
-                psf = psf[..., 0].unsqueeze(-1)
-            psf_channels = 1
-        else:
-            psf_channels = 3
+                psf_channels = 3
 
-        recon = MultiWiener(
-            in_channels=3,
-            out_channels=3,
-            psf=psf,
-            psf_channels=psf_channels,
-            nc=config["reconstruction"]["multi_wiener"]["nc"],
-            pre_process=pre_process,
-        )
-        recon.to(device)
+            recon = MultiWiener(
+                in_channels=3,
+                out_channels=3,
+                psf=psf,
+                psf_channels=psf_channels,
+                nc=config["reconstruction"]["multi_wiener"]["nc"],
+                pre_process=pre_process,
+            )
+            recon.to(device)
 
     if mask is not None:
         psf_learned = torch.nn.Parameter(psf_learned)
