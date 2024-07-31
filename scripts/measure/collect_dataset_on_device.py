@@ -11,6 +11,7 @@ Parameters set in: configs/collect_dataset.yaml
 To test on local machine, set dummy=True (which will just copy the files over).
 
 """
+import json
 
 import numpy as np
 import hydra
@@ -27,7 +28,6 @@ from lensless.utils.io import save_image
 import re
 import glob
 from lensless.hardware.slm import set_programmable_mask, adafruit_sub2full
-
 
 from lensless.hardware.constants import (
     RPI_HQ_CAMERA_CCM_MATRIX,
@@ -52,7 +52,6 @@ def natural_sort(arr):
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="collect_dataset")
 def collect_dataset(config):
-
     input_dir = config.input_dir
     output_dir = config.output_dir
     if output_dir is None:
@@ -204,172 +203,87 @@ def collect_dataset(config):
     exposure_vals = []
     brightness_vals = []
     n_tries_vals = []
-    for i, _file in enumerate(tqdm.tqdm(files[start_idx:])):
 
-        # save file in output directory as PNG
-        output_fp = output_dir / _file.name
-        output_fp = output_fp.with_suffix(f".{config.output_file_ext}")
+    with open(output_dir / "bg_mappings.json", 'a') as outfile:
+        bg_name = None
+        current_bg = {}
+        shutter_speed = init_shutter_speed
+        for i, _file in enumerate(tqdm.tqdm(files[start_idx:])):
 
-        # if not done, perform measurement
-        if not os.path.isfile(output_fp):
+            # save file in output directory as PNG
+            output_fp = output_dir / _file.name
+            output_fp = output_fp.with_suffix(f".{config.output_file_ext}")
 
-            if config.dummy:
-                shutil.copyfile(_file, output_fp)
-                time.sleep(1)
+            # if not done, perform measurement
+            if not os.path.isfile(output_fp):
 
-            else:
+                if config.dummy:
+                    shutil.copyfile(_file, output_fp)
+                    time.sleep(1)
 
-                # -- show on display
-                screen_res = np.array(config.display.screen_res)
-                hshift = config.display.hshift
-                vshift = config.display.vshift
-                pad = config.display.pad
-                brightness = init_brightness
-                display_image_path = config.display.output_fp
-                rot90 = config.display.rot90
-                display_command = f"python scripts/measure/prep_display_image.py --fp {_file} --output_path {display_image_path} --screen_res {screen_res[0]} {screen_res[1]} --hshift {hshift} --vshift {vshift} --pad {pad} --brightness {brightness} --rot90 {rot90}"
-                if config.display.landscape:
-                    display_command += " --landscape"
-                if config.display.image_res is not None:
-                    display_command += (
-                        f" --image_res {config.display.image_res[0]} {config.display.image_res[1]}"
-                    )
-                # print(display_command)
-                os.system(display_command)
+                else:
+                    # capture background periodically
+                    if i % config.capture.measure_bg == 0:
+                        bg_name = plib.Path(config.capture.bg_fp + str(i)).with_suffix(f".{config.output_file_ext}")
+                        bg = output_dir / bg_name
 
-                time.sleep(config.display.delay)
+                        bg_name = str(bg_name)
+                        # push the last bg-capture pairs
+                        #mappings.update(current_bg)
+                        if current_bg:
+                            json.dump(current_bg, outfile, indent=4)
+                        current_bg = {}
+                        current_bg[bg_name] = []
+                        #current_bg[bg_name].append(str(_file.name))
 
-                if not config.capture.skip:
+                        # display bg
+                        display_img(None, config, brightness=init_brightness)
+                        # capture bg
+                        output, shutter_speed, init_brightness, camera = capture_screen(MAX_LEVEL, MAX_TRIES, MIN_LEVEL,
+                                                plib.Path(config.capture.bg_fp + str(i)).with_suffix(f".{config.output_file_ext}"),
+                                                brightness_vals, camera, config, down,
+                                                exposure_vals, g, i, init_brightness, shutter_speed, None,
+                                                n_tries_vals,
+                                                bg, start_idx)
 
-                    # -- set mask pattern
-                    if config.masks is not None:
-                        mask_idx = (i + start_idx) % config.masks.n
-                        mask_fp = mask_dir / f"mask_{mask_idx}.npy"
-                        print("using mask: ", mask_fp)
-                        mask_vals = np.load(mask_fp)
-                        full_pattern = adafruit_sub2full(
-                            mask_vals,
-                            center=config.masks.center,
-                        )
-                        set_programmable_mask(full_pattern, device=config.masks.device)
+                    current_bg[bg_name].append(str(_file.name))
+                    #print(f"current_bg: {current_bg}")
+                    # display img
+                    display_img(_file, config, init_brightness)
 
-                    # -- take picture
-                    max_pixel_val = 0
-                    fact_increase = config.capture.fact_increase
-                    fact_decrease = config.capture.fact_decrease
-                    n_tries = 0
+                    import pudb; pudb.set_trace()
 
-                    camera.shutter_speed = init_shutter_speed
-                    time.sleep(config.capture.config_pause)
+                    # capture img
+                    output, _, _, camera = capture_screen(MAX_LEVEL, 0, MIN_LEVEL, _file, brightness_vals, camera, config, down,
+                                            exposure_vals, g, i, init_brightness, shutter_speed, None,
+                                            n_tries_vals,
+                                            output_fp, start_idx)
 
-                    current_screen_brightness = init_brightness
-                    current_shutter_speed = camera.shutter_speed
-                    print(f"current shutter speed: {current_shutter_speed}")
-                    print(f"current screen brightness: {current_screen_brightness}")
+            if recon is not None:
+                # normalize and remove background
+                output = output.astype(np.float32)
+                output /= output.max()
+                output -= bg # TODO implement fancy bg subtraction
+                output = np.clip(output, a_min=0, a_max=output.max())
 
-                    while max_pixel_val < MIN_LEVEL or max_pixel_val > MAX_LEVEL:
+                # set data
+                output = output[np.newaxis, :, :, :]
+                recon.set_data(output)
 
-                        # get bayer data
-                        stream = picamerax.array.PiBayerArray(camera)
-                        camera.capture(stream, "jpeg", bayer=True)
-                        output_bayer = np.sum(stream.array, axis=2).astype(np.uint16)
+                # reconstruct and save
+                res = recon.apply()
+                recon_fp = recon_dir / output_fp.name
+                save_image(res, recon_fp)
 
-                        # convert to RGB
-                        output = bayer2rgb_cc(
-                            output_bayer,
-                            down=down,
-                            nbits=12,
-                            blue_gain=float(g[1]),
-                            red_gain=float(g[0]),
-                            black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
-                            ccm=RPI_HQ_CAMERA_CCM_MATRIX,
-                            nbits_out=8,
-                        )
-
-                        # if down:
-                        #     output = resize(
-                        #         output[None, ...], factor=1 / down, interpolation=cv2.INTER_CUBIC
-                        #     )[0]
-
-                        # save image
-                        save_image(output, output_fp, normalize=False)
-
-                        # print range
-                        print(f"{output_fp}, range: {output.min()} - {output.max()}")
-
-                        n_tries += 1
-                        if n_tries > MAX_TRIES:
-                            print("Max number of tries reached!")
-                            break
-
-                        max_pixel_val = output.max()
-                        if max_pixel_val < MIN_LEVEL:
-                            # increase exposure
-                            current_shutter_speed = int(current_shutter_speed * fact_increase)
-                            time.sleep(config.capture.config_pause)
-                            print(f"increasing shutter speed to {current_shutter_speed}")
-
-                        elif max_pixel_val > MAX_LEVEL:
-
-                            if current_shutter_speed > 13098:  # TODO: minimum for RPi HQ
-                                # decrease exposure
-                                current_shutter_speed = int(current_shutter_speed / fact_decrease)
-                                camera.shutter_speed = current_shutter_speed
-                                time.sleep(config.capture.config_pause)
-                                print(f"decreasing shutter speed to {current_shutter_speed}")
-
-                            else:
-
-                                # decrease screen brightness
-                                current_screen_brightness = current_screen_brightness - 10
-                                screen_res = np.array(config.display.screen_res)
-                                hshift = config.display.hshift
-                                vshift = config.display.vshift
-                                pad = config.display.pad
-                                brightness = current_screen_brightness
-                                display_image_path = config.display.output_fp
-                                rot90 = config.display.rot90
-
-                                display_command = f"python scripts/measure/prep_display_image.py --fp {_file} --output_path {display_image_path} --screen_res {screen_res[0]} {screen_res[1]} --hshift {hshift} --vshift {vshift} --pad {pad} --brightness {brightness} --rot90 {rot90}"
-                                if config.display.landscape:
-                                    display_command += " --landscape"
-                                if config.display.image_res is not None:
-                                    display_command += f" --image_res {config.display.image_res[0]} {config.display.image_res[1]}"
-                                # print(display_command)
-                                os.system(display_command)
-
-                                time.sleep(config.display.delay)
-
-                    exposure_vals.append(current_shutter_speed / 1e6)
-                    brightness_vals.append(current_screen_brightness)
-                    n_tries_vals.append(n_tries)
-
-        if recon is not None:
-
-            # normalize and remove background
-            output = output.astype(np.float32)
-            output /= output.max()
-            output -= bg
-            output = np.clip(output, a_min=0, a_max=output.max())
-
-            # set data
-            output = output[np.newaxis, :, :, :]
-            recon.set_data(output)
-
-            # reconstruct and save
-            res = recon.apply()
-            recon_fp = recon_dir / output_fp.name
-            save_image(res, recon_fp)
-
-        # check if runtime is exceeded
-        if config.runtime:
-            proc_time = time.time() - start_time
-            if proc_time > runtime_sec:
-                print(f"-- measured {i+1} / {n_files} files")
-                break
+            # check if runtime is exceeded
+            if config.runtime:
+                proc_time = time.time() - start_time
+                if proc_time > runtime_sec:
+                    print(f"-- measured {i + 1} / {n_files} files")
+                    break
 
     proc_time = time.time() - start_time
-    print(f"\nFinished, {proc_time/60.:.3f} minutes.")
+    print(f"\nFinished, {proc_time / 60.:.3f} minutes.")
 
     # print brightness and exposure range and average
     print(f"brightness range: {np.min(brightness_vals)} - {np.max(brightness_vals)}")
@@ -378,6 +292,161 @@ def collect_dataset(config):
     print(f"brightness average: {np.mean(brightness_vals)}")
     print(f"exposure average: {np.mean(exposure_vals)}")
     print(f"n_tries average: {np.mean(n_tries_vals)}")
+
+
+def capture_screen(MAX_LEVEL, MAX_TRIES, MIN_LEVEL, _file, brightness_vals, camera, config, down, exposure_vals, g, i,
+                   init_brightness, init_shutter_speed, mask_dir, n_tries_vals, output_fp, start_idx):
+    if not config.capture.skip:
+
+        # -- set mask pattern
+        if config.masks is not None:
+            mask_idx = (i + start_idx) % config.masks.n
+            mask_fp = mask_dir / f"mask_{mask_idx}.npy"
+            print("using mask: ", mask_fp)
+            mask_vals = np.load(mask_fp)
+            full_pattern = adafruit_sub2full(
+                mask_vals,
+                center=config.masks.center,
+            )
+            set_programmable_mask(full_pattern, device=config.masks.device)
+
+        # -- take picture
+        max_pixel_val = 0
+        fact_increase = config.capture.fact_increase
+        fact_decrease = config.capture.fact_decrease
+        n_tries = 0
+
+        # -- create Camera object
+        # # -- now set up camera with desired settings
+        # camera = PiCamera(
+        #     framerate=1 / config.capture.exposure, sensor_mode=0, resolution=tuple(res)
+        # )
+
+        # # Set ISO to the desired value
+        # camera.resolution = tuple(res)
+        # camera.iso = config.capture.iso
+        # # Wait for the automatic gain control to settle
+        # time.sleep(config.capture.config_pause)
+        # # Now fix the values
+
+        # if config.capture.exposure:
+        #     # in microseconds
+        #     init_shutter_speed = int(config.capture.exposure * 1e6)
+        # else:
+        #     init_shutter_speed = camera.exposure_speed
+        # camera.shutter_speed = init_shutter_speed
+        # camera.exposure_mode = "off"
+
+        # # AWB
+        # if config.capture.awb_gains:
+        #     assert len(config.capture.awb_gains) == 2
+        #     g = (Fraction(config.capture.awb_gains[0]), Fraction(config.capture.awb_gains[1]))
+        #     g = tuple(g)
+        # else:
+        #     g = camera.awb_gains
+
+        # camera.awb_mode = "off"
+        # camera.awb_gains = g
+
+        camera.shutter_speed = int(init_shutter_speed)
+        time.sleep(config.capture.config_pause)
+        current_shutter_speed = camera.shutter_speed
+
+        current_screen_brightness = init_brightness
+        print(f"current shutter speed: {current_shutter_speed}")
+        print(f"current screen brightness: {current_screen_brightness}")
+
+        while max_pixel_val < MIN_LEVEL or max_pixel_val > MAX_LEVEL:
+
+            # get bayer data
+            stream = picamerax.array.PiBayerArray(camera)
+            camera.capture(stream, "jpeg", bayer=True)
+            output_bayer = np.sum(stream.array, axis=2).astype(np.uint16)
+
+            # convert to RGB
+            output = bayer2rgb_cc(
+                output_bayer,
+                down=down,
+                nbits=12,
+                blue_gain=float(g[1]),
+                red_gain=float(g[0]),
+                black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
+                ccm=RPI_HQ_CAMERA_CCM_MATRIX,
+                nbits_out=8,
+            )
+
+            # if down:
+            #     output = resize(
+            #         output[None, ...], factor=1 / down, interpolation=cv2.INTER_CUBIC
+            #     )[0]
+
+            # save image
+            save_image(output, output_fp, normalize=False)
+
+            # print range
+            print(f"{output_fp}, range: {output.min()} - {output.max()}")
+
+            n_tries += 1
+            if n_tries > MAX_TRIES:
+                if MAX_TRIES != 0:
+                    print("Max number of tries reached!")
+                break
+
+            max_pixel_val = output.max()
+
+            if max_pixel_val < MIN_LEVEL:
+                # increase exposure
+                current_shutter_speed = int(current_shutter_speed * fact_increase)
+                time.sleep(config.capture.config_pause)
+                print(f"increasing shutter speed to {current_shutter_speed}")
+
+            elif max_pixel_val > MAX_LEVEL:
+
+                if current_shutter_speed > 13098:  # TODO: minimum for RPi HQ
+                    # decrease exposure
+                    current_shutter_speed = int(current_shutter_speed / fact_decrease)
+                    camera.shutter_speed = current_shutter_speed
+                    time.sleep(config.capture.config_pause)
+                    print(f"decreasing shutter speed to {current_shutter_speed}")
+
+                else:
+
+                    # decrease screen brightness
+                    current_screen_brightness = current_screen_brightness - 10
+                    display_img(_file, config, current_screen_brightness)
+
+        exposure_vals.append(current_shutter_speed / 1e6)
+        brightness_vals.append(current_screen_brightness)
+        n_tries_vals.append(n_tries)
+    return output, current_shutter_speed, current_screen_brightness, camera
+
+
+def display_img(_file, config, brightness):
+    if _file is None:
+        point_source = np.zeros(tuple(config.display.screen_res) + (3,))
+        fp = "tmp_display.png"
+        im = Image.fromarray(point_source.astype("uint8"), "RGB")
+        im.save(fp)
+        _file = fp
+
+    # -- show on display
+    screen_res = np.array(config.display.screen_res)
+    hshift = config.display.hshift
+    vshift = config.display.vshift
+    pad = config.display.pad
+
+    display_image_path = config.display.output_fp
+    rot90 = config.display.rot90
+    display_command = f"python scripts/measure/prep_display_image.py --fp {_file} --output_path {display_image_path} --screen_res {screen_res[0]} {screen_res[1]} --hshift {hshift} --vshift {vshift} --pad {pad} --brightness {brightness} --rot90 {rot90}"
+    if config.display.landscape:
+        display_command += " --landscape"
+    if config.display.image_res is not None:
+        display_command += (
+            f" --image_res {config.display.image_res[0]} {config.display.image_res[1]}"
+        )
+    # print(display_command)
+    os.system(display_command)
+    time.sleep(config.display.delay)
 
 
 if __name__ == "__main__":

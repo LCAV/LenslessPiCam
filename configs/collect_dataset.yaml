@@ -1,6 +1,8 @@
 # python scripts/collect_dataset_on_device.py -cn collect_dataset
 
-input_dir: data/celeba_mini
+#input_dir: /mnt/mirflickr/all
+input_dir: /mnt/mirflickr/10
+
 input_file_ext: jpg
 
 # can pass existing folder to continue measurement
@@ -8,7 +10,7 @@ output_dir: null
 output_file_ext: png
 
 # files to measure
-n_files: 15
+n_files: 5
 start_idx: 0
 
 # timing
@@ -21,10 +23,10 @@ dummy: False    # simply copy file to output folder for testing
 # ideal image levels
 max_level: 254
 min_level: 200
-max_tries: 6
+max_tries: 2
 
 masks: null   # for multi-mask measurements
-recon: null   # parameters for reconstruction (for debugging purposes, not recommended to do during actual measurement as it will significantly increase the time)
+recon: null #ADMM   # parameters for reconstruction (for debugging purposes, not recommended to do during actual measurement as it will significantly increase the time)
 
 # -- display parameters
 display:
@@ -41,11 +43,13 @@ display:
   landscape: False    # whether to force landscape
 
 capture:
+  measure_bg: 2 # measure bg every x images
+  bg_fp: "black_background"
   skip: False    # to test looping over displaying images
   config_pause: 3
   iso: 100
   res: null
-  down: 4
+  down: 8
   exposure: 0.02    # min exposure
   awb_gains: [1.9, 1.2]  # red, blue
   # awb_gains: null
