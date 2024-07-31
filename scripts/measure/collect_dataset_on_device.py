@@ -162,9 +162,7 @@ def collect_dataset(config):
         camera.close()
 
         # -- now set up camera with desired settings
-        camera = PiCamera(
-            framerate=1 / config.capture.exposure, sensor_mode=0, resolution=tuple(res)
-        )
+        camera = PiCamera(sensor_mode=0, resolution=tuple(res))
 
         # Set ISO to the desired value
         camera.resolution = tuple(res)
@@ -304,10 +302,13 @@ def collect_dataset(config):
 
                         max_pixel_val = output.max()
                         if max_pixel_val < MIN_LEVEL:
+                            
                             # increase exposure
                             current_shutter_speed = int(current_shutter_speed * fact_increase)
+                            camera.shutter_speed = current_shutter_speed
                             time.sleep(config.capture.config_pause)
-                            print(f"increasing shutter speed to {current_shutter_speed}")
+                            
+                            print(f"increasing shutter speed to [desired] {current_shutter_speed} [actual] {camera.shutter_speed}")
 
                         elif max_pixel_val > MAX_LEVEL:
 
@@ -316,7 +317,7 @@ def collect_dataset(config):
                                 current_shutter_speed = int(current_shutter_speed / fact_decrease)
                                 camera.shutter_speed = current_shutter_speed
                                 time.sleep(config.capture.config_pause)
-                                print(f"decreasing shutter speed to {current_shutter_speed}")
+                                print(f"decreasing shutter speed to [desired] {current_shutter_speed} [actual] {camera.shutter_speed}")
 
                             else:
 
