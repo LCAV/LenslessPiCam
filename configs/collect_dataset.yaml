@@ -1,6 +1,6 @@
 # python scripts/collect_dataset_on_device.py -cn collect_dataset
 
-input_dir: data/celeba_mini
+input_dir: /mnt/mirflickr/10
 input_file_ext: jpg
 
 # can pass existing folder to continue measurement
@@ -45,7 +45,7 @@ capture:
   config_pause: 3
   iso: 100
   res: null
-  down: 4
+  down: 8
   exposure: 0.02    # min exposure
   awb_gains: [1.9, 1.2]  # red, blue
   # awb_gains: null
