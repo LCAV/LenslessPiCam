@@ -23,25 +23,31 @@ huggingface:
 
 ## -- reconstructions trained with same dataset/system
 algorithms: [
-#   "ADMM",
-#   "hf:tapecam:mirflickr:U5+Unet8M",
-#   "hf:tapecam:mirflickr:TrainInv+Unet8M",
-#   "hf:tapecam:mirflickr:MMCN4M+Unet4M",
-#   "hf:tapecam:mirflickr:Unet4M+U5+Unet4M",
-#   "hf:tapecam:mirflickr:Unet4M+TrainInv+Unet4M",
-#   "hf:tapecam:mirflickr:Unet2M+MMCN+Unet2M",
-#   "hf:tapecam:mirflickr:Unet4M+U10+Unet4M",
+  "ADMM",
 
+  # -- reconstructions trained on measured data
+  "hf:tapecam:mirflickr:U5+Unet8M",
+  "hf:tapecam:mirflickr:TrainInv+Unet8M",
+  "hf:tapecam:mirflickr:MMCN4M+Unet4M",
+  "hf:tapecam:mirflickr:Unet4M+U5+Unet4M",
+  "hf:tapecam:mirflickr:Unet4M+TrainInv+Unet4M",
+  "hf:tapecam:mirflickr:Unet2M+MMCN+Unet2M",
+  "hf:tapecam:mirflickr:Unet4M+U10+Unet4M",
   # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_flips_rotate10",
   # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_aux1",
-
-    # single_channel_psf = True
-#   "hf:tapecam:mirflickr:MWDN8M",    
-#   "hf:tapecam:mirflickr:Unet2M+MWDN6M",
-
-  # # -- generalization
   # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_flips",
   # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_flips_rotate10",
+
+  # # below models need `single_channel_psf = True`
+  # "hf:tapecam:mirflickr:MWDN8M",    
+  # "hf:tapecam:mirflickr:Unet2M+MWDN6M",
+
+  # ## -- reconstructions trained on other datasets/systems
+  # "hf:diffusercam:mirflickr:Unet4M+U10+Unet4M",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave",
+  # "hf:digicam:celeba_26k:Unet4M+U5+Unet4M_wave",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_wave",
   # "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M",
   # "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M_ft_tapecam",
   # "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M_ft_tapecam_post",
@@ -50,17 +56,9 @@ algorithms: [
   # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_ft_tapecam",
   # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_ft_tapecam_post",
   # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_ft_tapecam_pre",
-  "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M_ft_digicam_multi_pre",
-  "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M_ft_digicam_multi",
-
-## -- reconstructions trained on other datasets/systems
-  # "hf:diffusercam:mirflickr:Unet4M+U10+Unet4M",
-  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M",
-  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave",
-  # "hf:digicam:celeba_26k:Unet4M+U5+Unet4M_wave",
-  # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_wave",
+  # "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M_ft_digicam_multi_pre",
+  # "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M_ft_digicam_multi",
 ]
 
 save_idx: [1, 2, 4, 5, 9]
-n_iter_range: [100]    # for ADMM
-
+n_iter_range: [100]    # for ADM

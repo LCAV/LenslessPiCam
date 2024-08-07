@@ -15,7 +15,7 @@ files:
   single_channel_psf: True
   downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
   flipud: True
-  flip_lensed: True   # for measure data
+  flip_lensed: True   # for measured data
 
   hf_simulated: True
 
@@ -26,7 +26,6 @@ training:
 
 reconstruction:
   init: hf:tapecam:mirflickr:Unet4M+U5+Unet4M
-  # init: hf:diffusercam:mirflickr:Unet4M+U5+Unet4M
 
 optimizer:
   lr: 1e-5

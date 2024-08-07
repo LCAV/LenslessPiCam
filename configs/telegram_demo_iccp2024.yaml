@@ -4,7 +4,6 @@ defaults:
 
 # for Telegram
 token: null
-whitelist: [360264201]
 setup_fp: voronoi_setup.jpeg
 
 # usernames and IP address

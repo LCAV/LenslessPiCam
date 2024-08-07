@@ -1,7 +1,10 @@
-"""
-Adapted from source code by KC Lee.
-
-"""
+# #############################################################################
+# multi_wiener.py
+# ===============
+# Authors :
+# Eric BEZZAM [ebezzam@gmail.com]
+# Kyung Chul Lee
+# #############################################################################
 
 
 import torch
@@ -20,12 +23,6 @@ class DoubleConv(nn.Module):
         if not mid_channels:
             mid_channels = out_channels
         self.double_conv = nn.Sequential(
-            # nn.Conv2d(in_channels, mid_channels, kernel_size=(3, 3), padding=1),
-            # nn.BatchNorm2d(mid_channels),
-            # nn.ReLU(inplace=True),
-            # nn.Conv2d(mid_channels, out_channels, kernel_size=(3, 3), padding=1),
-            # nn.BatchNorm2d(out_channels),
-            # nn.ReLU(inplace=True)
             nn.Conv2d(in_channels, mid_channels, kernel_size=(3, 3), padding=1, bias=False),
             nn.BatchNorm2d(mid_channels),
             nn.ReLU(inplace=True),
@@ -55,7 +52,7 @@ class Up(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
 
-        # or us ConvTranspose2d? https://github.com/milesial/Pytorch-UNet/blob/21d7850f2af30a9695bbeea75f3136aa538cfc4a/unet/unet_parts.py#L53
+        # or use ConvTranspose2d? https://github.com/milesial/Pytorch-UNet/blob/21d7850f2af30a9695bbeea75f3136aa538cfc4a/unet/unet_parts.py#L53
         self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
         self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
 
@@ -99,12 +96,25 @@ class MultiWiener(nn.Module):
         skip_pre=False,
     ):
         """
+        Constructor for Multi-Wiener Deconvolution Network (MWDN) as proposed in: 
+        https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-23-39088&id=541387
+
         Parameters
         ----------
         in_channels : int
             Number of input channels. RGB or grayscale, i.e. 3 and 1 respectively.
         out_channels : int
             Number of output channels. RGB or grayscale, i.e. 3 and 1 respectively.
+        psf : :py:class:`~torch.Tensor`
+            Point spread function (PSF) that models forward propagation.
+        psf_channels : int
+            Number of channels in the PSF. Default is 1.
+        nc : list
+            Number of channels in the network. Default is [64, 128, 256, 512, 512].
+        pre_process : :py:class:`function` or :py:class:`~torch.nn.Module`, optional
+            Pre-processor applies before MWDN. Default is None.
+        skip_pre : bool
+            Skip pre-processing. Default is False.
 
         """
         assert in_channels == 1 or in_channels == 3, "in_channels must be 1 or 3"
@@ -119,10 +129,6 @@ class MultiWiener(nn.Module):
 
         self.inc = DoubleConv(in_channels, nc[0])
         self.down_layers = nn.ModuleList([Down(nc[i], nc[i + 1]) for i in range(len(nc) - 1)])
-        # self.down1 = Down(64, 128)
-        # self.down2 = Down(128, 256)
-        # self.down3 = Down(256, 512)
-        # self.down4 = Down(512, 512)
 
         self.up_layers = []
         n_prev = nc[-1]
@@ -132,10 +138,6 @@ class MultiWiener(nn.Module):
             self.up_layers.append(Up(n_in, n_out))
             n_prev = n_out
         self.up_layers = nn.ModuleList(self.up_layers)
-        # self.up1 = Up(1024, 256)
-        # self.up2 = Up(512, 128)
-        # self.up3 = Up(256, 64)
-        # self.up4 = Up(128, 64)
         self.outc = OutConv(nc[0], out_channels)
 
         self.delta = nn.Parameter(torch.tensor(np.ones(5) * 0.01, dtype=torch.float32))
@@ -145,9 +147,6 @@ class MultiWiener(nn.Module):
 
         self.inc0 = DoubleConv(psf_channels, nc[0])
         self.psf_down = nn.ModuleList([Down(nc[i], nc[i + 1]) for i in range(len(nc) - 2)])
-        # self.down11 = Down(64, 128)
-        # self.down22 = Down(128, 256)
-        # self.down33 = Down(256, 512)
 
         # padding H and W to next multiple of 8
         img_shape = psf.shape[-3:-1]
@@ -170,10 +169,11 @@ class MultiWiener(nn.Module):
     def _prepare_process_block(self, process):
         """
         Method for preparing the pre or post process block.
+        
         Parameters
         ----------
-            process : :py:class:`function` or :py:class:`~torch.nn.Module`, optional
-                Pre or post process block to prepare.
+        process : :py:class:`function` or :py:class:`~torch.nn.Module`, optional
+            Pre or post process block to prepare.
         """
         if isinstance(process, torch.nn.Module):
             # If the post_process is a torch module, we assume it is a DruNet like network.
@@ -233,35 +233,18 @@ class MultiWiener(nn.Module):
         x_inter = [self.inc(batch)]
         for i in range(len(self.down_layers)):
             x_inter.append(self.down_layers[i](x_inter[-1]))
-        # x1 = self.inc(x)
-        # x2 = self.down1(x1)
-        # x3 = self.down2(x2)
-        # x4 = self.down3(x3)
-        # x5 = self.down4(x4)
 
         # -- multi-scale Wiener filtering
         psf_multi = [self.inc0(self.w * psf)]
         for i in range(len(self.psf_down)):
             psf_multi.append(self.psf_down[i](psf_multi[-1]))
-        # psf1 = self.inc0(self.w * psf)
-        # psf2 = self.down11(psf1)
-        # psf3 = self.down22(psf2)
-        # psf4 = self.down33(psf3)
         for i in range(len(psf_multi)):
             x_inter[i] = WieNer(x_inter[i], psf_multi[i], self.delta[i])
-        # x4 = WieNer(x4, psf4, self.delta[3])
-        # x3 = WieNer(x3, psf3, self.delta[2])
-        # x2 = WieNer(x2, psf2, self.delta[1])
-        # x1 = WieNer(x1, psf1, self.delta[0])
 
         # upsample
         batch = self.up_layers[0](x_inter[-1], x_inter[-2])
         for i in range(len(self.up_layers) - 1):
             batch = self.up_layers[i + 1](batch, x_inter[-i - 3])
-        # x = self.up1(x5, x4)
-        # x = self.up2(x, x3)
-        # x = self.up3(x, x2)
-        # x = self.up4(x, x1)
         batch = self.outc(batch)
 
         # back to original shape

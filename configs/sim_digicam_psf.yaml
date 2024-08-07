@@ -8,7 +8,7 @@ dtype: float32
 torch_device: cuda
 requires_grad: False
 
-# if repo not provided, check for local file
+# if repo not provided, check for local file at `digicam.pattern`
 huggingface_repo: bezzam/DigiCam-CelebA-26K
 huggingface_mask_pattern: mask_pattern.npy
 huggingface_psf: psf_measured.png

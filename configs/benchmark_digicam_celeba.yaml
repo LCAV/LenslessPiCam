@@ -4,23 +4,25 @@ defaults:
   - _self_
 
 
-dataset: HFDataset   # DiffuserCam, DigiCamCelebA, HFDataset
+dataset: HFDataset
 batchsize: 10
-device: "cuda:2"
+device: "cuda:0"
 
 algorithms: [
   "ADMM",
-  # "hf:digicam:celeba_26k:U5+Unet8M_wave",
-  # "hf:digicam:celeba_26k:TrainInv+Unet8M_wave",
-  # "hf:digicam:celeba_26k:MWDN8M_wave",
-  # "hf:digicam:celeba_26k:MMCN4M+Unet4M_wave",
-  # "hf:digicam:celeba_26k:Unet2M+MWDN6M_wave",
-  # "hf:digicam:celeba_26k:Unet4M+TrainInv+Unet4M_wave",
-  # "hf:digicam:celeba_26k:Unet2M+MMCN+Unet2M_wave",
-  # "hf:digicam:celeba_26k:Unet4M+U5+Unet4M_wave",
-  # "hf:digicam:celeba_26k:Unet4M+U10+Unet4M_wave",
+
+  ## -- reconstructions trained on measured data
+  "hf:digicam:celeba_26k:U5+Unet8M_wave",
+  "hf:digicam:celeba_26k:TrainInv+Unet8M_wave",
+  "hf:digicam:celeba_26k:MWDN8M_wave",
+  "hf:digicam:celeba_26k:MMCN4M+Unet4M_wave",
+  "hf:digicam:celeba_26k:Unet2M+MWDN6M_wave",
+  "hf:digicam:celeba_26k:Unet4M+TrainInv+Unet4M_wave",
+  "hf:digicam:celeba_26k:Unet2M+MMCN+Unet2M_wave",
+  "hf:digicam:celeba_26k:Unet4M+U5+Unet4M_wave",
+  "hf:digicam:celeba_26k:Unet4M+U10+Unet4M_wave",
   
-  # #-- reconstructions trained on other datasets/systems
+  # # -- reconstructions trained on other datasets/systems
   # "hf:diffusercam:mirflickr:Unet4M+U10+Unet4M",
   # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M",
   # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M",
@@ -29,33 +31,12 @@ algorithms: [
   # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_wave",
 ]
 
-
-# ## -- reconstructions trained on other datasets/systems
-# algorithms: [
-#   "hf:diffusercam:mirflickr:Unet4M+U10+Unet4M",
-#   "hf:tapecam:mirflickr:Unet4M+U10+Unet4M",
-#   "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave",
-#   # "hf:digicam:celeba_26k:Unet4M+U5+Unet4M_wave",
-# ]
-
-# # algorithm configuration
-# hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_wave:
-#   skip_post: True
-# hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M:
-#   skip_post: True
-# hf:digicam:mirflickr_multi_25k:Unet4M+U10+Unet4M:
-#   skip_post: True
-# hf:digicam:mirflickr_multi_25k:Unet4M+U10+Unet4M_wave:
-#   skip_post: True
-
 save_idx: [0, 2, 3, 4, 9]
 n_iter_range: [100]    # for ADMM
 
 huggingface:
   repo: bezzam/DigiCam-CelebA-26K
-  # cache_dir: /dev/shm
-  psf: psf_measured.png
-  # psf: psf_simulated_waveprop.png    # psf_simulated_waveprop.png, psf_simulated.png, psf_measured.png
+  psf: psf_simulated_waveprop.png    # psf_simulated_waveprop.png, psf_simulated.png, psf_measured.png
   split_seed: 0
   test_size: 0.15
   downsample: 2

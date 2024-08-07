@@ -12,7 +12,7 @@ psf: null   # if not provided, simulate with parameters below
 mask:
   fp: null  # provide path, otherwise generate with seed
   seed: 0
-  # defaults to configuration use for this dataset: https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-SingleMask-25K
+  # defaults to configuration used for this dataset: https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-SingleMask-25K
   # ie this config: configs/collect_mirflickr_singlemask.yaml
   shape: [54, 26]
   center: [57, 77]

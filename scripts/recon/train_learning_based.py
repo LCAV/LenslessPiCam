@@ -364,20 +364,11 @@ def train_learned(config):
                     lensless = shift_with_pad(lensless, shift, axis=(1, 2))
                     lensed = shift_with_pad(lensed, shift, axis=(1, 2))
                     psf_recon = shift_with_pad(psf_recon, shift, axis=(1, 2))
-                    # lensless = torch.roll(lensless, tuple(shift), (1, 2))
-                    # lensed = torch.roll(lensed, tuple(shift), (1, 2))
-                    # psf_recon = torch.roll(psf_recon, tuple(shift), (1, 2))
                     shift = tuple(shift)
 
                 if config.files.random_rotate or config.files.random_shifts:
 
                     save_image(psf_recon[0].cpu().numpy(), f"psf_{_idx}.png")
-
-                # lensless[:, -1] = 0
-                # lensless[:, :, -1] = 0
-                # fake_shift = np.ones(2).astype(int) * 1
-                # lensless = shift_with_pad(lensless, tuple(fake_shift), axis=(1, 2))
-                # lensless = shift_with_pad(lensless, tuple(-1 * fake_shift), axis=(1, 2))
 
                 recon = ADMM(psf_recon)
 
@@ -658,7 +649,7 @@ def train_learned(config):
         use_wandb=True if config.wandb_project is not None else False,
         n_epoch=config.training.epoch,
         random_rotate=config.files.random_rotate,
-        # random_shift=config.files.random_shifts,
+        random_shift=config.files.random_shifts,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)

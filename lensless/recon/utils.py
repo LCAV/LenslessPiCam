@@ -133,13 +133,6 @@ class CompensationBranch(nn.Module):
         # -- not mentinoed in paper, but added more max-pooling for later residual layers, otherwise dimensions don't match
         self.residual_layers = nn.ModuleList(
             [
-                # double_cnn_max_pool(
-                #     in_channel, nc[i], cnn_kernel=cnn_kernel, max_pool=max_pool ** (i + 1)
-                # )
-                # B.sequential(
-                #     B.ResBlock(in_channel, in_channel, bias=False, mode="CRC", padding=padding, stride=stride),
-                #     B.downsample_maxpool(in_channel, nc[i], bias=False, mode=str(max_pool ** (i + 1)), padding=padding, stride=stride)
-                # ) if residual
                 ResBlock(
                     in_channel,
                     in_channel,

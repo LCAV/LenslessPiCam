@@ -89,6 +89,8 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         compensation : list, optional
             Number of channels for each intermediate output in compensation layer, as in "Robust Reconstruction With Deep Learning to Handle Model Mismatch in Lensless Imaging" (2021).
             Post-processor must be defined if compensation provided.
+        compensation_residual : bool, optional
+            Whether to use residual connection in compensation layer.
         """
         assert isinstance(psf, torch.Tensor), "PSF must be a torch.Tensor"
         super(TrainableReconstructionAlgorithm, self).__init__(
