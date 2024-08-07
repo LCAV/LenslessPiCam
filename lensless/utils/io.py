@@ -380,6 +380,7 @@ def load_data(
     data_fp,
     background_fp=None,
     return_bg=False,
+    legacy_remove=True,
     return_float=True,
     downsample=None,
     bg_pix=(5, 25),
@@ -516,7 +517,9 @@ def load_data(
         )
         assert bg.shape == data.shape
 
-        data -= bg # TODO
+        if legacy_remove:
+            data -= bg
+
         # clip to 0
         data = np.clip(data, a_min=0, a_max=data.max())
 
@@ -561,6 +564,7 @@ def load_data(
 
     psf = np.array(psf, dtype=dtype)
     data = np.array(data, dtype=dtype)
+    bg = np.array(bg, dtype=dtype)
     if use_torch:
         import torch
 
@@ -571,6 +575,7 @@ def load_data(
 
         psf = torch.from_numpy(psf).type(torch_dtype).to(torch_device)
         data = torch.from_numpy(data).type(torch_dtype).to(torch_device)
+        bg = torch.from_numpy(bg).type(torch_dtype).to(torch_device)
 
     if return_bg:
         return psf, data, bg

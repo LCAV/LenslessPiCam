@@ -1035,6 +1035,8 @@ class HFDataset(DualDataset):
         return_mask_label=False,
         save_psf=False,
         simulation_config=dict(),
+        bg_snr_range=None,
+        bg=None,
         **kwargs,
     ):
         """
@@ -1072,6 +1074,10 @@ class HFDataset(DualDataset):
             If multimask dataset, save the simulated PSFs.
         simulation_config : dict, optional
             Simulation parameters for PSF if using a mask pattern.
+        bg_snr_range : list, optional
+            List [low, high] of range of possible SNRs for which to add the background. Used in conjunction with 'bg'
+        bg : string, optional
+            File path of background to add to the data for simulating a measurement in ambient light
 
         """
 
@@ -1221,6 +1227,21 @@ class HFDataset(DualDataset):
             if "horizontal_shift" in simulation_config:
                 self.horizontal_shift = int(simulation_config["horizontal_shift"] / downsample)
 
+        # Download background from huggingface if not already available locally
+        bg_fp = hf_hub_download(repo_id=huggingface_repo, filename=bg, repo_type="dataset")
+        bg = load_image(
+            bg_fp,
+            shape=lensless.shape,
+            return_float=True,
+            flip=rotate,
+        )
+        self.bg = torch.from_numpy(bg)
+
+        # Used for background noise addition
+        self.bg_snr_range = bg_snr_range
+        # Precomputing for efficiency (used in the SNR computations)
+        self.noise_var = torch.var(self.bg.flatten())
+
         super(HFDataset, self).__init__(**kwargs)
 
     def __len__(self):
@@ -1297,7 +1318,20 @@ class HFDataset(DualDataset):
             else:
                 return lensless, lensed, self.psf[mask_label]
         else:
-            return lensless, lensed
+            # Add background to achieve desired SNR
+            if self.bg is not None:
+                sig_var = torch.var(lensless.flatten())
+                snr = (np.random.uniform(self.bg_snr_range[0], self.bg_snr_range[1]))
+                alpha = torch.sqrt(sig_var / self.noise_var / (10 ** snr / 10))
+
+                scaled_bg = alpha * self.bg
+
+                # Add background noise to the target image
+                image_with_bg = (lensless + scaled_bg)
+
+                return image_with_bg, lensed, scaled_bg
+            else:
+                return lensless, lensed
 
     def extract_roi(self, reconstruction, lensed=None, axis=(1, 2)):
         n_dim = len(reconstruction.shape)
