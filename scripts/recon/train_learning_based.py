@@ -58,9 +58,7 @@ from lensless.utils.plot import plot_image
 log = logging.getLogger(__name__)
 
 
-@hydra.main(
-    version_base=None, config_path="../../configs", config_name="train_tapecam_simulated_background"
-)
+@hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
 def train_learned(config):
 
     if config.wandb_project is not None:

@@ -526,7 +526,7 @@ def load_data(
 
         if normalize:
             data /= data.max()
-            bg /= bg.max()
+            bg /= data.max()  # to normalize by the same factor
 
     if data.shape != psf.shape:
         # in DiffuserCam dataset, images are already reshaped

@@ -20,7 +20,7 @@ files:
   rotate: False   # if measurement is upside-down
   save_psf: True
 
-  background_fp: "C:\\Users\\Stefan\\PycharmProjects\\LenslessPiCam\\scripts\\sim\\data\\all_measured_20240805-143922\\black_background0.png"
+  background_fp: ""
   background_snr_range: [ -10, 10 ]
 
 # TODO: these parameters should be in the dataset?

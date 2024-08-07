@@ -1038,7 +1038,7 @@ class HFDataset(DualDataset):
         save_psf=False,
         simulation_config=dict(),
         bg_snr_range=None,
-        bg=None,
+        bg_fp=None,
         **kwargs,
     ):
         """
@@ -1078,7 +1078,7 @@ class HFDataset(DualDataset):
             Simulation parameters for PSF if using a mask pattern.
         bg_snr_range : list, optional
             List [low, high] of range of possible SNRs for which to add the background. Used in conjunction with 'bg'
-        bg : string, optional
+        bg_fp : string, optional
             File path of background to add to the data for simulating a measurement in ambient light
 
         """
@@ -1229,24 +1229,25 @@ class HFDataset(DualDataset):
             if "horizontal_shift" in simulation_config:
                 self.horizontal_shift = int(simulation_config["horizontal_shift"] / downsample)
 
-        # Download background from huggingface if not already available locally
-        if os.path.isfile(bg):
-            bg_fp = bg
+        if bg_fp is not None and os.path.isfile(bg_fp):
+            assert (
+                bg_snr_range is not None
+            ), "Since a background path was provided, the SNR range should not be empty"
+            bg = load_image(
+                bg_fp,
+                shape=lensless.shape,
+                return_float=True,
+                flip=rotate,
+            )
+            self.bg = torch.from_numpy(bg)
+            # Used for background noise addition
+            self.bg_snr_range = bg_snr_range
+            # Precomputing for efficiency (used in the SNR computations)
+            self.background_var = torch.var(self.bg.flatten())
         else:
-            bg_fp = hf_hub_download(repo_id=huggingface_repo, filename=bg, repo_type="dataset")
-
-        bg = load_image(
-            bg_fp,
-            shape=lensless.shape,
-            return_float=True,
-            flip=rotate,
-        )
-        self.bg = torch.from_numpy(bg)
-
-        # Used for background noise addition
-        self.bg_snr_range = bg_snr_range
-        # Precomputing for efficiency (used in the SNR computations)
-        self.background_var = torch.var(self.bg.flatten())
+            self.bg = None
+            self.bg_snr_range = None
+            self.background_var = None
 
         super(HFDataset, self).__init__(**kwargs)
 
