@@ -28,15 +28,22 @@ python scripts/recon/train_learning_based.py -cn fine-tune_PSF
 
 """
 
-import wandb
 import logging
-import hydra
-from hydra.utils import get_original_cwd
 import os
-import numpy as np
 import time
-from lensless.hardware.trainable_mask import prep_trainable_mask
+
+import hydra
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import wandb
+from hydra.utils import get_original_cwd
+from torch.utils.data import Subset
+
 from lensless import ADMM, UnrolledFISTA, UnrolledADMM, TrainableInversion
+from lensless.hardware.trainable_mask import prep_trainable_mask
+from lensless.recon.utils import Trainer
+from lensless.recon.utils import create_process_network
 from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     DigiCamCelebA,
@@ -44,19 +51,16 @@ from lensless.utils.dataset import (
     MyDataParallel,
     simulate_dataset,
 )
-from torch.utils.data import Subset
-from lensless.recon.utils import create_process_network
-from lensless.recon.utils import Trainer
-import torch
 from lensless.utils.io import save_image
 from lensless.utils.plot import plot_image
-import matplotlib.pyplot as plt
 
 # A logger for this file
 log = logging.getLogger(__name__)
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
+@hydra.main(
+    version_base=None, config_path="../../configs", config_name="train_tapecam_simulated_background"
+)
 def train_learned(config):
 
     if config.wandb_project is not None:
@@ -216,8 +220,8 @@ def train_learned(config):
             save_psf=config.files.save_psf,
             n_files=config.files.n_files,
             simulation_config=config.simulation,
-            bg_snr_range=config.files.snr_range,
-            bg=config.files.huggingface_bg,
+            bg_snr_range=config.files.background_snr_range,
+            bg=config.files.background_fp,
         )
         test_set = HFDataset(
             huggingface_repo=config.files.dataset,
@@ -231,8 +235,8 @@ def train_learned(config):
             save_psf=config.files.save_psf,
             n_files=config.files.n_files,
             simulation_config=config.simulation,
-            bg_snr_range=config.files.snr_range,
-            bg=config.files.huggingface_bg,
+            bg_snr_range=config.files.background_snr_range,
+            bg=config.files.background_fp,
         )
         if train_set.multimask:
             # get first PSF for initialization
@@ -304,12 +308,23 @@ def train_learned(config):
                     else:
                         lensless, lensed = test_set[_idx]
 
-                # Reconstruct and plot noisy image
+                # Reconstruct and plot image
                 reconstruct_save(_idx, config, crop, i, lensed, lensless, psf, test_set, "")
-                # Reconstruct and plot background subtracted image
-                reconstruct_save(
-                    _idx, config, crop, i, lensed, (lensless - bg), psf, test_set, "subtraction_"
-                )
+                save_image(lensed[0].cpu().numpy(), f"lensed_{_idx}.png")
+
+                if test_set.bg != None:
+                    # Reconstruct and plot background subtracted image
+                    reconstruct_save(
+                        _idx,
+                        config,
+                        crop,
+                        i,
+                        lensed,
+                        (lensless - bg),
+                        psf,
+                        test_set,
+                        "subtraction_",
+                    )
 
     log.info(f"Train test size : {len(train_set)}")
     log.info(f"Test test size : {len(test_set)}")
@@ -502,7 +517,6 @@ def reconstruct_save(_idx, config, crop, i, lensed, lensless, psf, test_set, fp)
     if cropped and i == 0:
         log.info(f"Cropped shape :  {res_np.shape}")
     save_image(res_np, f"lensless_recon_{fp}{_idx}.png")
-    save_image(lensed_np, f"lensed_{fp}{_idx}.png")
     plt.figure()
     plt.imshow(lensed_np, alpha=0.4)
     plt.imshow(res_np, alpha=0.7)

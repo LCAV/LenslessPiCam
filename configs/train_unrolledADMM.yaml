@@ -4,8 +4,7 @@ hydra:
     chdir: True    # change to output folder
 
 
-#wandb_project: lensless
-wandb_project:
+wandb_project: lensless
 seed: 0
 start_delay: null
 
@@ -18,12 +17,9 @@ files:
   # diffusercam_psf: True
 
   # -- using huggingface dataset
-  dataset: bezzam/TapeCam-Mirflickr-25K
+  dataset: bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM
   huggingface_dataset: True
-  #huggingface_psf: psf.tiff
-  huggingface_psf: psf.png
-  huggingface_bg: bg.png
-  snr_range: [-10, 10]
+  huggingface_psf: psf.tiff
 
   # -- train/test split
   split_seed: null   # if null use train/test split from dataset
@@ -34,6 +30,8 @@ files:
   downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
   downsample_lensed: 2   # only used if lensed if measured
   input_snr: null    # adding shot noise at input (for measured dataset) at this SNR in dB
+  background_fp: null
+  background_snr_range: null
   vertical_shift: null
   horizontal_shift: null
   rotate: False

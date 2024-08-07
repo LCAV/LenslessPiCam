@@ -37,9 +37,11 @@ def apply_pretrained(config):
     # load dataset
     test_set = HFDataset(
         huggingface_repo=model_config["files"]["dataset"],
-        psf=model_config["files"]["huggingface_psf"]
-        if "huggingface_psf" in model_config["files"]
-        else None,
+        psf=(
+            model_config["files"]["huggingface_psf"]
+            if "huggingface_psf" in model_config["files"]
+            else None
+        ),
         split="test",
         display_res=model_config["files"]["image_res"],
         rotate=model_config["files"]["rotate"],

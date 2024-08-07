@@ -6,15 +6,16 @@
 # #############################################################################
 
 
+import os.path
 import warnings
-from PIL import Image
+
 import cv2
 import numpy as np
-import os.path
+from PIL import Image
 
-from lensless.utils.plot import plot_image
 from lensless.hardware.constants import RPI_HQ_CAMERA_BLACK_LEVEL, RPI_HQ_CAMERA_CCM_MATRIX
 from lensless.utils.image import bayer2rgb_cc, print_image_info, resize, rgb2gray, get_max_val
+from lensless.utils.plot import plot_image
 
 
 def load_image(
@@ -380,7 +381,7 @@ def load_data(
     data_fp,
     background_fp=None,
     return_bg=False,
-    legacy_remove=True,
+    remove_background=True,
     return_float=True,
     downsample=None,
     bg_pix=(5, 25),
@@ -517,7 +518,7 @@ def load_data(
         )
         assert bg.shape == data.shape
 
-        if legacy_remove:
+        if remove_background:
             data -= bg
 
         # clip to 0
@@ -525,6 +526,7 @@ def load_data(
 
         if normalize:
             data /= data.max()
+            bg /= bg.max()
 
     if data.shape != psf.shape:
         # in DiffuserCam dataset, images are already reshaped

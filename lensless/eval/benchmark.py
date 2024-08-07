@@ -7,13 +7,15 @@
 # #############################################################################
 
 
-from lensless.utils.dataset import DiffuserCamTestDataset
-from lensless.utils.io import save_image
-from waveprop.noise import add_shot_noise
-from tqdm import tqdm
 import os
+
 import numpy as np
 import wandb
+from tqdm import tqdm
+from waveprop.noise import add_shot_noise
+
+from lensless.utils.dataset import DiffuserCamTestDataset
+from lensless.utils.io import save_image
 
 try:
     import torch
@@ -120,7 +122,7 @@ def benchmark(
                     if dataset.bg is None:
                         lensless, lensed = batch
                     else:
-                        lensless, lensed, _ = batch
+                        lensless, lensed, background = batch
                     psfs = None
             else:
                 lensless, lensed = batch

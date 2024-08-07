@@ -6,28 +6,30 @@
 # Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
 
-from hydra.utils import get_original_cwd
-import numpy as np
 import glob
 import os
-import torch
+import re
 from abc import abstractmethod
+
+import cv2
+import numpy as np
+import torch
+from datasets import load_dataset
+from huggingface_hub import hf_hub_download
+from hydra.utils import get_original_cwd
+from scipy.ndimage import rotate
 from torch.utils.data import Dataset, Subset
 from torchvision import datasets, transforms
 from torchvision.transforms import functional as F
+
+from lensless.hardware.sensor import sensor_dict, SensorParam
+from lensless.hardware.slm import set_programmable_mask, adafruit_sub2full
 from lensless.hardware.trainable_mask import prep_trainable_mask, AdafruitLCD
-from lensless.utils.simulation import FarFieldSimulator
-from lensless.utils.io import load_image, load_psf, save_image
-from lensless.utils.image import is_grayscale, resize, rgb2gray
-import re
 from lensless.hardware.utils import capture
 from lensless.hardware.utils import display
-from lensless.hardware.slm import set_programmable_mask, adafruit_sub2full
-from datasets import load_dataset
-from huggingface_hub import hf_hub_download
-import cv2
-from lensless.hardware.sensor import sensor_dict, SensorParam
-from scipy.ndimage import rotate
+from lensless.utils.image import is_grayscale, resize, rgb2gray
+from lensless.utils.io import load_image, load_psf, save_image
+from lensless.utils.simulation import FarFieldSimulator
 
 
 def convert(text):
@@ -1228,7 +1230,11 @@ class HFDataset(DualDataset):
                 self.horizontal_shift = int(simulation_config["horizontal_shift"] / downsample)
 
         # Download background from huggingface if not already available locally
-        bg_fp = hf_hub_download(repo_id=huggingface_repo, filename=bg, repo_type="dataset")
+        if os.path.isfile(bg):
+            bg_fp = bg
+        else:
+            bg_fp = hf_hub_download(repo_id=huggingface_repo, filename=bg, repo_type="dataset")
+
         bg = load_image(
             bg_fp,
             shape=lensless.shape,
@@ -1240,7 +1246,7 @@ class HFDataset(DualDataset):
         # Used for background noise addition
         self.bg_snr_range = bg_snr_range
         # Precomputing for efficiency (used in the SNR computations)
-        self.noise_var = torch.var(self.bg.flatten())
+        self.background_var = torch.var(self.bg.flatten())
 
         super(HFDataset, self).__init__(**kwargs)
 
@@ -1321,13 +1327,13 @@ class HFDataset(DualDataset):
             # Add background to achieve desired SNR
             if self.bg is not None:
                 sig_var = torch.var(lensless.flatten())
-                snr = (np.random.uniform(self.bg_snr_range[0], self.bg_snr_range[1]))
-                alpha = torch.sqrt(sig_var / self.noise_var / (10 ** snr / 10))
+                target_snr = np.random.uniform(self.bg_snr_range[0], self.bg_snr_range[1])
+                alpha = torch.sqrt(sig_var / self.background_var / (10**target_snr / 10))
 
                 scaled_bg = alpha * self.bg
 
                 # Add background noise to the target image
-                image_with_bg = (lensless + scaled_bg)
+                image_with_bg = lensless + scaled_bg
 
                 return image_with_bg, lensed, scaled_bg
             else:
