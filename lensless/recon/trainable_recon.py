@@ -92,6 +92,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         compensation_residual : bool, optional
             Whether to use residual connection in compensation layer.
         """
+
         assert isinstance(psf, torch.Tensor), "PSF must be a torch.Tensor"
         super(TrainableReconstructionAlgorithm, self).__init__(
             psf, dtype=dtype, n_iter=n_iter, **kwargs

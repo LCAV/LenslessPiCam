@@ -96,7 +96,7 @@ class MultiWiener(nn.Module):
         skip_pre=False,
     ):
         """
-        Constructor for Multi-Wiener Deconvolution Network (MWDN) as proposed in: 
+        Constructor for Multi-Wiener Deconvolution Network (MWDN) as proposed in:
         https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-23-39088&id=541387
 
         Parameters
@@ -169,7 +169,7 @@ class MultiWiener(nn.Module):
     def _prepare_process_block(self, process):
         """
         Method for preparing the pre or post process block.
-        
+
         Parameters
         ----------
         process : :py:class:`function` or :py:class:`~torch.nn.Module`, optional
@@ -283,6 +283,7 @@ class MultiWiener(nn.Module):
         convolver = self._convolver
         if not convolver.pad:
             prediction = convolver._pad(prediction)
+
         Fx = convolver.convolve(prediction)
         Fy = lensless
 
