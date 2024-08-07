@@ -255,6 +255,7 @@ class ReconstructionAlgorithm(abc.ABC):
         assert len(psf.shape) == 4, "PSF must be 4D: (depth, height, width, channels)."
         assert psf.shape[3] == 3 or psf.shape[3] == 1, "PSF must either be rgb (3) or grayscale (1)"
         self._psf = psf
+        self._npix = np.prod(self._psf.shape)
         self._n_iter = n_iter
 
         self._psf_shape = np.array(self._psf.shape)
@@ -319,6 +320,10 @@ class ReconstructionAlgorithm(abc.ABC):
             else:
                 raise NotImplementedError(f"Unsupported denoiser: {denoiser['network']}")
             self._denoiser_noise_level = denoiser["noise_level"]
+
+        # used inside trainable recon
+        self.compensation_branch = None
+        self.compensation_branch_inputs = None
 
         if reset:
             self.reset()
@@ -559,8 +564,13 @@ class ReconstructionAlgorithm(abc.ABC):
             ax = None
             disp_iter = n_iter + 1
 
+        if self.compensation_branch is not None:
+            self.compensation_branch_inputs = [self._data]
+
         for i in range(n_iter):
             self._update(i)
+            if self.compensation_branch is not None and i < self._n_iter - 1:
+                self.compensation_branch_inputs.append(self._form_image())
 
             if (plot or save) and (i + 1) % disp_iter == 0:
                 self._progress()
@@ -611,15 +621,18 @@ class ReconstructionAlgorithm(abc.ABC):
         if lensless is None:
             lensless = self._data
 
-        convolver = self._convolver
+        # convolver = self._convolver
+        convolver = RealFFTConvolve2D(self._psf.to(prediction.device), **self._convolver_param)
         if not convolver.pad:
             prediction = convolver._pad(prediction)
-        Fx = convolver.convolve(prediction)
-        Fy = lensless
-        if not convolver.pad:
-            Fx = convolver._crop(Fx)
+        Hx = convolver.convolve(prediction)
 
+        if not convolver.pad:
+            Hx = convolver._crop(Hx)
+
+        # don't reduce batch dimension
         if self.is_torch:
-            return torch.norm(Fx - Fy)
+            return torch.sum(torch.sqrt((Hx - lensless) ** 2), dim=(-1, -2, -3, -4)) / self._npix
+
         else:
-            return np.linalg.norm(Fx - Fy)
+            return np.sum(np.sqrt((Hx - lensless) ** 2), axis=(-1, -2, -3, -4)) / self._npix

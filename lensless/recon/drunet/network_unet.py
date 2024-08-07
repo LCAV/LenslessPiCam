@@ -5,10 +5,11 @@
 # https://github.com/cszn/DPIR/blob/15bca3fcc1f3cc51a1f99ccf027691e278c19354/models/network_unet.py
 # #############################################################################
 
+
 import torch
 import torch.nn as nn
 import lensless.recon.drunet.basicblock as B
-import numpy as np
+from torchvision.transforms.functional import resize
 
 """
 # ====================
@@ -109,11 +110,13 @@ class UNetRes(nn.Module):
         act_mode="R",
         downsample_mode="strideconv",
         upsample_mode="convtranspose",
+        concatenate_compensation=False,
     ):
         super(UNetRes, self).__init__()
 
         assert len(nc) == 4, "nc's length should be 4."
 
+        self.nc = nc
         self.m_head = B.conv(in_nc, nc[0], bias=False, mode="C")
 
         # downsample
@@ -139,9 +142,22 @@ class UNetRes(nn.Module):
             downsample_block(nc[2], nc[3], bias=False, mode="2")
         )
 
-        self.m_body = B.sequential(
-            *[B.ResBlock(nc[3], nc[3], bias=False, mode="C" + act_mode + "C") for _ in range(nb)]
-        )
+        self.concatenate_compensation = concatenate_compensation
+        if concatenate_compensation:
+            self.m_body = B.sequential(
+                B.conv(nc[3] + concatenate_compensation, nc[3], bias=False, mode="C" + act_mode),
+                *[
+                    B.ResBlock(nc[3], nc[3], bias=False, mode="C" + act_mode + "C")
+                    for _ in range(nb)
+                ]
+            )
+        else:
+            self.m_body = B.sequential(
+                *[
+                    B.ResBlock(nc[3], nc[3], bias=False, mode="C" + act_mode + "C")
+                    for _ in range(nb)
+                ]
+            )
 
         # upsample
         if upsample_mode == "upconv":
@@ -168,12 +184,21 @@ class UNetRes(nn.Module):
 
         self.m_tail = B.conv(nc[0], out_nc, bias=False, mode="C")
 
-    def forward(self, x0):
+    def forward(self, x0, compensation_output=None):
+        if self.concatenate_compensation:
+            assert compensation_output is not None, "compensation_output should not be None."
         x1 = self.m_head(x0)
         x2 = self.m_down1(x1)
         x3 = self.m_down2(x2)
         x4 = self.m_down3(x3)
-        x = self.m_body(x4)
+
+        if compensation_output is not None:
+            compensation_output_re = resize(compensation_output, tuple(x4.shape[-2:]))
+            latent = torch.cat([x4, compensation_output_re], dim=1)
+        else:
+            latent = x4
+
+        x = self.m_body(latent)
         x = self.m_up3(x + x4)
         x = self.m_up2(x + x3)
         x = self.m_up1(x + x2)

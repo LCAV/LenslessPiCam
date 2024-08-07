@@ -8,6 +8,8 @@ import os
 from lensless.utils.io import save_image
 import time
 from lensless.recon.model_dict import download_model, load_model
+from huggingface_hub import hf_hub_download
+from lensless.utils.io import load_image
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="recon_digicam_mirflickr")
@@ -34,7 +36,7 @@ def apply_pretrained(config):
         with open(config_path, "r") as stream:
             model_config = yaml.safe_load(stream)
 
-    # load dataset
+    # load data
     test_set = HFDataset(
         huggingface_repo=model_config["files"]["dataset"],
         psf=model_config["files"]["huggingface_psf"]
@@ -46,21 +48,44 @@ def apply_pretrained(config):
         downsample=model_config["files"]["downsample"],
         alignment=model_config["alignment"],
         save_psf=model_config["files"]["save_psf"],
+        simulation_config=model_config["simulation"],
+        force_rgb=model_config["files"].get("force_rgb", False),
+        cache_dir=config.cache_dir,
     )
-    test_set.psf = test_set.psf.to(device)
+    psf = test_set.psf.to(device)
     print("Test set size: ", len(test_set))
+
+    if config.fn is not None:
+        raw_data_fp = hf_hub_download(
+            repo_id=model_config["files"]["dataset"], filename=config.fn, repo_type="dataset"
+        )
+        lensless = load_image(
+            fp=raw_data_fp,
+            return_float=True,
+            as_4d=True,
+        )
+        lensless = torch.from_numpy(lensless).to(psf)
+        if config.rotate:
+            lensless = torch.rot90(lensless, dims=(-3, -2), k=2)
+
+        lensed = None
+
+    else:
+
+        lensless, lensed = test_set[idx]
+        lensless = lensless.to(device)
 
     # load model
     if model_name == "admm":
-        recon = ADMM(test_set.psf, n_iter=config.n_iter)
+        recon = ADMM(psf, n_iter=config.n_iter)
     else:
         # load best model
-        recon = load_model(model_path, test_set.psf, device)
+        recon = load_model(model_path, psf, device)
+
+    # print data shape
+    print(f"Data shape :  {lensless.shape}")
 
     # apply reconstruction
-    lensless, lensed = test_set[idx]
-    lensless = lensless.to(device)
-
     start_time = time.time()
     for _ in range(n_trials):
         with torch.no_grad():
@@ -79,18 +104,28 @@ def apply_pretrained(config):
     img = res[0].cpu().numpy().squeeze()
 
     plot_image(img)
-    plot_image(lensed)
+    if lensed is not None:
+        plot_image(lensed)
 
     if save:
         print(f"Saving images to {os.getcwd()}")
-        alignment = test_set.alignment
-        top_left = alignment["top_left"]
-        height = alignment["height"]
-        width = alignment["width"]
-        res_np = img[top_left[0] : top_left[0] + height, top_left[1] : top_left[1] + width]
-        lensed_np = lensed[0].cpu().numpy()
-        save_image(lensed_np, f"original_idx{idx}.png")
-        save_image(res_np, f"{model_name}_idx{idx}.png")
+
+        if config.fn is not None:
+            dim = config.alignment.dim
+            top_left = config.alignment.top_left
+            res_np = img[top_left[0] : top_left[0] + dim[0], top_left[1] : top_left[1] + dim[1]]
+            bn = config.fn.split(".")[0]
+            save_image(res_np, f"{model_name}_{bn}.png")
+        else:
+            alignment = test_set.alignment
+            top_left = alignment["top_left"]
+            height = alignment["height"]
+            width = alignment["width"]
+            res_np = img[top_left[0] : top_left[0] + height, top_left[1] : top_left[1] + width]
+            save_image(res_np, f"{model_name}_idx{idx}.png")
+        if lensed is not None:
+            lensed_np = lensed[0].cpu().numpy()
+            save_image(lensed_np, f"original_idx{idx}.png")
         save_image(lensless[0].cpu().numpy(), f"lensless_idx{idx}.png")
 
 

@@ -6,9 +6,7 @@
 # #############################################################################
 
 from collections import OrderedDict
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 """
@@ -158,7 +156,6 @@ class ResBlock(nn.Module):
         )
 
     def forward(self, x):
-        # res = self.res(x)
         return x + self.res(x)
 
 

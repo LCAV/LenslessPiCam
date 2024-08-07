@@ -16,10 +16,14 @@ files:
   # psf: data/psf/diffusercam_psf.tiff
   # diffusercam_psf: True
 
+  cache_dir: null    # where to read/write dataset. Defaults to `"~/.cache/huggingface/datasets"`.
+
   # -- using huggingface dataset
   dataset: bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM
   huggingface_dataset: True
   huggingface_psf: psf.tiff
+  single_channel_psf: False    # whether to sum all PSF channels into one
+  hf_simulated: False
 
   # -- train/test split
   split_seed: null   # if null use train/test split from dataset
@@ -33,12 +37,19 @@ files:
   vertical_shift: null
   horizontal_shift: null
   rotate: False
+  flipud: False
+  flip_lensed: False
   save_psf: False
   crop: null
     # vertical: null
     # horizontal: null
   image_res: null   # for measured data, what resolution used at screen
   extra_eval: null  # dict of extra datasets to evaluate on
+  force_rgb: False
+  simulate_lensless: False   # False to use measured data
+  random_flip: False
+  random_rotate: False
+  random_shifts: False
 
 alignment: null
 #   top_left: null    # height, width
@@ -62,10 +73,18 @@ display:
 save: True
 
 reconstruction:
-  # Method: unrolled_admm, unrolled_fista
+
+  # initialize with Hugging Face model from model_dict, use "hf:camera:dataset:model_name"
+  init: null
+
+  # Method: unrolled_admm, unrolled_fista, trainable_inv
   method: unrolled_admm
   skip_unrolled: False
-  init_processors: null   # model name
+
+  # initialize with "init_processors"
+  # -- for HuggingFace model use "hf:camera:dataset:model_name"
+  # -- for local model use "local:model_path"
+  init_processors: null
   init_pre: True   # if `init_processors`, set pre-procesor is available
   init_post: True   # if `init_processors`, set post-procesor is available
 
@@ -85,6 +104,8 @@ reconstruction:
     tau: 2e-4
   trainable_inv:
     K: 1e-4
+  multi_wiener:
+    nc: [64, 128, 256, 512, 512]
   pre_process: 
     network : null  # UnetRes or DruNet or null
     depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
@@ -100,6 +121,10 @@ reconstruction:
     freeze: null
     unfreeze: null
     train_last_layer: False
+  # number of channels for each compensation layer, list should equal to the number of layers (n_iter)
+  # and the last element should be equal to last layer of post_process.nc
+  compensation: null  
+  compensation_residual: True   # whether to use residual connection for compensation branch 
 
 #Trainable Mask
 trainable_mask:
@@ -127,7 +152,8 @@ simulation:
   # these distance parameters are typically fixed for a given PSF
   # for DiffuserCam psf # for tape_rgb psf     
   scene2mask: 10e-2     # scene2mask: 40e-2       
-  mask2sensor: 9e-3     # mask2sensor: 4e-3       
+  mask2sensor: 9e-3     # mask2sensor: 4e-3    
+  deadspace: True    # whether to account for deadspace for programmable mask   
   # see waveprop.devices
   use_waveprop: False    # for PSF simulation
   sensor: "rpi_hq"
@@ -141,7 +167,6 @@ simulation:
   max_val: 255
 
 #Training
-
 training:
   batch_size: 8
   epoch: 25
@@ -156,7 +181,11 @@ training:
 optimizer:
   type: Adam  # Adam, SGD... (Pytorch class)
   lr: 1e-4
+  lr_step_epoch: True   # True -> update LR at end of each epoch, False at the end of each mini-batch
+  final_lr: False   # if set, exponentially decay *to* this value
+  exp_decay: False  # if set, exponentially decay *with* this value
   slow_start: False  #float how much to reduce lr for first epoch
+  cosine_decay_warmup: False  # if set, cosine decay with warmup of 5%
   # Decay LR in step fashion: https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html
   step: False     # int, period of learning rate decay. False to not apply
   gamma: 0.1      # float, factor for learning rate decay 
@@ -166,3 +195,6 @@ loss: 'l2'
 # set lpips to false to deactivate. Otherwise, give the weigth for the loss (the main loss l2/l1 always having a weigth of 1)
 lpips: 1.0
 unrolled_output_factor: False   # whether to account for unrolled output in loss (there must post-processor)
+# factor for auxiliary pre-processor loss to promote measurement consistency -> ||pre_proc(y) - A * camera_inversion(y)||
+# -- use camera inversion output so that doesn't include enhancements / coloring by post-processor
+pre_proc_aux: False
