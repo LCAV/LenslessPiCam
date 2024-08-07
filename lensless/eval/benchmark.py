@@ -117,7 +117,10 @@ def benchmark(
                     lensless, lensed, psfs = batch
                     psfs = psfs.to(device)
                 else:
-                    lensless, lensed = batch
+                    if dataset.bg is None:
+                        lensless, lensed = batch
+                    else:
+                        lensless, lensed, _ = batch
                     psfs = None
             else:
                 lensless, lensed = batch

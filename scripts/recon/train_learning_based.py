@@ -216,6 +216,8 @@ def train_learned(config):
             save_psf=config.files.save_psf,
             n_files=config.files.n_files,
             simulation_config=config.simulation,
+            bg_snr_range=config.files.snr_range,
+            bg=config.files.huggingface_bg,
         )
         test_set = HFDataset(
             huggingface_repo=config.files.dataset,
@@ -229,6 +231,8 @@ def train_learned(config):
             save_psf=config.files.save_psf,
             n_files=config.files.n_files,
             simulation_config=config.simulation,
+            bg_snr_range=config.files.snr_range,
+            bg=config.files.huggingface_bg,
         )
         if train_set.multimask:
             # get first PSF for initialization
@@ -295,55 +299,17 @@ def train_learned(config):
                     lensless, lensed, psf = test_set[_idx]
                     psf = psf.to(device)
                 else:
-                    lensless, lensed = test_set[_idx]
-                recon = ADMM(psf)
-
-                recon.set_data(lensless.to(psf.device))
-                res = recon.apply(disp_iter=None, plot=False, n_iter=10)
-                res_np = res[0].cpu().numpy()
-                res_np = res_np / res_np.max()
-
-                lensed_np = lensed[0].cpu().numpy()
-
-                lensless_np = lensless[0].cpu().numpy()
-                save_image(lensless_np, f"lensless_raw_{_idx}.png")
-
-                # -- plot lensed and res on top of each other
-                cropped = False
-
-                if hasattr(test_set, "alignment"):
-                    if test_set.alignment is not None:
-                        res_np = test_set.extract_roi(res_np, axis=(0, 1))
+                    if test_set.bg is not None:
+                        lensless, lensed, bg = test_set[_idx]
                     else:
-                        res_np, lensed_np = test_set.extract_roi(
-                            res_np, lensed=lensed_np, axis=(0, 1)
-                        )
+                        lensless, lensed = test_set[_idx]
 
-                    cropped = True
-
-                elif config.training.crop_preloss:
-                    assert crop is not None
-
-                    res_np = res_np[
-                        crop["vertical"][0] : crop["vertical"][1],
-                        crop["horizontal"][0] : crop["horizontal"][1],
-                    ]
-                    lensed_np = lensed_np[
-                        crop["vertical"][0] : crop["vertical"][1],
-                        crop["horizontal"][0] : crop["horizontal"][1],
-                    ]
-                    cropped = True
-
-                if cropped and i == 0:
-                    log.info(f"Cropped shape :  {res_np.shape}")
-
-                save_image(res_np, f"lensless_recon_{_idx}.png")
-                save_image(lensed_np, f"lensed_{_idx}.png")
-
-                plt.figure()
-                plt.imshow(lensed_np, alpha=0.4)
-                plt.imshow(res_np, alpha=0.7)
-                plt.savefig(f"overlay_lensed_recon_{_idx}.png")
+                # Reconstruct and plot noisy image
+                reconstruct_save(_idx, config, crop, i, lensed, lensless, psf, test_set, "")
+                # Reconstruct and plot background subtracted image
+                reconstruct_save(
+                    _idx, config, crop, i, lensed, (lensless - bg), psf, test_set, "subtraction_"
+                )
 
     log.info(f"Train test size : {len(train_set)}")
     log.info(f"Test test size : {len(test_set)}")
@@ -499,6 +465,48 @@ def train_learned(config):
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)
 
     log.info(f"Results saved in {save}")
+
+
+def reconstruct_save(_idx, config, crop, i, lensed, lensless, psf, test_set, fp):
+    recon = ADMM(psf)
+    recon.set_data(lensless.to(psf.device))
+
+    res = recon.apply(disp_iter=None, plot=False, n_iter=10)
+    res_np = res[0].cpu().numpy()
+    res_np = res_np / res_np.max()
+    lensed_np = lensed[0].cpu().numpy()
+    lensless_np = lensless[0].cpu().numpy()
+    save_image(lensless_np, f"lensless_raw_{_idx}.png")
+    # -- plot lensed and res on top of each other
+    cropped = False
+    if hasattr(test_set, "alignment"):
+        if test_set.alignment is not None:
+            res_np = test_set.extract_roi(res_np, axis=(0, 1))
+        else:
+            res_np, lensed_np = test_set.extract_roi(res_np, lensed=lensed_np, axis=(0, 1))
+
+        cropped = True
+
+    elif config.training.crop_preloss:
+        assert crop is not None
+
+        res_np = res_np[
+            crop["vertical"][0] : crop["vertical"][1],
+            crop["horizontal"][0] : crop["horizontal"][1],
+        ]
+        lensed_np = lensed_np[
+            crop["vertical"][0] : crop["vertical"][1],
+            crop["horizontal"][0] : crop["horizontal"][1],
+        ]
+        cropped = True
+    if cropped and i == 0:
+        log.info(f"Cropped shape :  {res_np.shape}")
+    save_image(res_np, f"lensless_recon_{fp}{_idx}.png")
+    save_image(lensed_np, f"lensed_{fp}{_idx}.png")
+    plt.figure()
+    plt.imshow(lensed_np, alpha=0.4)
+    plt.imshow(res_np, alpha=0.7)
+    plt.savefig(f"overlay_lensed_recon_{fp}{_idx}.png")
 
 
 if __name__ == "__main__":
