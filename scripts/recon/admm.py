@@ -29,9 +29,11 @@ def admm(config):
     psf, data = load_data(
         psf_fp=to_absolute_path(config.input.psf),
         data_fp=to_absolute_path(config.input.data),
-        background_fp=to_absolute_path(config.input.background)
-        if config.input.background is not None
-        else None,
+        background_fp=(
+            to_absolute_path(config.input.background)
+            if config.input.background is not None
+            else None
+        ),
         dtype=config.input.dtype,
         downsample=config["preprocess"]["downsample"],
         bayer=config["preprocess"]["bayer"],

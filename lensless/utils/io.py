@@ -6,15 +6,16 @@
 # #############################################################################
 
 
+import os.path
 import warnings
-from PIL import Image
+
 import cv2
 import numpy as np
-import os.path
+from PIL import Image
 
-from lensless.utils.plot import plot_image
 from lensless.hardware.constants import RPI_HQ_CAMERA_BLACK_LEVEL, RPI_HQ_CAMERA_CCM_MATRIX
 from lensless.utils.image import bayer2rgb_cc, print_image_info, resize, rgb2gray, get_max_val
+from lensless.utils.plot import plot_image
 
 
 def load_image(
@@ -386,6 +387,8 @@ def load_data(
     psf_fp,
     data_fp,
     background_fp=None,
+    return_bg=False,
+    remove_background=True,
     return_float=True,
     downsample=None,
     bg_pix=(5, 25),
@@ -527,16 +530,22 @@ def load_data(
         )
         assert bg.shape == data.shape
 
-        data -= bg
+        if remove_background:
+            data -= bg
+
         # clip to 0
         data = np.clip(data, a_min=0, a_max=data.max())
 
         if normalize:
             data /= data.max()
+            bg /= data.max()  # to normalize by the same factor
 
     if data.shape != psf.shape:
         # in DiffuserCam dataset, images are already reshaped
         data = resize(data, shape=psf.shape)
+
+        if background_fp is not None:
+            bg = resize(bg, shape=psf.shape)
 
     if data.shape[3] > 1 and psf.shape[3] == 1:
         warnings.warn(
@@ -569,6 +578,7 @@ def load_data(
 
     psf = np.array(psf, dtype=dtype)
     data = np.array(data, dtype=dtype)
+    bg = np.array(bg, dtype=dtype)
     if use_torch:
         import torch
 
@@ -579,8 +589,12 @@ def load_data(
 
         psf = torch.from_numpy(psf).type(torch_dtype).to(torch_device)
         data = torch.from_numpy(data).type(torch_dtype).to(torch_device)
+        bg = torch.from_numpy(bg).type(torch_dtype).to(torch_device)
 
-    return psf, data
+    if return_bg:
+        return psf, data, bg
+    else:
+        return psf, data
 
 
 def save_image(img, fp, max_val=255, normalize=True):
