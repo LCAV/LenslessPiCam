@@ -474,6 +474,7 @@ class Trainer:
         clip_grad=1.0,
         unrolled_output_factor=False,
         random_rotate=False,
+        random_shift=False,
         pre_proc_aux=False,
         extra_eval_sets=None,
         use_wandb=False,
@@ -554,7 +555,6 @@ class Trainer:
         post_process_unfreeze : int, optional
             Epoch at which to unfreeze post process component. Default is None.
 
-
         """
         global print
 
@@ -612,6 +612,9 @@ class Trainer:
             self.train_multimask = train_dataset.multimask
         self.train_random_flip = train_dataset.random_flip
         self.random_rotate = random_rotate
+        self.random_shift = random_shift
+        if self.random_shift:
+            raise NotImplementedError("Random shift not implemented yet.")
 
         # check if Subset and if simulating dataset
         self.simulated_dataset_trainable_mask = False
