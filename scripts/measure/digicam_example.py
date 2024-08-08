@@ -18,12 +18,14 @@ import torch
 from lensless import ADMM
 from lensless.utils.io import save_image
 from lensless.hardware.trainable_mask import AdafruitLCD
-from lensless.utils.io import load_image
+from lensless.utils.io import load_image, load_psf
+from lensless.utils.image import gamma_correction
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="digicam_example")
 def digicam(config):
     measurement_fp = config.capture.fp
+    psf_fp = config.psf
     mask_fp = config.mask.fp
     seed = config.mask.seed
     rpi_username = config.rpi.username
@@ -32,6 +34,7 @@ def digicam(config):
     mask_center = config.mask.center
     torch_device = config.recon.torch_device
     capture_config = config.capture
+    simulation_config = config.simulation
 
     # load mask
     if mask_fp is not None:
@@ -41,18 +44,39 @@ def digicam(config):
         np.random.seed(seed)
         mask_vals = np.random.uniform(0, 1, mask_shape)
 
-    # simulate PSF
+    # create mask
     mask = AdafruitLCD(
         initial_vals=torch.from_numpy(mask_vals.astype(np.float32)),
         sensor=capture_config["sensor"],
         slm="adafruit",
         downsample=capture_config["down"],
         flipud=capture_config["flip"],
+        use_waveprop=simulation_config.get("use_waveprop", False),
+        scene2mask=simulation_config.get("scene2mask", None),
+        mask2sensor=simulation_config.get("mask2sensor", None),
+        deadspace=simulation_config.get("deadspace", True),
         # color_filter=color_filter,
     )
-    psf = mask.get_psf().to(torch_device).detach()
+
+    # use measured PSF or simulate
+    if psf_fp is not None:
+        psf = load_psf(
+            fp=to_absolute_path(psf_fp),
+            downsample=capture_config["down"],
+            flip=capture_config["flip"],
+        )
+        psf = torch.from_numpy(psf).type(torch.float32).to(torch_device)
+    else:
+        psf = mask.get_psf().to(torch_device).detach()
+    psf_np = psf[0].cpu().numpy()
     psf_fp = "digicam_psf.png"
-    save_image(psf[0].cpu().numpy(), psf_fp)
+
+    gamma = simulation_config.get("gamma", None)
+    if gamma is not None:
+        psf_np = psf_np / psf_np.max()
+        psf_np = gamma_correction(psf_np, gamma=gamma)
+
+    save_image(psf_np, psf_fp)
     print(f"PSF shape: {psf.shape}")
     print(f"PSF saved to {psf_fp}")
 
@@ -72,7 +96,7 @@ def digicam(config):
         )
 
         # -- set mask
-        print("Setting mask")
+        print("Setting mask...")
         set_programmable_mask(
             pattern,
             "adafruit",
@@ -81,7 +105,7 @@ def digicam(config):
         )
 
         # -- capture
-        print("Capturing")
+        print("Capturing...")
         localfile, img = capture(
             rpi_username=rpi_username,
             rpi_hostname=rpi_hostname,

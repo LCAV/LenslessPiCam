@@ -1,0 +1,60 @@
+# python scripts/eval/benchmark_recon.py -cn benchmark_digicam_mirflickr_multi
+defaults:
+  - benchmark
+  - _self_
+
+
+dataset: HFDataset
+batchsize: 4
+device: "cuda:0"
+
+huggingface:
+  repo: "bezzam/DigiCam-Mirflickr-MultiMask-25K"
+  psf: null   # null for simulating PSF
+  image_res: [900, 1200]  # used during measurement
+  rotate: True   # if measurement is upside-down
+  flipud: False
+  flip_lensed: False   # if rotate or flipud is True, apply to lensed
+  alignment:
+    top_left: [80, 100]  # height, width
+    height: 200
+  downsample: 1
+
+algorithms: [
+  "ADMM",
+
+  ## -- reconstructions trained on measured data 
+  "hf:digicam:mirflickr_multi_25k:Unet4M+U5+Unet4M_wave",
+  "hf:digicam:mirflickr_multi_25k:Unet4M+U10+Unet4M_wave",
+  "hf:digicam:mirflickr_multi_25k:Unet4M+U5+Unet4M_wave_aux1",
+  "hf:digicam:mirflickr_multi_25k:Unet4M+U5+Unet4M_wave_flips",
+
+  # ## -- reconstructions trained on other datasets/systems
+  # "hf:diffusercam:mirflickr:Unet4M+U10+Unet4M",
+  # "hf:tapecam:mirflickr:Unet4M+U10+Unet4M",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_wave",
+  # "hf:digicam:celeba_26k:Unet4M+U5+Unet4M_wave",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave_aux1",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave_flips",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave_flips_rotate10",
+  # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_ft_flips",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_ft_flips_rotate10",
+]
+
+# # -- to only use output from unrolled
+# hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave_aux1:
+#   skip_post: True
+#   skip_pre: True
+
+save_idx: [1, 2, 4, 5, 9, 24, 33, 61]
+n_iter_range: [100]    # for ADMM
+
+# simulating PSF
+simulation:
+  use_waveprop: True
+  deadspace: True
+  scene2mask: 0.3
+  mask2sensor: 0.002

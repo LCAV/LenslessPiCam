@@ -7,7 +7,7 @@ import time
 from pprint import pprint
 from lensless.utils.plot import plot_image, pixel_histogram
 from lensless.utils.io import save_image
-from lensless.utils.image import resize
+from lensless.utils.image import resize, print_image_info
 import cv2
 import matplotlib.pyplot as plt
 from lensless import FISTA, ADMM
@@ -70,21 +70,16 @@ def demo(config):
 
     # 3) Take picture
     time.sleep(config.capture.delay)  # for picture to display
-    print("\nTaking picture...")
 
     remote_fn = "remote_capture"
+    print("\nTaking picture...")
     pic_command = (
-        f"{config.rpi.python} {config.capture.script} bayer=True fn={remote_fn} exp={config.capture.exp} iso={config.capture.iso} "
-        f"config_pause={config.capture.config_pause} sensor_mode={config.capture.sensor_mode} nbits_out={config.capture.nbits_out}"
+        f"{config.rpi.python} {config.capture.script} sensor={config.capture.sensor} bayer={config.capture.bayer} fn={remote_fn} exp={config.capture.exp} iso={config.capture.iso} "
+        f"config_pause={config.capture.config_pause} sensor_mode={config.capture.sensor_mode} nbits_out={config.capture.nbits_out} "
+        f"legacy={config.capture.legacy} rgb={config.capture.rgb} gray={config.capture.gray} "
     )
     if config.capture.nbits > 8:
         pic_command += " sixteen=True"
-    if config.capture.rgb:
-        pic_command += " rgb=True"
-    if config.capture.legacy:
-        pic_command += " legacy=True"
-    if config.capture.gray:
-        pic_command += " gray=True"
     if config.capture.down:
         pic_command += f" down={config.capture.down}"
     if config.capture.awb_gains:
@@ -100,11 +95,15 @@ def demo(config):
     result = ssh.stdout.readlines()
     error = ssh.stderr.readlines()
 
-    if error != []:
-        raise ValueError("ERROR: %s" % error)
+    if (
+        error != [] and config.capture.legacy
+    ):  # new camera software seems to return error even if it works
+        print("ERROR: %s" % error)
+        return
     if result == []:
         error = ssh.stderr.readlines()
-        raise ValueError("ERROR: %s" % error)
+        print("ERROR: %s" % error)
+        return
     else:
         result = [res.decode("UTF-8") for res in result]
         result = [res for res in result if len(res) > 3]
@@ -117,41 +116,89 @@ def demo(config):
         print("COMMAND OUTPUT : ")
         pprint(result_dict)
 
-    # copy over file
-    # more pythonic? https://stackoverflow.com/questions/250283/how-to-scp-in-python
-    remotefile = f"~/{remote_fn}.png"
-    localfile = f"{config.capture.raw_data_fn}.png"
-    print(f"\nCopying over picture as {localfile}...")
-    os.system('scp "%s@%s:%s" %s' % (RPI_USERNAME, RPI_HOSTNAME, remotefile, localfile))
+    if (
+        "RPi distribution" in result_dict.keys()
+        and "bullseye" in result_dict["RPi distribution"]
+        and not config.capture.legacy
+    ):
+        assert (
+            not config.capture.rgb or not config.capture.gray
+        ), "RGB and gray not supported for RPi HQ sensor"
 
-    if config.capture.rgb or config.capture.gray:
-        img = load_image(localfile, verbose=True)
+        if config.capture.bayer:
 
+            assert config.capture.down is None
+
+            # copy over DNG file
+            remotefile = f"~/{remote_fn}.dng"
+            localfile = os.path.join(save, f"{config.capture.raw_data_fn}.dng")
+            print(f"\nCopying over picture as {localfile}...")
+            os.system('scp "%s@%s:%s" %s' % (RPI_USERNAME, RPI_HOSTNAME, remotefile, localfile))
+
+            img = load_image(
+                localfile,
+                verbose=True,
+                bayer=config.capture.bayer,
+                nbits_out=config.capture.nbits_out,
+            )
+
+            # print image properties
+            print_image_info(img)
+
+            # save as PNG
+            png_out = f"{config.capture.raw_data_fn}.png"
+            print(f"Saving RGB file as: {png_out}")
+            cv2.imwrite(png_out, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+
+        else:
+
+            remotefile = f"~/{remote_fn}.png"
+            localfile = f"{config.capture.raw_data_fn}.png"
+            if save:
+                localfile = os.path.join(save, localfile)
+            print(f"\nCopying over picture as {localfile}...")
+            os.system('scp "%s@%s:%s" %s' % (RPI_USERNAME, RPI_HOSTNAME, remotefile, localfile))
+
+            img = load_image(localfile, verbose=True)
+
+    # legacy software running on RPi
     else:
+        # copy over file
+        # more pythonic? https://stackoverflow.com/questions/250283/how-to-scp-in-python
+        remotefile = f"~/{remote_fn}.png"
+        localfile = f"{config.capture.raw_data_fn}.png"
+        if save:
+            localfile = os.path.join(save, localfile)
+        print(f"\nCopying over picture as {localfile}...")
+        os.system('scp "%s@%s:%s" %s' % (RPI_USERNAME, RPI_HOSTNAME, remotefile, localfile))
 
-        red_gain = config.camera.red_gain
-        blue_gain = config.camera.blue_gain
+        if config.capture.rgb or config.capture.gray:
+            img = load_image(localfile, verbose=True)
 
-        # get white balance gains
-        if red_gain is None:
-            red_gain = float(result_dict["Red gain"])
-        if blue_gain is None:
-            blue_gain = float(result_dict["Blue gain"])
+        else:
 
-        # load image
-        print("\nLoading picture...")
-        img = load_image(
-            localfile,
-            verbose=True,
-            bayer=True,
-            blue_gain=blue_gain,
-            red_gain=red_gain,
-            nbits_out=config.capture.nbits_out,
-        )
+            if not config.capture.bayer:
+                red_gain = config.camera.red_gain
+                blue_gain = config.camera.blue_gain
+            else:
+                red_gain = None
+                blue_gain = None
 
-        # write RGB data
-        if not config.capture.bayer:
-            cv2.imwrite(localfile, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+            # load image
+            print("\nLoading picture...")
+
+            img = load_image(
+                localfile,
+                verbose=True,
+                bayer=config.capture.bayer,
+                blue_gain=blue_gain,
+                red_gain=red_gain,
+                nbits_out=config.capture.nbits_out,
+            )
+
+            # write RGB data
+            if not config.capture.bayer:
+                cv2.imwrite(localfile, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
     # plot image and histogram (useful to check clipping)
     ax = plot_image(img, gamma=config.capture.gamma)

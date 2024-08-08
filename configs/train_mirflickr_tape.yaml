@@ -1,4 +1,4 @@
-# python scripts/recon/train_learning_based.py -cn train_digicam_singlemask
+# python scripts/recon/train_learning_based.py -cn train_mirflickr_tape
 defaults:
   - train_unrolledADMM
   - _self_
@@ -9,30 +9,20 @@ eval_disp_idx: [1, 2, 4, 5, 9]
 
 # Dataset
 files:
-  dataset: bezzam/DigiCam-Mirflickr-SingleMask-25K
+  dataset: bezzam/TapeCam-Mirflickr-25K
   huggingface_dataset: True
-  huggingface_psf: null
+  huggingface_psf: psf.png
   downsample: 1
   # TODO: these parameters should be in the dataset?
   image_res: [900, 1200]  # used during measurement
-  rotate: True   # if measurement is upside-down
+  rotate: False   # if measurement is upside-down
   save_psf: True
-
-  extra_eval: null
-  # extra_eval: 
-  #   multimask: 
-  #     huggingface_repo: bezzam/DigiCam-Mirflickr-MultiMask-25K
-  #     display_res: [900, 1200]  # used during measurement
-  #     rotate: True   # if measurement is upside-down
-  #     alignment:
-  #       top_left: [80, 100]  # height, width
-  #       height: 200
 
 # TODO: these parameters should be in the dataset?
 alignment:
   # when there is no downsampling
-  top_left: [80, 100]  # height, width
-  height: 200
+  top_left: [45, 95]  # height, width
+  height: 250
 
 training:
   batch_size: 4
@@ -57,9 +47,3 @@ reconstruction:
     network : UnetRes  # UnetRes or DruNet or null
     depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
     nc: [32,64,116,128]
-
-simulation:
-  use_waveprop: True
-  deadspace: True
-  scene2mask: 0.3
-  mask2sensor: 0.002
