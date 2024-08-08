@@ -227,7 +227,7 @@ def train_learned(config):
                 display_res=config.files.image_res,
                 alignment=config.alignment,
                 bg_snr_range=config.files.background_snr_range,  # TODO check if correct
-                bg=config.files.background_fp,
+                bg_fp=config.files.background_fp,
             )
 
         else:
@@ -251,7 +251,7 @@ def train_learned(config):
                 simulate_lensless=config.files.simulate_lensless,
                 random_flip=config.files.random_flip,
                 bg_snr_range=config.files.background_snr_range,
-                bg=config.files.background_fp,
+                bg_fp=config.files.background_fp,
             )
 
         test_set = HFDataset(
@@ -271,7 +271,7 @@ def train_learned(config):
             n_files=config.files.n_files,
             simulation_config=config.simulation,
             bg_snr_range=config.files.background_snr_range,
-            bg=config.files.background_fp,
+            bg_fp=config.files.background_fp,
             force_rgb=config.files.force_rgb,
             simulate_lensless=False,  # in general evaluate on measured (set to False)
         )
@@ -338,17 +338,19 @@ def train_learned(config):
 
                 flip_lr = None
                 flip_ud = None
-                if test_set.random_flip:
-                    lensless, lensed, psf_recon, flip_lr, flip_ud = test_set[_idx]
+                return_items = test_set[_idx]
+                lensless = return_items[0]
+                lensed = return_items[1]
+                if test_set.bg_sim is not None:
+                    background = return_items[-1]
+                if test_set.multimask or test_set.random_flip:
+                    psf_recon = return_items[2]
                     psf_recon = psf_recon.to(device)
-                elif test_set.multimask:
-                    lensless, lensed, psf_recon = test_set[_idx]
-                    psf_recon = psf_recon.to(device)
-                elif test_set.bg is not None:
-                    lensless, lensed, bg = test_set[_idx]
                 else:
-                    lensless, lensed = test_set[_idx]
                     psf_recon = psf.clone()
+                if test_set.random_flip:
+                    flip_lr = return_items[3]
+                    flip_ud = return_items[4]
 
                 rotate_angle = False
                 if config.files.random_rotate:
@@ -375,13 +377,26 @@ def train_learned(config):
                     shift = tuple(shift)
 
                 if config.files.random_rotate or config.files.random_shifts:
-
                     save_image(psf_recon[0].cpu().numpy(), f"psf_{_idx}.png")
 
                 # Reconstruct and plot image
-                reconstruct_save(_idx, config, crop, i, lensed, lensless, psf, test_set, "")
+                reconstruct_save(
+                    _idx,
+                    config,
+                    crop,
+                    i,
+                    lensed,
+                    lensless,
+                    psf,
+                    test_set,
+                    "",
+                    flip_lr,
+                    flip_ud,
+                    rotate_angle,
+                    shift,
+                )
                 save_image(lensed[0].cpu().numpy(), f"lensed_{_idx}.png")
-                if test_set.bg != None:
+                if test_set.bg_sim is not None:
                     # Reconstruct and plot background subtracted image
                     reconstruct_save(
                         _idx,
@@ -389,10 +404,14 @@ def train_learned(config):
                         crop,
                         i,
                         lensed,
-                        (lensless - bg),
+                        (lensless - background),
                         psf,
                         test_set,
                         "subtraction_",
+                        flip_lr,
+                        flip_ud,
+                        rotate_angle,
+                        shift,
                     )
     log.info(f"Train test size : {len(train_set)}")
     log.info(f"Test test size : {len(test_set)}")
@@ -416,9 +435,11 @@ def train_learned(config):
         nc=config.reconstruction.post_process.nc,
         device=device,
         device_ids=device_ids,
-        concatenate_compensation=config.reconstruction.compensation[-1]
-        if config.reconstruction.compensation is not None
-        else False,
+        concatenate_compensation=(
+            config.reconstruction.compensation[-1]
+            if config.reconstruction.compensation is not None
+            else False
+        ),
     )
     post_proc_delay = config.reconstruction.post_process.delay
 
@@ -499,9 +520,9 @@ def train_learned(config):
                 pre_process=pre_process if pre_proc_delay is None else None,
                 post_process=post_process if post_proc_delay is None else None,
                 skip_unrolled=config.reconstruction.skip_unrolled,
-                return_intermediate=True
-                if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
-                else False,
+                return_intermediate=(
+                    True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
+                ),
                 compensation=config.reconstruction.compensation,
                 compensation_residual=config.reconstruction.compensation_residual,
             )
@@ -516,9 +537,9 @@ def train_learned(config):
                 pre_process=pre_process if pre_proc_delay is None else None,
                 post_process=post_process if post_proc_delay is None else None,
                 skip_unrolled=config.reconstruction.skip_unrolled,
-                return_intermediate=True
-                if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
-                else False,
+                return_intermediate=(
+                    True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
+                ),
                 compensation=config.reconstruction.compensation,
                 compensation_residual=config.reconstruction.compensation_residual,
             )
@@ -529,9 +550,9 @@ def train_learned(config):
                 K=config.reconstruction.trainable_inv.K,
                 pre_process=pre_process if pre_proc_delay is None else None,
                 post_process=post_process if post_proc_delay is None else None,
-                return_intermediate=True
-                if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0
-                else False,
+                return_intermediate=(
+                    True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
+                ),
             )
         elif config.reconstruction.method == "multi_wiener":
 
@@ -688,7 +709,7 @@ def reconstruct_save(
     if cropped and i == 0:
         log.info(f"Cropped shape :  {res_np.shape}")
 
-    save_image(res_np, f"lensless_recon_{_idx}.png")
+    save_image(res_np, f"lensless_recon_{fp}{_idx}.png")
 
     plt.figure()
     plt.imshow(lensed_np, alpha=0.4)

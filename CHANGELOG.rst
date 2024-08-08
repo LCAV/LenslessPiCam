@@ -15,7 +15,7 @@ Added
 
 - Option to pass background image to ``utils.io.load_data``.
 - Option to set image resolution with ``hardware.utils.display`` function.
-- Option to do background removal in ``util.dataset``
+- Option to add simulated background in ``util.dataset``
 - Auxiliary of reconstructing output from pre-processor (not working).
 - Option to set focal range for MultiLensArray.
 - Optional to remove deadspace modelling for programmable mask.

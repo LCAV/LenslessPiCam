@@ -1288,9 +1288,9 @@ class HFDataset(DualDataset):
         cache_dir=None,
         single_channel_psf=False,
         random_flip=False,
-            bg_snr_range=None,
-            bg_fp=None,
-            **kwargs,
+        bg_snr_range=None,
+        bg_fp=None,
+        **kwargs,
     ):
         """
         Wrapper for lensless datasets on Hugging Face.
@@ -1514,7 +1514,7 @@ class HFDataset(DualDataset):
             )
             self.simulator = simulator
 
-        if bg_fp is not None and os.path.isfile(bg_fp):
+        if bg_fp is not None:
             assert (
                 bg_snr_range is not None
             ), "Since a background path was provided, the SNR range should not be empty"
@@ -1524,13 +1524,13 @@ class HFDataset(DualDataset):
                 return_float=True,
                 flip=rotate,
             )
-            self.bg = torch.from_numpy(bg)
+            self.bg_sim = torch.from_numpy(bg)
             # Used for background noise addition
             self.bg_snr_range = bg_snr_range
             # Precomputing for efficiency (used in the SNR computations)
-            self.background_var = torch.var(self.bg.flatten())
+            self.background_var = torch.var(self.bg_sim.flatten())
         else:
-            self.bg = None
+            self.bg_sim = None
             self.bg_snr_range = None
             self.background_var = None
 
@@ -1649,32 +1649,41 @@ class HFDataset(DualDataset):
                 lensed = torch.flip(lensed, dims=(-3,))
                 psf_aug = torch.flip(psf_aug, dims=(-3,))
 
-        # return corresponding PSF
+        return_items = [lensless, lensed]
         if self.multimask:
             if self.return_mask_label:
-                return lensless, lensed, mask_label
+                return_items.append(mask_label)
             else:
-                if not self.random_flip:
-                    return lensless, lensed, self.psf[mask_label]
-                else:
-                    return lensless, lensed, psf_aug, flip_lr, flip_ud
+                return_items.append(self.psf[mask_label])
+            if self.random_flip:
+                return_items.append(flip_lr)
+                return_items.append(flip_ud)
         else:
             if self.random_flip:
-                return lensless, lensed, psf_aug, flip_lr, flip_ud
-            # Add background to achieve desired SNR
-            if self.bg is not None:
-                sig_var = torch.var(lensless.flatten())
-                target_snr = np.random.uniform(self.bg_snr_range[0], self.bg_snr_range[1])
-                alpha = torch.sqrt(sig_var / self.background_var / (10**target_snr / 10))
+                return_items.append(psf_aug)
+                return_items.append(flip_lr)
+                return_items.append(flip_ud)
 
-                scaled_bg = alpha * self.bg
+        # Add background to achieve desired SNR
+        if self.bg_sim is not None:
+            sig_var = torch.var(lensless.flatten())
+            target_snr = np.random.uniform(self.bg_snr_range[0], self.bg_snr_range[1])
+            alpha = torch.sqrt(sig_var / self.background_var / (10**target_snr / 10))
 
-                # Add background noise to the target image
-                image_with_bg = lensless + scaled_bg
+            scaled_bg = alpha * self.bg_sim
 
-                return image_with_bg, lensed, scaled_bg
-            else:
-                return lensless, lensed
+            # Add background noise to the target image
+            image_with_bg = lensless + scaled_bg
+
+            return image_with_bg, lensed, scaled_bg
+        else:
+            return lensless, lensed
+
+        # add simulated background to get image_with_bg and scaled_bg
+        return_items[0] = image_with_bg
+        return_items[0].append(scaled_bg)
+
+        return return_items
 
     def extract_roi(
         self,
