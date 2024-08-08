@@ -24,10 +24,15 @@ from lensless.hardware.utils import capture
 from lensless.hardware.utils import display
 from lensless.hardware.slm import set_programmable_mask, adafruit_sub2full
 from datasets import load_dataset
+from lensless.recon.rfft_convolve import RealFFTConvolve2D
 from huggingface_hub import hf_hub_download
 import cv2
 from lensless.hardware.sensor import sensor_dict, SensorParam
 from scipy.ndimage import rotate
+import warnings
+from waveprop.noise import add_shot_noise
+from lensless.utils.image import shift_with_pad
+from PIL import Image
 
 
 def convert(text):
@@ -166,8 +171,6 @@ class DualDataset(Dataset):
 
         # add noise
         if self.input_snr is not None:
-            from waveprop.noise import add_shot_noise
-
             lensless = add_shot_noise(lensless, self.input_snr)
 
         # flip image x and y if needed
@@ -1018,6 +1021,249 @@ class DiffuserCamMirflickrHF(DualDataset):
         return lensless, lensed
 
 
+class HFSimulated(DualDataset):
+    def __init__(
+        self,
+        huggingface_repo,
+        split,
+        n_files=None,
+        psf=None,
+        downsample=1,
+        cache_dir=None,
+        single_channel_psf=False,
+        flipud=False,
+        display_res=None,
+        alignment=None,
+        sensor="rpi_hq",
+        slm="adafruit",
+        simulation_config=dict(),
+        snr_db=40,
+        **kwargs,
+    ):
+        """
+        Wrapper for Hugging Face datasets, where lensless images are simulated from lensed ones.
+
+        This is used for seeing how simulated lensless images compare with real ones.
+        """
+
+        if isinstance(split, str):
+            if n_files is not None:
+                split = f"{split}[0:{n_files}]"
+            self.dataset = load_dataset(huggingface_repo, split=split, cache_dir=cache_dir)
+        elif isinstance(split, Dataset):
+            self.dataset = split
+        else:
+            raise ValueError("split should be a string or a Dataset object")
+
+        # deduce downsampling factor from the first image
+        data_0 = self.dataset[0]
+        self.downsample = downsample
+        # -- use lensless data just for shape but using lensed data in simulation
+        lensless = np.array(data_0["lensless"])
+        self.lensless_shape = np.array(lensless.shape[:2]) // self.downsample
+
+        # download PSF from huggingface
+        # TODO : assuming psf is not None
+        self.multimask = False
+        self.convolver = None
+        if psf is not None:
+            psf_fp = hf_hub_download(repo_id=huggingface_repo, filename=psf, repo_type="dataset")
+            psf, _ = load_psf(
+                psf_fp,
+                shape=self.lensless_shape,
+                return_float=True,
+                return_bg=True,
+                flip_ud=flipud,
+                bg_pix=(0, 15),
+                single_psf=single_channel_psf,
+            )
+            self.psf = torch.from_numpy(psf)
+            if single_channel_psf:
+                # replicate across three channels
+                self.psf = self.psf.repeat(1, 1, 1, 3)
+
+            # create convolver object
+            self.convolver = RealFFTConvolve2D(self.psf)
+
+        elif "mask_label" in data_0:
+            self.multimask = True
+            mask_labels = []
+            for i in range(len(self.dataset)):
+                mask_labels.append(self.dataset[i]["mask_label"])
+            mask_labels = list(set(mask_labels))
+
+            # simulate all PSFs
+            self.psf = dict()
+            for label in mask_labels:
+                mask_fp = hf_hub_download(
+                    repo_id=huggingface_repo,
+                    filename=f"masks/mask_{label}.npy",
+                    repo_type="dataset",
+                )
+                mask_vals = np.load(mask_fp)
+
+                if psf is None:
+                    sensor_res = sensor_dict[sensor][SensorParam.RESOLUTION]
+                    downsample_fact = min(sensor_res / lensless.shape[:2])
+                else:
+                    downsample_fact = 1
+
+                mask = AdafruitLCD(
+                    initial_vals=torch.from_numpy(mask_vals.astype(np.float32)),
+                    sensor=sensor,
+                    slm=slm,
+                    downsample=downsample_fact,
+                    flipud=rotate or flipud,  # TODO separate commands?
+                    use_waveprop=simulation_config.get("use_waveprop", False),
+                    scene2mask=simulation_config.get("scene2mask", None),
+                    mask2sensor=simulation_config.get("mask2sensor", None),
+                    deadspace=simulation_config.get("deadspace", True),
+                )
+                self.psf[label] = mask.get_psf().detach()
+
+                assert (
+                    self.psf[label].shape[-3:-1] == lensless.shape[:2]
+                ), f"PSF shape should match lensless shape: PSF {self.psf[label].shape[-3:-1]} vs lensless {lensless.shape[:2]}"
+
+            # create convolver object
+            self.convolver = RealFFTConvolve2D(self.psf[label])
+        assert self.convolver is not None
+
+        self.crop = None
+        self.random_flip = None
+        self.flipud = flipud
+        self.snr_db = snr_db
+
+        self.display_res = display_res
+        self.alignment = None
+        self.cropped_lensed_shape = None
+        if alignment is not None:
+            self.alignment = dict(alignment.copy())
+            self.alignment["top_left"] = (
+                int(self.alignment["top_left"][0] / downsample),
+                int(self.alignment["top_left"][1] / downsample),
+            )
+            self.alignment["height"] = int(self.alignment["height"] / downsample)
+
+            original_aspect_ratio = display_res[1] / display_res[0]
+            self.alignment["width"] = int(self.alignment["height"] * original_aspect_ratio)
+            self.cropped_lensed_shape = (self.alignment["height"], self.alignment["width"], 3)
+
+        super(HFSimulated, self).__init__(**kwargs)
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def _get_images_pair(self, idx):
+
+        # load image
+        lensed_np = np.array(self.dataset[idx]["lensed"])
+        if self.flipud:
+            lensed_np = np.flipud(lensed_np)
+
+        # convert to float
+        if lensed_np.dtype == np.uint8:
+            lensed_np = lensed_np.astype(np.float32) / 255
+        else:
+            # 16 bit
+            lensed_np = lensed_np.astype(np.float32) / 65535
+
+        # resize if necessary
+        if self.cropped_lensed_shape is not None:
+            cropped_lensed_np = resize(
+                lensed_np, shape=self.cropped_lensed_shape, interpolation=cv2.INTER_NEAREST
+            )
+            lensed_np = np.zeros(tuple(self.lensless_shape) + (3,), dtype=np.float32)
+            lensed_np[
+                self.alignment["top_left"][0] : self.alignment["top_left"][0]
+                + self.alignment["height"],
+                self.alignment["top_left"][1] : self.alignment["top_left"][1]
+                + self.alignment["width"],
+            ] = cropped_lensed_np
+
+        elif (self.lensless_shape != np.array(lensed_np.shape[:2])).any():
+
+            lensed_np = resize(
+                lensed_np, shape=self.lensless_shape, interpolation=cv2.INTER_NEAREST
+            )
+        lensed = torch.from_numpy(lensed_np)
+
+        # simulate lensless with convolution
+        lensed = lensed.unsqueeze(0)  # add batch dimension
+
+        if self.multimask:
+            mask_label = self.dataset[idx]["mask_label"]
+            self.convolver.set_psf(self.psf[mask_label])
+        lensless = self.convolver.convolve(lensed)
+
+        # add noise
+        if self.snr_db is not None:
+            lensless = add_shot_noise(lensless, self.snr_db)
+
+        if lensless.max() > 1:
+            print("CLIPPING!")
+            lensless /= lensless.max()
+
+        if self.cropped_lensed_shape:
+            return lensless, torch.from_numpy(cropped_lensed_np)
+        else:
+            return lensless, lensed
+
+    def __getitem__(self, idx):
+        lensless, lensed = super().__getitem__(idx)
+        if self.multimask:
+            mask_label = self.dataset[idx]["mask_label"]
+            return lensless, lensed, self.psf[mask_label]
+        return lensless, lensed
+
+    def extract_roi(self, reconstruction, lensed=None, axis=(1, 2), **kwargs):
+        """
+        Extract region of interest from lensless and lensed images.
+        """
+
+        n_dim = len(reconstruction.shape)
+        assert max(axis) < n_dim, "Axis should be within the dimensions of the reconstruction."
+
+        # add batch dimension
+        if n_dim == 3:
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction = reconstruction.unsqueeze(0)
+            else:
+                reconstruction = reconstruction[np.newaxis]
+            # increment axis
+            axis = (axis[0] + 1, axis[1] + 1)
+
+        # extract
+        if self.alignment is not None:
+            top_left = self.alignment["top_left"]
+            height = self.alignment["height"]
+            width = self.alignment["width"]
+
+            # extract according to axis
+            index = [slice(None)] * n_dim
+            index[axis[0]] = slice(top_left[0], top_left[0] + height)
+            index[axis[1]] = slice(top_left[1], top_left[1] + width)
+            reconstruction = reconstruction[tuple(index)]
+
+            # rotate if necessary
+            angle = self.alignment.get("angle", 0)
+            if isinstance(reconstruction, torch.Tensor) and angle:
+                reconstruction = F.rotate(reconstruction, angle, expand=False)
+            elif angle:
+                reconstruction = rotate(reconstruction, angle, axes=axis, reshape=False)
+
+        # remove batch dimension
+        if n_dim == 3:
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction = reconstruction.squeeze(0)
+            else:
+                reconstruction = reconstruction[0]
+
+        if lensed is None:
+            return reconstruction
+        return reconstruction, lensed
+
+
 class HFDataset(DualDataset):
     def __init__(
         self,
@@ -1026,6 +1272,8 @@ class HFDataset(DualDataset):
         n_files=None,
         psf=None,
         rotate=False,  # just the lensless image
+        flipud=False,
+        flip_lensed=False,
         downsample=1,
         downsample_lensed=1,
         display_res=None,
@@ -1035,6 +1283,11 @@ class HFDataset(DualDataset):
         return_mask_label=False,
         save_psf=False,
         simulation_config=dict(),
+        simulate_lensless=False,
+        force_rgb=False,
+        cache_dir=None,
+        single_channel_psf=False,
+        random_flip=False,
         **kwargs,
     ):
         """
@@ -1070,6 +1323,8 @@ class HFDataset(DualDataset):
             If multimask dataset, return the mask label (True) or the corresponding PSF (False).
         save_psf : bool, optional
             If multimask dataset, save the simulated PSFs.
+        random_flip : bool, optional
+            If True, randomly flip the lensless images vertically and horizonally with equal probability. By default, no flipping.
         simulation_config : dict, optional
             Simulation parameters for PSF if using a mask pattern.
 
@@ -1078,21 +1333,28 @@ class HFDataset(DualDataset):
         if isinstance(split, str):
             if n_files is not None:
                 split = f"{split}[0:{n_files}]"
-            self.dataset = load_dataset(huggingface_repo, split=split)
+            self.dataset = load_dataset(huggingface_repo, split=split, cache_dir=cache_dir)
         elif isinstance(split, Dataset):
             self.dataset = split
         else:
             raise ValueError("split should be a string or a Dataset object")
 
         self.rotate = rotate
+        self.flipud = flipud
+        self.flip_lensed = flip_lensed
         self.display_res = display_res
         self.return_mask_label = return_mask_label
+        self.force_rgb = force_rgb  # if some data is not 3D
+
+        # augmentation
+        self.random_flip = random_flip
 
         # deduce downsampling factor from the first image
         data_0 = self.dataset[0]
         self.downsample_lensless = downsample
         self.downsample_lensed = downsample_lensed
         lensless = np.array(data_0["lensless"])
+
         if self.downsample_lensless != 1.0:
             lensless = resize(lensless, factor=1 / self.downsample_lensless)
         if psf is None:
@@ -1105,8 +1367,7 @@ class HFDataset(DualDataset):
         self.alignment = None
         self.crop = None
         if alignment is not None:
-            # preparing ground-truth in expected shape
-            if "top_left" in alignment:
+            if alignment.get("top_left", None) is not None:
                 self.alignment = dict(alignment.copy())
                 self.alignment["top_left"] = (
                     int(self.alignment["top_left"][0] / downsample),
@@ -1117,9 +1378,19 @@ class HFDataset(DualDataset):
                 original_aspect_ratio = display_res[1] / display_res[0]
                 self.alignment["width"] = int(self.alignment["height"] * original_aspect_ratio)
 
-            # preparing ground-truth as simulated measurement of original
-            elif "crop" in alignment:
-                assert "simulation" in alignment, "Simulation config should be provided"
+            if alignment.get("topright", None) is not None:
+                # typo in original configuration
+                self.alignment = dict(alignment.copy())
+                self.alignment["top_left"] = (
+                    int(self.alignment["topright"][0] / downsample),
+                    int(self.alignment["topright"][1] / downsample),
+                )
+                self.alignment["height"] = int(self.alignment["height"] / downsample)
+
+                original_aspect_ratio = display_res[1] / display_res[0]
+                self.alignment["width"] = int(self.alignment["height"] * original_aspect_ratio)
+
+            elif alignment.get("crop", None) is not None:
                 self.crop = dict(alignment["crop"].copy())
                 self.crop["vertical"][0] = int(self.crop["vertical"][0] / downsample)
                 self.crop["vertical"][1] = int(self.crop["vertical"][1] / downsample)
@@ -1137,10 +1408,16 @@ class HFDataset(DualDataset):
                 shape=lensless.shape,
                 return_float=True,
                 return_bg=True,
-                flip=rotate,
+                flip=self.rotate,
+                flip_ud=flipud,
                 bg_pix=(0, 15),
+                force_rgb=force_rgb,
+                single_psf=single_channel_psf,
             )
             self.psf = torch.from_numpy(psf)
+            if single_channel_psf:
+                # replicate across three channels
+                self.psf = self.psf.repeat(1, 1, 1, 3)
 
         elif "mask_label" in data_0:
             self.multimask = True
@@ -1163,10 +1440,11 @@ class HFDataset(DualDataset):
                     sensor=sensor,
                     slm=slm,
                     downsample=downsample_fact,
-                    flipud=rotate,
+                    flipud=self.rotate or flipud,  # TODO separate commands?
                     use_waveprop=simulation_config.get("use_waveprop", False),
                     scene2mask=simulation_config.get("scene2mask", None),
                     mask2sensor=simulation_config.get("mask2sensor", None),
+                    deadspace=simulation_config.get("deadspace", True),
                 )
                 self.psf[label] = mask.get_psf().detach()
 
@@ -1190,10 +1468,11 @@ class HFDataset(DualDataset):
                 sensor=sensor,
                 slm=slm,
                 downsample=downsample_fact,
-                flipud=rotate,
+                flipud=self.rotate or flipud,  # TODO separate commands?
                 use_waveprop=simulation_config.get("use_waveprop", False),
                 scene2mask=simulation_config.get("scene2mask", None),
                 mask2sensor=simulation_config.get("mask2sensor", None),
+                deadspace=simulation_config.get("deadspace", True),
             )
             self.psf = mask.get_psf().detach()
             assert (
@@ -1205,21 +1484,29 @@ class HFDataset(DualDataset):
                 save_image(self.psf.squeeze().cpu().numpy(), "psf.png")
 
         # create simulator
+        self.simulate_lensless = simulate_lensless
+        if simulate_lensless:
+            assert (
+                alignment is not None and alignment.get("simulation") is not None
+            ), "Need simulation parameters for lensless images"
         self.simulator = None
-        self.vertical_shift = None
-        self.horizontal_shift = None
         if alignment is not None and "simulation" in alignment:
             simulation_config = dict(alignment["simulation"].copy())
             simulation_config["output_dim"] = tuple(self.psf.shape[-3:-1])
+            if simulation_config.get("vertical_shift", None) is not None:
+                simulation_config["vertical_shift"] = int(
+                    simulation_config["vertical_shift"] / downsample
+                )
+            if simulation_config.get("horizontal_shift", None) is not None:
+                simulation_config["horizontal_shift"] = int(
+                    simulation_config["horizontal_shift"] / downsample
+                )
             simulator = FarFieldSimulator(
+                psf=self.psf if self.simulate_lensless else None,
                 is_torch=True,
                 **simulation_config,
             )
             self.simulator = simulator
-            if "vertical_shift" in simulation_config:
-                self.vertical_shift = int(simulation_config["vertical_shift"] / downsample)
-            if "horizontal_shift" in simulation_config:
-                self.horizontal_shift = int(simulation_config["horizontal_shift"] / downsample)
 
         super(HFDataset, self).__init__(**kwargs)
 
@@ -1231,6 +1518,21 @@ class HFDataset(DualDataset):
         # load image
         lensless_np = np.array(self.dataset[idx]["lensless"])
         lensed_np = np.array(self.dataset[idx]["lensed"])
+
+        if self.force_rgb:
+            if len(lensless_np.shape) == 2:
+                warnings.warn(f"Converting lensless[{idx}] to RGB")
+                lensless_np = np.stack([lensless_np] * 3, axis=2)
+            elif len(lensless_np.shape) == 3:
+                pass
+            else:
+                raise ValueError(f"lensless[{idx}] should be 2D or 3D")
+
+            if len(lensed_np.shape) == 2:
+                warnings.warn(f"Converting lensed[{idx}] to RGB")
+                lensed_np = np.stack([lensed_np] * 3, axis=2)
+            elif len(lensed_np.shape) == 3:
+                pass
 
         # convert to float
         if lensless_np.dtype == np.uint8:
@@ -1257,12 +1559,13 @@ class HFDataset(DualDataset):
 
             # project original image to lensed space
             with torch.no_grad():
-                lensed = self.simulator.propagate_image(lensed, return_object_plane=True)
 
-            if self.vertical_shift is not None:
-                lensed = torch.roll(lensed, self.vertical_shift, dims=-3)
-            if self.horizontal_shift is not None:
-                lensed = torch.roll(lensed, self.horizontal_shift, dims=-2)
+                if self.simulate_lensless:
+                    lensless, lensed = self.simulator.propagate_image(
+                        lensed, return_object_plane=True
+                    )
+                else:
+                    lensed = self.simulator.propagate_image(lensed, return_object_plane=True)
 
         elif self.alignment is not None:
             lensed = resize(
@@ -1285,23 +1588,128 @@ class HFDataset(DualDataset):
 
     def __getitem__(self, idx):
         lensless, lensed = super().__getitem__(idx)
-        if self.rotate:
-            lensless = torch.rot90(lensless, dims=(-3, -2), k=2)
+        if not self.simulate_lensless:
+            if self.rotate:
+                lensless = torch.rot90(lensless, dims=(-3, -2), k=2)
+            if self.flipud:
+                lensless = torch.flip(lensless, dims=(-3,))
 
-        # return corresponding PSF
+        if self.flip_lensed:
+            if self.rotate:
+                lensed = torch.rot90(lensed, dims=(-3, -2), k=2)
+            if self.flipud:
+                lensed = torch.flip(lensed, dims=(-3,))
+
         if self.multimask:
             mask_label = self.dataset[idx]["mask_label"]
 
+        flip_lr = False
+        flip_ud = False
+        if self.random_flip:
+            flip_lr = torch.rand(1) > 0.5
+            flip_ud = torch.rand(1) > 0.5
+
+            if self.multimask:
+                psf_aug = self.psf[mask_label].clone()
+            else:
+                psf_aug = self.psf.clone()
+
+            if flip_lr:
+                lensless = torch.flip(lensless, dims=(-2,))
+                lensed = torch.flip(lensed, dims=(-2,))
+                psf_aug = torch.flip(psf_aug, dims=(-2,))
+            if flip_ud:
+                lensless = torch.flip(lensless, dims=(-3,))
+                lensed = torch.flip(lensed, dims=(-3,))
+                psf_aug = torch.flip(psf_aug, dims=(-3,))
+
+        # return corresponding PSF
+        if self.multimask:
             if self.return_mask_label:
                 return lensless, lensed, mask_label
             else:
-                return lensless, lensed, self.psf[mask_label]
+                if not self.random_flip:
+                    return lensless, lensed, self.psf[mask_label]
+                else:
+                    return lensless, lensed, psf_aug, flip_lr, flip_ud
         else:
-            return lensless, lensed
+            if not self.random_flip:
+                return lensless, lensed
+            else:
+                return lensless, lensed, psf_aug, flip_lr, flip_ud
 
-    def extract_roi(self, reconstruction, lensed=None, axis=(1, 2)):
+    def extract_roi(
+        self,
+        reconstruction,
+        lensed=None,
+        axis=(1, 2),
+        flip_lr=None,
+        flip_ud=None,
+        rotate_aug=False,
+        shift_aug=None,
+    ):
+        """
+        Parameters
+        ----------
+        flip_lr : torch.Tensor, optional
+            Tensor of booleans indicating whether to flip the reconstruction left-right, by default None.
+        flip_ud : bool, optional
+            Tensor of booleans indicating whether to flip the reconstruction up-down, by default None.
+        """
         n_dim = len(reconstruction.shape)
         assert max(axis) < n_dim, "Axis should be within the dimensions of the reconstruction."
+
+        # add batch dimension
+        if n_dim == 3:
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction = reconstruction.unsqueeze(0)
+                if lensed is not None:
+                    lensed = lensed.unsqueeze(0)
+            else:
+                reconstruction = reconstruction[np.newaxis]
+                if lensed is not None:
+                    lensed = lensed[np.newaxis]
+            # increment axis
+            axis = (axis[0] + 1, axis[1] + 1)
+
+        # flip/rotate before alignment, as alignment parameters are assuming no flip/rotate
+        if flip_lr is not None:
+            flip_lr = flip_lr.squeeze().tolist()
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction[flip_lr] = torch.flip(reconstruction[flip_lr], dims=(axis[1],))
+                if lensed is not None:
+                    lensed[flip_lr] = torch.flip(lensed[flip_lr], dims=(axis[1],))
+            else:
+                reconstruction[flip_lr] = np.flip(reconstruction[flip_lr], axis=axis[1])
+                if lensed is not None:
+                    lensed[flip_lr] = np.flip(lensed[flip_lr], axis=axis[1])
+        if flip_ud is not None:
+            flip_ud = flip_ud.squeeze().tolist()
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction[flip_ud] = torch.flip(reconstruction[flip_ud], dims=(axis[0],))
+                if lensed is not None:
+                    lensed[flip_ud] = torch.flip(lensed[flip_ud], dims=(axis[0],))
+            else:
+                reconstruction[flip_ud] = np.flip(reconstruction[flip_ud], axis=axis[0])
+                if lensed is not None:
+                    lensed[flip_ud] = np.flip(lensed[flip_ud], axis=axis[0])
+        if rotate_aug:
+            assert isinstance(rotate_aug, float)
+            if isinstance(reconstruction, torch.Tensor):
+                assert axis == (-2, -1), "Only ...HW rotation is supported for torch.Tensor"
+                reconstruction = F.rotate(reconstruction, -rotate_aug, expand=False)
+                if lensed is not None:
+                    lensed = F.rotate(lensed, -rotate_aug, expand=False)
+            else:
+                reconstruction = rotate(reconstruction, angle=-rotate_aug, axes=axis, reshape=False)
+                if lensed is not None:
+                    lensed = rotate(lensed, angle=-rotate_aug, axes=axis, reshape=False)
+        if shift_aug is not None:
+            assert isinstance(shift_aug, tuple)
+            neg_shift = (-shift_aug[0], -shift_aug[1])
+            reconstruction = shift_with_pad(reconstruction, neg_shift, axis=axis)
+            if lensed is not None:
+                lensed = shift_with_pad(lensed, neg_shift, axis=axis)
 
         if self.alignment is not None:
             top_left = self.alignment["top_left"]
@@ -1316,9 +1724,9 @@ class HFDataset(DualDataset):
 
             # rotate if necessary
             angle = self.alignment.get("angle", 0)
-            if isinstance(reconstruction, torch.Tensor):
+            if isinstance(reconstruction, torch.Tensor) and angle:
                 reconstruction = F.rotate(reconstruction, angle, expand=False)
-            else:
+            elif angle:
                 reconstruction = rotate(reconstruction, angle, axes=axis, reshape=False)
 
         elif self.crop is not None:
@@ -1332,6 +1740,52 @@ class HFDataset(DualDataset):
             reconstruction = reconstruction[tuple(index)]
             if lensed is not None:
                 lensed = lensed[tuple(index)]
+
+        # flip/rotate back
+        if flip_lr is not None:
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction[flip_lr] = torch.flip(reconstruction[flip_lr], dims=(axis[1],))
+                if lensed is not None:
+                    lensed[flip_lr] = torch.flip(lensed[flip_lr], dims=(axis[1],))
+            else:
+                reconstruction[flip_lr] = np.flip(reconstruction[flip_lr], axis=axis[1])
+                if lensed is not None:
+                    lensed[flip_lr] = np.flip(lensed[flip_lr], axis=axis[1])
+        if flip_ud is not None:
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction[flip_ud] = torch.flip(reconstruction[flip_ud], dims=(axis[0],))
+                if lensed is not None:
+                    lensed[flip_ud] = torch.flip(lensed[flip_ud], dims=(axis[0],))
+            else:
+                reconstruction[flip_ud] = np.flip(reconstruction[flip_ud], axis=axis[0])
+                if lensed is not None:
+                    lensed[flip_ud] = np.flip(lensed[flip_ud], axis=axis[0])
+        if rotate_aug:
+            if isinstance(reconstruction, torch.Tensor):
+                assert axis == (-2, -1), "Only ...HW rotation is supported for torch.Tensor"
+                reconstruction = F.rotate(reconstruction, rotate_aug, expand=False)
+                if lensed is not None:
+                    lensed = F.rotate(lensed, rotate_aug, expand=False)
+            else:
+                reconstruction = rotate(reconstruction, angle=rotate_aug, axes=axis, reshape=False)
+                if lensed is not None:
+                    lensed = rotate(lensed, angle=rotate_aug, axes=axis, reshape=False)
+
+        if shift_aug is not None:
+            reconstruction = shift_with_pad(reconstruction, shift_aug, axis=axis)
+            if lensed is not None:
+                lensed = shift_with_pad(lensed, shift_aug, axis=axis)
+
+        # remove batch dimension
+        if n_dim == 3:
+            if isinstance(reconstruction, torch.Tensor):
+                reconstruction = reconstruction.squeeze(0)
+                if lensed is not None:
+                    lensed = lensed.squeeze(0)
+            else:
+                reconstruction = reconstruction[0]
+                if lensed is not None:
+                    lensed = lensed[0]
 
         if self.alignment is None and lensed is not None:
             return reconstruction, lensed

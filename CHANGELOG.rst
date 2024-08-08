@@ -15,6 +15,17 @@ Added
 
 - Option to pass background image to ``utils.io.load_data``.
 - Option to set image resolution with ``hardware.utils.display`` function.
+- Auxiliary of reconstructing output from pre-processor (not working).
+- Option to set focal range for MultiLensArray.
+- Optional to remove deadspace modelling for programmable mask.
+- Compensation branch for unrolled ADMM: https://ieeexplore.ieee.org/abstract/document/9546648
+- Multi-Wiener deconvolution network: https://opg.optica.org/oe/fulltext.cfm?uri=oe-31-23-39088&id=541387
+- Option to skip pre-processor and post-processor at inference time.
+- Option to set difference learning rate schedules, e.g. ADAMW, exponential decay, Cosine decay with warmup.
+- Various augmentations for training: random flipping, random rotate, and random shifts. Latter two don't work well since new regions appear that throw off PSF/LSI modeling.
+- HFSimulated object for simulating lensless data from ground-truth and PSF.
+- Option to set cache directory for Hugging Face datasets.
+- Option to initialize training with another model.
 
 Changed
 ~~~~~~~
@@ -24,7 +35,9 @@ Changed
 Bugfix
 ~~~~~~
 
-- Nothing
+- Computation of average metric in batches.
+- Support for grayscale PSF for RealFFTConvolve2D.
+- Calling model.eval() before inference, and model.train() before training.
 
 
 1.0.7 - (2024-05-14)

@@ -36,6 +36,7 @@ def benchmark(
     save_idx=None,
     output_dir=None,
     unrolled_output_factor=False,
+    pre_process_aux=False,
     return_average=True,
     snr=None,
     use_wandb=False,
@@ -86,16 +87,17 @@ def benchmark(
 
     if metrics is None:
         metrics = {
-            "MSE": MSELoss().to(device),
-            # "MAE": L1Loss().to(device),
+            "MSE": MSELoss(reduction="mean").to(device),
             "LPIPS_Vgg": lpip.LearnedPerceptualImagePatchSimilarity(
-                net_type="vgg", normalize=True
+                net_type="vgg", normalize=True, reduction="sum"
             ).to(device),
             # "LPIPS_Alex": lpip.LearnedPerceptualImagePatchSimilarity(
             #     net_type="alex", normalize=True
             # ).to(device),
-            "PSNR": psnr.PeakSignalNoiseRatio().to(device),
-            "SSIM": StructuralSimilarityIndexMeasure().to(device),
+            "PSNR": psnr.PeakSignalNoiseRatio(reduction=None, dim=(1, 2, 3), data_range=(0, 1)).to(
+                device
+            ),
+            "SSIM": StructuralSimilarityIndexMeasure(reduction=None, data_range=(0, 1)).to(device),
             "ReconstructionError": None,
         }
 
@@ -105,23 +107,40 @@ def benchmark(
         for key in output_metrics:
             if key != "ReconstructionError":
                 metrics_values[key + "_unrolled"] = []
+    if pre_process_aux:
+        metrics_values["ReconstructionError_PreProc"] = []
 
     # loop over batches
     dataloader = DataLoader(dataset, batch_size=batchsize, pin_memory=(device != "cpu"))
     model.reset()
     idx = 0
+    weights = []  # for averaging batches
     with torch.no_grad():
         for batch in tqdm(dataloader):
-            if hasattr(dataset, "multimask"):
-                if dataset.multimask:
-                    lensless, lensed, psfs = batch
-                    psfs = psfs.to(device)
-                else:
-                    lensless, lensed = batch
-                    psfs = None
+            weights.append(len(batch[0]))
+
+            flip_lr = None
+            flip_ud = None
+            if dataset.random_flip:
+                lensless, lensed, psfs, flip_lr, flip_ud = batch
+                psfs = psfs.to(device)
+            elif dataset.multimask:
+                lensless, lensed, psfs = batch
+                psfs = psfs.to(device)
             else:
                 lensless, lensed = batch
                 psfs = None
+
+            # if hasattr(dataset, "multimask"):
+            #     if dataset.multimask:
+            #         lensless, lensed, psfs = batch
+            #         psfs = psfs.to(device)
+            #     else:
+            #         lensless, lensed = batch
+            #         psfs = None
+            # else:
+            #     lensless, lensed = batch
+            #     psfs = None
 
             lensless = lensless.to(device)
             lensed = lensed.to(device)
@@ -137,14 +156,18 @@ def benchmark(
                     model._set_psf(psfs[0])
                 model.set_data(lensless)
                 prediction = model.apply(
-                    plot=False, save=False, output_intermediate=unrolled_output_factor, **kwargs
+                    plot=False,
+                    save=False,
+                    output_intermediate=unrolled_output_factor or pre_process_aux,
+                    **kwargs,
                 )
 
             else:
                 prediction = model.forward(lensless, psfs, **kwargs)
 
-            if unrolled_output_factor:
-                unrolled_out = prediction[-1]
+            if unrolled_output_factor or pre_process_aux:
+                pre_process_out = prediction[2]
+                unrolled_out = prediction[1]
                 prediction = prediction[0]
             prediction_original = prediction.clone()
 
@@ -154,13 +177,16 @@ def benchmark(
 
             if hasattr(dataset, "alignment"):
                 if dataset.alignment is not None:
-                    prediction = dataset.extract_roi(prediction, axis=(-2, -1))
+                    prediction = dataset.extract_roi(
+                        prediction, axis=(-2, -1), flip_lr=flip_lr, flip_ud=flip_ud
+                    )
                 else:
                     prediction, lensed = dataset.extract_roi(
-                        prediction, axis=(-2, -1), lensed=lensed
+                        prediction, axis=(-2, -1), lensed=lensed, flip_lr=flip_lr, flip_ud=flip_ud
                     )
                 assert np.all(lensed.shape == prediction.shape)
             elif crop is not None:
+                assert flip_lr is None and flip_ud is None
                 prediction = prediction[
                     ...,
                     crop["vertical"][0] : crop["vertical"][1],
@@ -202,13 +228,9 @@ def benchmark(
             # compute metrics
             for metric in metrics:
                 if metric == "ReconstructionError":
-                    metrics_values[metric].append(
-                        model.reconstruction_error(
-                            prediction=prediction_original, lensless=lensless
-                        )
-                        .cpu()
-                        .item()
-                    )
+                    metrics_values[metric] += model.reconstruction_error(
+                        prediction=prediction_original, lensless=lensless
+                    ).tolist()
                 else:
                     try:
                         if "LPIPS" in metric:
@@ -225,10 +247,16 @@ def benchmark(
                                 metrics_values[metric].append(
                                     metrics[metric](prediction, lensed).cpu().item()
                                 )
-                        else:
+                        elif metric == "MSE":
                             metrics_values[metric].append(
-                                metrics[metric](prediction, lensed).cpu().item()
+                                metrics[metric](prediction, lensed).cpu().item() * len(batch[0])
                             )
+                        else:
+                            vals = metrics[metric](prediction, lensed).cpu()
+                            if hasattr(vals.tolist(), "__len__"):
+                                metrics_values[metric] += vals.tolist()
+                            else:
+                                metrics_values[metric].append(vals.item())
                     except Exception as e:
                         print(f"Error in metric {metric}: {e}")
 
@@ -239,7 +267,17 @@ def benchmark(
                 unrolled_out = unrolled_out.reshape(-1, *unrolled_out.shape[-3:]).movedim(-1, -3)
 
                 # -- extraction region of interest
-                if crop is not None:
+                if hasattr(dataset, "alignment"):
+                    if dataset.alignment is not None:
+                        unrolled_out = dataset.extract_roi(unrolled_out, axis=(-2, -1))
+                    else:
+                        unrolled_out = dataset.extract_roi(
+                            unrolled_out,
+                            axis=(-2, -1),
+                            # lensed=lensed   # lensed already extracted before
+                        )
+                    assert np.all(lensed.shape == unrolled_out.shape)
+                elif crop is not None:
                     unrolled_out = unrolled_out[
                         ...,
                         crop["vertical"][0] : crop["vertical"][1],
@@ -260,7 +298,7 @@ def benchmark(
                         if "LPIPS" in metric:
                             if unrolled_out.shape[1] == 1:
                                 # LPIPS needs 3 channels
-                                metrics_values[metric].append(
+                                metrics_values[metric + "_unrolled"].append(
                                     metrics[metric](
                                         unrolled_out.repeat(1, 3, 1, 1), lensed.repeat(1, 3, 1, 1)
                                     )
@@ -271,18 +309,34 @@ def benchmark(
                                 metrics_values[metric + "_unrolled"].append(
                                     metrics[metric](unrolled_out, lensed).cpu().item()
                                 )
-                        else:
+                        elif metric == "MSE":
                             metrics_values[metric + "_unrolled"].append(
-                                metrics[metric](unrolled_out, lensed).cpu().item()
+                                metrics[metric](unrolled_out, lensed).cpu().item() * len(batch[0])
                             )
+                        else:
+                            vals = metrics[metric](unrolled_out, lensed).cpu()
+                            if hasattr(vals.tolist(), "__len__"):
+                                metrics_values[metric + "_unrolled"] += vals.tolist()
+                            else:
+                                metrics_values[metric + "_unrolled"].append(vals.item())
+
+            # compute metrics for pre-processed output
+            if pre_process_aux:
+                metrics_values["ReconstructionError_PreProc"] += model.reconstruction_error(
+                    prediction=prediction_original, lensless=pre_process_out
+                ).tolist()
 
             model.reset()
             idx += batchsize
 
     # average metrics
     if return_average:
-        for metric in metrics:
-            metrics_values[metric] = np.mean(metrics_values[metric])
+        for metric in metrics_values.keys():
+            if "MSE" in metric or "LPIPS" in metric:
+                # differently because metrics are grouped into bathces
+                metrics_values[metric] = np.sum(metrics_values[metric]) / len(dataset)
+            else:
+                metrics_values[metric] = np.mean(metrics_values[metric])
 
     return metrics_values
 

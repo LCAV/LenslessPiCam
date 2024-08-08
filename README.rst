@@ -44,7 +44,7 @@ The toolkit includes:
 * Camera assembly tutorials (`link <https://lensless.readthedocs.io/en/latest/building.html>`__).
 * Measurement scripts (`link <https://lensless.readthedocs.io/en/latest/measurement.html>`__).
 * Dataset preparation and loading tools, with `Hugging Face <https://huggingface.co/bezzam>`__ integration (`slides <https://docs.google.com/presentation/d/18h7jTcp20jeoiF8dJIEcc7wHgjpgFgVxZ_bJ04W55lg/edit?usp=sharing>`__ on uploading a dataset to Hugging Face with `this script <https://github.com/LCAV/LenslessPiCam/blob/main/scripts/data/upload_dataset_huggingface.py>`__).
-* `Reconstruction algorithms <https://lensless.readthedocs.io/en/latest/reconstruction.html>`__ (e.g. FISTA, ADMM, unrolled algorithms, trainable inversion, pre- and post-processors).
+* `Reconstruction algorithms <https://lensless.readthedocs.io/en/latest/reconstruction.html>`__ (e.g. FISTA, ADMM, unrolled algorithms, trainable inversion, , multi-Wiener deconvolution network, pre- and post-processors).
 * `Training script <https://github.com/LCAV/LenslessPiCam/blob/main/scripts/recon/train_learning_based.py>`__ for learning-based reconstruction.
 * `Pre-trained models <https://github.com/LCAV/LenslessPiCam/blob/main/lensless/recon/model_dict.py>`__ that can be loaded from `Hugging Face <https://huggingface.co/bezzam>`__, for example in `this script <https://github.com/LCAV/LenslessPiCam/blob/main/scripts/recon/diffusercam_mirflickr.py>`__.
 * Mask `design <https://lensless.readthedocs.io/en/latest/mask.html>`__ and `fabrication <https://lensless.readthedocs.io/en/latest/fabrication.html>`__ tools.

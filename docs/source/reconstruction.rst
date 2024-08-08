@@ -90,6 +90,22 @@
       :special-members: __init__
       :show-inheritance:
 
+   Trainable Inversion
+   ~~~~~~~~~~~~~~~~~~~
+
+   .. autoclass:: lensless.TrainableInversion
+      :members: forward
+      :special-members: __init__
+      :show-inheritance:
+
+   Multi-Wiener Deconvolution Network
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   .. autoclass:: lensless.MultiWiener
+      :members: forward
+      :special-members: __init__
+      :show-inheritance:
+
 
    Reconstruction Utilities
    ------------------------

@@ -8,9 +8,12 @@ rpi:
   hostname: null
 
 # mask parameters
+psf: null   # if not provided, simulate with parameters below
 mask:
   fp: null  # provide path, otherwise generate with seed
-  seed: 1
+  seed: 0
+  # defaults to configuration used for this dataset: https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-SingleMask-25K
+  # ie this config: configs/collect_mirflickr_singlemask.yaml
   shape: [54, 26]
   center: [57, 77]
 
@@ -38,3 +41,10 @@ capture:
 recon:
   torch_device: 'cpu'
   n_iter: 100    # number of iterations of ADMM
+
+simulation:
+  use_waveprop: True
+  deadspace: True
+  scene2mask: 0.3
+  mask2sensor: 0.002
+  gamma: null    # just for saving

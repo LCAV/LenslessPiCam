@@ -3,19 +3,41 @@ defaults:
   - defaults_recon
   - _self_
 
-# - Learned reconstructions: see "lensless/recon/model_dict.py"
-# model: U10  
-# model: Unet8M
-# model: TrainInv+Unet8M
-# model: U10+Unet8M
-# model: Unet4M+TrainInv+Unet4M
-# model: Unet4M+U10+Unet4M
+cache_dir: /dev/shm
 
-# -- for ADMM with fixed parameters
-model: admm
-n_iter: 10
+# fn: null  # if not null, download this file from https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-SingleMask-25K/tree/main
+# fn: raw_box.png 
+# rotate: False
+# alignment:
+#   dim: [190, 260]
+#   top_left: [145, 130]
+
+fn: raw_stuffed_animals.png     
+rotate: False
+alignment:
+  dim: [200, 280]
+  top_left: [115, 120]
+
+
+# - Learned reconstructions: see "lensless/recon/model_dict.py"
+# --- dataset: mirflickr_single_25k
+# model: TrainInv+Unet8M_wave
+# model: MMCN4M+Unet4M_wave
+# model: MWDN8M_wave
+# model: U5+Unet8M_wave
+# model: Unet4M+TrainInv+Unet4M_wave
+# model: Unet2M+MMCN+Unet2M_wave
+# model: Unet4M+U5+Unet4M_wave
+# model: Unet4M+U10+Unet4M_wave
+
+# --- dataset: mirflickr_multi_25k
+model: Unet4M+U5+Unet4M_wave
+
+# # -- for ADMM with fixed parameters
+# model: admm
+# n_iter: 100
 
 device: cuda:0
-n_trials: 100   # more if you want to get average inference time
+n_trials: 1   # to get average inference time
 idx: 1    # index from test set to reconstruct
 save: True
