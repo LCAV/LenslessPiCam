@@ -121,29 +121,16 @@ def benchmark(
 
             flip_lr = None
             flip_ud = None
-            if dataset.random_flip:
-                lensless, lensed, psfs, flip_lr, flip_ud = batch
-                psfs = psfs.to(device)
-            elif dataset.multimask:
-                lensless, lensed, psfs = batch
+            lensless = batch[0].to(device)
+            lensed = batch[1].to(device)
+            if dataset.multimask or dataset.random_flip:
+                psfs = batch[2]
                 psfs = psfs.to(device)
             else:
-                lensless, lensed = batch
                 psfs = None
-
-            # if hasattr(dataset, "multimask"):
-            #     if dataset.multimask:
-            #         lensless, lensed, psfs = batch
-            #         psfs = psfs.to(device)
-            #     else:
-            #         lensless, lensed = batch
-            #         psfs = None
-            # else:
-            #     lensless, lensed = batch
-            #     psfs = None
-
-            lensless = lensless.to(device)
-            lensed = lensed.to(device)
+            if dataset.random_flip:
+                flip_lr = batch[3]
+                flip_ud = batch[4]
 
             # add shot noise
             if snr is not None:
