@@ -2,6 +2,8 @@
 token: null
 whitelist: []
 idle: False     # run without processing commands
+time_offset: 7200  # offset in seconds to correct for time difference
+setup_fp: null
 
 # usernames and IP address
 rpi_username: null
@@ -25,12 +27,16 @@ psf:
 #   fp: data/psf/tape_rgb_31032023.png
 #   # fp: data/psf/tape_rgb.png  # wrong
 #   downsample: 4
+gamma: 1.5  # for plotting PSF
 
 # which hydra config to use and available algos
 config_name: demo
 default_algo: admm   # note that unrolled requires GPU
 # supported_algos: ["fista", "admm", "unrolled"]
 supported_algos: ["fista", "admm"]
+
+# images: https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Foriginal
+supported_inputs: ["mnist", "thumb", "face", "tree"]
 
 
 # overlaying logos on the reconstruction
@@ -49,3 +55,22 @@ overlay:
     fp: data/original/epfl_white.png
     scaling: 0.23
     position: [374,75]
+
+
+files:
+  mnist:
+    fp: data/original/mnist_3.png
+    exposure: 0.05
+    brightness: 100
+  thumb: 
+    fp: data/original/thumbs_up.png
+    exposure: 0.04
+    brightness: 80
+  face:
+    fp: data/original/face.jpg
+    exposure: 0.02
+    brightness: 80
+  tree:
+    fp: data/original/tree.png
+    exposure: 0.08
+    brightness: 100

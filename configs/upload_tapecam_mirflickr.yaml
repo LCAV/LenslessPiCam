@@ -1,0 +1,21 @@
+# python scripts/data/upload_dataset_huggingface.py -cn upload_tapecam_mirflickr
+defaults:
+  - upload_dataset_huggingface
+  - _self_
+
+repo_id: "bezzam/TapeCam-Mirflickr-25K"
+n_files: 25000
+test_size: 0.15
+multimask: False
+split: 100   # "first: first `nfiles*test_size` for test, `int`: test_size*split for test (interleaved) as if multimask with this many masks
+
+lensless:
+  dir: "/dev/shm/TEST/all_measured_20240527-185211"
+  ext: ".png"
+
+lensed:
+  dir: "/dev/shm/mirflickr"
+  ext: ".jpg"
+
+files:
+  psf: /root/LenslessPiCam/tape_rgb_may27.png

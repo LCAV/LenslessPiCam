@@ -8,9 +8,13 @@ display:
   psf: 10
 
 capture:
-  exp: 1.8
-  down: 4
-  gray: True
-  awb_gains: [1.15,1.05]
+  exp: 1
+  gray: False
+  awb_gains: [2.0, 1.1]
   nbits_out: 8
   nbits: 8
+  legacy: False
+  rgb: False
+
+  bayer: False
+  down: 4

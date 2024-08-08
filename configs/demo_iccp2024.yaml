@@ -1,0 +1,37 @@
+defaults:
+  - demo
+  - _self_
+
+  
+gamma: 1  # for plotting PSF
+
+display:
+  image_res: [700, 700]
+  vshift: -20
+
+capture:
+  legacy: False
+  bayer: False
+  rgb: False
+  down: 4
+  awb_gains: [2.0, 1.1]
+
+recon:
+  gamma: null
+  downsample: 4
+  dtype: float32
+  use_torch: True
+  torch_device: cuda:3
+  algo: admm
+
+  fista:
+    n_iter: 300
+
+  admm:
+    n_iter: 10
+
+postproc:
+  # crop in percent to extract region of interest
+  # set to null to skip
+  crop_hor: [0.3, 0.7]
+  crop_vert: [0.22, 0.67]
