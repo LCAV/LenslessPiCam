@@ -1,5 +1,10 @@
 """
 This script is used to export the .mat paf from https://github.com/Waller-Lab/DiffuserCam/tree/master/example_data
+
+Run script with following command (with correct path to .mat file):
+```bash
+python scripts/data/3d/mat_to_npy.py data/example_psfs.mat
+```
 """
 
 import sys

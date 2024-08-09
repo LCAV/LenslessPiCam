@@ -304,7 +304,10 @@ def load_psf(
         )
 
     original_dtype = psf.dtype
-    max_val = get_max_val(psf)
+    if original_dtype in [np.float32, np.float64]:
+        max_val = 1
+    else:
+        max_val = get_max_val(psf)
     psf = np.array(psf, dtype=dtype)
 
     if force_rgb:

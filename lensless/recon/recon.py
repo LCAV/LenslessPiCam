@@ -140,9 +140,13 @@ For both the simulated data and the data from Waller Lab, it is best to set ``do
 
 .. code:: bash
 
-    python scripts/recon/gradient_descent.py \\
-    input.psf="path/to/3D/psf.npy" \\
-    input.data="path/to/lensless/data.tiff" \\
+    # after downloading data from Waller lab and putting in "data" folder
+    python scripts/data/3d/mat_to_npy.py data/example_psfs.mat
+
+    # reconstruct
+    python scripts/recon/gradient_descent.py \
+    "input.psf=psf.npy" \
+    "input.data=data/example_raw.png" \
     preprocess.downsample=1
 
 
@@ -253,7 +257,6 @@ class ReconstructionAlgorithm(abc.ABC):
             self.is_torch = isinstance(psf, torch.Tensor)
 
         assert len(psf.shape) == 4, "PSF must be 4D: (depth, height, width, channels)."
-        assert psf.shape[3] == 3 or psf.shape[3] == 1, "PSF must either be rgb (3) or grayscale (1)"
         self._psf = psf
         self._npix = np.prod(self._psf.shape)
         self._n_iter = n_iter
@@ -454,9 +457,6 @@ class ReconstructionAlgorithm(abc.ABC):
         psf : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
             PSF to set.
         """
-        assert (
-            psf.shape[-1] == 3 or psf.shape[-1] == 1
-        ), "PSF must either be rgb (3) or grayscale (1)"
         assert self._psf.shape == psf.shape, "new PSF must have same shape as old PSF"
         assert isinstance(psf, type(self._psf)), "new PSF must have same type as old PSF"
 
