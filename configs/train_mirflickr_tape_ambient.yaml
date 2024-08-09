@@ -13,5 +13,5 @@ files:
 
 alignment:
   # when there is no downsampling
-  top_left: [80, 180]  # height, width
-  height: 190
+  top_left: [85, 185]  # height, width
+  height: 178
