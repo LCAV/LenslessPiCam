@@ -613,6 +613,10 @@ class Trainer:
         self.train_random_flip = train_dataset.random_flip
         self.random_rotate = random_rotate
         self.random_shift = random_shift
+        if hasattr(train_dataset, "measured_bg"):
+            self.background = train_dataset.measured_bg
+        else:
+            self.background = False
         if self.random_shift:
             raise NotImplementedError("Random shift not implemented yet.")
 
@@ -882,7 +886,10 @@ class Trainer:
                 X, y, psfs = batch
                 psfs = psfs.to(self.device)
             else:
-                X, y = batch
+                if self.background:
+                    X, y, background = batch
+                else:
+                    X, y = batch
                 psfs = None
 
             random_rotate = False
@@ -907,7 +914,7 @@ class Trainer:
 
             # forward pass
             # torch.autograd.set_detect_anomaly(True)    # for debugging
-            y_pred = self.recon.forward(batch=X, psfs=psfs)
+            y_pred = self.recon.forward(batch=X.unsqueeze(1), psfs=psfs)
             if self.unrolled_output_factor or self.pre_proc_aux:
                 y_pred, camera_inv_out, pre_proc_out = y_pred[0], y_pred[1], y_pred[2]
 
