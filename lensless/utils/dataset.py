@@ -1547,6 +1547,7 @@ class HFDataset(Dataset):
         lensless_np = np.array(self.dataset[idx]["lensless"])
         lensed_np = np.array(self.dataset[idx]["lensed"])
         background_np = np.array(self.dataset[idx]["ambient"]) if self.measured_bg else None
+        
         if self.force_rgb:
             if len(lensless_np.shape) == 2:
                 warnings.warn(f"Converting lensless[{idx}] to RGB")
@@ -1618,15 +1619,6 @@ class HFDataset(Dataset):
                 lensed_np,
                 shape=(self.alignment["height"], self.alignment["width"], 3),
                 interpolation=cv2.INTER_NEAREST,
-            )
-            background = (
-                resize(
-                    background_np,
-                    shape=(self.alignment["height"], self.alignment["width"], 3),
-                    interpolation=cv2.INTER_NEAREST,
-                )
-                if not None
-                else None
             )
         elif self.display_res is not None:
             lensed = resize(

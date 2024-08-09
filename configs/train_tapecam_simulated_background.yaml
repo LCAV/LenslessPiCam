@@ -1,4 +1,4 @@
-# python scripts/recon/train_learning_based.py -cn train_mirflickr_tape
+# python scripts/recon/train_learning_based.py -cn train_tapecam_simulated_background
 defaults:
   - train_mirflickr_tape
   - _self_

@@ -341,7 +341,7 @@ def train_learned(config):
                 return_items = test_set[_idx]
                 lensless = return_items[0]
                 lensed = return_items[1]
-                if test_set.bg_sim is not None:
+                if test_set.bg_sim is not None or test_set.measured_bg:
                     background = return_items[-1]
                 if test_set.multimask or test_set.random_flip:
                     psf_recon = return_items[2]
@@ -397,7 +397,7 @@ def train_learned(config):
                 )
                 save_image(lensed[0].cpu().numpy(), f"lensed_{_idx}.png")
                 # save_image(lensed, f"lensed_{_idx}.png")
-                if test_set.bg_sim is not None:
+                if test_set.bg_sim is not None or test_set.measured_bg:
                     # Reconstruct and plot background subtracted image
                     reconstruct_save(
                         _idx,
