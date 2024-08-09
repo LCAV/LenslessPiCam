@@ -9,5 +9,6 @@ device_ids:
 
 # Dataset
 files:
-  background_fp: ""
+  dataset: Lensless/TapeCam-Mirflickr-Ambient
+  background_fp:
   background_snr_range: [0,0]

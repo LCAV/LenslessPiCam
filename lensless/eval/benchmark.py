@@ -150,6 +150,7 @@ def benchmark(
                 )
 
             else:
+                lensless = lensless.unsqueeze(1)
                 prediction = model.forward(lensless, psfs, **kwargs)
 
             if unrolled_output_factor or pre_process_aux:
