@@ -395,8 +395,8 @@ def train_learned(config):
                     rotate_angle,
                     shift,
                 )
-                # save_image(lensed[0].cpu().numpy(), f"lensed_{_idx}.png")
-                save_image(lensed, f"lensed_{_idx}.png")
+                save_image(lensed[0].cpu().numpy(), f"lensed_{_idx}.png")
+                # save_image(lensed, f"lensed_{_idx}.png")
                 if test_set.bg_sim is not None:
                     # Reconstruct and plot background subtracted image
                     reconstruct_save(
@@ -660,14 +660,14 @@ def reconstruct_save(
 ):
     recon = ADMM(psf_recon)
 
-    #    recon.set_data(lensless.to(psf_recon.device))
-    recon.set_data(torch.from_numpy(lensless).to(psf_recon.device))
+    recon.set_data(lensless.to(psf_recon.device))
+    # recon.set_data(torch.from_numpy(lensless).to(psf_recon.device))
     res = recon.apply(disp_iter=None, plot=False, n_iter=10)
     res_np = res[0].cpu().numpy()
     res_np = res_np / res_np.max()
     lensed_np = lensed[0]  # .cpu().numpy()
 
-    lensless_np = lensless  # [0]#.cpu().numpy()
+    lensless_np = lensless.cpu().numpy()  # [0]#.cpu().numpy()
     save_image(lensless_np, f"lensless_raw_{_idx}.png")
 
     # -- plot lensed and res on top of each other

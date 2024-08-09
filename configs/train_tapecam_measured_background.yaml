@@ -1,0 +1,19 @@
+# python scripts/recon/train_learning_based.py -cn train_mirflickr_tape
+defaults:
+  - train_mirflickr_tape
+  - _self_
+
+wandb_project:
+device_ids:
+
+
+# Dataset
+files:
+  dataset: Lensless/TapeCam-Mirflickr-Ambient
+  background_snr_range: [0,0]
+  image_res: [507, 380]
+
+alignment:
+  # when there is no downsampling
+  top_left: [45, 95]  # height, width
+  height: 250

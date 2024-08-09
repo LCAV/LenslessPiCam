@@ -1276,7 +1276,6 @@ class HFDataset(DualDataset):
         flip_lensed=False,
         downsample=1,
         downsample_lensed=1,
-        downsample_background=1,
         display_res=None,
         sensor="rpi_hq",
         slm="adafruit",
@@ -1310,8 +1309,6 @@ class HFDataset(DualDataset):
             If True, lensless images and PSF are rotated 180 degrees. Lensed/original image is not rotated! By default False.
         downsample : float, optional
             Downsample factor of the lensless images, by default 1.
-        downsample : float, optional
-            Downsample factor of the background images, by default 1.
         downsample_lensed : float, optional
             Downsample factor of the lensed images, by default 1.
         display_res : tuple, optional
@@ -1362,7 +1359,6 @@ class HFDataset(DualDataset):
         data_0 = self.dataset[0]
         self.downsample_lensless = downsample
         self.downsample_lensed = downsample_lensed
-        self.downsample_background = downsample_background
         lensless = np.array(data_0["lensless"])
         if "ambient" in data_0.keys():
             self.measured_bg = True
@@ -1593,7 +1589,7 @@ class HFDataset(DualDataset):
             background_np = (
                 resize(
                     background_np,
-                    factor=1 / self.downsample_background,
+                    factor=1 / self.downsample,
                     interpolation=cv2.INTER_NEAREST,
                 )
                 if not None
@@ -1638,32 +1634,18 @@ class HFDataset(DualDataset):
             lensed = resize(
                 lensed_np, shape=(*self.display_res, 3), interpolation=cv2.INTER_NEAREST
             )
-            background = (
-                resize(background_np, shape=(*self.display_res, 3), interpolation=cv2.INTER_NEAREST)
-                if not None
-                else None
-            )
         elif self.downsample_lensed != 1.0:
             lensed = resize(
                 lensed_np,
                 factor=1 / self.downsample_lensed,
                 interpolation=cv2.INTER_NEAREST,
             )
-            background = (
-                resize(
-                    background_np,
-                    factor=1 / self.downsample_lensed,
-                    interpolation=cv2.INTER_NEAREST,
-                )
-                if not None
-                else None
-            )
 
         return lensless, lensed, background if background is not None else None
 
     def __getitem__(self, idx):
         lensless, lensed, background = self._get_images_pair(idx)
-        if not self.simulate_lensless:  # TODO apply transformation to bg as well?
+        if not self.simulate_lensless:
             if self.rotate:
                 lensless = torch.rot90(lensless, dims=(-3, -2), k=2)
             if self.flipud:
@@ -1732,7 +1714,6 @@ class HFDataset(DualDataset):
         # If measured background available in the dataset return it
         elif self.measured_bg:
             return_items.append(background)
-        # TODO push data to gpu in the training loop and hvae a flag that for the simple subtraction does that without pushing the bg to the gpu
         return return_items
 
     def extract_roi(
