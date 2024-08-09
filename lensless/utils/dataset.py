@@ -1547,7 +1547,7 @@ class HFDataset(Dataset):
         lensless_np = np.array(self.dataset[idx]["lensless"])
         lensed_np = np.array(self.dataset[idx]["lensed"])
         background_np = np.array(self.dataset[idx]["ambient"]) if self.measured_bg else None
-        
+
         if self.force_rgb:
             if len(lensless_np.shape) == 2:
                 warnings.warn(f"Converting lensless[{idx}] to RGB")
