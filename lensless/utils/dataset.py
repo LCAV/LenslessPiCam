@@ -1264,7 +1264,7 @@ class HFSimulated(DualDataset):
         return reconstruction, lensed
 
 
-class HFDataset(DualDataset):
+class HFDataset(Dataset):
     def __init__(
         self,
         huggingface_repo,
@@ -1538,8 +1538,6 @@ class HFDataset(DualDataset):
             self.bg_snr_range = None
             self.background_var = None
 
-        super(HFDataset, self).__init__(**kwargs)
-
     def __len__(self):
         return len(self.dataset)
 
@@ -1644,8 +1642,22 @@ class HFDataset(DualDataset):
         return lensless, lensed, background if background is not None else None
 
     def __getitem__(self, idx):
+
         lensless, lensed, background = self._get_images_pair(idx)
-        if not self.simulate_lensless:
+
+        # to torch
+        lensless = torch.from_numpy(lensless)
+        lensed = torch.from_numpy(lensed)
+        background = torch.from_numpy(background) if not None else None
+        # If [H, W, C] -> [D, H, W, C]
+        if len(lensless.shape) == 3:
+            lensless = lensless.unsqueeze(0)
+        if len(lensed.shape) == 3:
+            lensed = lensed.unsqueeze(0)
+        if background is not None and len(background.shape) == 3:
+            background = background.unsqueeze(0)
+
+        if not self.simulate_lensless:  # TODO apply transformation to bg as well?
             if self.rotate:
                 lensless = torch.rot90(lensless, dims=(-3, -2), k=2)
             if self.flipud:
