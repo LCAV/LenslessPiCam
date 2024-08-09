@@ -24,7 +24,7 @@ except ImportError:
 
 
 class RealFFTConvolve2D:
-    def __init__(self, psf, dtype=None, pad=True, norm="ortho", rgb=None, **kwargs):
+    def __init__(self, psf, dtype=None, pad=True, norm="ortho", n_channels=None, **kwargs):
         """
         Linear operator that performs convolution in Fourier domain, and assumes
         real-valued signals.
@@ -44,23 +44,24 @@ class RealFFTConvolve2D:
             Defaults to True.
         norm : str, optional
             Normalization to use for FFT. Defaults to 'ortho'.
+        n_channels : int, optional
+            Number of channels for convolver. If None, will be inferred from PSF.
         """
 
         self.is_torch = False
         if torch_available and isinstance(psf, torch.Tensor):
             self.is_torch = True
 
-        # prepare shapes for reconstruction
-
+        # check / determine shapes
         assert (
             len(psf.shape) >= 4
         ), "Expected 4D PSF of shape ([batch], depth, width, height, channels)"
         self._use_3d = psf.shape[-4] != 1
-        if rgb is None:
-            self._is_rgb = psf.shape[-1] == 3
+        if n_channels is None:
+            self._n_channels = psf.shape[-1]
         else:
-            self._is_rgb = rgb
-        assert self._is_rgb or psf.shape[-1] == 1
+            self._n_channels = n_channels
+            assert psf.shape[-1] == n_channels or psf.shape[-1] == 1
 
         # save normalization
         self.norm = norm
@@ -110,9 +111,7 @@ class RealFFTConvolve2D:
         # cropping / padding indexes
         self._padded_shape = 2 * self._psf_shape[-3:-1] - 1
         self._padded_shape = np.array([next_fast_len(i) for i in self._padded_shape])
-        self._padded_shape = list(
-            np.r_[self._psf_shape[-4], self._padded_shape, 3 if self._is_rgb else 1]
-        )
+        self._padded_shape = list(np.r_[self._psf_shape[-4], self._padded_shape, self._n_channels])
         self._start_idx = (self._padded_shape[-3:-1] - self._psf_shape[-3:-1]) // 2
         self._end_idx = self._start_idx + self._psf_shape[-3:-1]
 

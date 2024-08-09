@@ -161,7 +161,7 @@ class MultiWiener(nn.Module):
             self._psf, (self.left, self.right, self.top, self.bottom), mode="constant", value=0
         )
         self._n_iter = 1
-        self._convolver = RealFFTConvolve2D(psf, pad=True, rgb=True if out_channels == 3 else False)
+        self._convolver = RealFFTConvolve2D(psf, pad=True, n_channels=out_channels)
 
         self.set_pre_process(pre_process)
         self.skip_pre = skip_pre
