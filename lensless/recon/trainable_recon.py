@@ -58,6 +58,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         legacy_denoiser=False,
         compensation=None,
         compensation_residual=True,
+        direct_background_subtraction=False,
         **kwargs,
     ):
         """
@@ -104,6 +105,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         self.skip_unrolled = skip_unrolled
         self.skip_pre = skip_pre
         self.skip_post = skip_post
+        self.direct_background_subtraction = direct_background_subtraction
         self.return_intermediate = return_intermediate
         self.compensation_branch = compensation
         if compensation is not None:
@@ -216,7 +218,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             for param in self.post_process_model.parameters():
                 param.requires_grad = True
 
-    def forward(self, batch, psfs=None):
+    def forward(self, batch, psfs=None, background=None):
         """
         Method for performing iterative reconstruction on a batch of images.
         This implementation is a properly vectorized implementation of FISTA.
@@ -236,6 +238,12 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         self._data = batch
         assert len(self._data.shape) == 5, "batch must be of shape (N, D, C, H, W)"
         batch_size = batch.shape[0]
+
+        if self.direct_background_subtraction:
+            assert (
+                background is not None
+            ), "If direct_background_subtraction is True, background must be defined."
+            self._data = self._data - background
 
         if psfs is not None:
             # assert same shape

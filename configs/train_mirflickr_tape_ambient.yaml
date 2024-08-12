@@ -11,7 +11,14 @@ files:
   dataset: Lensless/TapeCam-Mirflickr-Ambient
   image_res: [600, 600]
 
+reconstruction:
+  direct_background_subtraction: True
+
 alignment:
   # when there is no downsampling
   top_left: [85, 185]  # height, width
   height: 178
+
+optimizer:
+  type: AdamW
+  cosine_decay_warmup: True

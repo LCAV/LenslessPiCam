@@ -879,18 +879,18 @@ class Trainer:
             # get batch
             flip_lr = None
             flip_ud = None
-            if self.train_random_flip:
-                X, y, psfs, flip_lr, flip_ud = batch
-                psfs = psfs.to(self.device)
-            elif self.train_multimask:
-                X, y, psfs = batch
-                psfs = psfs.to(self.device)
+            background = None
+            X = batch[0].to(self.device)
+            y = batch[1].to(self.device)
+            if self.background:
+                background = batch[-1].to(self.device)
+            if self.train_random_flip or self.train_multimask:
+                psfs = batch[2].to(self.device)
             else:
-                if self.background:
-                    X, y, background = batch
-                else:
-                    X, y = batch
                 psfs = None
+            if self.train_random_flip:
+                flip_lr = batch[3]
+                flip_ud = batch[4]
 
             random_rotate = False
             if self.random_rotate:
@@ -904,17 +904,13 @@ class Trainer:
                 else:
                     psfs = rotate_HWC(psfs, random_rotate)
 
-            # send to device
-            X = X.to(self.device)
-            y = y.to(self.device)
-
             # update psf according to mask
             if self.use_mask:
                 self.recon._set_psf(self.mask.get_psf().to(self.device))
 
             # forward pass
             # torch.autograd.set_detect_anomaly(True)    # for debugging
-            y_pred = self.recon.forward(batch=X.unsqueeze(1), psfs=psfs)
+            y_pred = self.recon.forward(batch=X, psfs=psfs, background=background)
             if self.unrolled_output_factor or self.pre_proc_aux:
                 y_pred, camera_inv_out, pre_proc_out = y_pred[0], y_pred[1], y_pred[2]
 

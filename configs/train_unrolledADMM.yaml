@@ -90,6 +90,9 @@ reconstruction:
   init_pre: True   # if `init_processors`, set pre-procesor is available
   init_post: True   # if `init_processors`, set post-procesor is available
 
+  # background subtraction (if dataset has corresponding background images)
+  direct_background_subtraction: False
+
   # Hyperparameters for each method
   unrolled_fista: # for unrolled_fista
     # Number of iterations

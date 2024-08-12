@@ -1330,9 +1330,9 @@ class HFDataset(Dataset):
         simulation_config : dict, optional
             Simulation parameters for PSF if using a mask pattern.
         bg_snr_range : list, optional
-            List [low, high] of range of possible SNRs for which to add the background. Used in conjunction with 'bg'
+            List [low, high] of range of possible SNRs for which to add the background. Used in conjunction with 'bg'.
         bg_fp : string, optional
-            File path of background to add to the data for simulating a measurement in ambient light
+            File path of background to add to the data for simulating a measurement in ambient light.
 
         """
 

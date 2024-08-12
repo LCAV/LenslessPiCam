@@ -492,6 +492,9 @@ def train_learned(config):
                 if name1 in dict_params2_post:
                     dict_params2_post[name1].data.copy_(param1.data)
 
+    if config.reconstruction.direct_background_subtraction:
+        assert test_set.measured_bg and train_set.measured_bg
+
     # create reconstruction algorithm
     if config.reconstruction.init is not None:
         assert config.reconstruction.init_processors is None
@@ -526,6 +529,7 @@ def train_learned(config):
                 ),
                 compensation=config.reconstruction.compensation,
                 compensation_residual=config.reconstruction.compensation_residual,
+                direct_background_subtraction=config.reconstruction.direct_background_subtraction,
             )
         elif config.reconstruction.method == "unrolled_admm":
             recon = UnrolledADMM(
@@ -543,6 +547,7 @@ def train_learned(config):
                 ),
                 compensation=config.reconstruction.compensation,
                 compensation_residual=config.reconstruction.compensation_residual,
+                direct_background_subtraction=config.reconstruction.direct_background_subtraction,
             )
         elif config.reconstruction.method == "trainable_inv":
             assert config.trainable_mask.mask_type == "TrainablePSF"
@@ -554,6 +559,7 @@ def train_learned(config):
                 return_intermediate=(
                     True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
                 ),
+                direct_background_subtraction=config.reconstruction.direct_background_subtraction,
             )
         elif config.reconstruction.method == "multi_wiener":
 
@@ -562,6 +568,8 @@ def train_learned(config):
                 psf_channels = 1
             else:
                 psf_channels = 3
+
+            assert config.reconstruction.direct_background_subtraction is False, "Not supported"
 
             recon = MultiWiener(
                 in_channels=3,

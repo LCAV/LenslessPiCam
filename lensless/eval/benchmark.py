@@ -121,8 +121,11 @@ def benchmark(
 
             flip_lr = None
             flip_ud = None
+            background = None
             lensless = batch[0].to(device)
             lensed = batch[1].to(device)
+            if dataset.measured_bg:
+                background = batch[-1].to(device)
             if dataset.multimask or dataset.random_flip:
                 psfs = batch[2]
                 psfs = psfs.to(device)
@@ -146,11 +149,12 @@ def benchmark(
                     plot=False,
                     save=False,
                     output_intermediate=unrolled_output_factor or pre_process_aux,
+                    background=background,
                     **kwargs,
                 )
 
             else:
-                prediction = model.forward(lensless, psfs, **kwargs)
+                prediction = model.forward(lensless, psfs, background=background, **kwargs)
 
             if unrolled_output_factor or pre_process_aux:
                 pre_process_out = prediction[2]
