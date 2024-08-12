@@ -1,6 +1,6 @@
 # #############################################################################
 # trainable_inversion.py
-# =================
+# ======================
 # Authors :
 # Eric BEZZAM [ebezzam@gmail.com]
 # #############################################################################
@@ -9,8 +9,6 @@ from lensless.recon.trainable_recon import TrainableReconstructionAlgorithm
 
 
 class TrainableInversion(TrainableReconstructionAlgorithm):
-    """ """
-
     def __init__(self, psf, dtype=None, K=1e-4, **kwargs):
         """
         Constructor for trainable inversion component as proposed in

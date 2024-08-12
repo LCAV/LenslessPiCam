@@ -53,6 +53,7 @@ CONFIG_FN = None
 DEFAULT_ALGO = None
 ALGO_TEXT = None
 MASK_PARAM = None
+TIME_OFFSET = None
 
 
 OVERLAY_ALPHA = None
@@ -60,7 +61,7 @@ OVERLAY_1 = None
 OVERLAY_2 = None
 OVERLAY_3 = None
 
-SETUP_FP = "scripts/demo/setup.png"
+SETUP_FP = "docs/source/demo_setup.png"
 INPUT_FP = "user_photo.jpg"
 RAW_DATA_FP = "raw_data.png"
 OUTPUT_FOLDER = "demo_lensless"
@@ -68,11 +69,11 @@ BUSY = False
 # supported_algos = ["fista", "admm", "unrolled"]
 supported_algos = ["fista", "admm"]
 supported_input = ["mnist", "thumb", "face"]
+FILES_CAPTURE_CONFIG = None
 TIMEOUT = 1 * 60  # 10 minutes
 
-BRIGHTNESS = 100
-# EXPOSURE = 0.02
-EXPOSURE = 0.5
+BRIGHTNESS = 80
+EXPOSURE = 0.02
 LOW_LIGHT_THRESHOLD = 100
 SATURATION_THRESHOLD = 0.05
 
@@ -112,6 +113,11 @@ def get_user_folder_from_query(query):
     # user_subfolder = f"{query.message.from_user.id}_{name}"
     user_subfolder = f"{query.message.from_user.id}"
     return os.path.join(OUTPUT_FOLDER, user_subfolder)
+
+
+async def remove_busy_flag(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global BUSY
+    BUSY = False
 
 
 async def check_incoming_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -172,6 +178,8 @@ async def check_incoming_message(update: Update, context: ContextTypes.DEFAULT_T
     message_time = update.message.date
 
     diff = (now - message_time).total_seconds()
+    diff -= TIME_OFFSET
+
     if diff > TIMEOUT:
         return f"Timeout ({TIMEOUT} seconds) exceeded. Someone else may be using the system. Please send a new message."
 
@@ -274,11 +282,6 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     global BUSY, EXPOSURE
 
-    # EXPOSURE = 0.02
-
-    vshift = -26
-    pad = 10
-
     res = await check_incoming_message(update, context)
     if res is not None:
         await update.message.reply_text(res, reply_to_message_id=update.message.message_id)
@@ -299,7 +302,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_folder = get_user_folder(update)
         original_file_path = os.path.join(user_folder, INPUT_FP)
         os.system(
-            f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME} display.pad={pad} display.vshift={vshift}"
+            f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
         )
         await update.message.reply_text(
             "Image sent to display.", reply_to_message_id=update.message.message_id
@@ -598,14 +601,7 @@ async def take_picture_and_reconstruct(
         )
 
 
-async def mnist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-
-    """
-    1. Use one of the input images
-    2. Send to display
-    3. Capture measurement
-    4. Reconstruct
-    """
+async def file_input_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     global BUSY, EXPOSURE
 
@@ -615,97 +611,28 @@ async def mnist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     algo = DEFAULT_ALGO
-    vshift = -26
-    brightness = 100
-    EXPOSURE = 1
 
-    # copy image to INPUT_FP
-    user_folder = get_user_folder(update)
-    original_file_path = os.path.join(user_folder, INPUT_FP)
-    os.system(f"cp data/original/mnist_3.png {original_file_path}")
-
-    # -- send to display
-    os.system(
-        f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
-    )
-    await update.message.reply_text(
-        f"Image sent to display with brightness {brightness}.",
-        reply_to_message_id=update.message.message_id,
-    )
-
-    await take_picture_and_reconstruct(update, context, algo)
-    BUSY = False
-
-
-async def thumb_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-
-    """
-    1. Use one of the input images
-    2. Send to display
-    3. Capture measurement
-    4. Reconstruct
-    """
-
-    global BUSY, EXPOSURE
-
-    res = await check_incoming_message(update, context)
-    if res is not None:
-        await update.message.reply_text(res, reply_to_message_id=update.message.message_id)
+    # extract config by based on file name
+    file_name = update.message.text[1:]
+    if file_name not in FILES_CAPTURE_CONFIG:
+        await update.message.reply_text(
+            f"Unsupported file: {file_name}. Please specify from: {FILES_CAPTURE_CONFIG.keys()}",
+            reply_to_message_id=update.message.message_id,
+        )
         return
 
-    algo = DEFAULT_ALGO
-    vshift = -26
-    brightness = 80
-    EXPOSURE = 0.5
-    pad = 10
+    brightness = FILES_CAPTURE_CONFIG[file_name]["brightness"]
+    EXPOSURE = FILES_CAPTURE_CONFIG[file_name]["exposure"]
+    fp = FILES_CAPTURE_CONFIG[file_name]["fp"]
 
     # copy image to INPUT_FP
     user_folder = get_user_folder(update)
     original_file_path = os.path.join(user_folder, INPUT_FP)
-    os.system(f"cp data/original/thumbs_up.png {original_file_path}")
+    os.system(f"cp {fp} {original_file_path}")
 
     # -- send to display
     os.system(
-        f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.pad={pad} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
-    )
-    await update.message.reply_text(
-        f"Image sent to display with brightness {brightness}.",
-        reply_to_message_id=update.message.message_id,
-    )
-
-    await take_picture_and_reconstruct(update, context, algo)
-    BUSY = False
-
-
-async def face_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-
-    """
-    1. Use one of the input images
-    2. Send to display
-    3. Capture measurement
-    4. Reconstruct
-    """
-
-    global BUSY, EXPOSURE
-
-    res = await check_incoming_message(update, context)
-    if res is not None:
-        await update.message.reply_text(res, reply_to_message_id=update.message.message_id)
-        return
-
-    algo = DEFAULT_ALGO
-    vshift = -20
-    brightness = 80
-    EXPOSURE = 1
-
-    # copy image to INPUT_FP
-    user_folder = get_user_folder(update)
-    original_file_path = os.path.join(user_folder, INPUT_FP)
-    os.system(f"cp data/original/face.jpg {original_file_path}")
-
-    # -- send to display
-    os.system(
-        f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.vshift={vshift} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+        f"python scripts/measure/remote_display.py -cn {CONFIG_FN} fp={original_file_path} display.brightness={brightness} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
     )
     await update.message.reply_text(
         f"Image sent to display with brightness {brightness}.",
@@ -884,13 +811,13 @@ async def exposure_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await update.message.reply_text(res, reply_to_message_id=update.message.message_id)
         return
 
-    # vals = {0.02: "very low", 0.05: "low", 0.1: "medium", 0.2: "high", 0.5: "very high"}
-    # -- tape based
-    vals = {0.02: "very low", 0.035: "low", 0.05: "medium", 0.065: "high", 0.08: "very high"}
-    # -- digicam
-    vals = {0.25: "very low", 0.5: "low", 0.75: "medium", 1: "high", 1.25: "very high"}
+    # -- phase mask
+    vals = {0.02: "very low", 0.04: "low", 0.06: "medium", 0.08: "high", 0.1: "very high"}
+    # # -- tape based
+    # vals = {0.02: "very low", 0.035: "low", 0.05: "medium", 0.065: "high", 0.08: "very high"}
+    # # -- digicam
+    # vals = {0.25: "very low", 0.5: "low", 0.75: "medium", 1: "high", 1.25: "very high"}
 
-    current_exp = vals[EXPOSURE]
     if EXPOSURE in vals:
         del vals[EXPOSURE]
     keys = list(vals.keys())
@@ -911,7 +838,7 @@ async def exposure_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
-        f"Please specify a value for the camera exposure. Current value is '{current_exp}' ({EXPOSURE} seconds).",
+        f"Please specify a value for the camera exposure. Current value is ({EXPOSURE} seconds).",
         reply_markup=reply_markup,
     )
 
@@ -969,16 +896,22 @@ async def not_running_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 def main(config) -> None:
     """Start the bot."""
 
-    global TOKEN, WHITELIST_USERS, RPI_USERNAME, RPI_HOSTNAME, RPI_LENSED_USERNAME, RPI_LENSED_HOSTNAME, CONFIG_FN
-    global DEFAULT_ALGO, ALGO_TEXT, HELP_TEXT, supported_algos
-    global OVERLAY_ALPHA, OVERLAY_1, OVERLAY_2, OVERLAY_3
-    global PSF_FP, BACKGROUND_FP, MASK_PARAM
+    global TOKEN, WHITELIST_USERS, RPI_USERNAME, RPI_HOSTNAME, RPI_LENSED_USERNAME, RPI_LENSED_HOSTNAME, CONFIG_FN, TIME_OFFSET
+    global DEFAULT_ALGO, ALGO_TEXT, HELP_TEXT, supported_algos, supported_input
+    global OVERLAY_ALPHA, OVERLAY_1, OVERLAY_2, OVERLAY_3, FILES_CAPTURE_CONFIG
+    global PSF_FP, BACKGROUND_FP, MASK_PARAM, SETUP_FP
+    global VSHIFT, IMAGE_RES
 
     TOKEN = config.token
+    TIME_OFFSET = config.time_offset
 
     WHITELIST_USERS = config.whitelist
     if WHITELIST_USERS is None:
         WHITELIST_USERS = []
+
+    if config.setup_fp is not None:
+        SETUP_FP = config.setup_fp
+        assert os.path.exists(SETUP_FP)
 
     RPI_USERNAME = config.rpi_username
     RPI_HOSTNAME = config.rpi_hostname
@@ -999,6 +932,10 @@ def main(config) -> None:
     if OVERLAY_3 is not None:
         assert os.path.exists(OVERLAY_3.fp)
 
+    if config.supported_inputs is not None:
+        supported_input = config.supported_inputs
+    FILES_CAPTURE_CONFIG = config.files
+
     input_commands = ["/" + input for input in supported_input]
     HELP_TEXT = (
         "Through this bot, you can send a photo to the lensless camera setup in our lab at EPFL (shown above). "
@@ -1009,7 +946,7 @@ def main(config) -> None:
         # f"of your own pictures, you can use the {input_commands} commands to set "
         # "the image on the display with one of our inputs. Or even send an emoij 😎"
         f"\n\n⚠️ Try one of the {input_commands} commands to use images we've configured. "
-        "Or even send an emoij 😎 "
+        # "Or even send an emoji 😎 "
         "You can also send your own image (but brightness/exposure may need to be adjusted)."
         "\n\nAll previous data is overwritten "
         "when a new image is sent, and everything is deleted when the process running on the "
@@ -1024,11 +961,11 @@ def main(config) -> None:
         f"By default, the reconstruction is done with /{DEFAULT_ALGO}, but you "
         "can specify the algorithm (on the last measurement) with the corresponding "
         f"command: {algo_commands}."
-        "\n\nAll provided algorithms require an estimate of the point spread function (PSF). "
-        "Each user has their unique mask pattern according to the Telegram ID. "
-        "\n\n⚠️ After doing a measurement/reconstruction, you can try running /random_mask "
-        "to see what would be the reconstruction if you use a different (wrong) mask, "
-        "as if someone (like a hacker!) were trying to decode your data with a different mask."
+        # "\n\nAll provided algorithms require an estimate of the point spread function (PSF). "
+        # "Each user has their unique mask pattern according to the Telegram ID. "
+        # "\n\n⚠️ After doing a measurement/reconstruction, you can try running /random_mask "
+        # "to see what would be the reconstruction if you use a different (wrong) mask, "
+        # "as if someone (like a hacker!) were trying to decode your data with a different mask."
         # "\n\nAll provided algorithms require an estimate of the point spread function (PSF). "
         # "You can measure a (proxy) PSF with /psf (a point source like "
         # "image will be displayed on the screen). "
@@ -1050,15 +987,16 @@ def main(config) -> None:
             psf, bg = load_psf(
                 config.psf.fp, downsample=config.psf.downsample, return_float=True, return_bg=True
             )
-
             # save to demo folder
             PSF_FP = os.path.join(OUTPUT_FOLDER, "psf.png")
             save_image(psf[0], PSF_FP)
 
             # save with gamma correction
-            from lensless.utils.image import gamma_correction
+            psf_gamma = psf[0] / np.max(psf[0])
+            if config.gamma > 1:
+                from lensless.utils.image import gamma_correction
 
-            psf_gamma = gamma_correction(psf[0], gamma=1.5)
+                psf_gamma = gamma_correction(psf_gamma, gamma=config.gamma)
             save_image(psf_gamma, PSF_FP_GAMMA)
 
             # save background array
@@ -1084,10 +1022,11 @@ def main(config) -> None:
         # on different commands - answer in Telegram
         application.add_handler(CommandHandler("start", start))
         application.add_handler(CommandHandler("help", help_command))
-        application.add_handler(CommandHandler("mnist", mnist_command, block=False))
-        application.add_handler(CommandHandler("thumb", thumb_command, block=False))
-        application.add_handler(CommandHandler("face", face_command, block=False))
-        # application.add_handler(CommandHandler("brightness", brightness_command, block=False))
+        application.add_handler(CommandHandler("notbusy", remove_busy_flag))
+
+        for file_input in supported_input:
+            assert file_input in FILES_CAPTURE_CONFIG.keys()
+            application.add_handler(CommandHandler(file_input, file_input_command, block=False))
 
         # different algorithms
         application.add_handler(CommandHandler("fista", fista, block=False))

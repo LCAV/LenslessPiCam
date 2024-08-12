@@ -15,6 +15,7 @@ hf_token=... \
 """
 
 import hydra
+from hydra.utils import to_absolute_path
 import time
 import os
 import glob
@@ -52,6 +53,9 @@ def upload_dataset(config):
         config.lensed.ext is not None
     ), "Please provide a lensed file extension, e.g. .png, .jpg, .tiff"
 
+    config.lensless.dir = to_absolute_path(config.lensless.dir)
+    config.lensed.dir = to_absolute_path(config.lensed.dir)
+
     # get masks
     files_masks = []
     n_masks = 0
@@ -70,6 +74,7 @@ def upload_dataset(config):
 
     # get lensed files
     files_lensed = glob.glob(os.path.join(config.lensed.dir, "*" + config.lensed.ext))
+    print(f"Number of lensed files: {len(files_lensed)}")
 
     # only keep if in both
     bn_lensless = [os.path.basename(f).split(".")[0] for f in files_lensless]
@@ -83,8 +88,19 @@ def upload_dataset(config):
         os.path.join(config.lensless.dir, f + config.lensless.ext) for f in common_files
     ]
     lensed_files = [os.path.join(config.lensed.dir, f + config.lensed.ext) for f in common_files]
+    background_files = []
+    if config.lensless.ambient:
+        # check that corresponding ambient files exist
+        for f in common_files:
+            ambient_bn = "black_background" + os.path.basename(f) + config.lensless.ext
+            ambient_f = os.path.join(config.lensless.dir, ambient_bn)
+            assert os.path.exists(ambient_f), f"File {ambient_f} does not exist."
+            background_files.append(ambient_f)
 
     if config.lensless.downsample is not None:
+
+        if config.lensless.ambient:
+            raise NotImplementedError("Downsampling not implemented for ambient files.")
 
         tmp_dir = config.lensless.dir + "_tmp"
         os.makedirs(tmp_dir, exist_ok=True)
@@ -108,6 +124,9 @@ def upload_dataset(config):
 
     # convert to normalized 8 bit
     if config.lensless.eight_norm:
+
+        if config.lensless.ambient:
+            raise NotImplementedError("Normalized 8-bit not implemented for ambient files.")
 
         tmp_dir = config.lensless.dir + "_tmp"
         os.makedirs(tmp_dir, exist_ok=True)
@@ -150,7 +169,7 @@ def upload_dataset(config):
             df_attr = {"mask_label": mask_labels}
 
     # step 1: create Dataset objects
-    def create_dataset(lensless_files, lensed_files, df_attr=None):
+    def create_dataset(lensless_files, lensed_files, df_attr=None, ambient_files=None):
         dataset_dict = {
             "lensless": lensless_files,
             "lensed": lensed_files,
@@ -158,9 +177,13 @@ def upload_dataset(config):
         if df_attr is not None:
             # combine dictionaries
             dataset_dict = {**dataset_dict, **df_attr}
+        if ambient_files is not None:
+            dataset_dict["ambient"] = ambient_files
         dataset = Dataset.from_dict(dataset_dict)
         dataset = dataset.cast_column("lensless", Image())
         dataset = dataset.cast_column("lensed", Image())
+        if ambient_files is not None:
+            dataset = dataset.cast_column("ambient", Image())
         return dataset
 
     # train-test split
@@ -175,17 +198,23 @@ def upload_dataset(config):
             [lensless_files[i] for i in test_indices],
             [lensed_files[i] for i in test_indices],
             {k: [v[i] for i in test_indices] for k, v in df_attr.items()},
+            ambient_files=[background_files[i] for i in test_indices]
+            if config.lensless.ambient
+            else None,
         )
         train_dataset = create_dataset(
             [lensless_files[i] for i in train_indices],
             [lensed_files[i] for i in train_indices],
             {k: [v[i] for i in train_indices] for k, v in df_attr.items()},
+            ambient_files=[background_files[i] for i in train_indices]
+            if config.lensless.ambient
+            else None,
         )
     elif isinstance(config.split, int):
         n_test_split = int(test_size * config.split)
 
         # get all indices
-        n_splits = len(lensless_files) // config.split
+        n_splits = np.ceil(len(lensless_files) / config.split).astype(int)
         test_idx = np.array([])
         for i in range(n_splits):
             test_idx = np.append(test_idx, np.arange(n_test_split) + i * config.split)
@@ -197,10 +226,18 @@ def upload_dataset(config):
 
         # split dict into train-test
         test_dataset = create_dataset(
-            [lensless_files[i] for i in test_idx], [lensed_files[i] for i in test_idx]
+            [lensless_files[i] for i in test_idx],
+            [lensed_files[i] for i in test_idx],
+            ambient_files=[background_files[i] for i in test_idx]
+            if config.lensless.ambient
+            else None,
         )
         train_dataset = create_dataset(
-            [lensless_files[i] for i in train_idx], [lensed_files[i] for i in train_idx]
+            [lensless_files[i] for i in train_idx],
+            [lensed_files[i] for i in train_idx],
+            ambient_files=[background_files[i] for i in train_idx]
+            if config.lensless.ambient
+            else None,
         )
 
     else:
@@ -212,9 +249,17 @@ def upload_dataset(config):
         else:
             df_attr_test = None
             df_attr_train = None
-        test_dataset = create_dataset(lensless_files[:n_test], lensed_files[:n_test], df_attr_test)
+        test_dataset = create_dataset(
+            lensless_files[:n_test],
+            lensed_files[:n_test],
+            df_attr_test,
+            ambient_files=background_files[:n_test] if config.lensless.ambient else None,
+        )
         train_dataset = create_dataset(
-            lensless_files[n_test:], lensed_files[n_test:], df_attr_train
+            lensless_files[n_test:],
+            lensed_files[n_test:],
+            df_attr_train,
+            ambient_files=background_files[n_test:] if config.lensless.ambient else None,
         )
     print(f"Train size: {len(train_dataset)}")
     print(f"Test size: {len(test_dataset)}")
@@ -230,7 +275,7 @@ def upload_dataset(config):
     # step 3: push to hub
     if config.files is not None:
         for f in config.files:
-            fp = config.files[f]
+            fp = to_absolute_path(config.files[f])
             ext = os.path.splitext(fp)[1]
             remote_fn = f"{f}{ext}"
             upload_file(
@@ -240,6 +285,21 @@ def upload_dataset(config):
                 repo_type="dataset",
                 token=hf_token,
             )
+
+            # viewable version of file if it is an image
+            if ext in [".png", ".jpg", ".jpeg", ".tiff"]:
+                img = cv2.imread(fp, cv2.IMREAD_UNCHANGED)
+                local_fp = f"{f}_viewable8bit.png"
+                remote_fn = f"{f}_viewable8bit.png"
+                save_image(img, local_fp, normalize=True)
+                upload_file(
+                    path_or_fileobj=local_fp,
+                    path_in_repo=remote_fn,
+                    repo_id=repo_id,
+                    repo_type="dataset",
+                    token=hf_token,
+                )
+
     dataset_dict.push_to_hub(repo_id, token=hf_token)
 
     upload_file(
@@ -257,6 +317,14 @@ def upload_dataset(config):
         repo_type="dataset",
         token=hf_token,
     )
+    if config.lensless.ambient:
+        upload_file(
+            path_or_fileobj=background_files[0],
+            path_in_repo=f"ambient_example{config.lensless.ext}",
+            repo_id=repo_id,
+            repo_type="dataset",
+            token=hf_token,
+        )
 
     for _mask_file in files_masks:
         upload_file(

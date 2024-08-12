@@ -35,14 +35,17 @@ from hydra.utils import get_original_cwd
 import os
 import numpy as np
 import time
+from lensless.utils.image import shift_with_pad
 from lensless.hardware.trainable_mask import prep_trainable_mask
 from lensless import ADMM, UnrolledFISTA, UnrolledADMM, TrainableInversion
+from lensless.recon.multi_wiener import MultiWiener
 from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     DigiCamCelebA,
     HFDataset,
     MyDataParallel,
     simulate_dataset,
+    HFSimulated,
 )
 from torch.utils.data import Subset
 from lensless.recon.utils import create_process_network
@@ -51,6 +54,7 @@ import torch
 from lensless.utils.io import save_image
 from lensless.utils.plot import plot_image
 import matplotlib.pyplot as plt
+from lensless.recon.model_dict import load_model, download_model
 
 # A logger for this file
 log = logging.getLogger(__name__)
@@ -98,6 +102,7 @@ def train_learned(config):
     device_ids = config.device_ids
     if device_ids is not None:
         log.info(f"Using multiple GPUs : {device_ids}")
+        assert device_ids[0] == int(device.split(":")[1])
 
     # load dataset and create dataloader
     train_set = None
@@ -193,8 +198,12 @@ def train_learned(config):
             if config.files.n_files is not None:
                 train_split = f"train[:{config.files.n_files}]"
                 test_split = f"test[:{config.files.n_files}]"
-            train_dataset = load_dataset(config.files.dataset, split=train_split)
-            test_dataset = load_dataset(config.files.dataset, split=test_split)
+            train_dataset = load_dataset(
+                config.files.dataset, split=train_split, cache_dir=config.files.cache_dir
+            )
+            test_dataset = load_dataset(
+                config.files.dataset, split=test_split, cache_dir=config.files.cache_dir
+            )
             dataset = concatenate_datasets([test_dataset, train_dataset])
 
             # - split into train and test
@@ -204,32 +213,69 @@ def train_learned(config):
                 dataset, [train_size, test_size], generator=generator
             )
 
-        train_set = HFDataset(
-            huggingface_repo=config.files.dataset,
-            psf=config.files.huggingface_psf,
-            split=split_train,
-            display_res=config.files.image_res,
-            rotate=config.files.rotate,
-            downsample=config.files.downsample,
-            downsample_lensed=config.files.downsample_lensed,
-            alignment=config.alignment,
-            save_psf=config.files.save_psf,
-            n_files=config.files.n_files,
-            simulation_config=config.simulation,
-        )
+        if config.files.hf_simulated:
+            # simulate lensless by using measured PSF
+            train_set = HFSimulated(
+                huggingface_repo=config.files.dataset,
+                split=split_train,
+                n_files=config.files.n_files,
+                psf=config.files.huggingface_psf,
+                downsample=config.files.downsample,
+                cache_dir=config.files.cache_dir,
+                single_channel_psf=config.files.single_channel_psf,
+                flipud=config.files.flipud,
+                display_res=config.files.image_res,
+                alignment=config.alignment,
+                bg_snr_range=config.files.background_snr_range,  # TODO check if correct
+                bg_fp=config.files.background_fp,
+            )
+
+        else:
+            train_set = HFDataset(
+                huggingface_repo=config.files.dataset,
+                cache_dir=config.files.cache_dir,
+                psf=config.files.huggingface_psf,
+                single_channel_psf=config.files.single_channel_psf,
+                split=split_train,
+                display_res=config.files.image_res,
+                rotate=config.files.rotate,
+                flipud=config.files.flipud,
+                flip_lensed=config.files.flip_lensed,
+                downsample=config.files.downsample,
+                downsample_lensed=config.files.downsample_lensed,
+                alignment=config.alignment,
+                save_psf=config.files.save_psf,
+                n_files=config.files.n_files,
+                simulation_config=config.simulation,
+                force_rgb=config.files.force_rgb,
+                simulate_lensless=config.files.simulate_lensless,
+                random_flip=config.files.random_flip,
+                bg_snr_range=config.files.background_snr_range,
+                bg_fp=config.files.background_fp,
+            )
+
         test_set = HFDataset(
             huggingface_repo=config.files.dataset,
+            cache_dir=config.files.cache_dir,
             psf=config.files.huggingface_psf,
+            single_channel_psf=config.files.single_channel_psf,
             split=split_test,
             display_res=config.files.image_res,
             rotate=config.files.rotate,
+            flipud=config.files.flipud,
+            flip_lensed=config.files.flip_lensed,
             downsample=config.files.downsample,
             downsample_lensed=config.files.downsample_lensed,
             alignment=config.alignment,
             save_psf=config.files.save_psf,
             n_files=config.files.n_files,
             simulation_config=config.simulation,
+            bg_snr_range=config.files.background_snr_range,
+            bg_fp=config.files.background_fp,
+            force_rgb=config.files.force_rgb,
+            simulate_lensless=False,  # in general evaluate on measured (set to False)
         )
+
         if train_set.multimask:
             # get first PSF for initialization
             if device_ids is not None:
@@ -278,6 +324,7 @@ def train_learned(config):
                 downsample=config.files.downsample,  # needs to be same size
                 n_files=config.files.n_files,
                 simulation_config=config.simulation,
+                simulate_lensless=False,  # in general evaluate on measured
                 **config.files.extra_eval[eval_set],
             )
 
@@ -289,62 +336,83 @@ def train_learned(config):
 
             for i, _idx in enumerate(config.eval_disp_idx):
 
-                if test_set.multimask:
-                    # multimask
-                    # lensless, lensed, _ = test_set[_idx]  # using wrong PSF
-                    lensless, lensed, psf = test_set[_idx]
-                    psf = psf.to(device)
+                flip_lr = None
+                flip_ud = None
+                return_items = test_set[_idx]
+                lensless = return_items[0]
+                lensed = return_items[1]
+                if test_set.bg_sim is not None:
+                    background = return_items[-1]
+                if test_set.multimask or test_set.random_flip:
+                    psf_recon = return_items[2]
+                    psf_recon = psf_recon.to(device)
                 else:
-                    lensless, lensed = test_set[_idx]
-                recon = ADMM(psf)
+                    psf_recon = psf.clone()
+                if test_set.random_flip:
+                    flip_lr = return_items[3]
+                    flip_ud = return_items[4]
 
-                recon.set_data(lensless.to(psf.device))
-                res = recon.apply(disp_iter=None, plot=False, n_iter=10)
-                res_np = res[0].cpu().numpy()
-                res_np = res_np / res_np.max()
+                rotate_angle = False
+                if config.files.random_rotate:
+                    from lensless.utils.image import rotate_HWC
 
-                lensed_np = lensed[0].cpu().numpy()
+                    rotate_angle = np.random.uniform(
+                        -config.files.random_rotate, config.files.random_rotate
+                    )
+                    print(f"Rotate angle : {rotate_angle}")
+                    lensless = rotate_HWC(lensless, rotate_angle)
+                    lensed = rotate_HWC(lensed, rotate_angle)
+                    psf_recon = rotate_HWC(psf_recon, rotate_angle)
 
-                lensless_np = lensless[0].cpu().numpy()
-                save_image(lensless_np, f"lensless_raw_{_idx}.png")
+                shift = None
+                if config.files.random_shifts:
 
-                # -- plot lensed and res on top of each other
-                cropped = False
+                    shift = np.random.randint(
+                        -config.files.random_shifts, config.files.random_shifts, 2
+                    )
+                    print(f"Shift : {shift}")
+                    lensless = shift_with_pad(lensless, shift, axis=(1, 2))
+                    lensed = shift_with_pad(lensed, shift, axis=(1, 2))
+                    psf_recon = shift_with_pad(psf_recon, shift, axis=(1, 2))
+                    shift = tuple(shift)
 
-                if hasattr(test_set, "alignment"):
-                    if test_set.alignment is not None:
-                        res_np = test_set.extract_roi(res_np, axis=(0, 1))
-                    else:
-                        res_np, lensed_np = test_set.extract_roi(
-                            res_np, lensed=lensed_np, axis=(0, 1)
-                        )
+                if config.files.random_rotate or config.files.random_shifts:
+                    save_image(psf_recon[0].cpu().numpy(), f"psf_{_idx}.png")
 
-                    cropped = True
-
-                elif config.training.crop_preloss:
-                    assert crop is not None
-
-                    res_np = res_np[
-                        crop["vertical"][0] : crop["vertical"][1],
-                        crop["horizontal"][0] : crop["horizontal"][1],
-                    ]
-                    lensed_np = lensed_np[
-                        crop["vertical"][0] : crop["vertical"][1],
-                        crop["horizontal"][0] : crop["horizontal"][1],
-                    ]
-                    cropped = True
-
-                if cropped and i == 0:
-                    log.info(f"Cropped shape :  {res_np.shape}")
-
-                save_image(res_np, f"lensless_recon_{_idx}.png")
-                save_image(lensed_np, f"lensed_{_idx}.png")
-
-                plt.figure()
-                plt.imshow(lensed_np, alpha=0.4)
-                plt.imshow(res_np, alpha=0.7)
-                plt.savefig(f"overlay_lensed_recon_{_idx}.png")
-
+                # Reconstruct and plot image
+                reconstruct_save(
+                    _idx,
+                    config,
+                    crop,
+                    i,
+                    lensed,
+                    lensless,
+                    psf,
+                    test_set,
+                    "",
+                    flip_lr,
+                    flip_ud,
+                    rotate_angle,
+                    shift,
+                )
+                save_image(lensed[0].cpu().numpy(), f"lensed_{_idx}.png")
+                if test_set.bg_sim is not None:
+                    # Reconstruct and plot background subtracted image
+                    reconstruct_save(
+                        _idx,
+                        config,
+                        crop,
+                        i,
+                        lensed,
+                        (lensless - background),
+                        psf,
+                        test_set,
+                        "subtraction_",
+                        flip_lr,
+                        flip_ud,
+                        rotate_angle,
+                        shift,
+                    )
     log.info(f"Train test size : {len(train_set)}")
     log.info(f"Test test size : {len(test_set)}")
 
@@ -367,10 +435,15 @@ def train_learned(config):
         nc=config.reconstruction.post_process.nc,
         device=device,
         device_ids=device_ids,
+        concatenate_compensation=(
+            config.reconstruction.compensation[-1]
+            if config.reconstruction.compensation is not None
+            else False
+        ),
     )
     post_proc_delay = config.reconstruction.post_process.delay
 
-    if config.reconstruction.post_process.train_last_layer:
+    if post_process is not None and config.reconstruction.post_process.train_last_layer:
         for name, param in post_process.named_parameters():
             if "m_tail" in name:
                 param.requires_grad = True
@@ -380,10 +453,22 @@ def train_learned(config):
 
     # initialize pre- and post processor with another model
     if config.reconstruction.init_processors is not None:
-        from lensless.recon.model_dict import load_model, model_dict
+
+        if "hf" in config.reconstruction.init_processors:
+            param = config.reconstruction.init_processors.split(":")
+            camera = param[1]
+            dataset = param[2]
+            model_name = param[3]
+            model_path = download_model(camera=camera, dataset=dataset, model=model_name)
+
+        elif "local" in config.reconstruction.init_processors:
+            model_path = config.reconstruction.init_processors.split(":")[1]
+
+        else:
+            raise ValueError(f"{config.reconstruction.init_processors} is not a supported model")
 
         model_orig = load_model(
-            model_dict["diffusercam"]["mirflickr"][config.reconstruction.init_processors],
+            model_path=model_path,
             psf=psf,
             device=device,
         )
@@ -407,46 +492,92 @@ def train_learned(config):
                     dict_params2_post[name1].data.copy_(param1.data)
 
     # create reconstruction algorithm
-    if config.reconstruction.method == "unrolled_fista":
-        recon = UnrolledFISTA(
-            psf,
-            n_iter=config.reconstruction.unrolled_fista.n_iter,
-            tk=config.reconstruction.unrolled_fista.tk,
-            pad=True,
-            learn_tk=config.reconstruction.unrolled_fista.learn_tk,
-            pre_process=pre_process if pre_proc_delay is None else None,
-            post_process=post_process if post_proc_delay is None else None,
-            skip_unrolled=config.reconstruction.skip_unrolled,
-            return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
-        )
-    elif config.reconstruction.method == "unrolled_admm":
-        recon = UnrolledADMM(
-            psf,
-            n_iter=config.reconstruction.unrolled_admm.n_iter,
-            mu1=config.reconstruction.unrolled_admm.mu1,
-            mu2=config.reconstruction.unrolled_admm.mu2,
-            mu3=config.reconstruction.unrolled_admm.mu3,
-            tau=config.reconstruction.unrolled_admm.tau,
-            pre_process=pre_process if pre_proc_delay is None else None,
-            post_process=post_process if post_proc_delay is None else None,
-            skip_unrolled=config.reconstruction.skip_unrolled,
-            return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
-        )
-    elif config.reconstruction.method == "trainable_inv":
-        recon = TrainableInversion(
-            psf,
-            K=config.reconstruction.trainable_inv.K,
-            pre_process=pre_process if pre_proc_delay is None else None,
-            post_process=post_process if post_proc_delay is None else None,
-            return_unrolled_output=True if config.unrolled_output_factor > 0 else False,
-        )
-    else:
-        raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
+    if config.reconstruction.init is not None:
+        assert config.reconstruction.init_processors is None
 
-    if device_ids is not None:
-        recon = MyDataParallel(recon, device_ids=device_ids)
-    if use_cuda:
-        recon.to(device)
+        param = config.reconstruction.init.split(":")
+        assert len(param) == 4, "hf model requires following format: hf:camera:dataset:model_name"
+        camera = param[1]
+        dataset = param[2]
+        model_name = param[3]
+        model_path = download_model(camera=camera, dataset=dataset, model=model_name)
+        recon = load_model(
+            model_path,
+            psf,
+            device,
+            device_ids=device_ids,
+            train_last_layer=config.reconstruction.post_process.train_last_layer,
+        )
+
+    else:
+        if config.reconstruction.method == "unrolled_fista":
+            recon = UnrolledFISTA(
+                psf,
+                n_iter=config.reconstruction.unrolled_fista.n_iter,
+                tk=config.reconstruction.unrolled_fista.tk,
+                pad=True,
+                learn_tk=config.reconstruction.unrolled_fista.learn_tk,
+                pre_process=pre_process if pre_proc_delay is None else None,
+                post_process=post_process if post_proc_delay is None else None,
+                skip_unrolled=config.reconstruction.skip_unrolled,
+                return_intermediate=(
+                    True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
+                ),
+                compensation=config.reconstruction.compensation,
+                compensation_residual=config.reconstruction.compensation_residual,
+            )
+        elif config.reconstruction.method == "unrolled_admm":
+            recon = UnrolledADMM(
+                psf,
+                n_iter=config.reconstruction.unrolled_admm.n_iter,
+                mu1=config.reconstruction.unrolled_admm.mu1,
+                mu2=config.reconstruction.unrolled_admm.mu2,
+                mu3=config.reconstruction.unrolled_admm.mu3,
+                tau=config.reconstruction.unrolled_admm.tau,
+                pre_process=pre_process if pre_proc_delay is None else None,
+                post_process=post_process if post_proc_delay is None else None,
+                skip_unrolled=config.reconstruction.skip_unrolled,
+                return_intermediate=(
+                    True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
+                ),
+                compensation=config.reconstruction.compensation,
+                compensation_residual=config.reconstruction.compensation_residual,
+            )
+        elif config.reconstruction.method == "trainable_inv":
+            assert config.trainable_mask.mask_type == "TrainablePSF"
+            recon = TrainableInversion(
+                psf,
+                K=config.reconstruction.trainable_inv.K,
+                pre_process=pre_process if pre_proc_delay is None else None,
+                post_process=post_process if post_proc_delay is None else None,
+                return_intermediate=(
+                    True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
+                ),
+            )
+        elif config.reconstruction.method == "multi_wiener":
+
+            if config.files.single_channel_psf:
+                psf = psf[..., 0].unsqueeze(-1)
+                psf_channels = 1
+            else:
+                psf_channels = 3
+
+            recon = MultiWiener(
+                in_channels=3,
+                out_channels=3,
+                psf=psf,
+                psf_channels=psf_channels,
+                nc=config.reconstruction.multi_wiener.nc,
+                pre_process=pre_process if pre_proc_delay is None else None,
+            )
+
+        else:
+            raise ValueError(f"{config.reconstruction.method} is not a supported algorithm")
+
+        if device_ids is not None:
+            recon = MyDataParallel(recon, device_ids=device_ids)
+        if use_cuda:
+            recon.to(device)
 
     # constructing algorithm name by appending pre and post process
     algorithm_name = config.reconstruction.method
@@ -460,6 +591,12 @@ def train_learned(config):
     if mask is not None:
         n_param += sum(p.numel() for p in mask.parameters() if p.requires_grad)
     log.info(f"Training model with {n_param} parameters")
+    if pre_process is not None:
+        n_param = sum(p.numel() for p in pre_process.parameters() if p.requires_grad)
+        log.info(f"-- Pre-process model with {n_param} parameters")
+    if post_process is not None:
+        n_param = sum(p.numel() for p in post_process.parameters() if p.requires_grad)
+        log.info(f"-- Post-process model with {n_param} parameters")
 
     log.info(f"Setup time : {time.time() - start_time} s")
     log.info(f"PSF shape : {psf.shape}")
@@ -492,13 +629,92 @@ def train_learned(config):
         post_process_unfreeze=config.reconstruction.post_process.unfreeze,
         clip_grad=config.training.clip_grad,
         unrolled_output_factor=config.unrolled_output_factor,
+        pre_proc_aux=config.pre_proc_aux,
         extra_eval_sets=extra_eval_sets if config.files.extra_eval is not None else None,
         use_wandb=True if config.wandb_project is not None else False,
+        n_epoch=config.training.epoch,
+        random_rotate=config.files.random_rotate,
+        random_shift=config.files.random_shifts,
     )
 
     trainer.train(n_epoch=config.training.epoch, save_pt=save, disp=config.eval_disp_idx)
 
     log.info(f"Results saved in {save}")
+
+
+def reconstruct_save(
+    _idx,
+    config,
+    crop,
+    i,
+    lensed,
+    lensless,
+    psf_recon,
+    test_set,
+    fp,
+    flip_lr,
+    flip_ud,
+    rotate_angle,
+    shift,
+):
+    recon = ADMM(psf_recon)
+
+    recon.set_data(lensless.to(psf_recon.device))
+    res = recon.apply(disp_iter=None, plot=False, n_iter=10)
+    res_np = res[0].cpu().numpy()
+    res_np = res_np / res_np.max()
+    lensed_np = lensed[0].cpu().numpy()
+
+    lensless_np = lensless[0].cpu().numpy()
+    save_image(lensless_np, f"lensless_raw_{_idx}.png")
+
+    # -- plot lensed and res on top of each other
+    cropped = False
+    if hasattr(test_set, "alignment"):
+        if test_set.alignment is not None:
+            res_np = test_set.extract_roi(
+                res_np,
+                axis=(0, 1),
+                flip_lr=flip_lr,
+                flip_ud=flip_ud,
+                rotate_aug=rotate_angle,
+                shift_aug=shift,
+            )
+        else:
+            res_np, lensed_np = test_set.extract_roi(
+                res_np,
+                lensed=lensed_np,
+                axis=(0, 1),
+                flip_lr=flip_lr,
+                flip_ud=flip_ud,
+                rotate_aug=rotate_angle,
+                shift_aug=shift,
+            )
+        cropped = True
+
+    elif config.training.crop_preloss:
+        assert crop is not None
+        assert flip_lr is None and flip_ud is None
+
+        res_np = res_np[
+            crop["vertical"][0] : crop["vertical"][1],
+            crop["horizontal"][0] : crop["horizontal"][1],
+        ]
+        lensed_np = lensed_np[
+            crop["vertical"][0] : crop["vertical"][1],
+            crop["horizontal"][0] : crop["horizontal"][1],
+        ]
+        cropped = True
+
+    if cropped and i == 0:
+        log.info(f"Cropped shape :  {res_np.shape}")
+
+    save_image(res_np, f"lensless_recon_{fp}{_idx}.png")
+
+    plt.figure()
+    plt.imshow(lensed_np, alpha=0.4)
+    plt.imshow(res_np, alpha=0.7)
+    plt.savefig(f"overlay_lensed_recon_{fp}{_idx}.png")
 
 
 if __name__ == "__main__":

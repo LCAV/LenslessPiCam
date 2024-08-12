@@ -130,6 +130,7 @@ class AdafruitLCD(TrainableMask):
         horizontal_shift=None,
         scene2mask=None,
         mask2sensor=None,
+        deadspace=True,
         downsample=None,
         min_val=0,
         **kwargs,
@@ -197,6 +198,7 @@ class AdafruitLCD(TrainableMask):
         self.use_waveprop = use_waveprop
         self.scene2mask = scene2mask
         self.mask2sensor = mask2sensor
+        self.deadspace = deadspace
         self.vertical_shift = vertical_shift
         self.horizontal_shift = horizontal_shift
         self.min_val = min_val
@@ -217,6 +219,7 @@ class AdafruitLCD(TrainableMask):
             rotate=self.rotate,
             flipud=self.flipud,
             color_filter=self._color_filter,
+            deadspace=self.deadspace,
         )
 
         if self.vertical_shift is not None:

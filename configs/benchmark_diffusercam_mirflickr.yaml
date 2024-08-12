@@ -1,0 +1,63 @@
+# python scripts/eval/benchmark_recon.py -cn benchmark_diffusercam_mirflickr
+defaults:
+  - benchmark
+  - _self_
+
+dataset: HFDataset
+batchsize: 4
+device: "cuda:0"
+
+huggingface:
+  repo: "bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM"
+  psf: psf.tiff
+  image_res: null
+  rotate: False   # if measurement is upside-down
+  alignment: null
+  downsample: 2
+  downsample_lensed: 2
+  flipud: True
+  flip_lensed: True 
+  single_channel_psf: True
+
+algorithms: [
+  "ADMM",
+
+  ## -- reconstructions trained on DiffuserCam measured
+  "hf:diffusercam:mirflickr:U5+Unet8M",
+  "hf:diffusercam:mirflickr:TrainInv+Unet8M",
+  "hf:diffusercam:mirflickr:MMCN4M+Unet4M",
+  "hf:diffusercam:mirflickr:MWDN8M",
+  "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M",
+  "hf:diffusercam:mirflickr:Unet4M+TrainInv+Unet4M",
+  "hf:diffusercam:mirflickr:Unet2M+MMCN+Unet2M",
+  "hf:diffusercam:mirflickr:Unet2M+MWDN6M",
+  "hf:diffusercam:mirflickr:Unet4M+U10+Unet4M",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_ft_tapecam",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_ft_tapecam_post",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_ft_tapecam_pre",
+
+  # ## -- reconstruction trained on DiffuserCam simulated
+  # "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M",
+  # "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M_ft_tapecam",
+  # "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M_ft_tapecam_post",
+  # "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M_ft_tapecam_pre",
+  # "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M_ft_digicam_multi_post",
+  # "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M_ft_digicam_multi_pre",
+  # "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M_ft_digicam_multi",
+  
+  # ## -- reconstructions trained on other datasets/systems
+  # "hf:tapecam:mirflickr:Unet4M+U10+Unet4M",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave",
+  # "hf:digicam:celeba_26k:Unet4M+U5+Unet4M_wave",
+  # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_wave",
+  # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_flips",
+  # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_flips_rotate10",
+  # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_aux1",
+  # "hf:digicam:mirflickr_multi_25k:Unet4M+U10+Unet4M_wave",
+  # "hf:digicam:mirflickr_multi_25k:Unet4M+U5+Unet4M_wave",
+]
+
+save_idx: [0, 1, 3, 4, 8, 45, 58, 63]
+n_iter_range: [100]    # for ADMM
+

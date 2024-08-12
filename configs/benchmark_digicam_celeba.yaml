@@ -1,0 +1,62 @@
+# python scripts/eval/benchmark_recon.py -cn benchmark_digicam_celeba
+defaults:
+  - benchmark
+  - _self_
+
+
+dataset: HFDataset
+batchsize: 10
+device: "cuda:0"
+
+algorithms: [
+  "ADMM",
+
+  ## -- reconstructions trained on measured data
+  "hf:digicam:celeba_26k:U5+Unet8M_wave",
+  "hf:digicam:celeba_26k:TrainInv+Unet8M_wave",
+  "hf:digicam:celeba_26k:MWDN8M_wave",
+  "hf:digicam:celeba_26k:MMCN4M+Unet4M_wave",
+  "hf:digicam:celeba_26k:Unet2M+MWDN6M_wave",
+  "hf:digicam:celeba_26k:Unet4M+TrainInv+Unet4M_wave",
+  "hf:digicam:celeba_26k:Unet2M+MMCN+Unet2M_wave",
+  "hf:digicam:celeba_26k:Unet4M+U5+Unet4M_wave",
+  "hf:digicam:celeba_26k:Unet4M+U10+Unet4M_wave",
+  
+  # # -- reconstructions trained on other datasets/systems
+  # "hf:diffusercam:mirflickr:Unet4M+U10+Unet4M",
+  # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M",
+  # "hf:tapecam:mirflickr:Unet4M+U10+Unet4M",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_wave",
+]
+
+save_idx: [0, 2, 3, 4, 9]
+n_iter_range: [100]    # for ADMM
+
+huggingface:
+  repo: bezzam/DigiCam-CelebA-26K
+  psf: psf_simulated_waveprop.png    # psf_simulated_waveprop.png, psf_simulated.png, psf_measured.png
+  split_seed: 0
+  test_size: 0.15
+  downsample: 2
+  image_res: null
+
+  alignment:
+    top_left: null
+    height: null
+
+    # cropping when there is no downsampling
+    crop:
+      vertical: [0, 525]
+      horizontal: [265, 695]
+
+    # for prepping ground truth data
+    simulation:
+      scene2mask: 0.25   # [m]
+      mask2sensor: 0.002   # [m]
+      object_height: 0.33   # [m]
+      sensor: "rpi_hq"
+      # shifting when there is no files to downsample
+      vertical_shift: -117
+      horizontal_shift: -25

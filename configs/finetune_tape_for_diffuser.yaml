@@ -1,0 +1,31 @@
+# python scripts/recon/train_learning_based.py -cn finetune_tape_for_diffuser
+defaults:
+  - train_unrolledADMM
+  - _self_
+
+torch_device: 'cuda:0'
+device_ids: [0, 1, 2, 3]
+eval_disp_idx: [0, 1, 3, 4, 8]
+
+# Dataset
+files:
+  dataset: bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM
+  huggingface_dataset: True
+  huggingface_psf: psf.tiff
+  single_channel_psf: True
+  downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
+  flipud: True
+  flip_lensed: True   # for measured data
+
+  hf_simulated: True
+
+training:
+  batch_size: 4
+  epoch: 25
+  eval_batch_size: 4
+
+reconstruction:
+  init: hf:tapecam:mirflickr:Unet4M+U5+Unet4M
+
+optimizer:
+  lr: 1e-5

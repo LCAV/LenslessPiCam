@@ -1,0 +1,53 @@
+defaults:
+  - telegram_demo
+  - _self_
+
+# for Telegram
+token: null
+setup_fp: voronoi_setup.jpeg
+
+# usernames and IP address
+rpi_username: null
+rpi_hostname: null
+
+config_name: demo_iccp2024
+psf:
+  fp: data/psf/voronoi_rgb.png
+  downsample: 4
+
+files:
+  mnist:
+    fp: data/original/mnist_3.png
+    exposure: 0.05
+    brightness: 100
+  thumb: 
+    fp: data/original/thumbs_up.png
+    exposure: 0.02
+    brightness: 80
+  face:
+    fp: data/original/face.jpg
+    exposure: 0.03
+    brightness: 80
+  tree:
+    fp: data/original/tree.png
+    exposure: 0.08
+    brightness: 100
+
+overlay:
+  alpha: 60
+
+  img1:
+    fp: data/original/epfl_white.png
+    scaling: 0.3
+    position: [10,10]
+
+  img2:
+    fp: data/original/iccp.png
+    scaling: 0.4
+    position: [220,15]
+
+  img3:
+    fp: data/original/lpc.png
+    scaling: 0.4
+    position: [110,300]
+    

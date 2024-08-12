@@ -7,7 +7,6 @@ torch_device: 'cuda:0'
 device_ids: [0, 1, 2, 3]
 eval_disp_idx: [1, 2, 4, 5, 9]
 
-
 # Dataset
 files:
   dataset: bezzam/DigiCam-Mirflickr-MultiMask-25K
@@ -17,16 +16,16 @@ files:
   # TODO: these parameters should be in the dataset?
   image_res: [900, 1200]  # used during measurement
   rotate: True   # if measurement is upside-down
-  save_psf: False
+  save_psf: True
 
-  extra_eval: 
-    singlemask: 
-      huggingface_repo: bezzam/DigiCam-Mirflickr-SingleMask-25K
-      display_res: [900, 1200]  # used during measurement
-      rotate: True   # if measurement is upside-down
-      alignment:
-        top_left: [80, 100]  # height, width
-        height: 200
+  extra_eval: null
+    # singlemask: 
+    #   huggingface_repo: bezzam/DigiCam-Mirflickr-SingleMask-25K
+    #   display_res: [900, 1200]  # used during measurement
+    #   rotate: True   # if measurement is upside-down
+    #   alignment:
+    #     top_left: [80, 100]  # height, width
+    #     height: 200
 
 # TODO: these parameters should be in the dataset?
 alignment:
@@ -43,7 +42,7 @@ reconstruction:
   method: unrolled_admm
   unrolled_admm:
     # Number of iterations
-    n_iter: 10
+    n_iter: 5
     # Hyperparameters
     mu1: 1e-4
     mu2: 1e-4
@@ -58,3 +57,8 @@ reconstruction:
     depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
     nc: [32,64,116,128]
 
+simulation:
+  use_waveprop: True
+  deadspace: True
+  scene2mask: 0.3
+  mask2sensor: 0.002

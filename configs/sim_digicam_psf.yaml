@@ -8,11 +8,16 @@ dtype: float32
 torch_device: cuda
 requires_grad: False
 
+# if repo not provided, check for local file at `digicam.pattern`
+huggingface_repo: bezzam/DigiCam-CelebA-26K
+huggingface_mask_pattern: mask_pattern.npy
+huggingface_psf: psf_measured.png
+
 digicam:
 
   slm: adafruit
   sensor: rpi_hq
-  downsample: null    # null for no downsampling
+  downsample: 1
 
   # https://drive.switch.ch/index.php/s/NdgHlcDeHVDH5ww?path=%2Fpsf
   pattern: data/psf/adafruit_random_pattern_20230719.npy
@@ -33,7 +38,8 @@ sim:
   flipud: True
 
   # in practice found waveprop=True or False doesn't make difference
-  waveprop: False
+  waveprop: True
+  deadspace: True
 
   # below are ignored if waveprop=False
   scene2mask: 0.3   # [m]
