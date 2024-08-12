@@ -15,6 +15,7 @@ Added
 
 - Option to pass background image to ``utils.io.load_data``.
 - Option to set image resolution with ``hardware.utils.display`` function.
+- Add utility for mask adapter generation in ``lenseless.hardware.fabrication``
 - Option to add simulated background in ``util.dataset``
 - Auxiliary of reconstructing output from pre-processor (not working).
 - Option to set focal range for MultiLensArray.
@@ -62,6 +63,7 @@ Added
 - Fallback for normalization if data not in 8bit range (``lensless.utils.io.save_image``).
 - Add utilities for fabricating masks with 3D printing (``lensless.hardware.fabrication``).
 - WandB support.
+- Script for Mask adapter generation and update new mount in doc
 
 Changed
 ~~~~~~~
