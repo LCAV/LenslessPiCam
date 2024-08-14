@@ -492,8 +492,23 @@ def train_learned(config):
                 if name1 in dict_params2_post:
                     dict_params2_post[name1].data.copy_(param1.data)
 
+    # check/prepare background subtraction
+    background_network = None
     if config.reconstruction.direct_background_subtraction:
         assert test_set.measured_bg and train_set.measured_bg
+        assert config.reconstruction.learned_background_subtraction is None
+    if config.reconstruction.learned_background_subtraction is not None:
+        assert config.reconstruction.direct_background_subtraction is False
+        assert test_set.measured_bg and train_set.measured_bg
+
+        # create UnetRes for background subtraction
+        background_network, background_network_name = create_process_network(
+            network="UnetRes",
+            depth=len(config.reconstruction.learned_background_subtraction),
+            nc=config.reconstruction.learned_background_subtraction,
+            device=device,
+            device_ids=device_ids,
+        )
 
     # create reconstruction algorithm
     if config.reconstruction.init is not None:
@@ -523,6 +538,7 @@ def train_learned(config):
                 learn_tk=config.reconstruction.unrolled_fista.learn_tk,
                 pre_process=pre_process if pre_proc_delay is None else None,
                 post_process=post_process if post_proc_delay is None else None,
+                background_network=background_network,
                 skip_unrolled=config.reconstruction.skip_unrolled,
                 return_intermediate=(
                     True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
@@ -541,6 +557,7 @@ def train_learned(config):
                 tau=config.reconstruction.unrolled_admm.tau,
                 pre_process=pre_process if pre_proc_delay is None else None,
                 post_process=post_process if post_proc_delay is None else None,
+                background_network=background_network,
                 skip_unrolled=config.reconstruction.skip_unrolled,
                 return_intermediate=(
                     True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
@@ -556,6 +573,7 @@ def train_learned(config):
                 K=config.reconstruction.trainable_inv.K,
                 pre_process=pre_process if pre_proc_delay is None else None,
                 post_process=post_process if post_proc_delay is None else None,
+                background_network=background_network,
                 return_intermediate=(
                     True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
                 ),
@@ -570,6 +588,7 @@ def train_learned(config):
                 psf_channels = 3
 
             assert config.reconstruction.direct_background_subtraction is False, "Not supported"
+            assert config.reconstruction.learned_background_subtraction is None, "Not supported"
 
             recon = MultiWiener(
                 in_channels=3,
@@ -606,6 +625,9 @@ def train_learned(config):
     if post_process is not None:
         n_param = sum(p.numel() for p in post_process.parameters() if p.requires_grad)
         log.info(f"-- Post-process model with {n_param} parameters")
+    if background_network is not None:
+        n_param = sum(p.numel() for p in background_network.parameters() if p.requires_grad)
+        log.info(f"-- Background subtraction model with {n_param} parameters")
 
     log.info(f"Setup time : {time.time() - start_time} s")
     log.info(f"PSF shape : {psf.shape}")

@@ -91,7 +91,8 @@ reconstruction:
   init_post: True   # if `init_processors`, set post-procesor is available
 
   # background subtraction (if dataset has corresponding background images)
-  direct_background_subtraction: False
+  direct_background_subtraction: False    # True or False
+  learned_background_subtraction: False   # False, or set number of channels for UnetRes, e.g. [8,16,32,64]
 
   # Hyperparameters for each method
   unrolled_fista: # for unrolled_fista

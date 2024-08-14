@@ -112,7 +112,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             assert (
                 direct_background_subtraction is False
             ), "Cannot use direct_background_subtraction and background_network at the same time."
-            self.background_network = background_network
+            self.set_background_network(background_network)
         else:
             self.learned_background_subtraction = False
             self.background_network = None
@@ -188,6 +188,13 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             self.post_process_param,
         ) = self._prepare_process_block(post_process)
 
+    def set_background_network(self, background_network):
+        (
+            self.background_network,
+            self.background_network_model,
+            self.background_network_param,
+        ) = self._prepare_process_block(background_network)
+
     def freeze_pre_process(self):
         """
         Method for freezing the pre process block.
@@ -261,7 +268,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             assert (
                 self.background_network is not None
             ), "If project_background is True, background_network must be defined."
-            self._data = self._data - self.background_network(background)
+            self._data = self._data - self.background_network(
+                background, self.background_network_param
+            )
 
         if psfs is not None:
             # assert same shape
