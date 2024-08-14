@@ -113,6 +113,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
                 direct_background_subtraction is False
             ), "Cannot use direct_background_subtraction and background_network at the same time."
             self.background_network = background_network
+        else:
+            self.learned_background_subtraction = False
+            self.background_network = None
         self.return_intermediate = return_intermediate
         self.compensation_branch = compensation
         if compensation is not None:
