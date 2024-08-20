@@ -1,0 +1,20 @@
+# python scripts/data/upload_dataset_huggingface.py -cn upload_multilens_mirflickr_ambient
+defaults:
+  - upload_dataset_huggingface
+  - _self_
+
+repo_id: "Lensless/MultiLens-Mirflickr-Ambient"
+n_files:
+test_size: 0.15
+lensless:
+  dir: /dev/shm/all_measured_20240813-183259
+  ambient: True
+  ext: ".png"
+
+lensed:
+  dir: data/mirflickr/mirflickr
+  ext: ".jpg"
+
+files:
+  psf: data/multilens_psf.png
+  measurement_config: data/collect_dataset_background_multilens.yaml
