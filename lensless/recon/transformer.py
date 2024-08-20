@@ -56,7 +56,7 @@ class Transformer(nn.Module):
             out_channels = in_channels
 
         # create encoder and decoder
-        self.Encoder = Encoder(
+        self.encoder = Encoder(
             in_shape=in_shape,
             in_channels=in_channels,
             embed_dims=encoder_embed_dims,
@@ -65,7 +65,7 @@ class Transformer(nn.Module):
             patch_size=patch_size,
             stride=stride,
         )
-        self.Decoder = Decoder(
+        self.decoder = Decoder(
             encoder_embed_dims=encoder_embed_dims, out_channels=out_channels, out_shape=out_shape
         )
 
@@ -78,12 +78,16 @@ class Transformer(nn.Module):
         )
 
         # apply transformer
-        x = self.Encoder(x)
-        x = self.Decoder(x)
+        x = self.encoder(x)
+        x = self.decoder(x)
 
-        # remove padding
+        # back to original dimensions and shape
         x = x[:, :, self.top : -self.bottom, self.left : -self.right]
         x = convert_to_NDCHW(x, depth=1)
+
+        # normalize to [0,1], TODO use sigmoid instead?
+        x = (x + 1) / 2
+        x = torch.clip(x, min=0.0)
 
         return x
 

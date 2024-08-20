@@ -449,13 +449,15 @@ def train_learned(config):
         # raise ValueError
 
         pre_process_name = "transformer"
+        pre_process_type = "transformer"
+        pre_process.cuda(device)
         if device_ids is not None:
             pre_process = torch.nn.DataParallel(pre_process, device_ids=device_ids)
         pre_process = pre_process.to(device)
 
         # # TODO: test passing input
         # lensless = test_set[0][0].to(device)
-        # h = pre_process(lensless
+        # h = pre_process(lensless)
 
     else:
         pre_process, pre_process_name = create_process_network(
@@ -465,21 +467,36 @@ def train_learned(config):
             device=device,
             device_ids=device_ids,
         )
+        pre_process_type = "drunet"
     pre_proc_delay = config.reconstruction.pre_process.delay
 
     # Load post-process model
-    post_process, post_process_name = create_process_network(
-        config.reconstruction.post_process.network,
-        config.reconstruction.post_process.depth,
-        nc=config.reconstruction.post_process.nc,
-        device=device,
-        device_ids=device_ids,
-        concatenate_compensation=(
-            config.reconstruction.compensation[-1]
-            if config.reconstruction.compensation is not None
-            else False
-        ),
-    )
+    if config.reconstruction.post_process.network == "transformer":
+        post_process = Transformer(
+            encoder_embed_dims=config.reconstruction.post_process.nc,
+            in_shape=psf.shape[1:3],
+            in_channels=psf.shape[-1],
+            out_channels=psf.shape[-1],
+        )
+        post_process_name = "transformer"
+        post_process_type = "transformer"
+        if device_ids is not None:
+            post_process = torch.nn.DataParallel(post_process, device_ids=device_ids)
+        post_process = post_process.to(device)
+    else:
+        post_process, post_process_name = create_process_network(
+            config.reconstruction.post_process.network,
+            config.reconstruction.post_process.depth,
+            nc=config.reconstruction.post_process.nc,
+            device=device,
+            device_ids=device_ids,
+            concatenate_compensation=(
+                config.reconstruction.compensation[-1]
+                if config.reconstruction.compensation is not None
+                else False
+            ),
+        )
+        post_process_type = "drunet"
     post_proc_delay = config.reconstruction.post_process.delay
 
     if post_process is not None and config.reconstruction.post_process.train_last_layer:
@@ -564,6 +581,8 @@ def train_learned(config):
                 ),
                 compensation=config.reconstruction.compensation,
                 compensation_residual=config.reconstruction.compensation_residual,
+                pre_process_type=pre_process_type,
+                post_process_type=post_process_type,
             )
         elif config.reconstruction.method == "unrolled_admm":
             recon = UnrolledADMM(
@@ -581,6 +600,8 @@ def train_learned(config):
                 ),
                 compensation=config.reconstruction.compensation,
                 compensation_residual=config.reconstruction.compensation_residual,
+                pre_process_type=pre_process_type,
+                post_process_type=post_process_type,
             )
         elif config.reconstruction.method == "trainable_inv":
             assert config.trainable_mask.mask_type == "TrainablePSF"
@@ -592,6 +613,8 @@ def train_learned(config):
                 return_intermediate=(
                     True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
                 ),
+                pre_process_type=pre_process_type,
+                post_process_type=post_process_type,
             )
         elif config.reconstruction.method == "multi_wiener":
 
@@ -636,8 +659,6 @@ def train_learned(config):
     if post_process is not None:
         n_param = sum(p.numel() for p in post_process.parameters() if p.requires_grad)
         log.info(f"-- Post-process model with {n_param} parameters")
-
-    raise ValueError
 
     log.info(f"Setup time : {time.time() - start_time} s")
     log.info(f"PSF shape : {psf.shape}")

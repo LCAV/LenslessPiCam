@@ -15,6 +15,8 @@ from lensless.recon.rfft_convolve import RealFFTConvolve2D
 try:
     import torch
 
+    from lensless.recon.utils import CompensationBranch
+
 except ImportError:
     raise ImportError("Pytorch is require to use trainable reconstruction algorithms.")
 
@@ -50,7 +52,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         dtype=None,
         n_iter=1,
         pre_process=None,
+        pre_process_type="drunet",
         post_process=None,
+        post_process_type="drunet",
         skip_unrolled=False,
         skip_pre=False,
         skip_post=False,
@@ -99,16 +103,17 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         )
 
         self._legacy_denoiser = legacy_denoiser
-        self.set_pre_process(pre_process)
-        self.set_post_process(post_process)
+        self.set_pre_process(pre_process, pre_process_type)
+        self.set_post_process(post_process, post_process_type)
         self.skip_unrolled = skip_unrolled
         self.skip_pre = skip_pre
         self.skip_post = skip_post
         self.return_intermediate = return_intermediate
         self.compensation_branch = compensation
         if compensation is not None:
-            from lensless.recon.utils import CompensationBranch
-
+            assert (
+                self.post_process_type == "drunet"
+            ), "Compensation branch requires post_process to be a DruNet."
             assert (
                 post_process is not None
             ), "If compensation_branch is True, post_process must be defined."
@@ -162,19 +167,31 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
         return process_function, process_model, process_param
 
-    def set_pre_process(self, pre_process):
-        (
-            self.pre_process,
-            self.pre_process_model,
-            self.pre_process_param,
-        ) = self._prepare_process_block(pre_process)
+    def set_pre_process(self, pre_process, pre_process_type):
+        self.pre_process_type = pre_process_type
+        if self.pre_process_type == "drunet":
+            (
+                self.pre_process,
+                self.pre_process_model,
+                self.pre_process_param,
+            ) = self._prepare_process_block(pre_process)
+        else:
+            self.pre_process = pre_process
+            self.pre_process_model = None
+            self.pre_process_param = None
 
-    def set_post_process(self, post_process):
-        (
-            self.post_process,
-            self.post_process_model,
-            self.post_process_param,
-        ) = self._prepare_process_block(post_process)
+    def set_post_process(self, post_process, post_process_type):
+        self.post_process_type = post_process_type
+        if self.post_process_type == "drunet":
+            (
+                self.post_process,
+                self.post_process_model,
+                self.post_process_param,
+            ) = self._prepare_process_block(post_process)
+        else:
+            self.post_process = post_process
+            self.post_process_model = None
+            self.post_process_param = None
 
     def freeze_pre_process(self):
         """
@@ -251,7 +268,14 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         # pre process data
         if self.pre_process is not None and not self.skip_pre:
             device_before = self._data.device
-            self._data = self.pre_process(self._data, self.pre_process_param)
+            if self.pre_process_type == "drunet":
+                self._data = self.pre_process(self._data, self.pre_process_param)
+            else:
+                print(self._data.device)
+                print(self._psf.device)
+                print(self.pre_process.device_ids[0])
+
+                self._data = self.pre_process(self._data.to(self._psf.device))
             self._data = self._data.to(device_before)
         pre_processed = self._data
 
@@ -277,7 +301,12 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             if self.compensation_branch is not None:
                 compensation_output = self.compensation_branch(compensation_branch_inputs)
 
-            final_est = self.post_process(image_est, self.post_process_param, compensation_output)
+            if self.post_process_type == "drunet":
+                final_est = self.post_process(
+                    image_est, self.post_process_param, compensation_output
+                )
+            else:
+                final_est = self.post_process(image_est.to(self._psf.device))
         else:
             final_est = image_est
 
