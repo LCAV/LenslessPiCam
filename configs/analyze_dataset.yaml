@@ -4,7 +4,7 @@ hydra:
     chdir: True    # change to output folder
 
 dataset_path: null
-desired_range: [100, 255]
+desired_range: [10, 255]
 saturation_percent: 0.05
 delete_bad: False
 n_files: null
