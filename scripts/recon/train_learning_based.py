@@ -55,6 +55,7 @@ from lensless.utils.io import save_image
 from lensless.utils.plot import plot_image
 import matplotlib.pyplot as plt
 from lensless.recon.model_dict import load_model, download_model
+from lensless.recon.transformer import Transformer
 
 # A logger for this file
 log = logging.getLogger(__name__)
@@ -227,7 +228,9 @@ def train_learned(config):
                 display_res=config.files.image_res,
                 alignment=config.alignment,
                 bg_snr_range=config.files.background_snr_range,  # TODO check if correct
-                bg_fp=to_absolute_path(config.files.background_fp),
+                bg_fp=to_absolute_path(config.files.background_fp)
+                if config.files.background_fp
+                else None,
             )
 
         else:
@@ -251,7 +254,9 @@ def train_learned(config):
                 simulate_lensless=config.files.simulate_lensless,
                 random_flip=config.files.random_flip,
                 bg_snr_range=config.files.background_snr_range,
-                bg_fp=to_absolute_path(config.files.background_fp),
+                bg_fp=to_absolute_path(config.files.background_fp)
+                if config.files.background_fp
+                else None,
             )
 
         test_set = HFDataset(
@@ -271,7 +276,9 @@ def train_learned(config):
             n_files=config.files.n_files,
             simulation_config=config.simulation,
             bg_snr_range=config.files.background_snr_range,
-            bg_fp=to_absolute_path(config.files.background_fp),
+            bg_fp=to_absolute_path(config.files.background_fp)
+            if config.files.background_fp
+            else None,
             force_rgb=config.files.force_rgb,
             simulate_lensless=False,  # in general evaluate on measured (set to False)
         )
@@ -422,13 +429,42 @@ def train_learned(config):
     start_time = time.time()
 
     # Load pre-process model
-    pre_process, pre_process_name = create_process_network(
-        config.reconstruction.pre_process.network,
-        config.reconstruction.pre_process.depth,
-        nc=config.reconstruction.pre_process.nc,
-        device=device,
-        device_ids=device_ids,
-    )
+    if config.reconstruction.pre_process.network == "transformer":
+        pre_process = Transformer(
+            encoder_embed_dims=config.reconstruction.pre_process.nc,
+            in_shape=psf.shape[1:3],
+            # TODO paper mentions reconstruction each channel separately with single channel network
+            # we do all channels simultaneously
+            in_channels=psf.shape[-1],
+            out_channels=psf.shape[-1],
+        )
+
+        # # -- number of params
+        # n_param = sum(p.numel() for p in pre_process.Encoder.parameters() if p.requires_grad)
+        # log.info(f"Encoder with {n_param} parameters")
+        # n_param = sum(p.numel() for p in pre_process.Decoder.parameters() if p.requires_grad)
+        # log.info(f"Decoder with {n_param} parameters")
+        # n_param = sum(p.numel() for p in pre_process.parameters() if p.requires_grad)
+        # log.info(f"-- Total pre-process model with {n_param} parameters")
+        # raise ValueError
+
+        pre_process_name = "transformer"
+        if device_ids is not None:
+            pre_process = torch.nn.DataParallel(pre_process, device_ids=device_ids)
+        pre_process = pre_process.to(device)
+
+        # # TODO: test passing input
+        # lensless = test_set[0][0].to(device)
+        # h = pre_process(lensless
+
+    else:
+        pre_process, pre_process_name = create_process_network(
+            config.reconstruction.pre_process.network,
+            config.reconstruction.pre_process.depth,
+            nc=config.reconstruction.pre_process.nc,
+            device=device,
+            device_ids=device_ids,
+        )
     pre_proc_delay = config.reconstruction.pre_process.delay
 
     # Load post-process model
@@ -600,6 +636,8 @@ def train_learned(config):
     if post_process is not None:
         n_param = sum(p.numel() for p in post_process.parameters() if p.requires_grad)
         log.info(f"-- Post-process model with {n_param} parameters")
+
+    raise ValueError
 
     log.info(f"Setup time : {time.time() - start_time} s")
     log.info(f"PSF shape : {psf.shape}")
