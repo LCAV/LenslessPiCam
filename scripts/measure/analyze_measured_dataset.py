@@ -145,7 +145,8 @@ def analyze_dataset(config):
             response = input("Delete files without background: [yes|no] : ")
         if response == "yes":
             for _fn in files_no_bg:
-                os.remove(_fn)
+                if os.path.exists(_fn):  # maybe already deleted before
+                    os.remove(_fn)
 
 
 if __name__ == "__main__":
