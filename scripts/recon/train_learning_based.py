@@ -39,6 +39,7 @@ from lensless.utils.image import shift_with_pad
 from lensless.hardware.trainable_mask import prep_trainable_mask
 from lensless import ADMM, UnrolledFISTA, UnrolledADMM, TrainableInversion
 from lensless.recon.multi_wiener import MultiWiener
+from lensless.recon.integrated_background_sub import IntegratedBackgroundSub
 from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     DigiCamCelebA,
@@ -420,14 +421,16 @@ def train_learned(config):
     start_time = time.time()
 
     # Load pre-process model
+    pre_proc_delay = config.reconstruction.pre_process.delay
     pre_process, pre_process_name = create_process_network(
         config.reconstruction.pre_process.network,
         config.reconstruction.pre_process.depth,
         nc=config.reconstruction.pre_process.nc,
         device=device,
         device_ids=device_ids,
+        background_subtraction=config.reconstruction.integrated_background_unetres,
+        input_background=config.reconstruction.unetres_input_background,
     )
-    pre_proc_delay = config.reconstruction.pre_process.delay
 
     # Load post-process model
     post_process, post_process_name = create_process_network(
@@ -496,18 +499,32 @@ def train_learned(config):
     background_network = None
     if config.reconstruction.direct_background_subtraction:
         assert test_set.measured_bg and train_set.measured_bg
-        assert config.reconstruction.learned_background_subtraction is None
-    if config.reconstruction.learned_background_subtraction is not None:
+        assert config.reconstruction.learned_background_subtraction is False
+    elif config.reconstruction.learned_background_subtraction:
         assert config.reconstruction.direct_background_subtraction is False
         assert test_set.measured_bg and train_set.measured_bg
 
         # create UnetRes for background subtraction
-        background_network, background_network_name = create_process_network(
+        background_network, _ = create_process_network(
             network="UnetRes",
             depth=len(config.reconstruction.learned_background_subtraction),
             nc=config.reconstruction.learned_background_subtraction,
             device=device,
             device_ids=device_ids,
+        )
+    elif config.reconstruction.integrated_background_subtraction:
+        assert config.reconstruction.direct_background_subtraction is False
+        assert config.reconstruction.learned_background_subtraction is False
+        assert pre_process is None
+        assert test_set.measured_bg and train_set.measured_bg
+
+        background = train_set[0][-1]
+        background_network = IntegratedBackgroundSub(
+            in_channels=3,
+            out_channels=3,
+            input_shape=background.shape,
+            nc=config.reconstruction.integrated_background_subtraction,
+            down_subtraction=config.reconstruction.down_subtraction,
         )
 
     # create reconstruction algorithm
@@ -529,6 +546,7 @@ def train_learned(config):
         )
 
     else:
+
         if config.reconstruction.method == "unrolled_fista":
             recon = UnrolledFISTA(
                 psf,
@@ -546,6 +564,7 @@ def train_learned(config):
                 compensation=config.reconstruction.compensation,
                 compensation_residual=config.reconstruction.compensation_residual,
                 direct_background_subtraction=config.reconstruction.direct_background_subtraction,
+                integrated_background_subtraction=config.reconstruction.integrated_background_subtraction,
             )
         elif config.reconstruction.method == "unrolled_admm":
             recon = UnrolledADMM(
@@ -565,6 +584,7 @@ def train_learned(config):
                 compensation=config.reconstruction.compensation,
                 compensation_residual=config.reconstruction.compensation_residual,
                 direct_background_subtraction=config.reconstruction.direct_background_subtraction,
+                integrated_background_subtraction=config.reconstruction.integrated_background_subtraction,
             )
         elif config.reconstruction.method == "trainable_inv":
             assert config.trainable_mask.mask_type == "TrainablePSF"
@@ -578,6 +598,7 @@ def train_learned(config):
                     True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
                 ),
                 direct_background_subtraction=config.reconstruction.direct_background_subtraction,
+                integrated_background_subtraction=config.reconstruction.integrated_background_subtraction,
             )
         elif config.reconstruction.method == "multi_wiener":
 
@@ -589,6 +610,7 @@ def train_learned(config):
 
             assert config.reconstruction.direct_background_subtraction is False, "Not supported"
             assert config.reconstruction.learned_background_subtraction is None, "Not supported"
+            assert config.reconstruction.integrated_background_subtraction is None, "Not supported"
 
             recon = MultiWiener(
                 in_channels=3,

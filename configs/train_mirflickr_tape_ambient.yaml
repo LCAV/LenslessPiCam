@@ -3,7 +3,7 @@ defaults:
   - train_mirflickr_tape
   - _self_
 
-wandb_project:
+wandb_project: tapecam_ambient
 device_ids:
 
 # Dataset

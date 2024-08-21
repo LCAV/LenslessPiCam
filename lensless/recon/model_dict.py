@@ -8,6 +8,7 @@ and other intermediate files. Models are stored on Hugging Face.
 
 
 import os
+from lensless.recon.integrated_background_sub import IntegratedBackgroundSub
 import numpy as np
 import torch
 from lensless.recon.utils import create_process_network
@@ -274,6 +275,33 @@ def load_model(
     pre_process = None
     post_process = None
 
+    background_network = None
+    if config["reconstruction"].get("direct_background_subtraction", False):
+        assert config["reconstruction"].get("learned_background_subtraction", None) is False
+    elif config["reconstruction"].get("learned_background_subtraction", False):
+        assert config["reconstruction"].get("direct_background_subtraction", None) is False
+
+        # create UnetRes for background subtraction
+        background_network, _ = create_process_network(
+            network="UnetRes",
+            depth=len(config["reconstruction"]["learned_background_subtraction"]),
+            nc=config["reconstruction"]["learned_background_subtraction"],
+            device=device,
+            device_ids=device_ids,
+        )
+    elif config["reconstruction"].get("integrated_background_subtraction", False):
+        assert config["reconstruction"]["direct_background_subtraction"] is False
+        assert config["reconstruction"]["learned_background_subtraction"] is False
+        assert pre_process is None
+
+        background_network = IntegratedBackgroundSub(
+            in_channels=3,
+            out_channels=3,
+            input_shape=psf.shape,
+            nc=config["reconstruction"]["integrated_background_subtraction"],
+            down_subtraction=config["reconstruction"]["down_subtraction"],
+        )
+
     if config["reconstruction"].get("init", None):
 
         init_model = config["reconstruction"]["init"]
@@ -330,7 +358,6 @@ def load_model(
                             param.requires_grad = False
 
         if config["reconstruction"]["method"] == "unrolled_admm":
-
             recon = UnrolledADMM(
                 psf if mask is None else psf_learned,
                 pre_process=pre_process,
@@ -342,6 +369,13 @@ def load_model(
                 skip_post=skip_post,
                 compensation=config["reconstruction"].get("compensation", None),
                 compensation_residual=config["reconstruction"].get("compensation_residual", False),
+                direct_background_subtraction=config["reconstruction"].get(
+                    "direct_background_subtraction", False
+                ),
+                integrated_background_subtraction=config["reconstruction"].get(
+                    "integrated_background_subtraction", False
+                ),
+                background_network=background_network,
             )
         elif config["reconstruction"]["method"] == "trainable_inv":
             recon = TrainableInversion(
@@ -352,6 +386,13 @@ def load_model(
                 legacy_denoiser=legacy_denoiser,
                 skip_pre=skip_pre,
                 skip_post=skip_post,
+                direct_background_subtraction=config["reconstruction"][
+                    "direct_background_subtraction"
+                ],
+                integrated_background_subtraction=config["reconstruction"][
+                    "integrated_background_subtraction"
+                ],
+                background_network=background_network,
             )
         elif config["reconstruction"]["method"] == "multi_wiener":
 
@@ -395,7 +436,7 @@ def load_model(
     recon.load_state_dict(model_state_dict)
 
     if device_ids is not None:
-        if recon.pre_process is not None:
+        if recon.pre_process is not None and background_network is None:
             pre_proc = torch.nn.DataParallel(recon.pre_process_model, device_ids=device_ids)
             pre_proc = pre_proc.to(device)
             recon.set_pre_process(pre_proc)
@@ -406,4 +447,7 @@ def load_model(
         recon = MyDataParallel(recon, device_ids=device_ids)
     recon.to(device)
 
+    import pdb
+
+    pdb.set_trace()
     return recon

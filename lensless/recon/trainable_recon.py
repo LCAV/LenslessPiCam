@@ -51,7 +51,6 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         n_iter=1,
         pre_process=None,
         post_process=None,
-        background_network=None,
         skip_unrolled=False,
         skip_pre=False,
         skip_post=False,
@@ -59,7 +58,10 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         legacy_denoiser=False,
         compensation=None,
         compensation_residual=True,
+        # background subtraction
         direct_background_subtraction=False,
+        background_network=None,
+        integrated_background_subtraction=False,
         **kwargs,
     ):
         """
@@ -101,21 +103,45 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         )
 
         self._legacy_denoiser = legacy_denoiser
-        self.set_pre_process(pre_process)
-        self.set_post_process(post_process)
+        self.input_background = False
+        if pre_process is not None:
+            self.set_pre_process(pre_process)
+        else:
+            self.pre_process = None
+            self.pre_process_model = None
+            self.pre_process_param = None
+        if post_process is not None:
+            self.set_post_process(post_process)
+        else:
+            self.post_process = None
+            self.post_process_model = None
+            self.post_process_param = None
         self.skip_unrolled = skip_unrolled
         self.skip_pre = skip_pre
         self.skip_post = skip_post
+
+        # background subtraction
         self.direct_background_subtraction = direct_background_subtraction
+        self.integrated_background_subtraction = integrated_background_subtraction
+        self.learned_background_subtraction = False
+        self.background_network = None
         if background_network is not None:
-            self.learned_background_subtraction = True
-            assert (
-                direct_background_subtraction is False
-            ), "Cannot use direct_background_subtraction and background_network at the same time."
-            self.set_background_network(background_network)
-        else:
-            self.learned_background_subtraction = False
-            self.background_network = None
+            if integrated_background_subtraction:
+                assert (
+                    direct_background_subtraction is False
+                ), "Cannot use direct_background_subtraction and background_network at the same time."
+                assert (
+                    pre_process is None
+                ), "Cannot use pre_process with integrated_background_subtraction."
+                self.pre_process = background_network
+            else:
+                self.learned_background_subtraction = True
+                assert (
+                    direct_background_subtraction is False
+                ), "Cannot use direct_background_subtraction and background_network at the same time."
+                self.set_background_network(background_network)
+
+        # compensation branch
         self.return_intermediate = return_intermediate
         self.compensation_branch = compensation
         if compensation is not None:
@@ -175,6 +201,10 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         return process_function, process_model, process_param
 
     def set_pre_process(self, pre_process):
+        if isinstance(pre_process, torch.nn.DataParallel):
+            self.input_background = pre_process.module.input_background
+        else:
+            self.input_background = pre_process.input_background
         (
             self.pre_process,
             self.pre_process_model,
@@ -264,13 +294,14 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         elif self.learned_background_subtraction:
             assert (
                 background is not None
-            ), "If project_background is True, background must be defined."
+            ), "If learned_background_subtraction is True, background must be defined."
             assert (
                 self.background_network is not None
-            ), "If project_background is True, background_network must be defined."
+            ), "If learned_background_subtraction is True, background_network must be defined."
+
             self._data = self._data - self.background_network(
                 background, self.background_network_param
-            )
+            ).to(self._data.device)
 
         if psfs is not None:
             # assert same shape
@@ -278,15 +309,23 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             # -- update convolver
             self._convolver = RealFFTConvolve2D(psfs.to(self._data.device), **self._convolver_param)
         elif self._data.device != self._convolver._H.device:
-            # need for multi-GPU... TODO better solution?
+            # needed for multi-GPU... TODO better solution?
             self._convolver = RealFFTConvolve2D(
                 self._psf.to(self._data.device), **self._convolver_param
             )
 
         # pre process data
-        if self.pre_process is not None and not self.skip_pre:
+        if self.integrated_background_subtraction:
+            # use preprocess for background subtraction
+            self._data = self.pre_process(self._data, background)
+        elif self.pre_process is not None and not self.skip_pre:
+            # preproc that doesn't do background subtraction
             device_before = self._data.device
-            self._data = self.pre_process(self._data, self.pre_process_param)
+            self._data = self.pre_process(
+                self._data,
+                self.pre_process_param,
+                background=background if self.input_background else None,
+            )
             self._data = self._data.to(device_before)
         pre_processed = self._data
 
@@ -336,6 +375,8 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         Method for performing iterative reconstruction. Contrary to non-trainable reconstruction
         algorithm, the number of iteration isn't required. Note that `set_data` must be called
         beforehand.
+
+        TODO: add support for background subtraction
 
         Parameters
         ----------
