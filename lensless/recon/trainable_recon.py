@@ -202,9 +202,11 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
     def set_pre_process(self, pre_process):
         if isinstance(pre_process, torch.nn.DataParallel):
-            self.input_background = pre_process.module.input_background
+            if hasattr(pre_process.module, "input_background"):
+                self.input_background = pre_process.module.input_background
         else:
-            self.input_background = pre_process.input_background
+            if hasattr(pre_process, "input_background"):
+                self.input_background = pre_process.input_background
         (
             self.pre_process,
             self.pre_process_model,
