@@ -488,6 +488,7 @@ class MultiLensArray(Mask):
         min_height=1e-5,
         radius_range=(1e-4, 4e-4),
         min_separation=1e-4,
+        focal_range=None,
         verbose=False,
         **kwargs,
     ):
@@ -510,6 +511,8 @@ class MultiLensArray(Mask):
             Minimum height of the lenses (m). Default is 1e-3.
         radius_range: array_like
             Range of the radius of the lenses (m). Default is (1e-4, 4e-4) m.
+        focal_range: array_like
+            Range of the focal length of the lenses (m). Default is None. Overrides the radius_range.
         min_separation: float
             Minimum separation between lenses (m). Default is 1e-4.
         verbose: bool
@@ -521,9 +524,15 @@ class MultiLensArray(Mask):
         self.refractive_index = refractive_index
         self.seed = seed
         self.min_height = min_height
-        self.radius_range = radius_range
         self.min_separation = min_separation
         self.verbose = verbose
+
+        self.radius_range = radius_range
+        if focal_range is not None:
+            self.radius_range = [
+                focal_range[0] / (self.refractive_index - 1),
+                focal_range[1] / (self.refractive_index - 1),
+            ]
 
         super().__init__(**kwargs)
 
@@ -663,8 +672,8 @@ class MultiLensArray(Mask):
             else torch.arange(self.resolution[1]).to(self.torch_device)
         )
         if self.centered:
-            x = x - self.resolution[0] / 2
-            y = y - self.resolution[1] / 2
+            x = x - self.resolution[1] / 2
+            y = y - self.resolution[0] / 2
         X, Y = (
             np.meshgrid(x, y, indexing="ij")
             if not self.use_torch
@@ -683,6 +692,15 @@ class MultiLensArray(Mask):
             if not self.use_torch
             else torch.sqrt(radius**2 - (x - loc[1]) ** 2 - (y - loc[0]) ** 2)
         )
+
+    @property
+    def focal_length(self):
+        """
+        Focal length of the lenses.
+
+        As we have a plano-convex lens: 1/f = (n-1) / R -> f = R / (n-1)
+        """
+        return self.radius / (self.refractive_index - 1)
 
 
 class PhaseContour(Mask):

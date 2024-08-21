@@ -1,0 +1,23 @@
+# python scripts/data/upload_dataset_huggingface.py -cn upload_tapecam_mirflickr_ambient
+defaults:
+  - upload_dataset_huggingface
+  - _self_
+
+repo_id: "Lensless/TapeCam-Mirflickr-Ambient"
+n_files: 16000
+test_size: 0.15
+# -- to match TapeCam without ambient light
+split: 100   # "first: first `nfiles*test_size` for test, `int`: test_size*split for test (interleaved) as if multimask with this many masks
+
+lensless:
+  dir: /dev/shm/tape_15k_ambient/all_measured_20240805-143922
+  ambient: True
+  ext: ".png"
+
+lensed:
+  dir: data/mirflickr/mirflickr
+  ext: ".jpg"
+
+files:
+  psf: data/tape_psf.png
+  measurement_config: data/collect_dataset_background.yaml

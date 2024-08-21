@@ -29,6 +29,7 @@ try:
     from .recon.unrolled_admm import UnrolledADMM
     from .recon.unrolled_fista import UnrolledFISTA
     from .recon.trainable_inversion import TrainableInversion
+    from .recon.multi_wiener import MultiWiener
 except Exception:
     pass
 

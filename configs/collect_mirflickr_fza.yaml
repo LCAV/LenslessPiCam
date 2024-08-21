@@ -1,0 +1,32 @@
+# python scripts/measure/collect_dataset_on_device.py -cn collect_mirflickr_fza
+defaults:
+  - collect_dataset
+  - _self_
+
+input_dir: /mnt/mirflickr/all
+min_level: 170
+
+# FOR TESTING PURPOSE
+output_dir: data/fza_test   # RPi won't have enough memory for full measured dataset
+max_tries: 0
+recon:
+  psf: data/psf/tape_rgb.png  # TODO: set correct PSF
+  n_iter: 10
+# # FOR FINAL MEASUREMENT
+# max_tries: 2
+# output_dir: /mnt/mirflickr/fza_10K
+
+# files to measure
+n_files: 25000
+
+# -- display parameters
+display:
+  image_res: [900, 1200]
+  vshift: -26
+  brightness: 90
+  delay: 1
+
+capture:
+  down: 8
+  exposure: 0.7
+  awb_gains: [1.6, 1.2]  # red, blue, TODO for your mask

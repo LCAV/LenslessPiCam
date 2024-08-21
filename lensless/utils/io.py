@@ -6,15 +6,16 @@
 # #############################################################################
 
 
+import os.path
 import warnings
-from PIL import Image
+
 import cv2
 import numpy as np
-import os.path
+from PIL import Image
 
-from lensless.utils.plot import plot_image
 from lensless.hardware.constants import RPI_HQ_CAMERA_BLACK_LEVEL, RPI_HQ_CAMERA_CCM_MATRIX
 from lensless.utils.image import bayer2rgb_cc, print_image_info, resize, rgb2gray, get_max_val
+from lensless.utils.plot import plot_image
 
 
 def load_image(
@@ -225,6 +226,7 @@ def load_psf(
     shape=None,
     use_3d=False,
     bgr_input=True,
+    force_rgb=False,
 ):
     """
     Load and process PSF for analysis or for reconstruction.
@@ -305,6 +307,12 @@ def load_psf(
     max_val = get_max_val(psf)
     psf = np.array(psf, dtype=dtype)
 
+    if force_rgb:
+        if len(psf.shape) == 2:
+            psf = np.stack([psf] * 3, axis=2)
+        elif len(psf.shape) == 3:
+            pass
+
     if use_3d:
         if len(psf.shape) == 3:
             grayscale = True
@@ -378,6 +386,9 @@ def load_psf(
 def load_data(
     psf_fp,
     data_fp,
+    background_fp=None,
+    return_bg=False,
+    remove_background=True,
     return_float=True,
     downsample=None,
     bg_pix=(5, 25),
@@ -463,12 +474,13 @@ def load_data(
     use_3d = psf_fp.endswith(".npy") or psf_fp.endswith(".npz")
 
     # load and process PSF data
-    psf, bg = load_psf(
+    bg = None
+    res = load_psf(
         psf_fp,
         downsample=downsample,
         return_float=return_float,
         bg_pix=bg_pix,
-        return_bg=True,
+        return_bg=True if bg_pix is not None else False,
         flip=flip,
         flip_ud=flip_ud,
         flip_lr=flip_lr,
@@ -481,6 +493,10 @@ def load_data(
         use_3d=use_3d,
         bgr_input=bgr_input,
     )
+    if bg_pix is not None:
+        psf, bg = res
+    else:
+        psf = res
 
     # load and process raw measurement
     data = load_image(
@@ -495,13 +511,41 @@ def load_data(
         as_4d=True,
         return_float=return_float,
         shape=shape,
-        normalize=normalize,
+        normalize=normalize if background_fp is None else False,
         bgr_input=bgr_input,
     )
+
+    if background_fp is not None:
+        bg = load_image(
+            background_fp,
+            flip=flip,
+            bayer=bayer,
+            blue_gain=blue_gain,
+            red_gain=red_gain,
+            as_4d=True,
+            return_float=return_float,
+            shape=shape,
+            normalize=False,
+            bgr_input=bgr_input,
+        )
+        assert bg.shape == data.shape
+
+        if remove_background:
+            data -= bg
+
+        # clip to 0
+        data = np.clip(data, a_min=0, a_max=data.max())
+
+        if normalize:
+            data /= data.max()
+            bg /= data.max()  # to normalize by the same factor
 
     if data.shape != psf.shape:
         # in DiffuserCam dataset, images are already reshaped
         data = resize(data, shape=psf.shape)
+
+        if background_fp is not None:
+            bg = resize(bg, shape=psf.shape)
 
     if data.shape[3] > 1 and psf.shape[3] == 1:
         warnings.warn(
@@ -534,6 +578,7 @@ def load_data(
 
     psf = np.array(psf, dtype=dtype)
     data = np.array(data, dtype=dtype)
+    bg = np.array(bg, dtype=dtype)
     if use_torch:
         import torch
 
@@ -544,8 +589,12 @@ def load_data(
 
         psf = torch.from_numpy(psf).type(torch_dtype).to(torch_device)
         data = torch.from_numpy(data).type(torch_dtype).to(torch_device)
+        bg = torch.from_numpy(bg).type(torch_dtype).to(torch_device)
 
-    return psf, data
+    if return_bg:
+        return psf, data, bg
+    else:
+        return psf, data
 
 
 def save_image(img, fp, max_val=255, normalize=True):
@@ -553,31 +602,39 @@ def save_image(img, fp, max_val=255, normalize=True):
 
     img_tmp = img.copy()
 
-    if img_tmp.dtype == np.uint16 or img_tmp.dtype == np.uint8:
-        img_tmp = img_tmp.astype(np.float32)
-
     if normalize:
+
+        if img_tmp.dtype == np.uint16 or img_tmp.dtype == np.uint8:
+            img_tmp = img_tmp.astype(np.float32)
+
         img_tmp -= img_tmp.min()
         img_tmp /= img_tmp.max()
-    else:
-        normalized = False
-        if img_tmp.min() < 0:
-            img_tmp -= img_tmp.min()
-            normalize = True
-        if img_tmp.max() > 1:
-            img_tmp /= img_tmp.max()
-            normalize = True
-        if normalized:
-            print(f"Warning (out of range): {fp} normalizing data to [0, 1]")
-
-    if img_tmp.dtype == np.float64 or img_tmp.dtype == np.float32:
         img_tmp *= max_val
         img_tmp = img_tmp.astype(np.uint8)
 
-    # RGB
+    else:
+
+        if img_tmp.dtype == np.float64 or img_tmp.dtype == np.float32:
+            # check within [0, 1] and convert to uint8
+
+            normalized = False
+            if img_tmp.min() < 0:
+                img_tmp -= img_tmp.min()
+                normalized = True
+            if img_tmp.max() > 1:
+                img_tmp /= img_tmp.max()
+                normalized = True
+            if normalized:
+                print(f"Warning (out of range): {fp} normalizing data to [0, 1]")
+            img_tmp *= max_val
+            img_tmp = img_tmp.astype(np.uint8)
+
+    # save
     if len(img_tmp.shape) == 3 and img_tmp.shape[2] == 3:
+        # RGB
         img_tmp = Image.fromarray(img_tmp)
     else:
+        # grayscale
         img_tmp = Image.fromarray(img_tmp.squeeze())
     img_tmp.save(fp)
 

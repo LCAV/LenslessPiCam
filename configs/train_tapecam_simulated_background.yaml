@@ -1,0 +1,13 @@
+# python scripts/recon/train_learning_based.py -cn train_mirflickr_tape
+defaults:
+  - train_mirflickr_tape
+  - _self_
+
+wandb_project:
+device_ids:
+
+
+# Dataset
+files:
+  background_fp: ""
+  background_snr_range: [0,0]
