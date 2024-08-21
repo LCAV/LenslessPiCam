@@ -10,6 +10,7 @@ perlin_numpy @ git+https://github.com/pvigier/perlin-numpy.git@5e26837db14042e51
 
 # Library for learning algorithm
 torch >= 2.0.0
+timm==0.4.5
 torchvision
 torchmetrics
 lpips

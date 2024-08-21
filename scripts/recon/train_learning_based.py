@@ -7,7 +7,7 @@
 # #############################################################################
 
 """
-Train unrolled version of reconstruction algorithm.
+Train machine learning based reconstructions for lensless imaging.
 
 ```
 python scripts/recon/train_learning_based.py
@@ -31,7 +31,7 @@ python scripts/recon/train_learning_based.py -cn fine-tune_PSF
 import wandb
 import logging
 import hydra
-from hydra.utils import get_original_cwd
+from hydra.utils import get_original_cwd, to_absolute_path
 import os
 import numpy as np
 import time
@@ -55,6 +55,7 @@ from lensless.utils.io import save_image
 from lensless.utils.plot import plot_image
 import matplotlib.pyplot as plt
 from lensless.recon.model_dict import load_model, download_model
+from lensless.recon.transformer import EncDecTransformer
 
 # A logger for this file
 log = logging.getLogger(__name__)
@@ -227,7 +228,9 @@ def train_learned(config):
                 display_res=config.files.image_res,
                 alignment=config.alignment,
                 bg_snr_range=config.files.background_snr_range,  # TODO check if correct
-                bg_fp=config.files.background_fp,
+                bg_fp=to_absolute_path(config.files.background_fp)
+                if config.files.background_fp
+                else None,
             )
 
         else:
@@ -251,7 +254,9 @@ def train_learned(config):
                 simulate_lensless=config.files.simulate_lensless,
                 random_flip=config.files.random_flip,
                 bg_snr_range=config.files.background_snr_range,
-                bg_fp=config.files.background_fp,
+                bg_fp=to_absolute_path(config.files.background_fp)
+                if config.files.background_fp
+                else None,
             )
 
         test_set = HFDataset(
@@ -271,7 +276,9 @@ def train_learned(config):
             n_files=config.files.n_files,
             simulation_config=config.simulation,
             bg_snr_range=config.files.background_snr_range,
-            bg_fp=config.files.background_fp,
+            bg_fp=to_absolute_path(config.files.background_fp)
+            if config.files.background_fp
+            else None,
             force_rgb=config.files.force_rgb,
             simulate_lensless=False,  # in general evaluate on measured (set to False)
         )
@@ -341,6 +348,7 @@ def train_learned(config):
                 return_items = test_set[_idx]
                 lensless = return_items[0]
                 lensed = return_items[1]
+
                 if test_set.bg_sim is not None:
                     background = return_items[-1]
                 if test_set.multimask or test_set.random_flip:
@@ -379,6 +387,9 @@ def train_learned(config):
                 if config.files.random_rotate or config.files.random_shifts:
                     save_image(psf_recon[0].cpu().numpy(), f"psf_{_idx}.png")
 
+                save_image(lensed[0].cpu().numpy(), f"lensed_{_idx}.png")
+                save_image(lensless[0].cpu().numpy(), f"lensless_raw_{_idx}.png")
+
                 # Reconstruct and plot image
                 reconstruct_save(
                     _idx,
@@ -395,7 +406,6 @@ def train_learned(config):
                     rotate_angle,
                     shift,
                 )
-                save_image(lensed[0].cpu().numpy(), f"lensed_{_idx}.png")
                 if test_set.bg_sim is not None:
                     # Reconstruct and plot background subtracted image
                     reconstruct_save(
@@ -419,28 +429,54 @@ def train_learned(config):
     start_time = time.time()
 
     # Load pre-process model
-    pre_process, pre_process_name = create_process_network(
-        config.reconstruction.pre_process.network,
-        config.reconstruction.pre_process.depth,
-        nc=config.reconstruction.pre_process.nc,
-        device=device,
-        device_ids=device_ids,
-    )
+    img = test_set[0][0]
+    if config.reconstruction.pre_process.network == "transformer":
+        pre_process = EncDecTransformer(
+            encoder_embed_dims=config.reconstruction.pre_process.nc,
+            in_shape=img.shape[1:3],
+            # TODO paper mentions reconstruction each channel separately with single channel network
+            # we do all channels simultaneously
+            in_channels=img.shape[-1],
+            out_channels=img.shape[-1],
+        )
+        pre_process_name = "transformer"
+        pre_process_type = "transformer"
+
+    else:
+        pre_process, pre_process_name = create_process_network(
+            config.reconstruction.pre_process.network,
+            config.reconstruction.pre_process.depth,
+            nc=config.reconstruction.pre_process.nc,
+            device=device,
+            device_ids=device_ids,
+        )
+        pre_process_type = "drunet"
     pre_proc_delay = config.reconstruction.pre_process.delay
 
     # Load post-process model
-    post_process, post_process_name = create_process_network(
-        config.reconstruction.post_process.network,
-        config.reconstruction.post_process.depth,
-        nc=config.reconstruction.post_process.nc,
-        device=device,
-        device_ids=device_ids,
-        concatenate_compensation=(
-            config.reconstruction.compensation[-1]
-            if config.reconstruction.compensation is not None
-            else False
-        ),
-    )
+    if config.reconstruction.post_process.network == "transformer":
+        post_process = EncDecTransformer(
+            encoder_embed_dims=config.reconstruction.post_process.nc,
+            in_shape=img.shape[1:3],
+            in_channels=img.shape[-1],
+            out_channels=img.shape[-1],
+        )
+        post_process_name = "transformer"
+        post_process_type = "transformer"
+    else:
+        post_process, post_process_name = create_process_network(
+            config.reconstruction.post_process.network,
+            config.reconstruction.post_process.depth,
+            nc=config.reconstruction.post_process.nc,
+            device=device,
+            device_ids=device_ids,
+            concatenate_compensation=(
+                config.reconstruction.compensation[-1]
+                if config.reconstruction.compensation is not None
+                else False
+            ),
+        )
+        post_process_type = "drunet"
     post_proc_delay = config.reconstruction.post_process.delay
 
     if post_process is not None and config.reconstruction.post_process.train_last_layer:
@@ -525,6 +561,8 @@ def train_learned(config):
                 ),
                 compensation=config.reconstruction.compensation,
                 compensation_residual=config.reconstruction.compensation_residual,
+                pre_process_type=pre_process_type,
+                post_process_type=post_process_type,
             )
         elif config.reconstruction.method == "unrolled_admm":
             recon = UnrolledADMM(
@@ -542,6 +580,8 @@ def train_learned(config):
                 ),
                 compensation=config.reconstruction.compensation,
                 compensation_residual=config.reconstruction.compensation_residual,
+                pre_process_type=pre_process_type,
+                post_process_type=post_process_type,
             )
         elif config.reconstruction.method == "trainable_inv":
             assert config.trainable_mask.mask_type == "TrainablePSF"
@@ -553,6 +593,8 @@ def train_learned(config):
                 return_intermediate=(
                     True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
                 ),
+                pre_process_type=pre_process_type,
+                post_process_type=post_process_type,
             )
         elif config.reconstruction.method == "multi_wiener":
 
@@ -664,9 +706,6 @@ def reconstruct_save(
     res_np = res[0].cpu().numpy()
     res_np = res_np / res_np.max()
     lensed_np = lensed[0].cpu().numpy()
-
-    lensless_np = lensless[0].cpu().numpy()
-    save_image(lensless_np, f"lensless_raw_{_idx}.png")
 
     # -- plot lensed and res on top of each other
     cropped = False
