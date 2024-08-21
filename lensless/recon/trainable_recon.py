@@ -271,11 +271,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             if self.pre_process_type == "drunet":
                 self._data = self.pre_process(self._data, self.pre_process_param)
             else:
-                print(self._data.device)
-                print(self._psf.device)
-                print(self.pre_process.device_ids[0])
-
-                self._data = self.pre_process(self._data.to(self._psf.device))
+                self._data = self.pre_process(self._data)
             self._data = self._data.to(device_before)
         pre_processed = self._data
 
@@ -306,7 +302,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
                     image_est, self.post_process_param, compensation_output
                 )
             else:
-                final_est = self.post_process(image_est.to(self._psf.device))
+                final_est = self.post_process(image_est)
         else:
             final_est = image_est
 

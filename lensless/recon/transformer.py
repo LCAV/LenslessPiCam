@@ -17,7 +17,7 @@ import numpy as np
 from lensless.recon.utils import convert_to_NCHW, convert_to_NDCHW
 
 
-class Transformer(nn.Module):
+class EncDecTransformer(nn.Module):
     def __init__(
         self,
         in_shape,
@@ -31,7 +31,7 @@ class Transformer(nn.Module):
         stride=[4, 2, 2, 2],
     ):
 
-        super(Transformer, self).__init__()
+        super(EncDecTransformer, self).__init__()
         assert (
             len(encoder_embed_dims)
             == len(num_heads)
@@ -77,7 +77,7 @@ class Transformer(nn.Module):
             x, (self.left, self.right, self.top, self.bottom), mode="constant", value=0
         )
 
-        # apply transformer
+        # apply
         x = self.encoder(x)
         x = self.decoder(x)
 
@@ -328,14 +328,6 @@ class Encoder(nn.Module):
             embed_dim=embed_dims[3],
         )
         down4 = down3 * stride[3]
-        # self.patch_embed1 = OverlapPatchEmbed(in_shape=in_shape, patch_size=7, stride=4, in_chans=in_channels,
-        #                                       embed_dim=embed_dims[0])
-        # self.patch_embed2 = OverlapPatchEmbed(in_shape=in_shape // 4, patch_size=3, stride=2, in_chans=embed_dims[0],
-        #                                       embed_dim=embed_dims[1])
-        # self.patch_embed3 = OverlapPatchEmbed(in_shape=in_shape // 8, patch_size=3, stride=2, in_chans=embed_dims[1],
-        #                                       embed_dim=embed_dims[2])
-        # self.patch_embed4 = OverlapPatchEmbed(in_shape=in_shape // 16, patch_size=3, stride=2, in_chans=embed_dims[2],
-        #                                       embed_dim=embed_dims[3])
 
         # encoder
         self.block1 = []

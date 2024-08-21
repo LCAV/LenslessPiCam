@@ -7,7 +7,7 @@
 # #############################################################################
 
 """
-Train unrolled version of reconstruction algorithm.
+Train machine learning based reconstructions for lensless imaging.
 
 ```
 python scripts/recon/train_learning_based.py
@@ -55,7 +55,7 @@ from lensless.utils.io import save_image
 from lensless.utils.plot import plot_image
 import matplotlib.pyplot as plt
 from lensless.recon.model_dict import load_model, download_model
-from lensless.recon.transformer import Transformer
+from lensless.recon.transformer import EncDecTransformer
 
 # A logger for this file
 log = logging.getLogger(__name__)
@@ -429,35 +429,18 @@ def train_learned(config):
     start_time = time.time()
 
     # Load pre-process model
+    img = test_set[0][0]
     if config.reconstruction.pre_process.network == "transformer":
-        pre_process = Transformer(
+        pre_process = EncDecTransformer(
             encoder_embed_dims=config.reconstruction.pre_process.nc,
-            in_shape=psf.shape[1:3],
+            in_shape=img.shape[1:3],
             # TODO paper mentions reconstruction each channel separately with single channel network
             # we do all channels simultaneously
-            in_channels=psf.shape[-1],
-            out_channels=psf.shape[-1],
+            in_channels=img.shape[-1],
+            out_channels=img.shape[-1],
         )
-
-        # # -- number of params
-        # n_param = sum(p.numel() for p in pre_process.Encoder.parameters() if p.requires_grad)
-        # log.info(f"Encoder with {n_param} parameters")
-        # n_param = sum(p.numel() for p in pre_process.Decoder.parameters() if p.requires_grad)
-        # log.info(f"Decoder with {n_param} parameters")
-        # n_param = sum(p.numel() for p in pre_process.parameters() if p.requires_grad)
-        # log.info(f"-- Total pre-process model with {n_param} parameters")
-        # raise ValueError
-
         pre_process_name = "transformer"
         pre_process_type = "transformer"
-        pre_process.cuda(device)
-        if device_ids is not None:
-            pre_process = torch.nn.DataParallel(pre_process, device_ids=device_ids)
-        pre_process = pre_process.to(device)
-
-        # # TODO: test passing input
-        # lensless = test_set[0][0].to(device)
-        # h = pre_process(lensless)
 
     else:
         pre_process, pre_process_name = create_process_network(
@@ -472,17 +455,14 @@ def train_learned(config):
 
     # Load post-process model
     if config.reconstruction.post_process.network == "transformer":
-        post_process = Transformer(
+        post_process = EncDecTransformer(
             encoder_embed_dims=config.reconstruction.post_process.nc,
-            in_shape=psf.shape[1:3],
-            in_channels=psf.shape[-1],
-            out_channels=psf.shape[-1],
+            in_shape=img.shape[1:3],
+            in_channels=img.shape[-1],
+            out_channels=img.shape[-1],
         )
         post_process_name = "transformer"
         post_process_type = "transformer"
-        if device_ids is not None:
-            post_process = torch.nn.DataParallel(post_process, device_ids=device_ids)
-        post_process = post_process.to(device)
     else:
         post_process, post_process_name = create_process_network(
             config.reconstruction.post_process.network,
