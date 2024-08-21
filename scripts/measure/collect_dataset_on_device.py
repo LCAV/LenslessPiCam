@@ -161,9 +161,7 @@ def collect_dataset(config):
         camera.close()
 
         # -- now set up camera with desired settings
-        camera = PiCamera(
-            framerate=1 / config.capture.exposure, sensor_mode=0, resolution=tuple(res)
-        )
+        camera = PiCamera(sensor_mode=0, resolution=tuple(res), framerate=config.capture.framerate)
 
         # Set ISO to the desired value
         camera.resolution = tuple(res)
@@ -204,83 +202,83 @@ def collect_dataset(config):
     brightness_vals = []
     n_tries_vals = []
 
-    with open(output_dir / "bg_mappings.json", 'a') as outfile:
-        bg_name = None
-        current_bg = {}
-        shutter_speed = init_shutter_speed
-        for i, _file in enumerate(tqdm.tqdm(files[start_idx:])):
+    bg_name = None
+    current_bg = {}
+    shutter_speed = init_shutter_speed
+    for i, _file in enumerate(tqdm.tqdm(files[start_idx:])):
 
-            # save file in output directory as PNG
-            output_fp = output_dir / _file.name
-            output_fp = output_fp.with_suffix(f".{config.output_file_ext}")
+        # save file in output directory as PNG
+        output_fp = output_dir / _file.name
+        output_fp = output_fp.with_suffix(f".{config.output_file_ext}")
 
-            # if not done, perform measurement
-            if not os.path.isfile(output_fp):
+        # if not done, perform measurement
+        if not os.path.isfile(output_fp):
+            if config.dummy:
+                shutil.copyfile(_file, output_fp)
+                time.sleep(1)
+            else:
 
-                if config.dummy:
-                    shutil.copyfile(_file, output_fp)
-                    time.sleep(1)
+                # display img
+                display_img(_file, config, init_brightness)
+                # capture img
+                output, _, _, camera = capture_screen(MAX_LEVEL, MAX_TRIES, MIN_LEVEL, _file, brightness_vals, camera, config, down,
+                                        exposure_vals, g, i, init_brightness, shutter_speed, None,
+                                        n_tries_vals,
+                                        output_fp, start_idx)
 
-                else:
+                if config.capture.measure_bg:
+                    # name of background for current image
+                    bg_name = plib.Path(config.capture.bg_fp + str(i)).with_suffix(f".{config.output_file_ext}")
+                    bg = output_dir / bg_name
+                    
+                    # append current file to bg list
+                    if str(bg_name) not in current_bg:
+                        current_bg[str(bg_name)] = str(_file.name)
+                    else:
+                        current_bg[str(bg_name)].append(str(_file.name))
                     # capture background periodically
-                    if i % config.capture.measure_bg == 0:
-                        bg_name = plib.Path(config.capture.bg_fp + str(i)).with_suffix(f".{config.output_file_ext}")
-                        bg = output_dir / bg_name
-
+                    if i % config.capture.measure_bg == 0 or (i == n_files - 1):
                         bg_name = str(bg_name)
                         # push the last bg-capture pairs
-                        #mappings.update(current_bg)
                         if current_bg:
-                            json.dump(current_bg, outfile, indent=4)
+                            with open(output_dir / "bg_mappings.json", 'a') as outfile:
+                                json.dump(current_bg, outfile, indent=4)
                         current_bg = {}
-                        current_bg[bg_name] = []
-                        #current_bg[bg_name].append(str(_file.name))
-
+                        #current_bg[bg_name] = None
+                        
                         # display bg
                         display_img(None, config, brightness=init_brightness)
                         # capture bg
-                        output, shutter_speed, init_brightness, camera = capture_screen(MAX_LEVEL, MAX_TRIES, MIN_LEVEL,
+                        output, shutter_speed, init_brightness, camera = capture_screen(MAX_LEVEL, 0, MIN_LEVEL,
                                                 plib.Path(config.capture.bg_fp + str(i)).with_suffix(f".{config.output_file_ext}"),
                                                 brightness_vals, camera, config, down,
                                                 exposure_vals, g, i, init_brightness, shutter_speed, None,
                                                 n_tries_vals,
                                                 bg, start_idx)
 
-                    current_bg[bg_name].append(str(_file.name))
-                    #print(f"current_bg: {current_bg}")
-                    # display img
-                    display_img(_file, config, init_brightness)
 
-                    import pudb; pudb.set_trace()
+        if recon is not None:
+            # normalize and remove background
+            output = output.astype(np.float32)
+            output /= output.max()
+            output -= bg # TODO implement fancy bg subtraction
+            output = np.clip(output, a_min=0, a_max=output.max())
 
-                    # capture img
-                    output, _, _, camera = capture_screen(MAX_LEVEL, 0, MIN_LEVEL, _file, brightness_vals, camera, config, down,
-                                            exposure_vals, g, i, init_brightness, shutter_speed, None,
-                                            n_tries_vals,
-                                            output_fp, start_idx)
+            # set data
+            output = output[np.newaxis, :, :, :]
+            recon.set_data(output)
 
-            if recon is not None:
-                # normalize and remove background
-                output = output.astype(np.float32)
-                output /= output.max()
-                output -= bg # TODO implement fancy bg subtraction
-                output = np.clip(output, a_min=0, a_max=output.max())
+            # reconstruct and save
+            res = recon.apply()
+            recon_fp = recon_dir / output_fp.name
+            save_image(res, recon_fp)
 
-                # set data
-                output = output[np.newaxis, :, :, :]
-                recon.set_data(output)
-
-                # reconstruct and save
-                res = recon.apply()
-                recon_fp = recon_dir / output_fp.name
-                save_image(res, recon_fp)
-
-            # check if runtime is exceeded
-            if config.runtime:
-                proc_time = time.time() - start_time
-                if proc_time > runtime_sec:
-                    print(f"-- measured {i + 1} / {n_files} files")
-                    break
+        # check if runtime is exceeded
+        if config.runtime:
+            proc_time = time.time() - start_time
+            if proc_time > runtime_sec:
+                print(f"-- measured {i + 1} / {n_files} files")
+                break
 
     proc_time = time.time() - start_time
     print(f"\nFinished, {proc_time / 60.:.3f} minutes.")
@@ -315,38 +313,6 @@ def capture_screen(MAX_LEVEL, MAX_TRIES, MIN_LEVEL, _file, brightness_vals, came
         fact_increase = config.capture.fact_increase
         fact_decrease = config.capture.fact_decrease
         n_tries = 0
-
-        # -- create Camera object
-        # # -- now set up camera with desired settings
-        # camera = PiCamera(
-        #     framerate=1 / config.capture.exposure, sensor_mode=0, resolution=tuple(res)
-        # )
-
-        # # Set ISO to the desired value
-        # camera.resolution = tuple(res)
-        # camera.iso = config.capture.iso
-        # # Wait for the automatic gain control to settle
-        # time.sleep(config.capture.config_pause)
-        # # Now fix the values
-
-        # if config.capture.exposure:
-        #     # in microseconds
-        #     init_shutter_speed = int(config.capture.exposure * 1e6)
-        # else:
-        #     init_shutter_speed = camera.exposure_speed
-        # camera.shutter_speed = init_shutter_speed
-        # camera.exposure_mode = "off"
-
-        # # AWB
-        # if config.capture.awb_gains:
-        #     assert len(config.capture.awb_gains) == 2
-        #     g = (Fraction(config.capture.awb_gains[0]), Fraction(config.capture.awb_gains[1]))
-        #     g = tuple(g)
-        # else:
-        #     g = camera.awb_gains
-
-        # camera.awb_mode = "off"
-        # camera.awb_gains = g
 
         camera.shutter_speed = int(init_shutter_speed)
         time.sleep(config.capture.config_pause)
@@ -395,19 +361,21 @@ def capture_screen(MAX_LEVEL, MAX_TRIES, MIN_LEVEL, _file, brightness_vals, came
             max_pixel_val = output.max()
 
             if max_pixel_val < MIN_LEVEL:
+                
                 # increase exposure
                 current_shutter_speed = int(current_shutter_speed * fact_increase)
+                camera.shutter_speed = current_shutter_speed
                 time.sleep(config.capture.config_pause)
-                print(f"increasing shutter speed to {current_shutter_speed}")
+                
+                print(f"increasing shutter speed to [desired] {current_shutter_speed} [actual] {camera.shutter_speed}")
 
             elif max_pixel_val > MAX_LEVEL:
-
                 if current_shutter_speed > 13098:  # TODO: minimum for RPi HQ
                     # decrease exposure
                     current_shutter_speed = int(current_shutter_speed / fact_decrease)
                     camera.shutter_speed = current_shutter_speed
                     time.sleep(config.capture.config_pause)
-                    print(f"decreasing shutter speed to {current_shutter_speed}")
+                    print(f"decreasing shutter speed to [desired] {current_shutter_speed} [actual] {camera.shutter_speed}")
 
                 else:
 

@@ -1,8 +1,6 @@
 # python scripts/collect_dataset_on_device.py -cn collect_dataset
 
-#input_dir: /mnt/mirflickr/all
-input_dir: /mnt/mirflickr/10
-
+input_dir: /mnt/mirflickr/all
 input_file_ext: jpg
 
 # can pass existing folder to continue measurement
@@ -10,7 +8,7 @@ output_dir: null
 output_file_ext: png
 
 # files to measure
-n_files: 5
+n_files: 15
 start_idx: 0
 
 # timing
@@ -23,10 +21,10 @@ dummy: False    # simply copy file to output folder for testing
 # ideal image levels
 max_level: 254
 min_level: 200
-max_tries: 2
+max_tries: 6
 
 masks: null   # for multi-mask measurements
-recon: null #ADMM   # parameters for reconstruction (for debugging purposes, not recommended to do during actual measurement as it will significantly increase the time)
+recon: null   # parameters for reconstruction (for debugging purposes, not recommended to do during actual measurement as it will significantly increase the time)
 
 # -- display parameters
 display:
@@ -43,8 +41,9 @@ display:
   landscape: False    # whether to force landscape
 
 capture:
-  measure_bg: 2 # measure bg every x images
+  measure_bg: False # measure bg every x images, set False if not measuring background
   bg_fp: "black_background"
+  framerate: 10
   skip: False    # to test looping over displaying images
   config_pause: 3
   iso: 100
