@@ -31,7 +31,7 @@ python scripts/recon/train_learning_based.py -cn fine-tune_PSF
 import wandb
 import logging
 import hydra
-from hydra.utils import get_original_cwd
+from hydra.utils import get_original_cwd, to_absolute_path
 import os
 import numpy as np
 import time
@@ -228,7 +228,9 @@ def train_learned(config):
                 display_res=config.files.image_res,
                 alignment=config.alignment,
                 bg_snr_range=config.files.background_snr_range,  # TODO check if correct
-                bg_fp=config.files.background_fp,
+                bg_fp=to_absolute_path(config.files.background_fp)
+                if config.files.background_fp is not None
+                else None,
             )
 
         else:
@@ -252,7 +254,9 @@ def train_learned(config):
                 simulate_lensless=config.files.simulate_lensless,
                 random_flip=config.files.random_flip,
                 bg_snr_range=config.files.background_snr_range,
-                bg_fp=config.files.background_fp,
+                bg_fp=to_absolute_path(config.files.background_fp)
+                if config.files.background_fp is not None
+                else None,
             )
 
         test_set = HFDataset(
@@ -272,7 +276,9 @@ def train_learned(config):
             n_files=config.files.n_files,
             simulation_config=config.simulation,
             bg_snr_range=config.files.background_snr_range,
-            bg_fp=config.files.background_fp,
+            bg_fp=to_absolute_path(config.files.background_fp)
+            if config.files.background_fp is not None
+            else None,
             force_rgb=config.files.force_rgb,
             simulate_lensless=False,  # in general evaluate on measured (set to False)
         )
@@ -380,6 +386,9 @@ def train_learned(config):
                 if config.files.random_rotate or config.files.random_shifts:
                     save_image(psf_recon[0].cpu().numpy(), f"psf_{_idx}.png")
 
+                save_image(lensed[0].cpu().numpy(), f"lensed_{_idx}.png")
+                save_image(lensless[0].cpu().numpy(), f"lensless_raw_{_idx}.png")
+
                 # Reconstruct and plot image
                 reconstruct_save(
                     _idx,
@@ -396,7 +405,6 @@ def train_learned(config):
                     rotate_angle,
                     shift,
                 )
-                save_image(lensed[0].cpu().numpy(), f"lensed_{_idx}.png")
                 # save_image(lensed, f"lensed_{_idx}.png")
                 if test_set.bg_sim is not None or test_set.measured_bg:
                     # Reconstruct and plot background subtracted image
@@ -718,9 +726,6 @@ def reconstruct_save(
     res_np = res[0].cpu().numpy()
     res_np = res_np / res_np.max()
     lensed_np = lensed[0]  # .cpu().numpy()
-
-    lensless_np = lensless.cpu().numpy()  # [0]#.cpu().numpy()
-    save_image(lensless_np, f"lensless_raw_{_idx}.png")
 
     # -- plot lensed and res on top of each other
     cropped = False

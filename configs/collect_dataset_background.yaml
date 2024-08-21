@@ -1,0 +1,26 @@
+# python scripts/measure/collect_dataset_on_device.py -cn collect_dataset_background
+defaults:
+  - collect_dataset
+  - _self_
+
+
+output_dir: /mnt/mirflickr/all_measured_20240813-183259
+
+# files to measure
+n_files: 25000
+
+min_level: 160
+max_tries: 3
+
+
+# -- display parameters
+display:
+  screen_res: [1920, 1200]   # width, height
+  image_res: [600, 600]    # useful if input images don't have the same dimension, set it to this 
+  vshift: -34
+
+capture:
+  measure_bg: 1 # measure bg every x images, set False if not measuring background
+  awb_gains: [1.8, 1.1]  # red, blue
+  fact_increase: 1.35   # multiplicative factor to increase exposure
+  fact_decrease: 1.3
