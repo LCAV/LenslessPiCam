@@ -2,7 +2,7 @@
 Check maximum pixel value of images and check for saturation / underexposure.
 
 ```
-python scripts/measure/analyze_measured_dataset.py folder=PATH
+python scripts/measure/analyze_measured_dataset.py dataset_path=PATH
 ```
 """
 
@@ -122,6 +122,31 @@ def analyze_dataset(config):
                 os.remove(_fn)
         else:
             print("Not deleting bad files")
+
+    # check for matching background file
+    files_bg = natural_sort(glob.glob(os.path.join(folder, "black_background*.png")))
+    # -- remove files_bg from files
+    files = [fn for fn in files if fn not in files_bg]
+
+    if len(files_bg) > 0:
+        print("Found {} background files".format(len(files_bg)))
+        # detect files that don't have background
+        files_no_bg = []
+        for fn in files:
+            bn = os.path.basename(fn).split(".")[0]
+            _bg_file = os.path.join(folder, "black_background{}.png".format(bn))
+            if _bg_file not in files_bg:
+                files_no_bg.append(fn)
+
+        print("Found {} files without background".format(len(files_no_bg)))
+        # ask to delete files without background
+        response = None
+        while response not in ["yes", "no"]:
+            response = input("Delete files without background: [yes|no] : ")
+        if response == "yes":
+            for _fn in files_no_bg:
+                if os.path.exists(_fn):  # maybe already deleted before
+                    os.remove(_fn)
 
 
 if __name__ == "__main__":

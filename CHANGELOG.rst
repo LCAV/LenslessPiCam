@@ -37,6 +37,7 @@ Changed
 Bugfix
 ~~~~~~
 
+- Wavelength input to ``compute_psf`` for Mask class.
 - Computation of average metric in batches.
 - Support for grayscale PSF for RealFFTConvolve2D.
 - Calling model.eval() before inference, and model.train() before training.
