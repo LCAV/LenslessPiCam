@@ -1588,7 +1588,7 @@ class HFDataset(Dataset):
             background_np = (
                 resize(
                     background_np,
-                    factor=1 / self.downsample,
+                    factor=1 / self.downsample_lensless,
                     interpolation=cv2.INTER_NEAREST,
                 )
                 if not None
