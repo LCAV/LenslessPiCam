@@ -873,6 +873,8 @@ class Trainer:
         for batch in pbar:
 
             # get batch
+            flip_lr = None
+            flip_ud = None
             if self.train_random_flip:
                 X, y, psfs, flip_lr, flip_ud = batch
                 psfs = psfs.to(self.device)
