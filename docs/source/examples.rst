@@ -22,8 +22,8 @@ Reconstruction method
 Learning-based reconstruction methods:
 
 - `A Modular and Robust Physics-Based Approach for Lensless Image Reconstruction <https://colab.research.google.com/drive/1Wgt6ZMRZVuctLHaXxk7PEyPaBaUPvU33>`__
-- `Aligning images for training <https://colab.research.google.com/drive/1c6kUbiB5JO1vro0-IMd-YDDP1g7NFXv3#scrollTo=MtN7GWCIrBKr>`__
-
+- `Aligning images for training & background subtraction demo <https://drive.google.com/file/d/1oWy07xT_5-_Xki6g9TbOiBcxDv0bN-96/view?usp=drive_link>`__
+- `Aligning images for training (DigiCam) <https://colab.research.google.com/drive/1c6kUbiB5JO1vro0-IMd-YDDP1g7NFXv3#scrollTo=MtN7GWCIrBKr>`__
 Mask Design and fabrication
 ---------------------------
 
