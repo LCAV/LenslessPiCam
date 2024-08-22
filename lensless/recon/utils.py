@@ -878,23 +878,12 @@ class Trainer:
             X = batch[0].to(self.device)
             y = batch[1].to(self.device)
             if self.train_multimask or self.train_random_flip:
-                psfs = batch[2]
-                psfs = psfs.to(self.device)
+                psfs = batch[2].to(self.device)
             else:
                 psfs = None
             if self.train_random_flip:
                 flip_lr = batch[3]
                 flip_ud = batch[4]
-
-            # if self.train_random_flip:
-            #     X, y, psfs, flip_lr, flip_ud = batch
-            #     psfs = psfs.to(self.device)
-            # elif self.train_multimask:
-            #     X, y, psfs = batch
-            #     psfs = psfs.to(self.device)
-            # else:
-            #     X, y = batch
-            #     psfs = None
 
             random_rotate = False
             if self.random_rotate:
