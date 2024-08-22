@@ -4,7 +4,7 @@ defaults:
   - _self_
 
 wandb_project: tapecam_ambient
-device_ids: [0, 1 ,2 , 3]
+device_ids: [0, 1 ,2, 3]
 torch_device: cuda:0
 
 # Dataset
@@ -24,7 +24,7 @@ reconstruction:
   pre_process:   ## Targeting 3923428 parameters
     network : UnetRes  # UnetRes or DruNet or null
     depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
-    nc: [32,64,116,128]
+    nc: [32,64,112,128]
 
 alignment:
   # when there is no downsampling

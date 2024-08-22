@@ -293,6 +293,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
                 background is not None
             ), "If direct_background_subtraction is True, background must be defined."
             self._data = self._data - background
+            self._data = torch.clamp(self._data, 0, 1)
         elif self.learned_background_subtraction:
             assert (
                 background is not None
@@ -304,6 +305,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             self._data = self._data - self.background_network(
                 background, self.background_network_param
             ).to(self._data.device)
+            self._data = torch.clamp(self._data, 0, 1)
 
         if psfs is not None:
             # assert same shape
