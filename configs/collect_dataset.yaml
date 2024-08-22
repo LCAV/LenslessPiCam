@@ -1,6 +1,6 @@
 # python scripts/collect_dataset_on_device.py -cn collect_dataset
 
-input_dir: /mnt/mirflickr/10
+input_dir: /mnt/mirflickr/all
 input_file_ext: jpg
 
 # can pass existing folder to continue measurement
@@ -41,6 +41,9 @@ display:
   landscape: False    # whether to force landscape
 
 capture:
+  measure_bg: False # measure bg every x images, set False if not measuring background
+  bg_fp: "black_background"
+  framerate: 10
   skip: False    # to test looping over displaying images
   config_pause: 3
   iso: 100
