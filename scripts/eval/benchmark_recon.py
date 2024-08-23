@@ -308,6 +308,7 @@ def benchmark_recon(config):
                     save_idx=config.save_idx,
                     output_dir=output_dir,
                     crop=crop,
+                    use_background=config.huggingface.use_background,
                 )
                 results[model_name][int(n_iter)] = result
 

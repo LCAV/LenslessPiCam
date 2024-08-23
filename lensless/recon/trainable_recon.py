@@ -374,6 +374,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         ax=None,
         reset=True,
         output_intermediate=False,
+        background=None,
     ):
         """
         Method for performing iterative reconstruction. Contrary to non-trainable reconstruction

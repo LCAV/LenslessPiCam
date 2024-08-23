@@ -26,6 +26,7 @@ huggingface:
   downsample_lensed: 1
   split_seed: null
   single_channel_psf: False
+  use_background: True
 
 device: "cuda"
 # numbers of iterations to benchmark

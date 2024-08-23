@@ -42,6 +42,7 @@ def benchmark(
     use_wandb=False,
     label=None,
     epoch=None,
+    use_background=True,
     **kwargs,
 ):
     """
@@ -69,6 +70,8 @@ def benchmark(
         If True, return the average value of the metrics, by default True.
     snr : float, optional
         Signal to noise ratio for adding shot noise. If None, no noise is added, by default None.
+    use_background: bool, optional
+        If dataset has background, use it for reconstruction, by default True.
 
     Returns
     -------
@@ -149,7 +152,7 @@ def benchmark(
                     plot=False,
                     save=False,
                     output_intermediate=unrolled_output_factor or pre_process_aux,
-                    background=background,
+                    background=background if use_background else None,
                     **kwargs,
                 )
 
