@@ -24,7 +24,7 @@ except ImportError:
 
 
 class RealFFTConvolve2D:
-    def __init__(self, psf, dtype=None, pad=True, norm="ortho", rgb=None, **kwargs):
+    def __init__(self, psf, dtype=None, pad=True, norm=None, rgb=None, **kwargs):
         """
         Linear operator that performs convolution in Fourier domain, and assumes
         real-valued signals.
@@ -135,10 +135,10 @@ class RealFFTConvolve2D:
         Convolve with pre-computed FFT of provided PSF.
         """
         if self.pad:
-            self._padded_data = self._pad(x)
+            self._padded_data = self._pad(x).to(self._psf.device)
         else:
             if self.is_torch:
-                self._padded_data = x  # .type(self.dtype).to(self._psf.device)
+                self._padded_data = x
             else:
                 self._padded_data[:] = x  # .astype(self.dtype)
 

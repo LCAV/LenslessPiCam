@@ -1,0 +1,114 @@
+# python scripts/eval/benchmark_recon.py
+#Hydra config
+hydra:
+  run:
+    dir: "benchmark/${now:%Y-%m-%d}/${now:%H-%M-%S}"
+  job:
+    chdir: True
+
+
+dataset: PolarLitis   # DiffuserCam, DigiCamCelebA, HFDataset
+seed: 0
+batchsize: 1    # must be 1 for iterative approaches
+
+huggingface:
+  repo: "noakraicer/polarlitis"
+  cache_dir: null    # where to read/write dataset. Defaults to `"~/.cache/huggingface/datasets"`.
+  psf: psf.mat 
+  mask: mask.npy  # null for simulating PSF
+  image_res: [250, 250]  # used during measurement
+  rotate: False   # if measurement is upside-down
+  flipud: False
+  flip_lensed: False   # if rotate or flipud is True, apply to lensed
+
+  alignment:
+    top_left: null
+    height: null
+
+  downsample: 1
+  downsample_lensed: 2
+  split_seed: null
+  single_channel_psf: True
+
+device: "cuda"
+# numbers of iterations to benchmark
+n_iter_range: [5, 10, 20, 50, 100, 200, 300]
+# number of files to benchmark
+n_files: null    # null for all files
+#How much should the image be downsampled
+downsample: 2
+#algorithm to benchmark
+algorithms: ["HyperSpectralFISTA"] #["ADMM", "ADMM_Monakhova2019", "FISTA", "GradientDescent", "NesterovGradientDescent"]
+
+# baseline from Monakhova et al. 2019, https://arxiv.org/abs/1908.11502
+baseline: "MONAKHOVA 100iter"
+
+save_idx: [0, 1, 2, 3, 4]   # provide index of files to save e.g. [1, 5, 10]
+gamma_psf: 1.5    # gamma factor for PSF
+
+
+# Hyperparameters
+nesterov:
+  p: 0
+  mu: 0.9
+fista:
+  tk: 1
+admm:
+  mu1: 1e-6
+  mu2: 1e-5
+  mu3: 4e-5
+  tau: 0.0001
+
+
+# for DigiCamCelebA
+files:
+  test_size: 0.15
+  downsample: 1
+  celeba_root: /scratch/bezzam
+
+
+  # dataset: /scratch/bezzam/celeba_adafruit_random_2mm_20230720_10K
+  # psf: data/psf/adafruit_random_2mm_20231907.png
+  # vertical_shift: null
+  # horizontal_shift: null
+  # crop: null
+
+  dataset: /scratch/bezzam/celeba/celeba_adafruit_random_30cm_2mm_20231004_26K
+  psf: rpi_hq_adafruit_psf_2mm/raw_data_rgb.png
+  vertical_shift: -117
+  horizontal_shift: -25
+  crop:
+    vertical: [0, 525]
+    horizontal: [265, 695]
+
+# for prepping ground truth data
+#for simulated dataset
+simulation:
+  grayscale: False
+  output_dim: null     # should be set if no PSF is used    
+  # random variations
+  object_height: 0.33   # [m], range for random height or scalar
+  flip: True # change the orientation of the object (from vertical to horizontal)
+  random_shift: False
+  random_vflip: 0.5
+  random_hflip: 0.5
+  random_rotate: False
+  # these distance parameters are typically fixed for a given PSF
+  # for DiffuserCam psf # for tape_rgb psf     
+  # scene2mask: 10e-2     # scene2mask: 40e-2       
+  # mask2sensor: 9e-3     # mask2sensor: 4e-3  
+  # -- for CelebA
+  scene2mask: 0.25   # [m]
+  mask2sensor: 0.002   # [m] 
+  deadspace: True    # whether to account for deadspace for programmable mask      
+  # see waveprop.devices
+  use_waveprop: False    # for PSF simulation
+  sensor: "rpi_hq"
+  snr_db: 10
+  # simulate different sensor resolution
+  # output_dim: [24, 32]    # [H, W] or null
+  # Downsampling for PSF
+  downsample: 8
+  # max val in simulated measured (quantized 8 bits)
+  quantize: False   # must be False for differentiability
+  max_val: 255

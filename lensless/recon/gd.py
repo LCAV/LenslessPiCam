@@ -64,7 +64,7 @@ class GradientDescent(ReconstructionAlgorithm):
     Object for applying projected gradient descent.
     """
 
-    def __init__(self, psf, dtype=None, proj=non_neg, **kwargs):
+    def __init__(self, psf,mask, dtype=None, proj=non_neg, **kwargs):
         """
 
         Parameters
@@ -83,25 +83,25 @@ class GradientDescent(ReconstructionAlgorithm):
 
         assert callable(proj)
         self._proj = proj
-        super(GradientDescent, self).__init__(psf, dtype, **kwargs)
+        super(GradientDescent, self).__init__(psf,mask, dtype, **kwargs)
 
         if self._denoiser is not None:
             print("Using denoiser in gradient descent.")
             # redefine projection function
             self._proj = self._denoiser
-
+        self.mask=mask
     def reset(self):
         if self.is_torch:
             if self._initial_est is not None:
                 self._image_est = self._initial_est
             else:
                 # initial guess, half intensity image
-                psf_flat = self._psf.reshape(-1, self._psf_shape[3])
-                pixel_start = (
-                    torch.max(psf_flat, axis=0).values + torch.min(psf_flat, axis=0).values
-                ) / 2
+                # psf_flat = self._psf.reshape(-1, self._psf_shape[3])
+                # pixel_start = (
+                #     torch.max(psf_flat, axis=0).values + torch.min(psf_flat, axis=0).values
+                # ) / 2
                 # initialize image estimate as [Batch, Depth, Height, Width, Channels]
-                self._image_est = torch.ones_like(self._psf[None, ...]) * pixel_start
+                self._image_est = torch.zeros((1,250,250,3)) 
 
             # set step size as < 2 / lipschitz
             Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
@@ -123,8 +123,8 @@ class GradientDescent(ReconstructionAlgorithm):
             self._alpha = np.real(1.8 / np.max(Hadj_flat * H_flat, axis=0))
 
     def _grad(self):
-        diff = self._convolver.convolve(self._image_est) - self._data
-        return self._convolver.deconvolve(diff)
+        diff = np.sum(self.mask * self._convolver.convolve(self._image_est), -1) - self._data  # (H, W, 1)
+        return self._convolver.deconvolve(diff * self.mask)  # (H, W, C) where C is number of hyperspectral channels
 
     def _update(self, iter):
         self._image_est -= self._alpha * self._grad()
@@ -229,6 +229,78 @@ class FISTA(GradientDescent):
             self._tk = self._initial_tk
         self._xk = self._image_est
 
+    def _update(self, iter):
+        self._image_est -= self._alpha * self._grad()
+        xk = self._form_image()
+        tk = (1 + np.sqrt(1 + 4 * self._tk**2)) / 2
+        self._image_est = xk + (self._tk - 1) / tk * (xk - self._xk)
+        self._tk = tk
+        self._xk = xk
+
+
+def apply_gradient_descent(psf_fp, data_fp, n_iter, verbose=False, proj=non_neg, **kwargs):
+
+    # load data
+    psf, data = load_data(psf_fp=psf_fp, data_fp=data_fp, plot=False, **kwargs)
+
+    # create reconstruction object
+    recon = GradientDescent(psf, n_iter=n_iter, proj=proj)
+
+    # set data
+    recon.set_data(data)
+
+    # perform reconstruction
+    start_time = time.time()
+    res = recon.apply(plot=False)
+    proc_time = time.time() - start_time
+
+    if verbose:
+        print(f"Reconstruction time : {proc_time} s")
+        print(f"Reconstruction shape: {res.shape}")
+    return res
+class HyperSpectralFISTA(GradientDescent):
+    """
+    Object for applying projected gradient descent with FISTA (Fast Iterative
+    Shrinkage-Thresholding Algorithm) for acceleration.
+
+    Paper: https://www.ceremade.dauphine.fr/~carlier/FISTA
+
+    """
+
+    def __init__(self, psf,mask, dtype=None, proj=non_neg, tk=1.0, **kwargs):
+        """
+
+        Parameters
+        ----------
+        psf : :py:class:`~numpy.ndarray` or :py:class:`~torch.Tensor`
+            Point spread function (PSF) that models forward propagation.
+            Must be of shape (depth, height, width, channels) even if
+            depth = 1 and channels = 1. You can use :py:func:`~lensless.io.load_psf`
+            to load a PSF from a file such that it is in the correct format.
+        dtype : float32 or float64
+            Data type to use for optimization. Default is float32.
+        proj : :py:class:`function`
+            Projection function to apply at each iteration. Default is
+            non-negative.
+        tk : float
+            Initial step size parameter for FISTA. It is updated at each iteration
+            according to Eq. 4.2 of paper. By default, initialized to 1.0.
+
+        """
+        self._initial_tk = tk
+
+        super(HyperSpectralFISTA, self).__init__(psf,mask, dtype, proj, **kwargs)
+
+        self._tk = tk
+        self._xk = self._image_est
+
+    def reset(self, tk=None):
+        super(HyperSpectralFISTA, self).reset()
+        if tk:
+            self._tk = tk
+        else:
+            self._tk = self._initial_tk
+        self._xk = self._image_est
     def _update(self, iter):
         self._image_est -= self._alpha * self._grad()
         xk = self._form_image()
