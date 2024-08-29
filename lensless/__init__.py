@@ -20,6 +20,7 @@ from .recon.gd import (
     NesterovGradientDescent,
     FISTA,
     GradientDescentUpdate,
+    HyperSpectralFISTA
 )
 from .recon.tikhonov import CodedApertureReconstruction
 from .hardware.sensor import VirtualSensor, SensorOptions

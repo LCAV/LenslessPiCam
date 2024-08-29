@@ -203,6 +203,7 @@ class ReconstructionAlgorithm(abc.ABC):
     def __init__(
         self,
         psf,
+        mask,
         dtype=None,
         pad=True,
         n_iter=100,
@@ -369,12 +370,13 @@ class ReconstructionAlgorithm(abc.ABC):
         assert len(data.shape) >= 3, "Data must be at least 3D: [..., width, height, channel]."
 
         # assert same shapes
-        assert np.all(
-            self._psf_shape[-3:-1] == np.array(data.shape)[-3:-1]
-        ), "PSF and data shape mismatch"
-
-        if len(data.shape) == 3:
-            self._data = data[None, None, ...]
+        # assert np.all(
+        #     self._psf_shape[-3:-1] == np.array(data.shape)[-3:-1]
+        # ), "PSF and data shape mismatch"
+        if len(data.shape)==3:
+              self._data =  data.unsqueeze(-1)
+        # if len(data.shape) == 3:
+        #     self._data = data[None, None, ...]
         elif len(data.shape) == 4:
             self._data = data[None, ...]
         else:
@@ -569,6 +571,9 @@ class ReconstructionAlgorithm(abc.ABC):
 
         for i in range(n_iter):
             self._update(i)
+            if i%50==0:
+                img = self._form_image()
+  
             if self.compensation_branch is not None and i < self._n_iter - 1:
                 self.compensation_branch_inputs.append(self._form_image())
 
