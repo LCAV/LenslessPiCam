@@ -101,12 +101,12 @@ class GradientDescent(ReconstructionAlgorithm):
                 #     torch.max(psf_flat, axis=0).values + torch.min(psf_flat, axis=0).values
                 # ) / 2
                 # initialize image estimate as [Batch, Depth, Height, Width, Channels]
-                self._image_est = torch.zeros((1,250,250,3)) 
+                self._image_est = torch.zeros((1,250,250,3)).to(self._psf.device)
 
             # set step size as < 2 / lipschitz
             Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
             H_flat = self._convolver._H.reshape(-1, self._psf_shape[3])
-            self._alpha = torch.real(1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values)
+            self._alpha = 1/4770.13
 
         else:
             if self._initial_est is not None:
@@ -123,7 +123,7 @@ class GradientDescent(ReconstructionAlgorithm):
             self._alpha = np.real(1.8 / np.max(Hadj_flat * H_flat, axis=0))
 
     def _grad(self):
-        diff = np.sum(self.mask * self._convolver.convolve(self._image_est), -1) - self._data  # (H, W, 1)
+        diff = torch.sum(self.mask * self._convolver.convolve(self._image_est),  axis=-1, keepdims=True) - self._data  # (H, W, 1)
         return self._convolver.deconvolve(diff * self.mask)  # (H, W, C) where C is number of hyperspectral channels
 
     def _update(self, iter):

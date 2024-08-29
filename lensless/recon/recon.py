@@ -571,6 +571,9 @@ class ReconstructionAlgorithm(abc.ABC):
 
         for i in range(n_iter):
             self._update(i)
+            if i%50==0:
+                img = self._form_image()
+  
             if self.compensation_branch is not None and i < self._n_iter - 1:
                 self.compensation_branch_inputs.append(self._form_image())
 
