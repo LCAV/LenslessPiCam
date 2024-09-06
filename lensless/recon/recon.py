@@ -372,7 +372,6 @@ class ReconstructionAlgorithm(abc.ABC):
         assert np.all(
             self._psf_shape[-3:-1] == np.array(data.shape)[-3:-1]
         ), "PSF and data shape mismatch"
-
         if len(data.shape) == 3:
             self._data = data[None, None, ...]
         elif len(data.shape) == 4:
@@ -569,6 +568,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
         for i in range(n_iter):
             self._update(i)
+
             if self.compensation_branch is not None and i < self._n_iter - 1:
                 self.compensation_branch_inputs.append(self._form_image())
 

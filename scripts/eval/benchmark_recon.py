@@ -25,7 +25,7 @@ import os
 import pathlib as plib
 from lensless.eval.benchmark import benchmark
 import matplotlib.pyplot as plt
-from lensless import ADMM, FISTA, GradientDescent, NesterovGradientDescent
+from lensless import ADMM, FISTA, GradientDescent, NesterovGradientDescent,HyperSpectralFISTA
 from lensless.utils.dataset import DiffuserCamTestDataset, DigiCamCelebA, HFDataset
 from lensless.utils.io import save_image
 from lensless.utils.image import gamma_correction
@@ -35,7 +35,7 @@ import torch
 from torch.utils.data import Subset
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="benchmark")
+@hydra.main(version_base=None, config_path="../../configs", config_name="benchmark_hyperspectral")
 def benchmark_recon(config):
 
     # set seed
@@ -86,7 +86,7 @@ def benchmark_recon(config):
         _, benchmark_dataset = torch.utils.data.random_split(
             dataset, [train_size, test_size], generator=generator
         )
-    elif dataset == "HFDataset":
+    elif dataset == "PolarLitis":
 
         split_test = "test"
         if config.huggingface.split_seed is not None:
@@ -120,6 +120,7 @@ def benchmark_recon(config):
             huggingface_repo=config.huggingface.repo,
             cache_dir=config.huggingface.cache_dir,
             psf=config.huggingface.psf,
+            mask = config.huggingface.mask,
             n_files=n_files,
             split=split_test,
             display_res=config.huggingface.image_res,
@@ -138,6 +139,8 @@ def benchmark_recon(config):
             psf = benchmark_dataset.psf[first_psf_key].to(device)
         else:
             psf = benchmark_dataset.psf.to(device)
+            mask = benchmark_dataset.mask.to(device)
+
     else:
         raise ValueError(f"Dataset {dataset} not supported")
 
@@ -190,6 +193,8 @@ def benchmark_recon(config):
             )
         if algo == "FISTA":
             model_list.append(("FISTA", FISTA(psf, tk=config.fista.tk)))
+        if algo == "HyperSpectralFISTA":
+            model_list.append(("HyperSpectralFISTA", HyperSpectralFISTA(psf,mask, tk=config.fista.tk)))
         if algo == "GradientDescent":
             model_list.append(("GradientDescent", GradientDescent(psf)))
         if algo == "NesterovGradientDescent":
@@ -243,7 +248,7 @@ def benchmark_recon(config):
                 :2
             ]  # take first two in case multimask dataset
             ground_truth_np = ground_truth.cpu().numpy()[0]
-            lensless_np = lensless.cpu().numpy()[0]
+            lensless_np = lensless.cpu().numpy()
 
             if crop is not None:
                 ground_truth_np = ground_truth_np[

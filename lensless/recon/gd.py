@@ -238,6 +238,77 @@ class FISTA(GradientDescent):
         self._xk = xk
 
 
+class HyperSpectralFISTA(FISTA):
+    """
+    Applying HyperSpectral FISTA as in: https://github.com/Waller-Lab/SpectralDiffuserCam
+
+    """
+
+    def __init__(self, psf, mask, **kwargs):
+        """
+
+        Parameters
+        ----------
+        mask :
+            Hyperspectral mask
+
+        """
+        # same PSF for all hyperspectral channels
+        assert psf.shape[-1] == 1
+        assert mask.shape[-3:-1] == psf.shape[-3:-1]
+        self._mask = mask[None, ...]  # adding batch dimension
+
+        super(HyperSpectralFISTA, self).__init__(psf, **kwargs)
+
+    def reset(self):
+
+        # TODO set lipschitz constant correctly/differently?
+
+        if self.is_torch:
+            if self._initial_est is not None:
+                self._image_est = self._initial_est
+            else:
+                # initial guess, half intensity image
+                psf_flat = self._psf.reshape(-1, self._psf_shape[3])
+                pixel_start = (
+                    torch.max(psf_flat, axis=0).values + torch.min(psf_flat, axis=0).values
+                ) / 2
+                # initialize image estimate as [Batch, Depth, Height, Width, Channels]
+                self._image_est = torch.ones_like(self._mask) * pixel_start
+
+            # set step size as < 2 / lipschitz
+            Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
+            H_flat = self._convolver._H.reshape(-1, self._psf_shape[3])
+            self._alpha = torch.real(1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values)
+
+        else:
+            if self._initial_est is not None:
+                self._image_est = self._initial_est
+            else:
+                psf_flat = self._psf.reshape(-1, self._psf_shape[3])
+                pixel_start = (np.max(psf_flat, axis=0) + np.min(psf_flat, axis=0)) / 2
+                # initialize image estimate as [Batch, Depth, Height, Width, Channels]
+                self._image_est = np.ones_like(self._mask) * pixel_start
+
+            # set step size as < 2 / lipschitz
+            Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
+            H_flat = self._convolver._H.reshape(-1, self._psf_shape[3])
+            self._alpha = np.real(1.8 / np.max(Hadj_flat * H_flat, axis=0))
+
+        # # TODO how was his value determined?
+        # self._alpha = 1 / 4770.13
+
+    def _grad(self):
+        # make sure to sum on correct axis, and apply mask on correct dimensions
+        diff = (
+            np.sum(self._mask * self._convolver.convolve(self._image_est), -1, keepdims=True)
+            - self._data
+        )  # (B, D, H, W, 1)
+        return self._convolver.deconvolve(
+            diff * self._mask
+        )  # (H, W, C) where C is number of hyperspectral channels
+
+
 def apply_gradient_descent(psf_fp, data_fp, n_iter, verbose=False, proj=non_neg, **kwargs):
 
     # load data
