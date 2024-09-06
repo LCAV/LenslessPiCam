@@ -1,8 +1,8 @@
 """
-Apply gradient descent.
+Apply FISTA for hyperspectral data recovery.
 
 ```
-python scripts/recon/gradient_descent.py
+python scripts/recon/hyperspectral.py
 ```
 
 """
@@ -70,8 +70,8 @@ def gradient_descent(
     recon = HyperSpectralFISTA(
         psf,
         mask,
-        norm=None,
-        # norm="ortho",
+        # norm=None,
+        norm="ortho",
     )
     recon.set_data(data)
     res = recon.apply(

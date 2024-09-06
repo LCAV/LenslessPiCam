@@ -295,8 +295,8 @@ class HyperSpectralFISTA(FISTA):
             H_flat = self._convolver._H.reshape(-1, self._psf_shape[3])
             self._alpha = np.real(1.8 / np.max(Hadj_flat * H_flat, axis=0))
 
-        # TODO how was his value determined?
-        self._alpha = 1 / 4770.13
+        # # TODO how was his value determined?
+        # self._alpha = 1 / 4770.13
 
     def _grad(self):
         # make sure to sum on correct axis, and apply mask on correct dimensions
