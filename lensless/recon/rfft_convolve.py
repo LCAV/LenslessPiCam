@@ -82,18 +82,24 @@ class RealFFTConvolve2D:
         ]
 
     def _pad(self, v):
+
+        shape = self._padded_shape.copy()
+        if v.shape[-1] != self._padded_shape[-1]:
+            # different number of channels in PSF and data
+            assert v.shape[-1] == 1 or self._padded_shape[-1] == 1
+            shape[-1] = v.shape[-1]
+
         if len(v.shape) == 5:
             batch_size = v.shape[0]
-            shape = [batch_size] + self._padded_shape
-        elif len(v.shape) == 4:
-            shape = self._padded_shape
-        else:
+            shape = [batch_size] + shape
+        elif len(v.shape) != 4:
             raise ValueError("Expected 4D or 5D tensor")
 
         if self.is_torch:
             vpad = torch.zeros(size=shape, dtype=v.dtype, device=v.device)
         else:
             vpad = np.zeros(shape).astype(v.dtype)
+
         vpad[
             ..., self._start_idx[0] : self._end_idx[0], self._start_idx[1] : self._end_idx[1], :
         ] = v
@@ -135,7 +141,7 @@ class RealFFTConvolve2D:
         Convolve with pre-computed FFT of provided PSF.
         """
         if self.pad:
-            self._padded_data = self._pad(x).to(self._psf.device)
+            self._padded_data = self._pad(x)
         else:
             if self.is_torch:
                 self._padded_data = x
