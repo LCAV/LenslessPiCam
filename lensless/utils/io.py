@@ -17,6 +17,7 @@ from lensless.hardware.constants import RPI_HQ_CAMERA_BLACK_LEVEL, RPI_HQ_CAMERA
 from lensless.utils.image import bayer2rgb_cc, print_image_info, resize, rgb2gray, get_max_val
 from lensless.utils.plot import plot_image
 
+
 def load_mask(fp):
     mask = np.load(fp)
     return np.expand_dims(mask, axis=0)
@@ -127,7 +128,7 @@ def load_image(
         img = np.load(fp)
     elif "mat" in fp:
         mat = scipy.io.loadmat(fp)
-        img = mat['psf'][:,:,0]
+        img = mat["psf"][:, :, 0]
     else:
         img = cv2.imread(fp, cv2.IMREAD_UNCHANGED)
 
@@ -209,10 +210,6 @@ def load_image(
     else:
         if dtype is None:
             dtype = original_dtype
-        img = img.astype(np.float64)
-      
-        img = img[10:260, 35:320-35]
-        img = img / np.linalg.norm(img)
 
     return img
 
@@ -390,7 +387,7 @@ def load_psf(
     if return_bg:
         return psf, bg
     else:
-        return psf.astype(np.float64)
+        return psf
 
 
 def load_data(

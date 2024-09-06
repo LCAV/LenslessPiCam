@@ -264,7 +264,7 @@ def get_max_val(img, nbits=None):
     max_val : int
         Maximum pixel value.
     """
-    # assert img.dtype not in FLOAT_DTYPES
+    assert img.dtype not in FLOAT_DTYPES
     if nbits is None:
         nbits = int(np.ceil(np.log2(img.max())))
 

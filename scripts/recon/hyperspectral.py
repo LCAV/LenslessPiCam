@@ -14,10 +14,11 @@ import numpy as np
 import time
 import pathlib as plib
 import matplotlib.pyplot as plt
-from lensless.utils.io import load_data
+from lensless.utils.io import load_image
 from lensless import (
     HyperSpectralFISTA,
 )
+import scipy
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="defaults_recon")
@@ -25,16 +26,23 @@ def gradient_descent(
     config,
 ):
 
-    # load mask and PSF
+    # set paths
     mask_fp = "/root/FORKS/LenslessPiCamNoa/data/mask.npy"
+    psf_fp = "/root/FORKS/LenslessPiCamNoa/data/psf.mat"
+    data_fp = "/root/FORKS/LenslessPiCamNoa/data/266_lensless.png"
+
+    ### - put your paths
+    # mask_fp = None
+    # psf_fp = None
+    # data_fp = None
+
+    # load mask and PSF
     mask = np.load(mask_fp)
     mask = np.expand_dims(mask, axis=0)
     mask = mask.astype(np.float32)
 
     # load PSF
-    import scipy
 
-    psf_fp = "/root/FORKS/LenslessPiCamNoa/data/psf.mat"
     mat = scipy.io.loadmat(psf_fp)
     psf = mat["psf"][:, :, 0]
     psf = psf.astype(np.float32)
@@ -44,9 +52,6 @@ def gradient_descent(
     psf = np.expand_dims(psf, axis=-1)  # add channels
 
     # load data
-    from lensless.utils.io import load_image
-
-    data_fp = "/root/FORKS/LenslessPiCamNoa/data/266_lensless.png"
     data = load_image(
         data_fp,
         return_float=True,
@@ -74,8 +79,8 @@ def gradient_descent(
 
     start_time = time.time()
     res = recon.apply(
-        n_iter=500,
-        disp_iter=50,
+        n_iter=100,
+        disp_iter=20,
         save=save,
         gamma=1.0,
         plot=False,
