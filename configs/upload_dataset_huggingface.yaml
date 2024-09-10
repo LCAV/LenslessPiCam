@@ -3,8 +3,8 @@ hydra:
   job:
     chdir: True    # change to output folder
 
-repo_id: null
-hf_token: null
+repo_id: noakraicer/polarlitisnpy
+hf_token: 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
 n_files: null
 test_size: 0.15
 multimask: False
@@ -12,15 +12,17 @@ split: first   # "first: first nfiles for test, `int`: test_size*split for test 
 n_jobs: 1
 
 lensless:
-  dir: null
-  ext: null  # for example: .png, .jpg
+  dir: /disk5/noa/datasets/downsample/train_polar_sim2
+  ext: .npy  # for example: .png, .jpg
   eight_norm: False   # save as 8-bit normalized image
   ambient: False
   downsample: null
 
 lensed:
-  dir: null
-  ext: null
+  dir: /disk5/noa/datasets/train_polar/I04590
+  ext: .png
 
 # additional files to upload to root folder, e.g. PSF
-files: null
+files: 
+  psf: /disk5/noa/datasets/downsample/psf.mat
+  mask: /disk5/noa/datasets/downsample/mask.npy

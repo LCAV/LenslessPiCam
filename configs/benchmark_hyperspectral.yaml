@@ -12,7 +12,7 @@ seed: 0
 batchsize: 1    # must be 1 for iterative approaches
 
 huggingface:
-  repo: "noakraicer/polarlitis"
+  repo: "noakraicer/polarlitisnpy"
   cache_dir: null    # where to read/write dataset. Defaults to `"~/.cache/huggingface/datasets"`.
   psf: psf.mat 
   mask: mask.npy  # null for simulating PSF
