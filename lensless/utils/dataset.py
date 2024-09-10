@@ -17,7 +17,7 @@ from torchvision import datasets, transforms
 from torchvision.transforms import functional as F
 from lensless.hardware.trainable_mask import prep_trainable_mask, AdafruitLCD
 from lensless.utils.simulation import FarFieldSimulator
-from lensless.utils.io import load_image, load_psf, save_image
+from lensless.utils.io import load_image, load_psf, save_image,load_mask
 from lensless.utils.image import is_grayscale, resize, rgb2gray
 import re
 from lensless.hardware.utils import capture
@@ -1271,6 +1271,7 @@ class HFDataset(DualDataset):
         split,
         n_files=None,
         psf=None,
+        mask=None,
         rotate=False,  # just the lensless image
         flipud=False,
         flip_lensed=False,
@@ -1409,11 +1410,11 @@ class HFDataset(DualDataset):
         if psf is not None:
             # download PSF from huggingface
             psf_fp = hf_hub_download(repo_id=huggingface_repo, filename=psf, repo_type="dataset")
-            psf, _ = load_psf(
+            psf = load_psf(
                 psf_fp,
                 shape=lensless.shape,
                 return_float=True,
-                return_bg=True,
+                return_bg=False,
                 flip=self.rotate,
                 flip_ud=flipud,
                 bg_pix=(0, 15),
@@ -1424,6 +1425,10 @@ class HFDataset(DualDataset):
             if single_channel_psf:
                 # replicate across three channels
                 self.psf = self.psf.repeat(1, 1, 1, 3)
+        if mask is not None:
+            mask_fp = hf_hub_download(repo_id=huggingface_repo, filename=mask, repo_type="dataset")
+            mask = load_mask(mask_fp)
+            self.mask= torch.from_numpy(mask)
 
         elif "mask_label" in data_0:
             self.multimask = True
@@ -1563,7 +1568,9 @@ class HFDataset(DualDataset):
         # convert to float
         if lensless_np.dtype == np.uint8:
             lensless_np = lensless_np.astype(np.float32) / 255
+            lensless_np = lensless_np / np.max(lensless_np)
             lensed_np = lensed_np.astype(np.float32) / 255
+            lensed_np = lensed_np / np.max(lensed_np)
         else:
             # 16 bit
             lensless_np = lensless_np.astype(np.float32) / 65535
