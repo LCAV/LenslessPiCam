@@ -4,11 +4,11 @@ defaults:
   - _self_
 
 dataset: HFDataset
-batchsize: 4
+batchsize: 8
 device: "cuda:0"
 
 huggingface:
-  repo: Lensless/MultiLens-Mirflickr-Ambient-25K
+  repo: Lensless/MultiLens-Mirflickr-Ambient
   cache_dir: /dev/shm
   psf: psf.png
   image_res: [600, 600]  # used during measurement
@@ -21,7 +21,25 @@ huggingface:
 ## -- reconstructions trained with same dataset/system
 algorithms: [
   "ADMM",
+  "hf:multilens:mirflickr_ambient:U5+Unet8M",
+  "hf:multilens:mirflickr_ambient:U5+Unet8M_direct_sub",
+  "hf:multilens:mirflickr_ambient:U5+Unet8M_learned_sub",
+  "hf:multilens:mirflickr_ambient:Unet4M+U5+Unet4M",
+  "hf:multilens:mirflickr_ambient:Unet4M+U5+Unet4M_direct_sub",
+  "hf:multilens:mirflickr_ambient:Unet4M+U5+Unet4M_learned_sub",
+  "hf:multilens:mirflickr_ambient:Unet4M+U5+Unet4M_concat",
+  "hf:multilens:mirflickr_ambient:TrainInv+Unet8M",
+  "hf:multilens:mirflickr_ambient:TrainInv+Unet8M_learned_sub",
+  "hf:multilens:mirflickr_ambient:Unet4M+TrainInv+Unet4M",
+  "hf:multilens:mirflickr_ambient:Unet4M+TrainInv+Unet4M_learned_sub",
+  "hf:multilens:mirflickr_ambient:Unet4M+TrainInv+Unet4M_concat",
+  "hf:multilens:mirflickr_ambient:TrainInv+Unet8M_direct_sub",
+  "hf:multilens:mirflickr_ambient:Unet4M+TrainInv+Unet4M_direct_sub",
 ]
 
-save_idx: [1, 2, 4, 5, 9]
+save_idx: [
+  1, 2, 4, 5, 9, 64, # bottom right
+  2141, 2155, 2162, 2225, 2502, 2602,   # top right (door, flower, cookies, wolf, plush, sky)
+  3262, 3304, 3438, 3451, 3644, 3667    # bottom left (pancakes, flower, grapes, pencils, bird, sign)
+]
 n_iter_range: [100]    # for ADMM

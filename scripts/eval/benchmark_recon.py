@@ -238,10 +238,12 @@ def benchmark_recon(config):
 
         os.mkdir("GROUND_TRUTH")
         os.mkdir("LENSLESS")
+        if benchmark_dataset.measured_bg is not None:
+            os.mkdir("BACKGROUND")
         for idx in config.save_idx:
-            lensless, ground_truth = benchmark_dataset[idx][
-                :2
-            ]  # take first two in case multimask dataset
+            data = benchmark_dataset[idx]
+            lensless = data[0]
+            ground_truth = data[1]
             ground_truth_np = ground_truth.cpu().numpy()[0]
             lensless_np = lensless.cpu().numpy()[0]
 
@@ -259,6 +261,14 @@ def benchmark_recon(config):
                 lensless_np,
                 fp=os.path.join("LENSLESS", f"{idx}.png"),
             )
+            if benchmark_dataset.measured_bg is not None:
+                background = data[-1]
+                background_np = background.cpu().numpy()[0]
+                save_image(
+                    background_np,
+                    fp=os.path.join("BACKGROUND", f"{idx}_background.png"),
+                )
+
     # benchmark each model for different number of iteration and append result to results
     # -- batchsize has to equal 1 as baseline models don't support batch processing
     start_time = time.time()

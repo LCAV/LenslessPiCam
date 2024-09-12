@@ -381,8 +381,6 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         algorithm, the number of iteration isn't required. Note that `set_data` must be called
         beforehand.
 
-        TODO: add support for background subtraction
-
         Parameters
         ----------
         disp_iter : int
@@ -413,11 +411,40 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             returning if `plot` or `save` is True.
 
         """
+
+        if self.direct_background_subtraction:
+            assert (
+                background is not None
+            ), "If direct_background_subtraction is True, background must be defined."
+            self._data = self._data - background
+            self._data = torch.clamp(self._data, 0, 1)
+        elif self.learned_background_subtraction:
+            assert (
+                background is not None
+            ), "If learned_background_subtraction is True, background must be defined."
+            assert (
+                self.background_network is not None
+            ), "If learned_background_subtraction is True, background_network must be defined."
+
+            self._data = self._data - self.background_network(
+                background, self.background_network_param
+            ).to(self._data.device)
+            self._data = torch.clamp(self._data, 0, 1)
+
         pre_processed_image = None
-        if self.pre_process is not None and not self.skip_pre:
-            self._data = self.pre_process(self._data, self.pre_process_param)
-            if output_intermediate:
-                pre_processed_image = self._data[0, ...].clone()
+        if self.integrated_background_subtraction:
+            # use preprocess for background subtraction
+            self._data = self.pre_process(self._data, background)
+        elif self.pre_process is not None and not self.skip_pre:
+
+            # preproc that doesn't do background subtraction
+            self._data = self.pre_process(
+                self._data,
+                self.pre_process_param,
+                background=background if self.input_background else None,
+            )
+        if self.pre_process is not None and output_intermediate:
+            pre_processed_image = self._data[0, ...].clone()
 
         if not self.skip_unrolled:
             im = super(TrainableReconstructionAlgorithm, self).apply(

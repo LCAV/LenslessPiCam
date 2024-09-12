@@ -168,6 +168,24 @@ model_dict = {
             "Unet4M+U5+Unet4M_aux1": "bezzam/tapecam-mirflickr-unet4M-unrolled-admm5-unet4M-aux1",
         },
     },
+    "multilens": {
+        "mirflickr_ambient": {
+            "U5+Unet8M": "lensless/multilens-mirflickr-ambient-unrolled-admm5-unet8M",
+            "U5+Unet8M_direct_sub": "lensless/multilens-mirflickr-ambient-unrolled-admm5-unet8M-direct-sub",
+            "U5+Unet8M_learned_sub": "lensless/multilens-mirflickr-ambient-unrolled-admm5-unet8M-learned-sub",
+            "Unet4M+U5+Unet4M": "lensless/multilens-mirflickr-ambient-unet4M-unrolled-admm5-unet4M",
+            "Unet4M+U5+Unet4M_direct_sub": "lensless/multilens-mirflickr-ambient-unet4M-unrolled-admm5-unet4M-direct-sub",
+            "Unet4M+U5+Unet4M_learned_sub": "lensless/multilens-mirflickr-ambient-unet4M-unrolled-admm5-unet4M-learned-sub",
+            "Unet4M+U5+Unet4M_concat": "lensless/multilens-mirflickr-ambient-unet4M-unrolled-admm5-unet4M-concat-ext",
+            "TrainInv+Unet8M": "lensless/multilens-mirflickr-ambient-trainable-inv-unet8M",
+            "TrainInv+Unet8M_learned_sub": "lensless/multilens-mirflickr-ambient-trainable-inv-unet8M-learned-sub",
+            "Unet4M+TrainInv+Unet4M": "lensless/multilens-mirflickr-ambient-unet4M-trainable-inv-unet4M",
+            "Unet4M+TrainInv+Unet4M_learned_sub": "lensless/multilens-mirflickr-ambient-unet4M-trainable-inv-unet4M-learned-sub",
+            "Unet4M+TrainInv+Unet4M_concat": "lensless/multilens-mirflickr-ambient-unet4M-trainable-inv-unet4M-concat-ext",
+            "TrainInv+Unet8M_direct_sub": "lensless/multilens-mirflickr-ambient-trainable-inv-unet8M-direct-sub",
+            "Unet4M+TrainInv+Unet4M_direct_sub": "lensless/multilens-mirflickr-ambient-unet4M-trainable-inv-unet4M-direct-sub",
+        }
+    },
 }
 
 
@@ -332,6 +350,7 @@ def load_model(
                 if "nc" in config["reconstruction"]["pre_process"].keys()
                 else None,
                 device=device,
+                input_background=config["reconstruction"].get("unetres_input_background", False),
             )
 
         if config["reconstruction"]["post_process"]["network"] is not None:
@@ -446,8 +465,4 @@ def load_model(
             recon.set_post_process(post_proc)
         recon = MyDataParallel(recon, device_ids=device_ids)
     recon.to(device)
-
-    import pdb
-
-    pdb.set_trace()
     return recon
