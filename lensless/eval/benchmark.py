@@ -127,7 +127,7 @@ def benchmark(
             background = None
             lensless = batch[0].to(device)
             lensed = batch[1].to(device)
-            if dataset.measured_bg:
+            if dataset.measured_bg and use_background:
                 background = batch[-1].to(device)
             if dataset.multimask or dataset.random_flip:
                 psfs = batch[2]
@@ -152,7 +152,7 @@ def benchmark(
                     plot=False,
                     save=False,
                     output_intermediate=unrolled_output_factor or pre_process_aux,
-                    background=background if use_background else None,
+                    background=background,
                     **kwargs,
                 )
 

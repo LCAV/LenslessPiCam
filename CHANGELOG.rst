@@ -13,7 +13,6 @@ Unreleased
 Added
 ~~~~~
 
-- Option to pass background image to ``utils.io.load_data``.
 - Option to set image resolution with ``hardware.utils.display`` function.
 - Add utility for mask adapter generation in ``lenseless.hardware.fabrication``
 - Option to add simulated background in ``util.dataset``
@@ -28,11 +27,19 @@ Added
 - HFSimulated object for simulating lensless data from ground-truth and PSF.
 - Option to set cache directory for Hugging Face datasets.
 - Option to initialize training with another model.
+- Option to pass background image to ``utils.io.load_data``.
+- Option to use background in ``lensless.eval.benchmark``. 
+- Different techniques to use measured background: direct subtraction, learned subtraction, integrated subtraction, concatenated to input.
+- Learnable background subtraction for classes that derive from ``lensless.recon.trainable_recon.TrainableReconstructionAlgorithm``.
+- Integrated background subtraction object ``lensless.recon.integrated_background.IntegratedBackgroundSub``.
+- Option to concatenate background to input to pre-processor.
+- Add support for datasets with measured background to ``lensless.utils.dataset.HFDataset``.
+
 
 Changed
 ~~~~~~~
 
-- Nothing
+- ``lensless.utils.dataset.HFDataset`` no longer inherits from ``lensless.utils.dataset.DualDataset``.
 
 Bugfix
 ~~~~~~

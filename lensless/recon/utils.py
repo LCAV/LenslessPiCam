@@ -316,10 +316,8 @@ def apply_denoiser(
     if mode == "inference":
         with torch.no_grad():
             image = model(image, compensation_output)
-            # image = model(image, compensation_output, background=background)
     elif mode == "train":
         image = model(image, compensation_output)
-        # image = model(image, compensation_output, background=background)
     else:
         raise ValueError("mode must be 'inference' or 'train'")
 

@@ -1,6 +1,6 @@
 # #############################################################################
-# multi_wiener.py
-# ===============
+# integrated_background_sub.py
+# ============================
 # Authors :
 # Eric BEZZAM [ebezzam@gmail.com]
 # Stefan PETERS
