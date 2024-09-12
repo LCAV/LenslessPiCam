@@ -552,6 +552,7 @@ class ReconstructionAlgorithm(abc.ABC):
 
         if background is not None:
             self._data = self._data - background
+            self._data[self._data < 0] = 0
 
         if reset:
             self.reset()
