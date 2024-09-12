@@ -6,13 +6,17 @@ defaults:
 repo_id: "Lensless/MultiLens-Mirflickr-Ambient"
 n_files:
 test_size: 0.15
+
+# # -- to match TapeCam dataset content distribution, and same light distribution in train/test
+# split: 100   # "first: first `nfiles*test_size` for test, `int`: test_size*split for test (interleaved) as if multimask with this many masks
+
 lensless:
   dir: /dev/shm/all_measured_20240813-183259
   ambient: True
   ext: ".png"
 
 lensed:
-  dir: data/mirflickr/mirflickr
+  dir: /root/LenslessPiCam/data/mirflickr/mirflickr
   ext: ".jpg"
 
 files:
