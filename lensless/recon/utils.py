@@ -242,7 +242,9 @@ def load_drunet(model_path=None, n_channels=3, requires_grad=False):
     return model
 
 
-def apply_denoiser(model, image, noise_level=10, mode="inference", compensation_output=None):
+def apply_denoiser(
+    model, image, noise_level=10, mode="inference", compensation_output=None, background=None
+):
     """
     Apply a pre-trained denoising model with input in the format Channel, Height, Width.
     An additionnal channel is added for the noise level as done in Drunet.
@@ -272,25 +274,43 @@ def apply_denoiser(model, image, noise_level=10, mode="inference", compensation_
     depth = image.shape[-4]
     image = image.movedim(-1, -3)
     image = image.reshape(-1, *image.shape[-3:])
+
     # pad image H and W to next multiple of 8
     top = (8 - image.shape[-2] % 8) // 2
     bottom = (8 - image.shape[-2] % 8) - top
     left = (8 - image.shape[-1] % 8) // 2
     right = (8 - image.shape[-1] % 8) - left
     image = torch.nn.functional.pad(image, (left, right, top, bottom), mode="constant", value=0)
-    # add noise level as extra channel
-    if isinstance(noise_level, torch.Tensor):
-        noise_level = noise_level / 255.0
-    else:
-        noise_level = torch.tensor([noise_level / 255.0])
 
-    image = torch.cat(
-        (
-            image,
-            noise_level.repeat(image.shape[0], 1, image.shape[2], image.shape[3]),
-        ),
-        dim=1,
-    )
+    # use background if provided
+    # TODO distinguish between integrated background subtraction where it gets passed to the model instead
+    # -- check model.background_subtraction ?
+    if background is not None:
+        # -- pad
+        background = background.movedim(-1, -3)
+        background = background.reshape(-1, *background.shape[-3:])
+        background = torch.nn.functional.pad(
+            background, (left, right, top, bottom), mode="constant", value=0
+        )
+
+        # -- concatenate as noise channel
+        image = torch.cat((image, background), dim=1)
+
+    else:
+
+        # add noise level as extra channel
+        if isinstance(noise_level, torch.Tensor):
+            noise_level = noise_level / 255.0
+        else:
+            noise_level = torch.tensor([noise_level / 255.0])
+
+        image = torch.cat(
+            (
+                image,
+                noise_level.repeat(image.shape[0], 1, image.shape[2], image.shape[3]),
+            ),
+            dim=1,
+        )
 
     # apply model
     if mode == "inference":
@@ -306,6 +326,7 @@ def apply_denoiser(model, image, noise_level=10, mode="inference", compensation_
     # convert back to NDHWC
     image = image.movedim(-3, -1)
     image = image.reshape(-1, depth, *image.shape[-3:])
+
     return image
 
 
@@ -350,7 +371,7 @@ def get_drunet_function_v2(model, mode="inference"):
         Mode to use for model. Can be "inference" or "train".
     """
 
-    def process(image, noise_level, compensation_output=None):
+    def process(image, noise_level, compensation_output=None, background=None):
         x_max = torch.amax(image, dim=(-1, -2, -3, -4), keepdim=True) + 1e-6
         image = apply_denoiser(
             model,
@@ -358,6 +379,7 @@ def get_drunet_function_v2(model, mode="inference"):
             noise_level=noise_level,
             mode=mode,
             compensation_output=compensation_output,
+            background=background,
         )
         image = torch.clip(image, min=0.0) * x_max.to(image.device)
         return image
@@ -388,7 +410,14 @@ def measure_gradient(model):
 
 
 def create_process_network(
-    network, depth=4, device="cpu", nc=None, device_ids=None, concatenate_compensation=False
+    network,
+    depth=4,
+    device="cpu",
+    nc=None,
+    device_ids=None,
+    concatenate_compensation=False,
+    background_subtraction=False,
+    input_background=False,
 ):
     """
     Helper function to create a process network.
@@ -419,6 +448,7 @@ def create_process_network(
         assert (
             concatenate_compensation is False
         ), "DruNet does not support concatenation of compensation branch."
+        assert background_subtraction is False, "DruNet does not support background subtraction."
         from lensless.recon.utils import load_drunet
 
         process = load_drunet(requires_grad=True)
@@ -428,7 +458,9 @@ def create_process_network(
 
         n_channels = 3
         process = UNetRes(
-            in_nc=n_channels + 1,
+            in_nc=n_channels * 2
+            if input_background
+            else n_channels + 1,  # extra channel(s) for noise level(s)
             out_nc=n_channels,
             nc=nc,
             nb=depth,
@@ -436,6 +468,8 @@ def create_process_network(
             downsample_mode="strideconv",
             upsample_mode="convtranspose",
             concatenate_compensation=concatenate_compensation,
+            input_background=input_background or background_subtraction,
+            background_subtraction=background_subtraction,
         )
         process_name = "UnetRes_d" + str(depth)
     else:
@@ -613,6 +647,10 @@ class Trainer:
         self.train_random_flip = train_dataset.random_flip
         self.random_rotate = random_rotate
         self.random_shift = random_shift
+        if hasattr(train_dataset, "measured_bg"):
+            self.background = train_dataset.measured_bg
+        else:
+            self.background = False
         if self.random_shift:
             raise NotImplementedError("Random shift not implemented yet.")
 
@@ -875,9 +913,12 @@ class Trainer:
             # get batch
             flip_lr = None
             flip_ud = None
+            background = None
             X = batch[0].to(self.device)
             y = batch[1].to(self.device)
-            if self.train_multimask or self.train_random_flip:
+            if self.background:
+                background = batch[-1].to(self.device)
+            if self.train_random_flip or self.train_multimask:
                 psfs = batch[2].to(self.device)
             else:
                 psfs = None
@@ -897,17 +938,13 @@ class Trainer:
                 else:
                     psfs = rotate_HWC(psfs, random_rotate)
 
-            # send to device
-            X = X.to(self.device)
-            y = y.to(self.device)
-
             # update psf according to mask
             if self.use_mask:
                 self.recon._set_psf(self.mask.get_psf().to(self.device))
 
             # forward pass
             # torch.autograd.set_detect_anomaly(True)    # for debugging
-            y_pred = self.recon.forward(batch=X, psfs=psfs)
+            y_pred = self.recon.forward(batch=X, psfs=psfs, background=background)
             if self.unrolled_output_factor or self.pre_proc_aux:
                 y_pred, camera_inv_out, pre_proc_out = y_pred[0], y_pred[1], y_pred[2]
 

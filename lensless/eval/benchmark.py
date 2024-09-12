@@ -42,6 +42,7 @@ def benchmark(
     use_wandb=False,
     label=None,
     epoch=None,
+    use_background=True,
     **kwargs,
 ):
     """
@@ -69,6 +70,8 @@ def benchmark(
         If True, return the average value of the metrics, by default True.
     snr : float, optional
         Signal to noise ratio for adding shot noise. If None, no noise is added, by default None.
+    use_background: bool, optional
+        If dataset has background, use it for reconstruction, by default True.
 
     Returns
     -------
@@ -121,8 +124,11 @@ def benchmark(
 
             flip_lr = None
             flip_ud = None
+            background = None
             lensless = batch[0].to(device)
             lensed = batch[1].to(device)
+            if dataset.measured_bg and use_background:
+                background = batch[-1].to(device)
             if dataset.multimask or dataset.random_flip:
                 psfs = batch[2]
                 psfs = psfs.to(device)
@@ -146,11 +152,12 @@ def benchmark(
                     plot=False,
                     save=False,
                     output_intermediate=unrolled_output_factor or pre_process_aux,
+                    background=background,
                     **kwargs,
                 )
 
             else:
-                prediction = model.forward(lensless, psfs, **kwargs)
+                prediction = model.forward(lensless, psfs, background=background, **kwargs)
 
             if unrolled_output_factor or pre_process_aux:
                 pre_process_out = prediction[2]

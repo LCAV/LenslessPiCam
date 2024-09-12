@@ -1,0 +1,24 @@
+# python scripts/recon/train_learning_based.py -cn train_mirflickr_multilens_ambient
+defaults:
+  - train_mirflickr_tape
+  - _self_
+
+wandb_project: multilens_ambient
+
+# Dataset
+files:
+  dataset: Lensless/MultiLens-Mirflickr-Ambient
+  cache_dir: /dev/shm
+  image_res: [600, 600]
+
+reconstruction:
+  direct_background_subtraction: True
+
+alignment:
+  # when there is no downsampling
+  top_left: [118, 220]  # height, width
+  height: 123
+
+optimizer:
+  type: AdamW
+  cosine_decay_warmup: True

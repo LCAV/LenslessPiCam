@@ -1,0 +1,24 @@
+# python scripts/recon/train_learning_based.py -cn train_mirflickr_tape_ambient
+defaults:
+  - train_mirflickr_tape
+  - _self_
+
+wandb_project: tapecam_ambient
+device_ids:
+
+# Dataset
+files:
+  dataset: Lensless/TapeCam-Mirflickr-Ambient
+  image_res: [600, 600]
+
+reconstruction:
+  direct_background_subtraction: True
+
+alignment:
+  # when there is no downsampling
+  top_left: [85, 185]  # height, width
+  height: 178
+
+optimizer:
+  type: AdamW
+  cosine_decay_warmup: True

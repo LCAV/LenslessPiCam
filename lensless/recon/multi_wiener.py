@@ -140,7 +140,7 @@ class MultiWiener(nn.Module):
         self.up_layers = nn.ModuleList(self.up_layers)
         self.outc = OutConv(nc[0], out_channels)
 
-        self.delta = nn.Parameter(torch.tensor(np.ones(5) * 0.01, dtype=torch.float32))
+        self.delta = nn.Parameter(torch.tensor(np.ones(len(nc)) * 0.01, dtype=torch.float32))
         self.w = nn.Parameter(
             torch.tensor(np.ones((1, psf_channels, 1, 1)) * 0.001, dtype=torch.float32)
         )

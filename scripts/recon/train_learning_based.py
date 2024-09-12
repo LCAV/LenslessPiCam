@@ -31,7 +31,7 @@ python scripts/recon/train_learning_based.py -cn fine-tune_PSF
 import wandb
 import logging
 import hydra
-from hydra.utils import get_original_cwd
+from hydra.utils import get_original_cwd, to_absolute_path
 import os
 import numpy as np
 import time
@@ -39,6 +39,7 @@ from lensless.utils.image import shift_with_pad
 from lensless.hardware.trainable_mask import prep_trainable_mask
 from lensless import ADMM, UnrolledFISTA, UnrolledADMM, TrainableInversion
 from lensless.recon.multi_wiener import MultiWiener
+from lensless.recon.integrated_background_sub import IntegratedBackgroundSub
 from lensless.utils.dataset import (
     DiffuserCamMirflickr,
     DigiCamCelebA,
@@ -227,7 +228,9 @@ def train_learned(config):
                 display_res=config.files.image_res,
                 alignment=config.alignment,
                 bg_snr_range=config.files.background_snr_range,  # TODO check if correct
-                bg_fp=config.files.background_fp,
+                bg_fp=to_absolute_path(config.files.background_fp)
+                if config.files.background_fp is not None
+                else None,
             )
 
         else:
@@ -251,7 +254,9 @@ def train_learned(config):
                 simulate_lensless=config.files.simulate_lensless,
                 random_flip=config.files.random_flip,
                 bg_snr_range=config.files.background_snr_range,
-                bg_fp=config.files.background_fp,
+                bg_fp=to_absolute_path(config.files.background_fp)
+                if config.files.background_fp is not None
+                else None,
             )
 
         test_set = HFDataset(
@@ -271,7 +276,9 @@ def train_learned(config):
             n_files=config.files.n_files,
             simulation_config=config.simulation,
             bg_snr_range=config.files.background_snr_range,
-            bg_fp=config.files.background_fp,
+            bg_fp=to_absolute_path(config.files.background_fp)
+            if config.files.background_fp is not None
+            else None,
             force_rgb=config.files.force_rgb,
             simulate_lensless=False,  # in general evaluate on measured (set to False)
         )
@@ -341,8 +348,7 @@ def train_learned(config):
                 return_items = test_set[_idx]
                 lensless = return_items[0]
                 lensed = return_items[1]
-
-                if test_set.bg_sim is not None:
+                if test_set.bg_sim is not None or test_set.measured_bg:
                     background = return_items[-1]
                 if test_set.multimask or test_set.random_flip:
                     psf_recon = return_items[2]
@@ -399,7 +405,8 @@ def train_learned(config):
                     rotate_angle,
                     shift,
                 )
-                if test_set.bg_sim is not None:
+                # save_image(lensed, f"lensed_{_idx}.png")
+                if test_set.bg_sim is not None or test_set.measured_bg:
                     # Reconstruct and plot background subtracted image
                     reconstruct_save(
                         _idx,
@@ -422,14 +429,16 @@ def train_learned(config):
     start_time = time.time()
 
     # Load pre-process model
+    pre_proc_delay = config.reconstruction.pre_process.delay
     pre_process, pre_process_name = create_process_network(
         config.reconstruction.pre_process.network,
         config.reconstruction.pre_process.depth,
         nc=config.reconstruction.pre_process.nc,
         device=device,
         device_ids=device_ids,
+        background_subtraction=config.reconstruction.integrated_background_unetres,
+        input_background=config.reconstruction.unetres_input_background,
     )
-    pre_proc_delay = config.reconstruction.pre_process.delay
 
     # Load post-process model
     post_process, post_process_name = create_process_network(
@@ -494,6 +503,38 @@ def train_learned(config):
                 if name1 in dict_params2_post:
                     dict_params2_post[name1].data.copy_(param1.data)
 
+    # check/prepare background subtraction
+    background_network = None
+    if config.reconstruction.direct_background_subtraction:
+        assert test_set.measured_bg and train_set.measured_bg
+        assert config.reconstruction.learned_background_subtraction is False
+    elif config.reconstruction.learned_background_subtraction:
+        assert config.reconstruction.direct_background_subtraction is False
+        assert test_set.measured_bg and train_set.measured_bg
+
+        # create UnetRes for background subtraction
+        background_network, _ = create_process_network(
+            network="UnetRes",
+            depth=len(config.reconstruction.learned_background_subtraction),
+            nc=config.reconstruction.learned_background_subtraction,
+            device=device,
+            device_ids=device_ids,
+        )
+    elif config.reconstruction.integrated_background_subtraction:
+        assert config.reconstruction.direct_background_subtraction is False
+        assert config.reconstruction.learned_background_subtraction is False
+        assert pre_process is None
+        assert test_set.measured_bg and train_set.measured_bg
+
+        background = train_set[0][-1]
+        background_network = IntegratedBackgroundSub(
+            in_channels=3,
+            out_channels=3,
+            input_shape=background.shape,
+            nc=config.reconstruction.integrated_background_subtraction,
+            down_subtraction=config.reconstruction.down_subtraction,
+        )
+
     # create reconstruction algorithm
     if config.reconstruction.init is not None:
         assert config.reconstruction.init_processors is None
@@ -513,6 +554,7 @@ def train_learned(config):
         )
 
     else:
+
         if config.reconstruction.method == "unrolled_fista":
             recon = UnrolledFISTA(
                 psf,
@@ -522,12 +564,15 @@ def train_learned(config):
                 learn_tk=config.reconstruction.unrolled_fista.learn_tk,
                 pre_process=pre_process if pre_proc_delay is None else None,
                 post_process=post_process if post_proc_delay is None else None,
+                background_network=background_network,
                 skip_unrolled=config.reconstruction.skip_unrolled,
                 return_intermediate=(
                     True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
                 ),
                 compensation=config.reconstruction.compensation,
                 compensation_residual=config.reconstruction.compensation_residual,
+                direct_background_subtraction=config.reconstruction.direct_background_subtraction,
+                integrated_background_subtraction=config.reconstruction.integrated_background_subtraction,
             )
         elif config.reconstruction.method == "unrolled_admm":
             recon = UnrolledADMM(
@@ -539,12 +584,15 @@ def train_learned(config):
                 tau=config.reconstruction.unrolled_admm.tau,
                 pre_process=pre_process if pre_proc_delay is None else None,
                 post_process=post_process if post_proc_delay is None else None,
+                background_network=background_network,
                 skip_unrolled=config.reconstruction.skip_unrolled,
                 return_intermediate=(
                     True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
                 ),
                 compensation=config.reconstruction.compensation,
                 compensation_residual=config.reconstruction.compensation_residual,
+                direct_background_subtraction=config.reconstruction.direct_background_subtraction,
+                integrated_background_subtraction=config.reconstruction.integrated_background_subtraction,
             )
         elif config.reconstruction.method == "trainable_inv":
             assert config.trainable_mask.mask_type == "TrainablePSF"
@@ -553,9 +601,12 @@ def train_learned(config):
                 K=config.reconstruction.trainable_inv.K,
                 pre_process=pre_process if pre_proc_delay is None else None,
                 post_process=post_process if post_proc_delay is None else None,
+                background_network=background_network,
                 return_intermediate=(
                     True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
                 ),
+                direct_background_subtraction=config.reconstruction.direct_background_subtraction,
+                integrated_background_subtraction=config.reconstruction.integrated_background_subtraction,
             )
         elif config.reconstruction.method == "multi_wiener":
 
@@ -564,6 +615,10 @@ def train_learned(config):
                 psf_channels = 1
             else:
                 psf_channels = 3
+
+            assert config.reconstruction.direct_background_subtraction is False, "Not supported"
+            assert config.reconstruction.learned_background_subtraction is None, "Not supported"
+            assert config.reconstruction.integrated_background_subtraction is None, "Not supported"
 
             recon = MultiWiener(
                 in_channels=3,
@@ -600,6 +655,9 @@ def train_learned(config):
     if post_process is not None:
         n_param = sum(p.numel() for p in post_process.parameters() if p.requires_grad)
         log.info(f"-- Post-process model with {n_param} parameters")
+    if background_network is not None:
+        n_param = sum(p.numel() for p in background_network.parameters() if p.requires_grad)
+        log.info(f"-- Background subtraction model with {n_param} parameters")
 
     log.info(f"Setup time : {time.time() - start_time} s")
     log.info(f"PSF shape : {psf.shape}")
@@ -663,10 +721,11 @@ def reconstruct_save(
     recon = ADMM(psf_recon)
 
     recon.set_data(lensless.to(psf_recon.device))
+    # recon.set_data(torch.from_numpy(lensless).to(psf_recon.device))
     res = recon.apply(disp_iter=None, plot=False, n_iter=10)
     res_np = res[0].cpu().numpy()
     res_np = res_np / res_np.max()
-    lensed_np = lensed[0].cpu().numpy()
+    lensed_np = lensed[0]  # .cpu().numpy()
 
     # -- plot lensed and res on top of each other
     cropped = False

@@ -505,6 +505,7 @@ class ReconstructionAlgorithm(abc.ABC):
         gamma=None,
         ax=None,
         reset=True,
+        background=None,
         **kwargs,
     ):
         """
@@ -548,6 +549,10 @@ class ReconstructionAlgorithm(abc.ABC):
         assert (
             self._data.shape[0] == 1
         ), "Apply doesn't supports processing multiple images at once."
+
+        if background is not None:
+            self._data = self._data - background
+            self._data[self._data < 0] = 0
 
         if reset:
             self.reset()

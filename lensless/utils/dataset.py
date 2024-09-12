@@ -349,7 +349,7 @@ class MeasuredDatasetSimulatedOriginal(DualDataset):
 
         if len(self.files) == 0:
             raise FileNotFoundError(
-                f"No files found in {self.measured_dir} with extension {self.measurement_ext }"
+                f"No files found in {self.measured_dir} with extension {self.measurement_ext}"
             )
 
         # check that corresponding files exist
@@ -1264,7 +1264,7 @@ class HFSimulated(DualDataset):
         return reconstruction, lensed
 
 
-class HFDataset(DualDataset):
+class HFDataset(Dataset):
     def __init__(
         self,
         huggingface_repo,
@@ -1330,9 +1330,9 @@ class HFDataset(DualDataset):
         simulation_config : dict, optional
             Simulation parameters for PSF if using a mask pattern.
         bg_snr_range : list, optional
-            List [low, high] of range of possible SNRs for which to add the background. Used in conjunction with 'bg'
+            List [low, high] of range of possible SNRs for which to add the background. Used in conjunction with 'bg'.
         bg_fp : string, optional
-            File path of background to add to the data for simulating a measurement in ambient light
+            File path of background to add to the data for simulating a measurement in ambient light.
 
         """
 
@@ -1360,6 +1360,10 @@ class HFDataset(DualDataset):
         self.downsample_lensless = downsample
         self.downsample_lensed = downsample_lensed
         lensless = np.array(data_0["lensless"])
+        if "ambient" in data_0.keys():
+            self.measured_bg = True
+        else:
+            self.measured_bg = False
 
         if self.downsample_lensless != 1.0:
             lensless = resize(lensless, factor=1 / self.downsample_lensless)
@@ -1534,16 +1538,15 @@ class HFDataset(DualDataset):
             self.bg_snr_range = None
             self.background_var = None
 
-        super(HFDataset, self).__init__(**kwargs)
-
     def __len__(self):
         return len(self.dataset)
 
     def _get_images_pair(self, idx):
 
-        # load image
+        # load images
         lensless_np = np.array(self.dataset[idx]["lensless"])
         lensed_np = np.array(self.dataset[idx]["lensed"])
+        background_np = np.array(self.dataset[idx]["ambient"]) if self.measured_bg else None
 
         if self.force_rgb:
             if len(lensless_np.shape) == 2:
@@ -1560,23 +1563,41 @@ class HFDataset(DualDataset):
             elif len(lensed_np.shape) == 3:
                 pass
 
+            if len(background_np.shape) == 2:
+                warnings.warn(f"Converting background[{idx}] to RGB")
+                background_np = np.stack([background_np] * 3, axis=2) if not None else None
+            elif len(background_np.shape) == 3:
+                pass
+
         # convert to float
         if lensless_np.dtype == np.uint8:
             lensless_np = lensless_np.astype(np.float32) / 255
             lensed_np = lensed_np.astype(np.float32) / 255
+            background_np = background_np.astype(np.float32) / 255 if not None else None
         else:
             # 16 bit
             lensless_np = lensless_np.astype(np.float32) / 65535
             lensed_np = lensed_np.astype(np.float32) / 65535
+            background_np = background_np.astype(np.float32) / 65535 if not None else None
 
         # downsample if necessary
         if self.downsample_lensless != 1.0:
             lensless_np = resize(
                 lensless_np, factor=1 / self.downsample_lensless, interpolation=cv2.INTER_NEAREST
             )
+            background_np = (
+                resize(
+                    background_np,
+                    factor=1 / self.downsample_lensless,
+                    interpolation=cv2.INTER_NEAREST,
+                )
+                if not None
+                else None
+            )
 
         lensless = lensless_np
         lensed = lensed_np
+        background = background_np if not None else None
 
         if self.simulator is not None:
             # convert to torch
@@ -1610,11 +1631,25 @@ class HFDataset(DualDataset):
                 interpolation=cv2.INTER_NEAREST,
             )
 
-        return lensless, lensed
+        return lensless, lensed, background if background is not None else None
 
     def __getitem__(self, idx):
-        lensless, lensed = super().__getitem__(idx)
-        if not self.simulate_lensless:
+
+        lensless, lensed, background = self._get_images_pair(idx)
+
+        # to torch
+        lensless = torch.from_numpy(lensless)
+        lensed = torch.from_numpy(lensed)
+        background = torch.from_numpy(background) if not None else None
+        # If [H, W, C] -> [D, H, W, C]
+        if len(lensless.shape) == 3:
+            lensless = lensless.unsqueeze(0)
+        if len(lensed.shape) == 3:
+            lensed = lensed.unsqueeze(0)
+        if background is not None and len(background.shape) == 3:
+            background = background.unsqueeze(0)
+
+        if not self.simulate_lensless:  # TODO apply transformation to bg as well?
             if self.rotate:
                 lensless = torch.rot90(lensless, dims=(-3, -2), k=2)
             if self.flipud:
@@ -1644,10 +1679,12 @@ class HFDataset(DualDataset):
                 lensless = torch.flip(lensless, dims=(-2,))
                 lensed = torch.flip(lensed, dims=(-2,))
                 psf_aug = torch.flip(psf_aug, dims=(-2,))
+                background = torch.flip(background, dims=(-2,))
             if flip_ud:
                 lensless = torch.flip(lensless, dims=(-3,))
                 lensed = torch.flip(lensed, dims=(-3,))
                 psf_aug = torch.flip(psf_aug, dims=(-3,))
+                background = torch.flip(background, dims=(-3,))
 
         return_items = [lensless, lensed]
         if self.multimask:
@@ -1675,14 +1712,12 @@ class HFDataset(DualDataset):
             # Add background noise to the target image
             image_with_bg = lensless + scaled_bg
 
-            return image_with_bg, lensed, scaled_bg
-        else:
-            return lensless, lensed
-
-        # add simulated background to get image_with_bg and scaled_bg
-        return_items[0] = image_with_bg
-        return_items[0].append(scaled_bg)
-
+            # Add simulated background to get image_with_bg and scaled_bg
+            return_items[0] = image_with_bg
+            return_items[0].append(scaled_bg)
+        # If measured background available in the dataset return it
+        elif self.measured_bg:
+            return_items.append(background)
         return return_items
 
     def extract_roi(
