@@ -43,6 +43,8 @@ import hydra
 import json
 import omegaconf
 import os
+from lensless.utils.io import save_image
+from lensless.recon.model_dict import download_model, load_model
 
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="authen")
@@ -60,9 +62,10 @@ def authen(config):
     n_files = config.n_files
     grayscale = config.grayscale
     device = config.torch_device
-    rotate = True
-    downsample = 1
+    save_idx = config.save_idx
+    downsample = config.huggingface.downsample
 
+    # compute scores
     if scores_fp is None:
 
         # load multimask dataset
@@ -70,16 +73,26 @@ def authen(config):
             train_set = HFDataset(
                 huggingface_repo=huggingface_repo,
                 split="train",
-                rotate=rotate,
-                downsample=downsample,
                 return_mask_label=True,
+                rotate=config.huggingface.rotate,
+                display_res=config.huggingface.image_res,
+                flipud=config.huggingface.flipud,
+                flip_lensed=config.huggingface.flip_lensed,
+                downsample=config.huggingface.downsample,
+                alignment=config.huggingface.alignment,
+                simulation_config=config.simulation,
             )
             test_set = HFDataset(
                 huggingface_repo=huggingface_repo,
                 split="test",
-                rotate=rotate,
-                downsample=downsample,
                 return_mask_label=True,
+                rotate=config.huggingface.rotate,
+                display_res=config.huggingface.image_res,
+                flipud=config.huggingface.flipud,
+                flip_lensed=config.huggingface.flip_lensed,
+                downsample=config.huggingface.downsample,
+                alignment=config.huggingface.alignment,
+                simulation_config=config.simulation,
             )
             n_train_psf = len(train_set.psf)
             n_test_psf = len(test_set.psf)
@@ -117,9 +130,14 @@ def authen(config):
             all_set = HFDataset(
                 huggingface_repo=huggingface_repo,
                 split=split,
-                rotate=rotate,
-                downsample=downsample,
                 return_mask_label=True,
+                rotate=config.huggingface.rotate,
+                display_res=config.huggingface.image_res,
+                flipud=config.huggingface.flipud,
+                flip_lensed=config.huggingface.flip_lensed,
+                downsample=config.huggingface.downsample,
+                alignment=config.huggingface.alignment,
+                simulation_config=config.simulation,
             )
             psfs = all_set.psf
             n_psf = len(psfs)
@@ -135,9 +153,38 @@ def authen(config):
         for i in range(n_psf):
             if grayscale:
                 psfs[i] = rgb2gray(psfs[i])
-            # normalize
-            psfs[i] = psfs[i] / psfs[i].norm()
 
+        # load model, initialize with first PSF
+        algo = config.algo
+        inv_output = False
+        if algo == "admm":
+            model = ADMM(psf=psfs[0].to(device), n_iter=n_iter)
+        elif "hf" in algo:
+            param = algo.split(":")
+            assert (
+                len(param) == 4
+            ), "hf model requires following format: hf:camera:dataset:model_name"
+            camera = param[1]
+            dataset = param[2]
+            model_name = param[3]
+            algo_config = config.get(algo)
+            if algo_config is not None:
+                skip_pre = algo_config.get("skip_pre", False)
+                skip_post = algo_config.get("skip_post", False)
+            else:
+                skip_pre = False
+                skip_post = False
+
+            model_path = download_model(camera=camera, dataset=dataset, model=model_name)
+            model = load_model(
+                model_path, psfs[0].to(device), device, skip_pre=skip_pre, skip_post=skip_post
+            )
+            model.eval()
+            inv_output = config.inv_output
+        else:
+            raise ValueError(f"Unsupported algorithm : {algo}")
+
+        # initialize scores
         fn = f"scores_{n_iter}_grayscale{grayscale}_down{downsample}_nfiles{n_files}.json"
         if cont is not None:
             fn = os.path.join(cont, fn)
@@ -156,11 +203,16 @@ def authen(config):
                 scores[str(psf)] = []
 
         # loop over dataset
+        # TODO in batches over multiple GPU
         start_time = time.time()
         for i in tqdm(file_idx):
 
+            if i in save_idx:
+                # make folder
+                save_dir = str(i)
+                os.makedirs(save_dir, exist_ok=True)
+
             # save progress
-            # if i % n_psf == 0:
             with open(fn, "w") as f:
                 json.dump(scores, f, indent=4)
 
@@ -171,18 +223,32 @@ def authen(config):
             if grayscale:
                 lensless = rgb2gray(lensless, keepchanneldim=True)
 
-            # normalize
-            lensless = lensless - torch.min(lensless)
-            lensless = lensless / torch.max(lensless)
-
             # reconstruct
             scores_i = []
             for psf_idx in psfs:
-                recon = ADMM(psf=psfs[psf_idx].to(device))
-                recon.set_data(lensless.to(device))
-                recon.apply(disp_iter=None, plot=False, n_iter=n_iter)
-                scores_i.append(recon.reconstruction_error().item())
-                del recon
+                model._set_psf(psfs[psf_idx].to(device))
+                model.set_data(lensless.to(device))
+                with torch.no_grad():
+                    if inv_output:
+                        _, res, _ = model.apply(
+                            disp_iter=None, plot=False, output_intermediate=True
+                        )
+                    else:
+                        res = model.apply(disp_iter=None, plot=False, output_intermediate=False)
+                        res = res[0]
+
+                scores_i.append(
+                    model.reconstruction_error(
+                        prediction=res / res.max(), lensless=lensless.to(device) / lensless.max()
+                    ).item()
+                )
+
+                if i in save_idx:
+                    res_np = res[0].cpu().numpy()
+                    res_np = res_np / res_np.max()
+                    fp = os.path.join(save_dir, f"{psf_idx}.png")
+                    save_image(res_np, fp)
+
             scores[str(mask_label)].append(np.array(scores_i).tolist())
             del lensless
             torch.cuda.empty_cache()
