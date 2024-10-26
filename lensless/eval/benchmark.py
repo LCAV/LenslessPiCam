@@ -157,7 +157,9 @@ def benchmark(
                 )
 
             else:
-                prediction = model.forward(lensless, psfs, background=background, **kwargs)
+                prediction = model.forward(
+                    batch=lensless, psfs=psfs, background=background, **kwargs
+                )
 
             if unrolled_output_factor or pre_process_aux:
                 pre_process_out = prediction[2]

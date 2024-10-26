@@ -3,6 +3,7 @@ defaults:
   - defaults_recon
   - _self_
 
+dataset: mirflickr_single_25k   # for loading model, "mirflickr_single_25k" or "mirflickr_multi_25k"
 cache_dir: /dev/shm
 
 # fn: null  # if not null, download this file from https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-SingleMask-25K/tree/main

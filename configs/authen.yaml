@@ -14,6 +14,8 @@ save_idx: [1, 2, 4, 5, 9]
 
 font_scale: 1.5   # for plotting confusion matrix
 
+metric: "recon"   # "recon", "mse", "lpips"
+
 # Dataset parameters
 huggingface:
   repo: "bezzam/DigiCam-Mirflickr-MultiMask-25K"

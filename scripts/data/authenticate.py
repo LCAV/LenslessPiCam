@@ -246,7 +246,7 @@ def authen(config):
                 if i in save_idx:
                     res_np = res[0].cpu().numpy()
                     res_np = res_np / res_np.max()
-                    fp = os.path.join(save_dir, f"{psf_idx}.png")
+                    fp = os.path.join(save_dir, f"psf{psf_idx}.png")
                     save_image(res_np, fp)
 
             scores[str(mask_label)].append(np.array(scores_i).tolist())

@@ -90,6 +90,10 @@ reconstruction:
   init_pre: True   # if `init_processors`, set pre-procesor is available
   init_post: True   # if `init_processors`, set post-procesor is available
 
+  # processing PSF
+  psf_network: False  # False, or set number of channels for UnetRes, e.g. [8,16,32,64], with skip connection
+  psf_residual: True  # if psf_network used, whether to use residual connection for original PSF estimate
+
   # background subtraction (if dataset has corresponding background images)
   direct_background_subtraction: False    # True or False
   learned_background_subtraction: False   # False, or set number of channels for UnetRes, e.g. [8,16,32,64]
@@ -193,10 +197,10 @@ optimizer:
   type: AdamW  # Adam, SGD... (Pytorch class)
   lr: 1e-4
   lr_step_epoch: True   # True -> update LR at end of each epoch, False at the end of each mini-batch
+  cosine_decay_warmup: True  # if set, cosine decay with warmup of 5%
   final_lr: False   # if set, exponentially decay *to* this value
   exp_decay: False  # if set, exponentially decay *with* this value
   slow_start: False  #float how much to reduce lr for first epoch
-  cosine_decay_warmup: True  # if set, cosine decay with warmup of 5%
   # Decay LR in step fashion: https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html
   step: False     # int, period of learning rate decay. False to not apply
   gamma: 0.1      # float, factor for learning rate decay 
