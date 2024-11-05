@@ -1276,6 +1276,7 @@ class HFDataset(Dataset):
         flip_lensed=False,
         downsample=1,
         downsample_lensed=1,
+        input_snr=None,
         display_res=None,
         sensor="rpi_hq",
         slm="adafruit",
@@ -1351,6 +1352,7 @@ class HFDataset(Dataset):
         self.display_res = display_res
         self.return_mask_label = return_mask_label
         self.force_rgb = force_rgb  # if some data is not 3D
+        self.input_snr = input_snr
 
         # augmentation
         self.random_flip = random_flip
@@ -1643,10 +1645,11 @@ class HFDataset(Dataset):
 
         lensless, lensed, background = self._get_images_pair(idx)
 
-        # to torch
-        lensless = torch.from_numpy(lensless)
-        lensed = torch.from_numpy(lensed)
-        background = torch.from_numpy(background) if background is not None else None
+        if isinstance(lensless, np.ndarray):
+            # to torch
+            lensless = torch.from_numpy(lensless)
+            lensed = torch.from_numpy(lensed)
+            background = torch.from_numpy(background) if background is not None else None
         # If [H, W, C] -> [D, H, W, C]
         if len(lensless.shape) == 3:
             lensless = lensless.unsqueeze(0)
@@ -1654,6 +1657,9 @@ class HFDataset(Dataset):
             lensed = lensed.unsqueeze(0)
         if background is not None and len(background.shape) == 3:
             background = background.unsqueeze(0)
+
+        if self.input_snr is not None:
+            lensless = add_shot_noise(lensless, self.input_snr)
 
         if not self.simulate_lensless:  # TODO apply transformation to bg as well?
             if self.rotate:

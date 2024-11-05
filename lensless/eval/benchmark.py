@@ -34,6 +34,7 @@ def benchmark(
     metrics=None,
     crop=None,
     save_idx=None,
+    save_intermediate=False,
     output_dir=None,
     unrolled_output_factor=False,
     pre_process_aux=False,
@@ -112,6 +113,7 @@ def benchmark(
                 metrics_values[key + "_unrolled"] = []
     if pre_process_aux:
         metrics_values["ReconstructionError_PreProc"] = []
+    output_intermediate = unrolled_output_factor or pre_process_aux or save_intermediate
 
     # loop over batches
     dataloader = DataLoader(dataset, batch_size=batchsize, pin_memory=(device != "cpu"))
@@ -151,15 +153,17 @@ def benchmark(
                 prediction = model.apply(
                     plot=False,
                     save=False,
-                    output_intermediate=unrolled_output_factor or pre_process_aux,
+                    output_intermediate=output_intermediate,
                     background=background,
                     **kwargs,
                 )
 
             else:
-                prediction = model.forward(lensless, psfs, background=background, **kwargs)
+                prediction = model.forward(
+                    batch=lensless, psfs=psfs, background=background, **kwargs
+                )
 
-            if unrolled_output_factor or pre_process_aux:
+            if output_intermediate:
                 pre_process_out = prediction[2]
                 unrolled_out = prediction[1]
                 prediction = prediction[0]
@@ -202,6 +206,15 @@ def benchmark(
                         prediction_np = np.moveaxis(prediction_np, 0, -1)
                         fp = os.path.join(output_dir, f"{_batch_idx}.png")
                         save_image(prediction_np, fp=fp)
+
+                        if save_intermediate:
+                            fp = os.path.join(output_dir, f"{_batch_idx}_inv.png")
+                            unrolled_out_np = unrolled_out.cpu().numpy()[i].squeeze()
+                            save_image(unrolled_out_np, fp=fp)
+
+                            fp = os.path.join(output_dir, f"{_batch_idx}_preproc.png")
+                            pre_process_out_np = pre_process_out.cpu().numpy()[i].squeeze()
+                            save_image(pre_process_out_np, fp=fp)
 
                         if use_wandb:
                             assert epoch is not None, "epoch must be provided for wandb logging"

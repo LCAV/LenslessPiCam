@@ -63,9 +63,15 @@ model_dict = {
             "Unet4M+TrainInv+Unet4M": "bezzam/diffusercam-mirflickr-unet4M-trainable-inv-unet4M",
             "MMCN4M+Unet4M": "bezzam/diffusercam-mirflickr-mmcn-unet4M",
             "U5+Unet8M": "bezzam/diffusercam-mirflickr-unrolled-admm5-unet8M",
+            "Unet8M+U5": "bezzam/diffusercam-mirflickr-unet8M-unrolled-admm5",
             "Unet2M+MMCN+Unet2M": "bezzam/diffusercam-mirflickr-unet2M-mmcn-unet2M",
             "Unet4M+U20+Unet4M": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm20-unet4M",
             "Unet4M+U10+Unet4M": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm10-unet4M",
+            # training with noise
+            "U5+Unet8M_10db": "bezzam/diffusercam-mirflickr-unrolled-admm5-unet8M-10db",
+            "U5+Unet8M_40db": "bezzam/diffusercam-mirflickr-unrolled-admm5-unet8M-40db",
+            "Unet4M+U5+Unet4M_10db": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-10db",
+            "Unet4M+U5+Unet4M_40db": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-40db",
             # fine-tuning tapecam
             "Unet4M+U5+Unet4M_ft_tapecam": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-ft-tapecam",
             "Unet4M+U5+Unet4M_ft_tapecam_post": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-ft-tapecam-post",
@@ -98,6 +104,7 @@ model_dict = {
             "admm_simulated_psf": "bezzam/digicam-celeba-admm-simulated-psf",
             # TCI submission (using waveprop simulation)
             "U5+Unet8M_wave": "bezzam/digicam-celeba-unrolled-admm5-unet8M",
+            "Unet8M+U5_wave": "bezzam/digicam-celeba-unet8M-unrolled-admm5",
             "TrainInv+Unet8M_wave": "bezzam/digicam-celeba-trainable-inv-unet8M_wave",
             "MWDN8M_wave": "bezzam/digicam-celeba-mwnn-8M",
             "MMCN4M+Unet4M_wave": "bezzam/digicam-celeba-mmcn-unet4M",
@@ -122,6 +129,7 @@ model_dict = {
             "Unet4M+U10+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-wave",
             "TrainInv+Unet8M_wave": "bezzam/digicam-mirflickr-single-25k-trainable-inv-unet8M-wave",
             "U5+Unet8M_wave": "bezzam/digicam-mirflickr-single-25k-unrolled-admm5-unet8M-wave",
+            "Unet8M+U5_wave": "bezzam/digicam-mirflickr-single-25k-unet8M-unrolled-admm5-wave",
             "Unet4M+U5+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm5-unet4M-wave",
             "MWDN8M_wave": "bezzam/digicam-mirflickr-single-25k-mwdn-8M",
             "MMCN4M+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-mmcn-unet4M",
@@ -155,6 +163,7 @@ model_dict = {
     "tapecam": {
         "mirflickr": {
             "U5+Unet8M": "bezzam/tapecam-mirflickr-unrolled-admm5-unet8M",
+            "Unet8M+U5": "bezzam/tapecam-mirflickr-unet8M-unrolled-admm5",
             "TrainInv+Unet8M": "bezzam/tapecam-mirflickr-trainable-inv-unet8M",
             "MMCN4M+Unet4M": "bezzam/tapecam-mirflickr-mmcn-unet4M",
             "MWDN8M": "bezzam/tapecam-mirflickr-mwdn-8M",
@@ -246,6 +255,7 @@ def load_model(
     skip_pre=False,
     skip_post=False,
     train_last_layer=False,
+    return_intermediate=False,
 ):
 
     """
@@ -395,6 +405,7 @@ def load_model(
                     "integrated_background_subtraction", False
                 ),
                 background_network=background_network,
+                return_intermediate=return_intermediate,
             )
         elif config["reconstruction"]["method"] == "trainable_inv":
             recon = TrainableInversion(
@@ -405,13 +416,14 @@ def load_model(
                 legacy_denoiser=legacy_denoiser,
                 skip_pre=skip_pre,
                 skip_post=skip_post,
-                direct_background_subtraction=config["reconstruction"][
-                    "direct_background_subtraction"
-                ],
-                integrated_background_subtraction=config["reconstruction"][
-                    "integrated_background_subtraction"
-                ],
+                direct_background_subtraction=config["reconstruction"].get(
+                    "direct_background_subtraction", False
+                ),
+                integrated_background_subtraction=config["reconstruction"].get(
+                    "integrated_background_subtraction", False
+                ),
                 background_network=background_network,
+                return_intermediate=return_intermediate,
             )
         elif config["reconstruction"]["method"] == "multi_wiener":
 
@@ -442,7 +454,7 @@ def load_model(
         psf_learned = torch.nn.Parameter(psf_learned)
         recon._set_psf(psf_learned)
 
-    if config["device_ids"] is not None:
+    if config.get("device_ids", None) is not None:
         model_state_dict = remove_data_parallel(model_state_dict)
 
     # hotfixes for loading models

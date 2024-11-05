@@ -22,6 +22,7 @@ import numpy as np
 import glob
 import json
 import os
+from waveprop.noise import add_shot_noise
 import pathlib as plib
 from lensless.eval.benchmark import benchmark
 import matplotlib.pyplot as plt
@@ -216,7 +217,14 @@ def benchmark_recon(config):
                 skip_post = False
 
             model_path = download_model(camera=camera, dataset=dataset, model=model_name)
-            model = load_model(model_path, psf, device, skip_pre=skip_pre, skip_post=skip_post)
+            model = load_model(
+                model_path,
+                psf,
+                device,
+                skip_pre=skip_pre,
+                skip_post=skip_post,
+                return_intermediate=config.save_intermediate,
+            )
             model.eval()
             model_list.append((algo, model))
 
@@ -238,11 +246,14 @@ def benchmark_recon(config):
 
         os.mkdir("GROUND_TRUTH")
         os.mkdir("LENSLESS")
-        if benchmark_dataset.measured_bg is not None:
+        if benchmark_dataset.measured_bg:
             os.mkdir("BACKGROUND")
         for idx in config.save_idx:
             data = benchmark_dataset[idx]
             lensless = data[0]
+            if config.snr is not None:
+                # example of target SNR
+                lensless = add_shot_noise(lensless, float(config.snr))
             ground_truth = data[1]
             ground_truth_np = ground_truth.cpu().numpy()[0]
             lensless_np = lensless.cpu().numpy()[0]
@@ -261,7 +272,7 @@ def benchmark_recon(config):
                 lensless_np,
                 fp=os.path.join("LENSLESS", f"{idx}.png"),
             )
-            if benchmark_dataset.measured_bg is not None:
+            if benchmark_dataset.measured_bg:
                 background = data[-1]
                 background_np = background.cpu().numpy()[0]
                 save_image(
@@ -289,8 +300,10 @@ def benchmark_recon(config):
                 benchmark_dataset,
                 batchsize=config.batchsize,
                 save_idx=config.save_idx,
+                save_intermediate=config.save_intermediate,
                 output_dir=model_name,
                 crop=crop,
+                snr=config.snr,
             )
             results[model_name] = result
 
@@ -316,9 +329,11 @@ def benchmark_recon(config):
                     batchsize=1,
                     n_iter=n_iter,
                     save_idx=config.save_idx,
+                    save_intermediate=config.save_intermediate,
                     output_dir=output_dir,
                     crop=crop,
                     use_background=config.huggingface.use_background,
+                    snr=config.snr,
                 )
                 results[model_name][int(n_iter)] = result
 

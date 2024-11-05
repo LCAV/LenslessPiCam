@@ -9,18 +9,19 @@ batchsize: 10
 device: "cuda:0"
 
 algorithms: [
-  "ADMM",
+  # "ADMM",
 
   ## -- reconstructions trained on measured data
-  "hf:digicam:celeba_26k:U5+Unet8M_wave",
-  "hf:digicam:celeba_26k:TrainInv+Unet8M_wave",
-  "hf:digicam:celeba_26k:MWDN8M_wave",
-  "hf:digicam:celeba_26k:MMCN4M+Unet4M_wave",
-  "hf:digicam:celeba_26k:Unet2M+MWDN6M_wave",
-  "hf:digicam:celeba_26k:Unet4M+TrainInv+Unet4M_wave",
-  "hf:digicam:celeba_26k:Unet2M+MMCN+Unet2M_wave",
-  "hf:digicam:celeba_26k:Unet4M+U5+Unet4M_wave",
-  "hf:digicam:celeba_26k:Unet4M+U10+Unet4M_wave",
+  # "hf:digicam:celeba_26k:U5+Unet8M_wave",
+  "hf:digicam:celeba_26k:Unet8M+U5_wave",
+  # "hf:digicam:celeba_26k:TrainInv+Unet8M_wave",
+  # "hf:digicam:celeba_26k:MWDN8M_wave",
+  # "hf:digicam:celeba_26k:MMCN4M+Unet4M_wave",
+  # "hf:digicam:celeba_26k:Unet2M+MWDN6M_wave",
+  # "hf:digicam:celeba_26k:Unet4M+TrainInv+Unet4M_wave",
+  # "hf:digicam:celeba_26k:Unet2M+MMCN+Unet2M_wave",
+  # "hf:digicam:celeba_26k:Unet4M+U5+Unet4M_wave",
+  # "hf:digicam:celeba_26k:Unet4M+U10+Unet4M_wave",
   
   # # -- reconstructions trained on other datasets/systems
   # "hf:diffusercam:mirflickr:Unet4M+U10+Unet4M",
@@ -37,6 +38,7 @@ n_iter_range: [100]    # for ADMM
 huggingface:
   repo: bezzam/DigiCam-CelebA-26K
   psf: psf_simulated_waveprop.png    # psf_simulated_waveprop.png, psf_simulated.png, psf_measured.png
+  cache_dir: /dev/shm
   split_seed: 0
   test_size: 0.15
   downsample: 2

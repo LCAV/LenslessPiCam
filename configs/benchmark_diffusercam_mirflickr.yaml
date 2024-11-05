@@ -20,18 +20,20 @@ huggingface:
   single_channel_psf: True
 
 algorithms: [
-  "ADMM",
+  # "ADMM",
 
   ## -- reconstructions trained on DiffuserCam measured
-  "hf:diffusercam:mirflickr:U5+Unet8M",
-  "hf:diffusercam:mirflickr:TrainInv+Unet8M",
-  "hf:diffusercam:mirflickr:MMCN4M+Unet4M",
-  "hf:diffusercam:mirflickr:MWDN8M",
-  "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M",
-  "hf:diffusercam:mirflickr:Unet4M+TrainInv+Unet4M",
-  "hf:diffusercam:mirflickr:Unet2M+MMCN+Unet2M",
-  "hf:diffusercam:mirflickr:Unet2M+MWDN6M",
-  "hf:diffusercam:mirflickr:Unet4M+U10+Unet4M",
+  # "hf:diffusercam:mirflickr:U5+Unet8M",
+  "hf:diffusercam:mirflickr:Unet8M+U5",
+  # "hf:diffusercam:mirflickr:TrainInv+Unet8M",
+  # "hf:diffusercam:mirflickr:MMCN4M+Unet4M",
+  # "hf:diffusercam:mirflickr:MWDN8M",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M",
+  # "hf:diffusercam:mirflickr:Unet4M+TrainInv+Unet4M",
+  # "hf:diffusercam:mirflickr:Unet2M+MMCN+Unet2M",
+  # "hf:diffusercam:mirflickr:Unet2M+MWDN6M",
+  # "hf:diffusercam:mirflickr:Unet4M+U10+Unet4M",
+
   # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_ft_tapecam",
   # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_ft_tapecam_post",
   # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_ft_tapecam_pre",

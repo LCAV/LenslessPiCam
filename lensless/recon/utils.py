@@ -345,7 +345,9 @@ def get_drunet_function(model, mode="inference"):
         Mode to use for model. Can be "inference" or "train".
     """
 
-    def process(image, noise_level):
+    def process(image, noise_level, compensation_output=None, background=None):
+        assert compensation_output is None, "Compensation output not supported for legacy models."
+        assert background is None, "Background not supported for legacy models."
         x_max = torch.amax(image, dim=(-2, -3), keepdim=True) + 1e-6
         image = apply_denoiser(
             model,
