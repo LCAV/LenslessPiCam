@@ -20,6 +20,10 @@ LenslessPiCam
       :target: https://lensless.readthedocs.io/en/latest/examples.html
       :alt: notebooks
 
+.. image:: https://img.shields.io/badge/Google_Slides-yellow
+      :target: https://docs.google.com/presentation/d/1PcNhMfjATSwcpbHUMrmc88ciQmheBJ7alz8hel8xnGU/edit?usp=sharing
+      :alt: slides
+
 .. image:: https://huggingface.co/datasets/huggingface/badges/resolve/main/powered-by-huggingface-dark.svg
       :target: https://huggingface.co/bezzam
       :alt: huggingface
