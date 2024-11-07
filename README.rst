@@ -24,6 +24,10 @@ LenslessPiCam
       :target: https://huggingface.co/bezzam
       :alt: huggingface
 
+.. image:: https://img.shields.io/badge/Google_Slides-yellow
+      :target: https://docs.google.com/presentation/d/1PcNhMfjATSwcpbHUMrmc88ciQmheBJ7alz8hel8xnGU/edit?usp=sharing
+      :alt: slides
+
 
 *A Hardware and Software Toolkit for Lensless Computational Imaging*
 --------------------------------------------------------------------
