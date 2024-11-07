@@ -7,6 +7,16 @@ but they may not be the best way to get started with the library.
 The following notebooks aim to provide a more interactive and intuitive
 way to explore the different functionalities of the library.
 
+This notebook provides a general overview of main features 
+(downloading/using datasets, PSF analysis/design, image recovery) 
+of the library: 
+(`GitHub <https://github.com/LCAV/LenslessPiCam/blob/main/notebook/lenslesspicam_demo.ipynb>`__,
+`Google Colab <https://colab.research.google.com/drive/1q56Ht647JD5wocnrcT7rH5TCNK7FKmtH?usp=sharing>`__).
+`Here <https://docs.google.com/presentation/d/1PcNhMfjATSwcpbHUMrmc88ciQmheBJ7alz8hel8xnGU/edit?pli=1#slide=id.p>`__
+are accompanying slides that were given at PhD course to introduce computational lensless imaging.
+
+The ones below are more specific and focus on different aspects of lensless cameras.
+
 System / Hardware
 -----------------
 

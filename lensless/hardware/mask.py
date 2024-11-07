@@ -772,7 +772,7 @@ class PhaseContour(Mask):
         self.height_map = height_map
 
 
-def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):
+def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False, phase_wrap=1):
     """
     Iterative phase retrieval algorithm similar to `PhlatCam <https://ieeexplore.ieee.org/document/9076617>`_,
     using Fresnel propagation.
@@ -791,7 +791,10 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):
         Refractive index of the mask substrate. Default is 1.2.
     n_iter: int
         Number of iterations. Default value is 10.
+    phase_wrap : int
+        How many multiple of (2*pi) to wrap the phase, to limit heights. Default is 1.
     """
+    assert isinstance(phase_wrap, int), "phase_wrap should be an integer"
     M_p = np.sqrt(target_psf)
 
     if hasattr(d1, "__len__"):
@@ -809,7 +812,7 @@ def phase_retrieval(target_psf, wv, d1, dz, n=1.2, n_iter=10, height_map=False):
         # constrain amplitude to be sqrt(PSF)
         M_p = np.sqrt(target_psf) * np.exp(1j * np.angle(M_p))
 
-    phi = (np.angle(M_phi) + 2 * np.pi) % (2 * np.pi)
+    phi = (np.angle(M_phi) + 2 * np.pi) % (2 * np.pi * phase_wrap)
 
     if height_map:
         return phi, wv * phi / (2 * np.pi * (n - 1))
