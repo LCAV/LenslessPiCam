@@ -47,6 +47,7 @@ def benchmark_recon(config):
     downsample = config.downsample
     n_files = config.n_files
     n_iter_range = config.n_iter_range
+    pnp = config.pnp  # parameterize and perturn parameters
 
     # check if GPU is available
     if torch.cuda.is_available() and config.device[:4] == "cuda":
@@ -217,16 +218,7 @@ def benchmark_recon(config):
                 skip_post = False
 
             model_path = download_model(camera=camera, dataset=dataset, model=model_name)
-            model = load_model(
-                model_path,
-                psf,
-                device,
-                skip_pre=skip_pre,
-                skip_post=skip_post,
-                return_intermediate=config.save_intermediate,
-            )
-            model.eval()
-            model_list.append((algo, model))
+            model_list.append((algo, model_path))
 
     results = {}
     output_dir = None
@@ -292,11 +284,26 @@ def benchmark_recon(config):
         results[model_name] = dict()
 
         if "hf" in model_name:
-            # trained algorithm (fixed number of iterations)
+            # trained algorithm
             print(f"Running benchmark for {model_name}")
 
+            # -- load model
+            model_obj = load_model(
+                model,  # model path
+                psf,
+                device,
+                skip_pre=skip_pre,
+                skip_post=skip_post,
+                return_intermediate=config.save_intermediate,
+            )
+            model_obj.eval()
+
+            if pnp is not None:
+                print(f"Usinng parameterize and perturb (P&P) with {pnp} parameters...")
+                pnp["model_path"] = model
+
             result = benchmark(
-                model,
+                model_obj,
                 benchmark_dataset,
                 batchsize=config.batchsize,
                 save_idx=config.save_idx,
@@ -304,6 +311,7 @@ def benchmark_recon(config):
                 output_dir=model_name,
                 crop=crop,
                 snr=config.snr,
+                pnp=pnp,
             )
             results[model_name] = result
 
@@ -314,6 +322,8 @@ def benchmark_recon(config):
 
         else:
             # iterative algorithm
+            if pnp is not None:
+                print(f"Parameterize and perturb (P&P) not used for {model_name}...")
 
             for n_iter in n_iter_range:
 

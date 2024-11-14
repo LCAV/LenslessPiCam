@@ -59,6 +59,14 @@ admm:
   mu3: 4e-5
   tau: 0.0001
 
+# parameterize and perturb (Gilton et. al.)
+pnp: null
+# pnp:
+#   mu: 1e-3   # weight for distance from original model parameters
+#   lr: 3e-3   # learning rate for SGD
+#   n_iter: 100   # number of iterations
+#   model_path: null    # leave null to be overwritten in script
+
 
 # for DigiCamCelebA
 files:
