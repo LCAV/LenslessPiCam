@@ -10,6 +10,7 @@ hydra:
 dataset: DiffuserCam   # DiffuserCam, DigiCamCelebA, HFDataset
 seed: 0
 batchsize: 1    # must be 1 for iterative approaches
+snr: null
 
 huggingface:
   repo: "bezzam/DigiCam-Mirflickr-MultiMask-25K"
@@ -42,6 +43,7 @@ algorithms: ["ADMM", "ADMM_Monakhova2019", "FISTA"] #["ADMM", "ADMM_Monakhova201
 baseline: "MONAKHOVA 100iter"
 
 save_idx: [0, 1, 2, 3, 4]   # provide index of files to save e.g. [1, 5, 10]
+save_intermediate: False   # save intermediate results, i.e. after pre-processor and after camera inversion
 gamma_psf: 1.5    # gamma factor for PSF
 
 
@@ -56,6 +58,14 @@ admm:
   mu2: 1e-5
   mu3: 4e-5
   tau: 0.0001
+
+# parameterize and perturb (Gilton et. al.)
+pnp: null
+# pnp:
+#   mu: 1e-3   # weight for distance from original model parameters
+#   lr: 3e-3   # learning rate for SGD
+#   n_iter: 100   # number of iterations
+#   model_path: null    # leave null to be overwritten in script
 
 
 # for DigiCamCelebA

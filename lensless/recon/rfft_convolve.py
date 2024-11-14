@@ -130,7 +130,7 @@ class RealFFTConvolve2D:
             self._Hadj = np.conj(self._H)
             self._padded_data = np.zeros(self._padded_shape).astype(self.dtype)
 
-    def convolve(self, x):
+    def convolve(self, x, return_fft=False):
         """
         Convolve with pre-computed FFT of provided PSF.
         """
@@ -143,9 +143,13 @@ class RealFFTConvolve2D:
                 self._padded_data[:] = x  # .astype(self.dtype)
 
         if self.is_torch:
+            conv_output = torch.fft.rfft2(self._padded_data, dim=(-3, -2)) * self._H
+
+            if return_fft:
+                return conv_output
             conv_output = torch.fft.ifftshift(
                 torch.fft.irfft2(
-                    torch.fft.rfft2(self._padded_data, dim=(-3, -2)) * self._H,
+                    conv_output,
                     dim=(-3, -2),
                     s=self._padded_shape[-3:-1],
                 ),
@@ -153,9 +157,12 @@ class RealFFTConvolve2D:
             )
 
         else:
+            conv_output = fft.rfft2(self._padded_data, axes=(-3, -2)) * self._H
+            if return_fft:
+                return conv_output
             conv_output = fft.ifftshift(
                 fft.irfft2(
-                    fft.rfft2(self._padded_data, axes=(-3, -2)) * self._H,
+                    conv_output,
                     axes=(-3, -2),
                     s=self._padded_shape[-3:-1],
                 ),
@@ -168,7 +175,7 @@ class RealFFTConvolve2D:
         assert conv_output.shape[-3:-1] == x.shape[-3:-1]
         return conv_output
 
-    def deconvolve(self, y):
+    def deconvolve(self, y, return_fft=False):
         """
         Deconvolve with adjoint of pre-computed FFT of provided PSF.
         """
@@ -181,9 +188,13 @@ class RealFFTConvolve2D:
                 self._padded_data[:] = y  # .astype(self.dtype)
 
         if self.is_torch:
+            deconv_out = torch.fft.rfft2(self._padded_data, dim=(-3, -2)) * self._Hadj
+
+            if return_fft:
+                return deconv_out
             deconv_output = torch.fft.ifftshift(
                 torch.fft.irfft2(
-                    torch.fft.rfft2(self._padded_data, dim=(-3, -2)) * self._Hadj,
+                    deconv_out,
                     dim=(-3, -2),
                     s=self._padded_shape[-3:-1],
                 ),
@@ -191,9 +202,13 @@ class RealFFTConvolve2D:
             )
 
         else:
+            deconv_output = fft.rfft2(self._padded_data, axes=(-3, -2)) * self._Hadj
+            if return_fft:
+                return deconv_output
+
             deconv_output = fft.ifftshift(
                 fft.irfft2(
-                    fft.rfft2(self._padded_data, axes=(-3, -2)) * self._Hadj,
+                    deconv_output,
                     axes=(-3, -2),
                     s=self._padded_shape[-3:-1],
                 ),

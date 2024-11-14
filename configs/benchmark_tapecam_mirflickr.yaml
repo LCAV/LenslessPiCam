@@ -9,7 +9,7 @@ device: "cuda:0"
 
 huggingface:
   repo: "bezzam/TapeCam-Mirflickr-25K"
-  cache_dir: /dev/shm
+  cache_dir: null #/dev/shm
   psf: psf.png
   image_res: [900, 1200]  # used during measurement
   rotate: False   # if measurement is upside-down
@@ -23,16 +23,17 @@ huggingface:
 
 ## -- reconstructions trained with same dataset/system
 algorithms: [
-  "ADMM",
+  # "ADMM",
 
   # -- reconstructions trained on measured data
-  "hf:tapecam:mirflickr:U5+Unet8M",
-  "hf:tapecam:mirflickr:TrainInv+Unet8M",
-  "hf:tapecam:mirflickr:MMCN4M+Unet4M",
-  "hf:tapecam:mirflickr:Unet4M+U5+Unet4M",
-  "hf:tapecam:mirflickr:Unet4M+TrainInv+Unet4M",
-  "hf:tapecam:mirflickr:Unet2M+MMCN+Unet2M",
-  "hf:tapecam:mirflickr:Unet4M+U10+Unet4M",
+  # "hf:tapecam:mirflickr:U5+Unet8M",
+  "hf:tapecam:mirflickr:Unet8M+U5",
+  # "hf:tapecam:mirflickr:TrainInv+Unet8M",
+  # "hf:tapecam:mirflickr:MMCN4M+Unet4M",
+  # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M",
+  # "hf:tapecam:mirflickr:Unet4M+TrainInv+Unet4M",
+  # "hf:tapecam:mirflickr:Unet2M+MMCN+Unet2M",
+  # "hf:tapecam:mirflickr:Unet4M+U10+Unet4M",
   # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_flips_rotate10",
   # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_aux1",
   # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_flips",

@@ -46,6 +46,140 @@ def natural_sort(arr):
     return sorted(arr, key=alphanum_key)
 
 
+# available datasets
+available_datasets = {
+    # -- DiffuserCam MirFlickr (7.58 GB) https://huggingface.co/datasets/bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM
+    "diffusercam_mirflickr": {
+        "size (GB)": 7.58,
+        "huggingface_repo": "bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM",
+        "psf": "psf.tiff",
+        "single_channel_psf": True,
+        "flipud": True,
+        "flip_lensed": True,
+        "downsample": 2,
+        "downsample_lensed": 2,
+    },
+    # -- TapeCam MirFlickr (10.5 GB) https://huggingface.co/datasets/bezzam/TapeCam-Mirflickr-25K
+    "tapecam_mirflickr": {
+        "size (GB)": 10.5,
+        "huggingface_repo": "bezzam/TapeCam-Mirflickr-25K",
+        "psf": "psf.png",
+        "display_res": [900, 1200],
+        "alignment": {"top_left": [45, 95], "height": 250},
+    },
+    # -- DigiCam CelebA (33.9 GB) https://huggingface.co/datasets/bezzam/DigiCam-CelebA-26K
+    "digicam_celeba": {
+        "size (GB)": 33.9,
+        "huggingface_repo": "bezzam/DigiCam-CelebA-26K",
+        "psf": "psf_simulated.png",
+        "rotate": True,
+        "split_seed": 0,
+        "downsample": 2,
+        "alignment": {"crop": {"vertical": [0, 525], "horizontal": [265, 695]}},
+        "simulation": {
+            "scene2mask": 0.25,
+            "mask2sensor": 0.002,
+            "object_height": 0.33,
+            "sensor": "rpi_hq",
+            "snr_db": None,
+            "downsample": None,
+            "random_vflip": False,
+            "random_hflip": False,
+            "quantize": False,
+            "vertical_shift": -117,
+            "horizontal_shift": -25,
+        },
+    },
+    # -- DigiCam MirFlickr (11.9 GB) https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-SingleMask-25K
+    "digicam_mirflickr": {
+        "size (GB)": 11.9,
+        "huggingface_repo": "bezzam/DigiCam-Mirflickr-SingleMask-25K",
+        "display_res": [900, 1200],
+        "rotate": True,
+        "alignment": {"top_left": [80, 100], "height": 200},
+    },
+    # DigiCam MirFlickr Mini (472 MB) https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-SingleMask-1K
+    "digicam_mirflickr_mini": {
+        "size (GB)": 0.472,
+        "huggingface_repo": "bezzam/DigiCam-Mirflickr-SingleMask-25K",
+        "display_res": [900, 1200],
+        "rotate": True,
+        "alignment": {"top_left": [80, 100], "height": 200},
+    },
+    # -- DigiCam MirFlickr Multimask (12 GB) https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-MultiMask-25K
+    "digicam_mirflickr_multi": {
+        "size (GB)": 12,
+        "huggingface_repo": "bezzam/DigiCam-Mirflickr-MultiMask-25K",
+        "display_res": [900, 1200],
+        "rotate": True,
+        "alignment": {"top_left": [80, 100], "height": 200},
+    },
+    # -- DigiCam MirFlickr Multimask Mini (477 MB) https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-MultiMask-1K
+    "digicam_mirflickr_multi_mini": {
+        "size (GB)": 0.477,
+        "huggingface_repo": "bezzam/DigiCam-Mirflickr-MultiMask-25K",
+        "display_res": [900, 1200],
+        "rotate": True,
+        "alignment": {"top_left": [80, 100], "height": 200},
+    },
+    # MultiLens MirFlickr Ambient (16.7 GB) https://huggingface.co/datasets/Lensless/MultiLens-Mirflickr-Ambient
+    "multilens_mirflickr_ambient": {
+        "size (GB)": 16.7,
+        "huggingface_repo": "Lensless/MultiLens-Mirflickr-Ambient",
+        "psf": "psf.png",
+        "display_res": [600, 600],
+        "alignment": {"top_left": [118, 220], "height": 123},
+    },
+    # MultiLens MirFlickr Ambient Mini (67.7 MB) https://huggingface.co/datasets/Lensless/MultiLens-Mirflickr-Ambient-100
+    "multilens_mirflickr_ambient_mini": {
+        "size (GB)": 0.0677,
+        "huggingface_repo": "Lensless/MultiLens-Mirflickr-Ambient-100",
+        "psf": "psf.png",
+        "display_res": [600, 600],
+        "alignment": {"top_left": [118, 220], "height": 123},
+    },
+}
+
+
+def print_available_datasets():
+    print("Available datasets:")
+    for dataset in available_datasets:
+        print(
+            f"  - {dataset} ({available_datasets[dataset]['size (GB)']} GB) : https://huggingface.co/datasets/{available_datasets[dataset]['huggingface_repo']}"
+        )
+
+
+def get_dataset(dataset_name, split, cache_dir=None, **kwargs):
+    """
+    Get a dataset by name.
+
+    Parameters
+    ----------
+    dataset_name : str
+        Name of the dataset from the available datasets in ``available_datasets``.
+    split : str
+        Split of the dataset to load (e.g. "train", "test").
+    cache_dir : str
+        Directory to cache the dataset. By default stored in ~/.cache/huggingface/datasets
+
+    Returns
+    -------
+    :py:class:`~torch.utils.data.Dataset`
+        Dataset object.
+    """
+    if dataset_name not in available_datasets:
+        print_str_available_dataset = "Available datasets are:"
+        for dataset in available_datasets:
+            print_str_available_dataset += f"\n  - {dataset} ({available_datasets[dataset]['size (GB)']} GB) : https://huggingface.co/datasets/{available_datasets[dataset]['huggingface_repo']}"
+        raise ValueError(
+            f"Dataset '{dataset_name}' not available.\n\n{print_str_available_dataset}"
+        )
+    assert split in ["train", "test"], "Split should be 'train' or 'test'"
+
+    dataset_config = available_datasets[dataset_name]
+    return HFDataset(split=split, cache_dir=cache_dir, **dataset_config, **kwargs)
+
+
 class DualDataset(Dataset):
     """
     Abstract class for defining a dataset of paired lensed and lensless images.
@@ -1275,6 +1409,7 @@ class HFDataset(Dataset):
         flip_lensed=False,
         downsample=1,
         downsample_lensed=1,
+        input_snr=None,
         display_res=None,
         sensor="rpi_hq",
         slm="adafruit",
@@ -1353,6 +1488,7 @@ class HFDataset(Dataset):
         self.sensor = sensor
         self.slm = slm
         self.simulation_config = simulation_config
+        self.input_snr = input_snr
 
         # augmentation
         self.random_flip = random_flip
@@ -1675,10 +1811,11 @@ class HFDataset(Dataset):
 
         lensless, lensed, background = self._get_images_pair(idx)
 
-        # to torch
-        lensless = torch.from_numpy(lensless)
-        lensed = torch.from_numpy(lensed)
-        background = torch.from_numpy(background) if background is not None else None
+        if isinstance(lensless, np.ndarray):
+            # to torch
+            lensless = torch.from_numpy(lensless)
+            lensed = torch.from_numpy(lensed)
+            background = torch.from_numpy(background) if background is not None else None
         # If [H, W, C] -> [D, H, W, C]
         if len(lensless.shape) == 3:
             lensless = lensless.unsqueeze(0)
@@ -1686,6 +1823,9 @@ class HFDataset(Dataset):
             lensed = lensed.unsqueeze(0)
         if background is not None and len(background.shape) == 3:
             background = background.unsqueeze(0)
+
+        if self.input_snr is not None:
+            lensless = add_shot_noise(lensless, self.input_snr)
 
         if not self.simulate_lensless:  # TODO apply transformation to bg as well?
             if self.rotate:

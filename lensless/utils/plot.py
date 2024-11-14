@@ -290,6 +290,38 @@ def plot_autocorr2d(vals, pad_mode="reflect", ax=None):
     return ax, autocorr
 
 
+def plot_autocorr_rgb(img, width=3, figsize=None):
+    """
+    Plot autocorrelation of each channel of an image.
+
+    Parameters
+    ----------
+    img : py:class:`~numpy.ndarray`
+        2-D image.
+    width : int, optional
+        Width of cross-section to plot. Default is 3dB.
+
+    """
+
+    assert len(img.shape) == 3, "Image must be 3D"
+    assert img.shape[2] == 3, "Image must have 3 color channels"
+
+    _, ax_auto = plt.subplots(ncols=3, nrows=2, num="Autocorrelations", figsize=figsize)
+
+    for i, c in enumerate(["r", "g", "b"]):
+        _, autocorr_c = plot_autocorr2d(img[:, :, i], ax=ax_auto[0][i])
+
+        ax, _ = plot_cross_section(
+            autocorr_c,
+            color=c,
+            ax=ax_auto[1][i],
+            plot_db_drop=width,
+        )
+        if i != 0:
+            ax.set_ylabel("")
+    return ax
+
+
 def compare_models(model_paths, max_epoch=None, linewidth=2, fontsize=18, metrics=None):
     """
     Plot train and test loss for multiple models, and print metrics for best epoch.

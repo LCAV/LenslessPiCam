@@ -231,6 +231,7 @@ def train_learned(config):
                 bg_fp=to_absolute_path(config.files.background_fp)
                 if config.files.background_fp is not None
                 else None,
+                input_snr=config.files.input_snr,
             )
 
         else:
@@ -257,6 +258,7 @@ def train_learned(config):
                 bg_fp=to_absolute_path(config.files.background_fp)
                 if config.files.background_fp is not None
                 else None,
+                input_snr=config.files.input_snr,
             )
 
         test_set = HFDataset(
@@ -281,6 +283,7 @@ def train_learned(config):
             else None,
             force_rgb=config.files.force_rgb,
             simulate_lensless=False,  # in general evaluate on measured (set to False)
+            input_snr=config.files.input_snr,
         )
 
         if train_set.multimask:
