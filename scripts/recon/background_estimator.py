@@ -413,9 +413,9 @@ class Trainer:
         background_np = background.cpu().numpy()
 
         # Remove batch dimension
-        inputs_np = inputs_np.squeeze(0)  # Shape: [C, H, W]
-        outputs_np = outputs_np.squeeze(0)  # Shape: [C, H, W]
-        background_np = background_np.squeeze(0)  # Shape: [C, H, W]
+        inputs_np = inputs_np[0] # Shape: [C, H, W]
+        outputs_np = outputs_np[0] # Shape: [C, H, W]
+        background_np = background_np[0] # Shape: [C, H, W]
 
         # Remove the extra channel from inputs
         if inputs_np.shape[0] > 3:
