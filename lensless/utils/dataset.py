@@ -1422,6 +1422,8 @@ class HFDataset(Dataset):
         cache_dir=None,
         single_channel_psf=False,
         random_flip=False,
+        per_pixel_color_shift=False,
+        per_pixel_color_shift_range=None,
         bg_snr_range=None,
         bg_fp=None,
         **kwargs,
@@ -1461,6 +1463,10 @@ class HFDataset(Dataset):
             If multimask dataset, save the simulated PSFs.
         random_flip : bool, optional
             If True, randomly flip the lensless images vertically and horizonally with equal probability. By default, no flipping.
+        per_pixel_color_shift: bool, optional
+            If True: randomly shift the color of each pixel in the lensless image. By default, no color shift.
+        per_pixel_color_shift_range: list, optional
+            Range of possible color shifts for each pixel in the lensless image. Used in conjunction with 'per_pixel_color_shift'.
         simulation_config : dict, optional
             Simulation parameters for PSF if using a mask pattern.
         bg_snr_range : list, optional
@@ -1488,6 +1494,8 @@ class HFDataset(Dataset):
 
         # augmentation
         self.random_flip = random_flip
+        self.per_pixel_color_shift = per_pixel_color_shift
+        self.per_pixel_color_shift_range = per_pixel_color_shift_range
 
         # deduce downsampling factor from the first image
         data_0 = self.dataset[0]
@@ -1825,6 +1833,16 @@ class HFDataset(Dataset):
                 lensed = torch.flip(lensed, dims=(-3,))
                 psf_aug = torch.flip(psf_aug, dims=(-3,))
                 background = torch.flip(background, dims=(-3,))
+
+        if self.per_pixel_color_shift:
+            color_filter = torch.empty(1, 1, 1, lensless.shape[-1], device=lensless.device).uniform_(*self.per_pixel_color_shift_range)
+            lensless = lensless * color_filter
+            lensed = lensed * color_filter
+
+            # Uncomment to visualize the effect of color shift
+            #save_image(background.squeeze().cpu().numpy(), f"background_pre{idx}.png")
+            background = background * color_filter
+            #save_image(background.squeeze().cpu().numpy(), f"background_post{idx}.png")
 
         return_items = [lensless, lensed]
         if self.multimask:
