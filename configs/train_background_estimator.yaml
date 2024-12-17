@@ -1,0 +1,31 @@
+# python scripts/recon/background_estimator.py -cn configs/train_background_estimator
+
+defaults:
+  - train_mirflickr_multilens_ambient
+  - _self_
+
+wandb_project: null
+device_ids: [1]
+torch_device: cuda:1
+
+# Dataset
+files:
+  dataset: Lensless/TapeCam-Mirflickr-Ambient-100   # 100 examples
+  image_res: [600, 600]
+  per_pixel_color_shift: True
+  per_pixel_color_shift_range: [ 0.8, 1.2 ]
+
+alignment:
+  # when there is no downsampling
+  top_left: [85, 185]  # height, width
+  height: 178
+
+optimizer:
+  type: AdamW
+  cosine_decay_warmup: True
+  final_lr: 2e-5
+
+training:
+  lr: 7e-5
+  batch_size: 4
+  num_epochs: 4
