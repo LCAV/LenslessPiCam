@@ -5,7 +5,7 @@ defaults:
 
 dataset: HFDataset
 batchsize: 4
-device: "cuda:0"
+device: "cuda:1"
 
 huggingface:
   repo: "bezzam/TapeCam-Mirflickr-25K"
@@ -26,18 +26,19 @@ algorithms: [
   # "ADMM",
 
   # -- reconstructions trained on measured data
-  # "hf:tapecam:mirflickr:U5+Unet8M",
+  "hf:tapecam:mirflickr:U5+Unet8M",
   "hf:tapecam:mirflickr:Unet8M+U5",
-  # "hf:tapecam:mirflickr:TrainInv+Unet8M",
-  # "hf:tapecam:mirflickr:MMCN4M+Unet4M",
-  # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M",
-  # "hf:tapecam:mirflickr:Unet4M+TrainInv+Unet4M",
-  # "hf:tapecam:mirflickr:Unet2M+MMCN+Unet2M",
-  # "hf:tapecam:mirflickr:Unet4M+U10+Unet4M",
-  # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_flips_rotate10",
-  # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_aux1",
-  # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_flips",
-  # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_flips_rotate10",
+  "hf:tapecam:mirflickr:TrainInv+Unet8M",
+  "hf:tapecam:mirflickr:MMCN4M+Unet4M",
+  "hf:tapecam:mirflickr:Unet4M+U5+Unet4M",
+  "hf:tapecam:mirflickr:Unet4M+TrainInv+Unet4M",
+  "hf:tapecam:mirflickr:Unet2M+MMCN+Unet2M",
+  "hf:tapecam:mirflickr:Unet4M+U10+Unet4M",
+  "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_flips_rotate10",
+  "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_aux1",
+  "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_flips",
+  "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_flips_rotate10",
+  "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_psfNN",
 
   # # below models need `single_channel_psf = True`
   # "hf:tapecam:mirflickr:MWDN8M",    
@@ -59,7 +60,9 @@ algorithms: [
   # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_ft_tapecam_pre",
   # "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M_ft_digicam_multi_pre",
   # "hf:diffusercam:mirflickr_sim:Unet4M+U5+Unet4M_ft_digicam_multi",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_psfNN",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave_psfNN",
 ]
 
 save_idx: [1, 2, 4, 5, 9]
-n_iter_range: [100]    # for ADM
+n_iter_range: [100]    # for ADMM

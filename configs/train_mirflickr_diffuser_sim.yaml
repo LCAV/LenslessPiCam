@@ -1,0 +1,12 @@
+# python scripts/recon/train_learning_based.py -cn train_mirflickr_diffuser_sim
+defaults:
+  - train_mirflickr_diffuser
+  - _self_
+
+torch_device: 'cuda:0'
+device_ids: [0, 1, 2, 3]
+eval_disp_idx: [0, 1, 3, 4, 8]
+
+# Dataset
+files:
+  hf_simulated: True

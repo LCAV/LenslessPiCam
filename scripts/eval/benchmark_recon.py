@@ -299,8 +299,8 @@ def benchmark_recon(config):
             model_obj.eval()
 
             if pnp is not None:
-                print(f"Usinng parameterize and perturb (P&P) with {pnp} parameters...")
                 pnp["model_path"] = model
+                print(f"Using parameterize and perturb (P&P) with {pnp} parameters...")
 
             result = benchmark(
                 model_obj,
@@ -312,6 +312,7 @@ def benchmark_recon(config):
                 crop=crop,
                 snr=config.snr,
                 pnp=pnp,
+                swap_channels=config.swap_channels,
             )
             results[model_name] = result
 
@@ -344,6 +345,7 @@ def benchmark_recon(config):
                     crop=crop,
                     use_background=config.huggingface.use_background,
                     snr=config.snr,
+                    swap_channels=config.swap_channels,
                 )
                 results[model_name][int(n_iter)] = result
 

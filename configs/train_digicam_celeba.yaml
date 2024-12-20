@@ -10,8 +10,9 @@ eval_disp_idx: [0, 2, 3, 4, 9]
 # Dataset
 files:
   dataset: bezzam/DigiCam-CelebA-26K
-  huggingface_psf: "psf_simulated.png"
+  huggingface_psf: "psf_simulated_waveprop.png"
   huggingface_dataset: True
+  cache_dir: /dev/shm
   split_seed: 0
   test_size: 0.15
   downsample: 2

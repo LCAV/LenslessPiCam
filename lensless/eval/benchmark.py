@@ -43,6 +43,22 @@ def pnp_loss(y_est, y, recon, mu, original_param):
     return loss
 
 
+def swap_color_channels(tensor, channels):
+    if len(channels) == 2:
+        color1 = tensor[..., channels[0]].copy()
+        tensor[..., channels[0]] = tensor[..., channels[1]]
+        tensor[..., channels[1]] = color1
+    elif len(channels) == 3:
+        # reorder channels
+        color1 = tensor[..., channels[0]].copy()
+        color2 = tensor[..., channels[1]].copy()
+        color3 = tensor[..., channels[2]].copy()
+        tensor[..., 0] = color1
+        tensor[..., 1] = color2
+        tensor[..., 2] = color3
+    return tensor
+
+
 def benchmark(
     model,
     dataset,
@@ -61,6 +77,7 @@ def benchmark(
     epoch=None,
     use_background=True,
     pnp=None,
+    swap_channels=False,
     **kwargs,
 ):
     """
@@ -97,7 +114,7 @@ def benchmark(
     Returns
     -------
     Dict[str, float]
-        A dictionnary containing the metrics name and average value
+        A dictionary containing the metrics name and average value
     """
     assert isinstance(model._psf, torch.Tensor), "model need to be constructed with torch support"
     device = model._psf.device
@@ -242,6 +259,7 @@ def benchmark(
                 )
 
         if output_intermediate:
+            psfs_out = prediction[3]
             pre_process_out = prediction[2]
             unrolled_out = prediction[1]
             prediction = prediction[0]
@@ -257,13 +275,9 @@ def benchmark(
                     prediction, axis=(-2, -1), flip_lr=flip_lr, flip_ud=flip_ud
                 )
             else:
-                prediction = model.forward(
-                    batch=lensless, psfs=psfs, background=background, **kwargs
-                )
                 prediction, lensed = dataset.extract_roi(
                     prediction, axis=(-2, -1), lensed=lensed, flip_lr=flip_lr, flip_ud=flip_ud
                 )
-            assert np.all(lensed.shape == prediction.shape)
         elif crop is not None:
             assert flip_lr is None and flip_ud is None
             prediction = prediction[
@@ -289,11 +303,31 @@ def benchmark(
                     if save_intermediate:
                         fp = os.path.join(output_dir, f"{_batch_idx}_inv.png")
                         unrolled_out_np = unrolled_out.cpu().numpy()[i].squeeze()
+                        # -- swap red and green channels
+                        if swap_channels:
+                            unrolled_out_np = swap_color_channels(unrolled_out_np, swap_channels)
                         save_image(unrolled_out_np, fp=fp)
 
                         fp = os.path.join(output_dir, f"{_batch_idx}_preproc.png")
                         pre_process_out_np = pre_process_out.cpu().numpy()[i].squeeze()
+                        # -- swap red and green channels
+                        if swap_channels:
+                            pre_process_out_np = swap_color_channels(
+                                pre_process_out_np, swap_channels
+                            )
                         save_image(pre_process_out_np, fp=fp)
+
+                        if psfs_out is not None:
+                            fp = os.path.join(output_dir, f"{_batch_idx}_psfs.png")
+                            if psfs_out.shape[0] == 1:
+                                psfs_out_np = psfs_out.cpu().numpy().squeeze()
+                            else:
+                                psfs_out_np = psfs_out.cpu().numpy()[i].squeeze()
+
+                            # -- swap red and green channels
+                            if swap_channels:
+                                psfs_out_np = swap_color_channels(psfs_out_np, swap_channels)
+                            save_image(psfs_out_np, fp=fp)
 
                     if use_wandb:
                         assert epoch is not None, "epoch must be provided for wandb logging"
@@ -313,7 +347,7 @@ def benchmark(
         for metric in metrics:
             if metric == "ReconstructionError":
                 metrics_values[metric] += model.reconstruction_error(
-                    prediction=prediction_original, lensless=lensless
+                    prediction=prediction_original, lensless=lensless, psfs=psfs
                 ).tolist()
             else:
                 try:

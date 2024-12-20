@@ -604,7 +604,7 @@ class ReconstructionAlgorithm(abc.ABC):
         else:
             return final_im
 
-    def reconstruction_error(self, prediction=None, lensless=None):
+    def reconstruction_error(self, prediction=None, lensless=None, psfs=None, normalize=True):
         """
         Compute reconstruction error.
 
@@ -627,7 +627,9 @@ class ReconstructionAlgorithm(abc.ABC):
             lensless = self._data
 
         # convolver = self._convolver
-        convolver = RealFFTConvolve2D(self._psf.to(prediction.device), **self._convolver_param)
+        if psfs is None:
+            psfs = self._psf
+        convolver = RealFFTConvolve2D(psfs.to(prediction.device), **self._convolver_param)
         if not convolver.pad:
             prediction = convolver._pad(prediction)
         Hx = convolver.convolve(prediction)
@@ -635,9 +637,17 @@ class ReconstructionAlgorithm(abc.ABC):
         if not convolver.pad:
             Hx = convolver._crop(Hx)
 
+        # -- normalize
+        if normalize:
+            min_vals = torch.amin(Hx, dim=(-1, -2, -3), keepdim=True)
+            Hx = Hx - min_vals
+            max_vals = torch.amax(Hx, dim=(-1, -2, -3), keepdim=True)
+            Hx = Hx / max_vals
+
         # don't reduce batch dimension
         if self.is_torch:
-            return torch.sum(torch.sqrt((Hx - lensless) ** 2), dim=(-1, -2, -3, -4)) / self._npix
+            # torch.mean((Hx - lensless) ** 2, dim=(-1, -2, -3, -4))
+            return torch.sum((Hx - lensless) ** 2, dim=(-1, -2, -3, -4)) / self._npix
 
         else:
-            return np.sum(np.sqrt((Hx - lensless) ** 2), axis=(-1, -2, -3, -4)) / self._npix
+            return np.sum((Hx - lensless) ** 2, axis=(-1, -2, -3, -4)) / self._npix

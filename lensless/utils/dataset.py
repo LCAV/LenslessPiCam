@@ -1410,6 +1410,7 @@ class HFDataset(Dataset):
         downsample=1,
         downsample_lensed=1,
         input_snr=None,
+        psf_snr=None,
         display_res=None,
         sensor="rpi_hq",
         slm="adafruit",
@@ -1569,6 +1570,23 @@ class HFDataset(Dataset):
                 # replicate across three channels
                 self.psf = self.psf.repeat(1, 1, 1, 3)
 
+            if psf_snr is not None:
+                # # add noise to PSF
+                # self.psf = add_shot_noise(self.psf, psf_snr)
+                # add Gaussian noise to PSF
+                noise = torch.randn_like(self.psf)
+                noise_var = torch.var(noise.flatten())
+                psf_var = torch.var(self.psf.flatten())
+                noise *= torch.sqrt(psf_var / noise_var) / 10 ** (psf_snr / 20)
+                self.psf += noise
+
+                # save PSF as torch tensor for loading model later on
+                torch.save(self.psf, "psf.pt")
+
+            if save_psf:
+                # same viewable image of PSF
+                save_image(self.psf.squeeze().cpu().numpy(), f"{split}_psf.png")
+
         elif "mask_label" in data_0:
             self.multimask = True
             mask_labels = []
@@ -1583,24 +1601,6 @@ class HFDataset(Dataset):
 
                 mask_vals = self.get_mask_vals(label)
                 self.psf[label] = self.simulate_psf(mask_vals)
-                # mask_fp = hf_hub_download(
-                #     repo_id=huggingface_repo,
-                #     filename=f"masks/mask_{label}.npy",
-                #     repo_type="dataset",
-                # )
-                # mask_vals = np.load(mask_fp)
-                # mask = AdafruitLCD(
-                #     initial_vals=torch.from_numpy(mask_vals.astype(np.float32)),
-                #     sensor=sensor,
-                #     slm=slm,
-                #     downsample=downsample_fact,
-                #     flipud=self.rotate or flipud,  # TODO separate commands?
-                #     use_waveprop=simulation_config.get("use_waveprop", False),
-                #     scene2mask=simulation_config.get("scene2mask", None),
-                #     mask2sensor=simulation_config.get("mask2sensor", None),
-                #     deadspace=simulation_config.get("deadspace", True),
-                # )
-                # self.psf[label] = mask.get_psf().detach()
 
                 assert (
                     self.psf[label].shape[-3:-1] == lensless.shape[:2]
@@ -1617,18 +1617,7 @@ class HFDataset(Dataset):
                 repo_id=huggingface_repo, filename="mask_pattern.npy", repo_type="dataset"
             )
             mask_vals = np.load(mask_fp)
-            mask = AdafruitLCD(
-                initial_vals=torch.from_numpy(mask_vals.astype(np.float32)),
-                sensor=sensor,
-                slm=slm,
-                downsample=downsample_fact,
-                flipud=self.rotate or flipud,  # TODO separate commands?
-                use_waveprop=simulation_config.get("use_waveprop", False),
-                scene2mask=simulation_config.get("scene2mask", None),
-                mask2sensor=simulation_config.get("mask2sensor", None),
-                deadspace=simulation_config.get("deadspace", True),
-            )
-            self.psf = mask.get_psf().detach()
+            self.psf = self.simulate_psf(mask_vals)
             assert (
                 self.psf.shape[-3:-1] == lensless.shape[:2]
             ), "PSF shape should match lensless shape"

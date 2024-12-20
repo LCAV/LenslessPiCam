@@ -14,6 +14,10 @@ import json
 from matplotlib import pyplot as plt
 
 
+def key_to_ratio_correct(key_length, bit_depth, n_pixel):
+    return np.emath.logn(bit_depth, 2) * key_length / n_pixel
+
+
 @hydra.main(
     version_base=None, config_path="../../configs", config_name="recon_digicam_mirflickr_err"
 )
@@ -21,6 +25,7 @@ def apply_pretrained(config):
     device = config.device
     model_name = config.model
     percent_pixels_wrong = config.percent_pixels_wrong
+    key_to_ratio = {"DigiCam": config.digicam_ratio}
 
     if config.metrics_fp is not None:
 
@@ -92,15 +97,6 @@ def apply_pretrained(config):
             return_mask_label=True,
         )
 
-        # # create Dataset loader
-        # batch_size = 4
-        # dataloader = torch.utils.data.DataLoader(
-        #     dataset=test_set,
-        #     batch_size=batch_size,
-        #     shuffle=False,
-        #     pin_memory=(device != "cpu"),
-        # )
-
         psf_norms = []
         for mask_label in test_set.psf.keys():
             psf_norms.append(np.mean(test_set.psf[mask_label].cpu().numpy().flatten() ** 2))
@@ -150,6 +146,8 @@ def apply_pretrained(config):
                 if percent_wrong > 0:
 
                     n_pixels = mask_vals.size
+                    assert n_pixels == config.n_pixel
+
                     n_wrong_pixels = int(n_pixels * percent_wrong / 100)
                     wrong_pixels = np.random.choice(n_pixels, n_wrong_pixels, replace=False)
                     noisy_mask_vals = noisy_mask_vals.flatten()
@@ -216,6 +214,17 @@ def apply_pretrained(config):
 
                 # save
                 if idx in config.save_idx:
+
+                    # PSF
+                    from lensless.utils.image import gamma_correction
+
+                    psf_np = psf.cpu().numpy().squeeze()
+                    fp = os.path.join(str(idx), f"psf_percentwrong{percent_wrong}.png")
+                    psf_np /= np.max(psf_np)
+                    psf_np = gamma_correction(psf_np, gamma=3)
+                    save_image(psf_np, fp)
+
+                    # reconstruction
                     img = recon.cpu().numpy().squeeze()
                     alignment = test_set.alignment
                     top_left = alignment["top_left"]
@@ -238,21 +247,84 @@ def apply_pretrained(config):
         with open(f"{model_name}_metrics.json", "w") as f:
             json.dump(metrics_values, f, indent=4)
 
-    # plot each metrics vs percent_wrong
+    # plot each metrics
+    ## - config text size
+    plt.rcParams.update({"font.size": 24})
+    ## - config line width
+    plt.rcParams.update({"lines.linewidth": 5})
+
+    key_lengths = config.compare_aes
+    for key_length in key_lengths:
+        key_to_ratio[key_length] = key_to_ratio_correct(
+            key_length, config.bit_depth, config.n_pixel
+        )
+        if config.plot_vs_percent_wrong:
+            key_to_ratio[key_length] = 1 - key_to_ratio[key_length]
+    linestyles = ["--", "-.", ":"]
+    colors = ["red", "forestgreen", "purple", "green", "blue", "black"]
+
     for k, v in metrics_values.items():
-        plt.figure()
-        plt.xlabel("Percent pixels wrong [%]")
-        if k == "psf_err":
-            plt.plot(percent_pixels_wrong, np.mean(v, axis=1) * 100)
-            plt.ylabel("Relative PSF error [%]")
+        plt.figure(figsize=(6.7, 5))
+        y_vals = np.mean(v, axis=1)
+        if config.plot_vs_percent_wrong:
+            plt.xlabel("Percent pixels wrong [%]")
+            x_vals = percent_pixels_wrong
         else:
-            plt.plot(percent_pixels_wrong, np.mean(v, axis=1))
+            plt.xlabel("Percent pixels correct [%]")
+            x_vals = 100 - np.array(percent_pixels_wrong)
+        plt.xlim([0, 100])
+        if k == "psf_err":
+            plt.plot(x_vals, y_vals * 100)
+            plt.ylabel("Relative PSF error [%]")
+            plt.ylim([0, 100])
+        elif k == "PSNR":
+            plt.plot(x_vals, y_vals)
+            plt.ylabel("PSNR [dB]")
+        elif k == "LPIPS_Vgg":
+            plt.plot(x_vals, y_vals)
+            plt.ylabel("LPIPS")
+        else:
+            plt.plot(x_vals, y_vals)
             plt.ylabel(k)
+
+        if config.plot_vs_percent_wrong:
+            print(f"-- Metric {k} : ", y_vals[::-1])
+            print("% wrong vals : ", x_vals[::-1])
+        else:
+            print(f"-- Metric {k} : ", y_vals[::-1])
+            print("% corrects vals : ", x_vals[::-1])
+
+        # plot keys
+        # for idx, key_length in enumerate(key_lengths):
+        for idx, _key in enumerate(list(key_to_ratio.keys())):
+            if isinstance(_key, int):
+                label = f"AES-{_key}"
+            else:
+                label = _key
+            plt.axvline(
+                key_to_ratio[_key] * 100, color=colors[idx], linestyle=linestyles[idx], label=label
+            )
+            # label along x axis
+            # plt.text(
+            #     key_to_ratio[key_length] * 100,
+            #     plt.ylim()[-1],
+            #     # f"{key_length} bits ({100 * key_to_ratio[key_length]:.2f}%)",
+            #     f"{key_length} bits",
+            #     rotation=45,
+            #     verticalalignment="bottom",
+            # )
+
+        # legend bottom right
+        if k == "PSNR" or k == "SSIM":
+            plt.legend(loc="lower right")
+        else:
+            plt.legend(loc="upper right")
 
         # save plot
         # - tight
+        plt.grid()
         plt.tight_layout()
-        plt.savefig(f"{k}_{model_name}.png")
+        plt.savefig(f"{k}_{model_name}.png", bbox_inches="tight")
 
 
 if __name__ == "__main__":

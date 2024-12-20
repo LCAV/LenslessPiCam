@@ -259,6 +259,7 @@ def train_learned(config):
                 if config.files.background_fp is not None
                 else None,
                 input_snr=config.files.input_snr,
+                psf_snr=config.files.psf_snr,
             )
 
         test_set = HFDataset(
@@ -285,6 +286,10 @@ def train_learned(config):
             simulate_lensless=False,  # in general evaluate on measured (set to False)
             input_snr=config.files.input_snr,
         )
+
+        if config.files.psf_snr is not None:
+            # overwrite test set PSF with train set PSF
+            test_set.psf = train_set.psf
 
         if train_set.multimask:
             # get first PSF for initialization

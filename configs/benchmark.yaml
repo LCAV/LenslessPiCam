@@ -44,6 +44,7 @@ baseline: "MONAKHOVA 100iter"
 
 save_idx: [0, 1, 2, 3, 4]   # provide index of files to save e.g. [1, 5, 10]
 save_intermediate: False   # save intermediate results, i.e. after pre-processor and after camera inversion
+swap_channels: False   # list of two RGB channels to swap, e.g. [0, 1] for swapping red and green
 gamma_psf: 1.5    # gamma factor for PSF
 
 

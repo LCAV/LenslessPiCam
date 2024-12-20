@@ -67,6 +67,19 @@ model_dict = {
             "Unet2M+MMCN+Unet2M": "bezzam/diffusercam-mirflickr-unet2M-mmcn-unet2M",
             "Unet4M+U20+Unet4M": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm20-unet4M",
             "Unet4M+U10+Unet4M": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm10-unet4M",
+            "Unet4M+U5+Unet4M_psfNN": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-psfNN",
+            # training with PSF noise
+            "U5+Unet8M_psf0dB": "bezzam/diffusercam-mirflickr-unrolled-admm5-unet8M-psf0dB",
+            "U5+Unet8M_psf-5dB": "bezzam/diffusercam-mirflickr-unrolled-admm5-unet8M-psf-5dB",
+            "U5+Unet8M_psf-10dB": "bezzam/diffusercam-mirflickr-unrolled-admm5-unet8M-psf-10dB",
+            "U5+Unet8M_psf-20dB": "bezzam/diffusercam-mirflickr-unrolled-admm5-unet8M-psf-20dB",
+            "Unet4M+U5+Unet4M_psf-0dB": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-psf-0dB",
+            "Unet4M+U5+Unet4M_psf-5dB": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-psf-5dB",
+            "Unet4M+U5+Unet4M_psf-10dB": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-psf-10dB",
+            "Unet4M+U5+Unet4M_psf-20dB": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-psf-20dB",
+            "Unet4M+U5+Unet4M_psfNN_psf-0dB": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-psfNN-psf-0dB",
+            "Unet4M+U5+Unet4M_psfNN_psf-10dB": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-psfNN-psf-10dB",
+            "Unet4M+U5+Unet4M_psfNN_psf-20dB": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-psfNN-psf-20dB",
             # training with noise
             "U5+Unet8M_10db": "bezzam/diffusercam-mirflickr-unrolled-admm5-unet8M-10db",
             "U5+Unet8M_40db": "bezzam/diffusercam-mirflickr-unrolled-admm5-unet8M-40db",
@@ -113,6 +126,7 @@ model_dict = {
             "Unet2M+MMCN+Unet2M_wave": "bezzam/digicam-celeba-unet2M-mmcn-unet2M",
             "Unet4M+U5+Unet4M_wave": "bezzam/digicam-celeba-unet4M-unrolled-admm5-unet4M",
             "Unet4M+U10+Unet4M_wave": "bezzam/digicam-celeba-unet4M-unrolled-admm10-unet4M",
+            "Unet4M+U5+Unet4M_wave_psfNN": "bezzam/digicam-celeba-unet4M-unrolled-admm5-unet4M-wave-psfNN",
         },
         "mirflickr_single_25k": {
             # simulated PSF (without waveprop, with deadspace)
@@ -126,11 +140,13 @@ model_dict = {
             "U10_wave": "bezzam/digicam-mirflickr-single-25k-unrolled-admm10-wave",
             "U10+Unet8M_wave": "bezzam/digicam-mirflickr-single-25k-unrolled-admm10-unet8M-wave",
             "Unet8M_wave": "bezzam/digicam-mirflickr-single-25k-unet8M-wave",
+            "Unet8M_wave_v2": "bezzam/digicam-mirflickr-single-25k-unet8M-wave-v2",
             "Unet4M+U10+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm10-unet4M-wave",
             "TrainInv+Unet8M_wave": "bezzam/digicam-mirflickr-single-25k-trainable-inv-unet8M-wave",
             "U5+Unet8M_wave": "bezzam/digicam-mirflickr-single-25k-unrolled-admm5-unet8M-wave",
             "Unet8M+U5_wave": "bezzam/digicam-mirflickr-single-25k-unet8M-unrolled-admm5-wave",
             "Unet4M+U5+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm5-unet4M-wave",
+            "Unet4M+U5+Unet4M_wave_psfNN": "bezzam/digicam-mirflickr-single-25k-unet4M-unrolled-admm5-unet4M-wave-psfNN",
             "MWDN8M_wave": "bezzam/digicam-mirflickr-single-25k-mwdn-8M",
             "MMCN4M+Unet4M_wave": "bezzam/digicam-mirflickr-single-25k-mmcn-unet4M",
             "Unet2M+MMCN+Unet2M_wave": "bezzam/digicam-mirflickr-single-25k-unet2M-mmcn-unet2M-wave",
@@ -152,10 +168,12 @@ model_dict = {
         "mirflickr_multi_25k": {
             # simulated PSFs (without waveprop, with deadspace)
             "Unet8M": "bezzam/digicam-mirflickr-multi-25k-unet8M",
+            "Unet8M_wave_v2": "bezzam/digicam-mirflickr-multi-25k-unet8M-wave-v2",
             "Unet4M+U10+Unet4M": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm10-unet4M",
             # simulated PSF (with waveprop, with deadspace)
             "Unet4M+U10+Unet4M_wave": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm10-unet4M-wave",
             "Unet4M+U5+Unet4M_wave": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm5-unet4M-wave",
+            "Unet4M+U5+Unet4M_wave_psfNN": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm5-unet4M-wave-psfNN",
             "Unet4M+U5+Unet4M_wave_aux1": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm5-unet4M-wave-aux1",
             "Unet4M+U5+Unet4M_wave_flips": "bezzam/digicam-mirflickr-multi-25k-unet4M-unrolled-admm5-unet4M-wave-flips",
         },
@@ -175,6 +193,7 @@ model_dict = {
             "Unet4M+U5+Unet4M_flips": "bezzam/tapecam-mirflickr-unet4M-unrolled-admm5-unet4M-flips",
             "Unet4M+U5+Unet4M_flips_rotate10": "bezzam/tapecam-mirflickr-unet4M-unrolled-admm5-unet4M-flips-rotate10",
             "Unet4M+U5+Unet4M_aux1": "bezzam/tapecam-mirflickr-unet4M-unrolled-admm5-unet4M-aux1",
+            "Unet4M+U5+Unet4M_psfNN": "bezzam/tapecam-mirflickr-unet4M-unrolled-admm5-unet4M-psfNN",
         },
     },
     "multilens": {
@@ -299,6 +318,12 @@ def load_model(
         print("Loading checkpoint from : ", model_checkpoint)
     model_state_dict = torch.load(model_checkpoint, map_location=device)
 
+    if config["files"].get("psf_snr", None) is not None:
+        # overwrite PSF with noisy PSF used during training
+        psf_path = os.path.join(model_path, "psf.pt")
+        assert os.path.exists(psf_path), "PSF does not exist"
+        psf = torch.load(psf_path, map_location=device)
+
     # load model
     pre_process = None
     post_process = None
@@ -328,6 +353,18 @@ def load_model(
             input_shape=psf.shape,
             nc=config["reconstruction"]["integrated_background_subtraction"],
             down_subtraction=config["reconstruction"]["down_subtraction"],
+        )
+
+    # network for PSF
+    psf_network = None
+    if config["reconstruction"].get("psf_network", None):
+        # create UnetRes for PSF
+        psf_network, _ = create_process_network(
+            network="UnetRes",
+            depth=len(config["reconstruction"]["psf_network"]),
+            nc=config["reconstruction"]["psf_network"],
+            device=device,
+            device_ids=device_ids,
         )
 
     if config["reconstruction"].get("init", None):
@@ -397,6 +434,8 @@ def load_model(
                 skip_pre=skip_pre,
                 skip_post=skip_post,
                 compensation=config["reconstruction"].get("compensation", None),
+                psf_network=psf_network,
+                psf_residual=config["reconstruction"].get("psf_residual", False),
                 compensation_residual=config["reconstruction"].get("compensation_residual", False),
                 direct_background_subtraction=config["reconstruction"].get(
                     "direct_background_subtraction", False
