@@ -112,8 +112,17 @@ import numpy as np
 from skimage.metrics import mean_squared_error, peak_signal_noise_ratio, structural_similarity
 import lpips as lpips_lib
 import torch
+import torch.nn.functional as F
+from torchmetrics.multimodal import CLIPImageQualityAssessment
 from scipy.ndimage import rotate
 from lensless.utils.image import resize
+
+
+# Initialize CLIP-IQA model
+clip_iqa_model = CLIPImageQualityAssessment(
+    model_name_or_path=("clip_iqa"),
+    prompts=("noisiness", ), # TODO change if different metric is required
+    ).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
 
 
 def mse(true, est, normalize=True):
@@ -260,7 +269,6 @@ def lpips(true, est, normalize=True):
     )
     return loss_fn.forward(true, est).squeeze().item()
 
-
 def extract(
     estimate, original, vertical_crop=None, horizontal_crop=None, rotation=0, verbose=False
 ):
@@ -329,3 +337,36 @@ def extract(
         print(img_resize.max())
 
     return estimate, img_resize
+
+def clip_iqa(true, est, normalize=True):
+    """
+    Computes the CLIP Image Quality Assessment (CLIP-IQA) score between the true and estimated images.
+    Args:
+        true (Tensor): The ground truth image tensor.
+        est (Tensor): The estimated image tensor.
+        normalize (bool, optional): If True, normalize the images before computing the CLIP-IQA score. Default is True.
+    Returns:
+        float: The CLIP-IQA score.
+    """
+    # if normalize:
+    #     true = np.array(true, dtype=np.float32)
+    #     est = np.array(est, dtype=np.float32)
+    #     true /= true.max()
+    #     est /= est.max()
+
+    # Compute CLIP-IQA
+    with torch.no_grad():
+        # Resize images to 224x224 for CLIP-IQA
+        outputs_resized = F.interpolate(
+            est, size=(224, 224), mode="bilinear", align_corners=False
+        )
+
+        outputs_3d = outputs_resized
+
+        #clip_iqa_scores = self.clip_iqa(outputs_3d)
+
+
+        return clip_iqa_model(outputs_3d)
+
+        # Compute CLIP-IQA scores over the batch
+        clip_iqa = clip_iqa_scores.mean().item()
