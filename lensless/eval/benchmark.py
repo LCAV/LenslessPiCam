@@ -8,12 +8,14 @@
 
 
 from lensless.utils.dataset import DiffuserCamTestDataset
+from lensless.utils.dataset import HFDataset
 from lensless.utils.io import save_image
 from waveprop.noise import add_shot_noise
 from tqdm import tqdm
 import os
 import numpy as np
 import wandb
+from lensless.eval.metric import clip_iqa
 
 try:
     import torch
@@ -102,6 +104,7 @@ def benchmark(
             ),
             "SSIM": StructuralSimilarityIndexMeasure(reduction=None, data_range=(0, 1)).to(device),
             "ReconstructionError": None,
+            "CLIP-IQA": clip_iqa
         }
 
     metrics_values = {key: [] for key in metrics}
@@ -241,6 +244,10 @@ def benchmark(
                                 metrics_values[metric].append(
                                     metrics[metric](prediction, lensed).cpu().item()
                                 )
+                        elif metric == "CLIP-IQA":
+                            metrics_values[metric].append(
+                                metrics[metric](prediction, lensed).cpu().item()
+                            )
                         elif metric == "MSE":
                             metrics_values[metric].append(
                                 metrics[metric](prediction, lensed).cpu().item() * len(batch[0])
@@ -350,7 +357,44 @@ if __name__ == "__main__":
         device = "cpu"
 
     # prepare dataset
-    dataset = DiffuserCamTestDataset(n_files=n_files, downsample=downsample)
+    #dataset = DiffuserCamTestDataset(n_files=n_files, downsample=downsample)
+    dataset = HFDataset(
+        huggingface_repo='Lensless/TapeCam-Mirflickr-Ambient-100',
+        cache_dir=None,
+        psf='psf.png',
+        single_channel_psf=False,
+        split="test",
+        display_res=[600, 600],
+        rotate=False,
+        flipud=False,
+        flip_lensed=False,
+        downsample=1,
+        downsample_lensed=2,
+        alignment={'top_left': [85, 185], 'height': 178},
+        save_psf=True,
+        n_files=None,
+        simulation_config={
+            'grayscale': False,
+            'output_dim': None,
+            'object_height': 0.04,
+            'flip': True,
+            'random_shift': False,
+            'random_vflip': 0.5,
+            'random_hflip': 0.5,
+            'random_rotate': False,
+            'scene2mask': 0.1,
+            'mask2sensor': 0.009,
+            'deadspace': True,
+            'use_waveprop': False,
+            'sensor': 'rgb',  # Replace with the correct value if different
+        },
+        per_pixel_color_shift=True,
+        per_pixel_color_shift_range=[0.8, 1.2],
+        bg_snr_range=None,
+        bg_fp=None,
+        force_rgb=False,
+        simulate_lensless=False,
+    )
 
     # prepare model
     psf = dataset.psf.to(device)
