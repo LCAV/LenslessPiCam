@@ -409,8 +409,6 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         algorithm, the number of iteration isn't required. Note that `set_data` must be called
         beforehand.
 
-        # TODO apply PSF network
-
         Parameters
         ----------
         disp_iter : int
