@@ -29,14 +29,13 @@ def apply_pretrained(config):
             model_config = yaml.safe_load(stream)
 
     else:
-        model_path = download_model(
-            camera="digicam", dataset="mirflickr_single_25k", model=model_name
-        )
+        model_path = download_model(camera="digicam", dataset=config.dataset, model=model_name)
         config_path = os.path.join(model_path, ".hydra", "config.yaml")
         with open(config_path, "r") as stream:
             model_config = yaml.safe_load(stream)
 
     # load data
+    # TODO try with multi-mask, should load single mask dataset...
     test_set = HFDataset(
         huggingface_repo=model_config["files"]["dataset"],
         psf=(

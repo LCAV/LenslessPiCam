@@ -20,10 +20,11 @@ huggingface:
   single_channel_psf: True
 
 algorithms: [
-  "ADMM",
+  # "ADMM",
 
   ## -- reconstructions trained on DiffuserCam measured
   "hf:diffusercam:mirflickr:U5+Unet8M",
+  "hf:diffusercam:mirflickr:Unet8M+U5",
   "hf:diffusercam:mirflickr:TrainInv+Unet8M",
   "hf:diffusercam:mirflickr:MMCN4M+Unet4M",
   "hf:diffusercam:mirflickr:MWDN8M",
@@ -32,6 +33,21 @@ algorithms: [
   "hf:diffusercam:mirflickr:Unet2M+MMCN+Unet2M",
   "hf:diffusercam:mirflickr:Unet2M+MWDN6M",
   "hf:diffusercam:mirflickr:Unet4M+U10+Unet4M",
+  "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_psfNN",
+
+  # # -- benchmark PSF error
+  # "hf:diffusercam:mirflickr:U5+Unet8M_psf0dB",
+  # "hf:diffusercam:mirflickr:U5+Unet8M_psf-5dB",
+  # "hf:diffusercam:mirflickr:U5+Unet8M_psf-10dB",
+  # "hf:diffusercam:mirflickr:U5+Unet8M_psf-20dB",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_psf-0dB",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_psf-5dB",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_psf-10dB",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_psf-20dB",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_psfNN_psf-0dB",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_psfNN_psf-10dB",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_psfNN_psf-20dB",
+
   # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_ft_tapecam",
   # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_ft_tapecam_post",
   # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_ft_tapecam_pre",
@@ -50,7 +66,9 @@ algorithms: [
   # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave",
   # "hf:digicam:celeba_26k:Unet4M+U5+Unet4M_wave",
   # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M",
+  # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_psfNN",
   # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_wave",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave_psfNN",
   # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_flips",
   # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_flips_rotate10",
   # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_aux1",

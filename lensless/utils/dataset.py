@@ -32,7 +32,6 @@ from scipy.ndimage import rotate
 import warnings
 from waveprop.noise import add_shot_noise
 from lensless.utils.image import shift_with_pad
-from PIL import Image
 
 
 def convert(text):
@@ -1410,6 +1409,8 @@ class HFDataset(Dataset):
         flip_lensed=False,
         downsample=1,
         downsample_lensed=1,
+        input_snr=None,
+        psf_snr=None,
         display_res=None,
         sensor="rpi_hq",
         slm="adafruit",
@@ -1485,6 +1486,10 @@ class HFDataset(Dataset):
         self.display_res = display_res
         self.return_mask_label = return_mask_label
         self.force_rgb = force_rgb  # if some data is not 3D
+        self.sensor = sensor
+        self.slm = slm
+        self.simulation_config = simulation_config
+        self.input_snr = input_snr
 
         # augmentation
         self.random_flip = random_flip
@@ -1506,6 +1511,7 @@ class HFDataset(Dataset):
             downsample_fact = min(sensor_res / lensless.shape[:2])
         else:
             downsample_fact = 1
+        self.downsample_fact = downsample_fact
 
         # deduce recon shape from original image
         self.alignment = None
@@ -1544,6 +1550,7 @@ class HFDataset(Dataset):
         # download all masks
         # TODO: reshape directly with lensless image shape
         self.multimask = False
+        self.huggingface_repo = huggingface_repo
         if psf is not None:
             # download PSF from huggingface
             psf_fp = hf_hub_download(repo_id=huggingface_repo, filename=psf, repo_type="dataset")
@@ -1563,34 +1570,37 @@ class HFDataset(Dataset):
                 # replicate across three channels
                 self.psf = self.psf.repeat(1, 1, 1, 3)
 
+            if psf_snr is not None:
+                # # add noise to PSF
+                # self.psf = add_shot_noise(self.psf, psf_snr)
+                # add Gaussian noise to PSF
+                noise = torch.randn_like(self.psf)
+                noise_var = torch.var(noise.flatten())
+                psf_var = torch.var(self.psf.flatten())
+                noise *= torch.sqrt(psf_var / noise_var) / 10 ** (psf_snr / 20)
+                self.psf += noise
+
+                # save PSF as torch tensor for loading model later on
+                torch.save(self.psf, "psf.pt")
+
+            if save_psf:
+                # same viewable image of PSF
+                save_image(self.psf.squeeze().cpu().numpy(), f"{split}_psf.png")
+
         elif "mask_label" in data_0:
             self.multimask = True
             mask_labels = []
             for i in range(len(self.dataset)):
                 mask_labels.append(self.dataset[i]["mask_label"])
             mask_labels = list(set(mask_labels))
+            self.mask_labels = mask_labels
 
             # simulate all PSFs
             self.psf = dict()
             for label in mask_labels:
-                mask_fp = hf_hub_download(
-                    repo_id=huggingface_repo,
-                    filename=f"masks/mask_{label}.npy",
-                    repo_type="dataset",
-                )
-                mask_vals = np.load(mask_fp)
-                mask = AdafruitLCD(
-                    initial_vals=torch.from_numpy(mask_vals.astype(np.float32)),
-                    sensor=sensor,
-                    slm=slm,
-                    downsample=downsample_fact,
-                    flipud=self.rotate or flipud,  # TODO separate commands?
-                    use_waveprop=simulation_config.get("use_waveprop", False),
-                    scene2mask=simulation_config.get("scene2mask", None),
-                    mask2sensor=simulation_config.get("mask2sensor", None),
-                    deadspace=simulation_config.get("deadspace", True),
-                )
-                self.psf[label] = mask.get_psf().detach()
+
+                mask_vals = self.get_mask_vals(label)
+                self.psf[label] = self.simulate_psf(mask_vals)
 
                 assert (
                     self.psf[label].shape[-3:-1] == lensless.shape[:2]
@@ -1607,18 +1617,7 @@ class HFDataset(Dataset):
                 repo_id=huggingface_repo, filename="mask_pattern.npy", repo_type="dataset"
             )
             mask_vals = np.load(mask_fp)
-            mask = AdafruitLCD(
-                initial_vals=torch.from_numpy(mask_vals.astype(np.float32)),
-                sensor=sensor,
-                slm=slm,
-                downsample=downsample_fact,
-                flipud=self.rotate or flipud,  # TODO separate commands?
-                use_waveprop=simulation_config.get("use_waveprop", False),
-                scene2mask=simulation_config.get("scene2mask", None),
-                mask2sensor=simulation_config.get("mask2sensor", None),
-                deadspace=simulation_config.get("deadspace", True),
-            )
-            self.psf = mask.get_psf().detach()
+            self.psf = self.simulate_psf(mask_vals)
             assert (
                 self.psf.shape[-3:-1] == lensless.shape[:2]
             ), "PSF shape should match lensless shape"
@@ -1674,6 +1673,30 @@ class HFDataset(Dataset):
 
     def __len__(self):
         return len(self.dataset)
+
+    def get_mask_vals(self, idx):
+        assert self.multimask
+        assert idx in self.mask_labels
+        mask_fp = hf_hub_download(
+            repo_id=self.huggingface_repo,
+            filename=f"masks/mask_{idx}.npy",
+            repo_type="dataset",
+        )
+        return np.load(mask_fp)
+
+    def simulate_psf(self, mask_vals):
+        mask = AdafruitLCD(
+            initial_vals=torch.from_numpy(mask_vals.astype(np.float32)),
+            sensor=self.sensor,
+            slm=self.slm,
+            downsample=self.downsample_fact,
+            flipud=self.rotate or self.flipud,  # TODO separate commands?
+            use_waveprop=self.simulation_config.get("use_waveprop", False),
+            scene2mask=self.simulation_config.get("scene2mask", None),
+            mask2sensor=self.simulation_config.get("mask2sensor", None),
+            deadspace=self.simulation_config.get("deadspace", True),
+        )
+        return mask.get_psf().detach()
 
     def _get_images_pair(self, idx):
 
@@ -1777,10 +1800,11 @@ class HFDataset(Dataset):
 
         lensless, lensed, background = self._get_images_pair(idx)
 
-        # to torch
-        lensless = torch.from_numpy(lensless)
-        lensed = torch.from_numpy(lensed)
-        background = torch.from_numpy(background) if background is not None else None
+        if isinstance(lensless, np.ndarray):
+            # to torch
+            lensless = torch.from_numpy(lensless)
+            lensed = torch.from_numpy(lensed)
+            background = torch.from_numpy(background) if background is not None else None
         # If [H, W, C] -> [D, H, W, C]
         if len(lensless.shape) == 3:
             lensless = lensless.unsqueeze(0)
@@ -1788,6 +1812,9 @@ class HFDataset(Dataset):
             lensed = lensed.unsqueeze(0)
         if background is not None and len(background.shape) == 3:
             background = background.unsqueeze(0)
+
+        if self.input_snr is not None:
+            lensless = add_shot_noise(lensless, self.input_snr)
 
         if not self.simulate_lensless:  # TODO apply transformation to bg as well?
             if self.rotate:

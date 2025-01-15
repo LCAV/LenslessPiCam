@@ -34,6 +34,9 @@ Added
 - Integrated background subtraction object ``lensless.recon.integrated_background.IntegratedBackgroundSub``.
 - Option to concatenate background to input to pre-processor.
 - Add support for datasets with measured background to ``lensless.utils.dataset.HFDataset``.
+- Add parameterize and peturb to evaluate model adaptation.
+- PSF correction network.
+- Option to add noise to input image or PSF (for robustness experiments).
 
 
 Changed
@@ -48,6 +51,7 @@ Bugfix
 - Computation of average metric in batches.
 - Support for grayscale PSF for RealFFTConvolve2D.
 - Calling model.eval() before inference, and model.train() before training.
+- Normalization when computing reconstruction error.
 
 
 1.0.7 - (2024-05-14)
@@ -65,7 +69,6 @@ Added
 - Support for training/testing with multiple mask patterns in the dataset.
 - Multi-GPU support for training.
 - Dataset which interfaces with Hugging Face (``lensless.utils.dataset.HFDataset``).
-- Scripts for authentication.
 - DigiCam support for Telegram demo.
 - DiffuserCamMirflickr Hugging Face API.
 - Fallback for normalization if data not in 8bit range (``lensless.utils.io.save_image``).

@@ -12,6 +12,7 @@ notebooks/models/*
 *.png
 *.jpg
 *.npy
+*.sh
 
 configs/telegram_demo_secret.yaml
 

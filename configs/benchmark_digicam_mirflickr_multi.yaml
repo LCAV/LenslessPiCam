@@ -25,11 +25,14 @@ algorithms: [
 
   ## -- reconstructions trained on measured data 
   "hf:digicam:mirflickr_multi_25k:Unet4M+U5+Unet4M_wave",
+  "hf:digicam:mirflickr_multi_25k:Unet4M+U5+Unet4M_wave_psfNN",
   "hf:digicam:mirflickr_multi_25k:Unet4M+U10+Unet4M_wave",
   "hf:digicam:mirflickr_multi_25k:Unet4M+U5+Unet4M_wave_aux1",
   "hf:digicam:mirflickr_multi_25k:Unet4M+U5+Unet4M_wave_flips",
+  "hf:digicam:mirflickr_multi_25k:Unet8M_wave_v2",
 
   # ## -- reconstructions trained on other datasets/systems
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave_psfNN",
   # "hf:diffusercam:mirflickr:Unet4M+U10+Unet4M",
   # "hf:tapecam:mirflickr:Unet4M+U10+Unet4M",
   # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_wave",
@@ -42,6 +45,9 @@ algorithms: [
   # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M",
   # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_ft_flips",
   # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_ft_flips_rotate10",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave_psfNN",
+  # "hf:tapecam:mirflickr:Unet4M+U5+Unet4M_psfNN",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_psfNN",
 ]
 
 # # -- to only use output from unrolled

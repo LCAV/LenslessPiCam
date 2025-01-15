@@ -5,7 +5,7 @@ hydra:
 
 use_torch: True
 dtype: float32
-torch_device: cuda
+torch_device: cuda:1
 requires_grad: False
 
 # if repo not provided, check for local file at `digicam.pattern`

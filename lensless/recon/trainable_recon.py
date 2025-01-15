@@ -58,6 +58,8 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         legacy_denoiser=False,
         compensation=None,
         compensation_residual=True,
+        psf_network=None,
+        psf_residual=True,
         # background subtraction
         direct_background_subtraction=False,
         background_network=None,
@@ -95,6 +97,10 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             Post-processor must be defined if compensation provided.
         compensation_residual : bool, optional
             Whether to use residual connection in compensation layer.
+        psf_network : :py:class:`function` or :py:class:`~torch.nn.Module`, optional
+            Function or model to apply to PSF prior to camera inversion.
+        psf_residual : bool, optional
+            Whether to use residual connection in PSF network.
         """
 
         assert isinstance(psf, torch.Tensor), "PSF must be a torch.Tensor"
@@ -140,6 +146,12 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
                     direct_background_subtraction is False
                 ), "Cannot use direct_background_subtraction and background_network at the same time."
                 self.set_background_network(background_network)
+
+        # PSF network
+        self.psf_network = None
+        self.psf_residual = psf_residual
+        if psf_network is not None:
+            self.set_psf_network(psf_network)
 
         # compensation branch
         self.return_intermediate = return_intermediate
@@ -227,6 +239,13 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             self.background_network_param,
         ) = self._prepare_process_block(background_network)
 
+    def set_psf_network(self, psf_network):
+        (
+            self.psf_network,
+            self.psf_network_model,
+            self.psf_network_param,
+        ) = self._prepare_process_block(psf_network)
+
     def freeze_pre_process(self):
         """
         Method for freezing the pre process block.
@@ -307,9 +326,18 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             ).to(self._data.device)
             self._data = torch.clamp(self._data, 0, 1)
 
+        # set / transform PSFs if need be
+        if self.psf_network is not None:
+            if psfs is None:
+                psfs = self._psf.to(self._data.device)
+            if self.psf_residual:
+                psfs = self.psf_network(psfs, self.psf_network_param).to(psfs.device) + psfs
+            else:
+                psfs = self.psf_network(psfs, self.psf_network_param).to(psfs.device)
+
         if psfs is not None:
             # assert same shape
-            assert psfs.shape == batch.shape, "psfs must have the same shape as batch"
+            assert psfs.shape[-3:] == batch.shape[-3:], "psfs must have the same shape as batch"
             # -- update convolver
             self._convolver = RealFFTConvolve2D(psfs.to(self._data.device), **self._convolver_param)
         elif self._data.device != self._convolver._H.device:
@@ -360,7 +388,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             final_est = image_est
 
         if self.return_intermediate:
-            return final_est, image_est, pre_processed
+            return final_est, image_est, pre_processed, psfs
         else:
             return final_est
 
@@ -431,6 +459,17 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             ).to(self._data.device)
             self._data = torch.clamp(self._data, 0, 1)
 
+        # transform PSF if need be
+        psf = None
+        if self.psf_network is not None:
+            psf = self._psf.to(self._data.device)
+            if self.psf_residual:
+                psf = self.psf_network(psf, self.psf_network_param).to(psf.device) + psf
+            else:
+                psf = self.psf_network(psf, self.psf_network_param).to(psf.device)
+        if psf is not None:  # -- update convolver
+            self._convolver = RealFFTConvolve2D(psf.to(self._data.device), **self._convolver_param)
+
         pre_processed_image = None
         if self.integrated_background_subtraction:
             # use preprocess for background subtraction
@@ -486,7 +525,10 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
                 plt.savefig(plib.Path(save) / "final.png")
 
         if output_intermediate:
-            return im, pre_post_process_image, pre_processed_image
+            return_items = im, pre_post_process_image, pre_processed_image
+            if self.psf_network is not None:
+                return_items += (psf,)
+            return return_items
         elif plot:
             return im, ax
         else:

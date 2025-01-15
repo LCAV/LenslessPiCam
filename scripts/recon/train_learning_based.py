@@ -231,6 +231,7 @@ def train_learned(config):
                 bg_fp=to_absolute_path(config.files.background_fp)
                 if config.files.background_fp is not None
                 else None,
+                input_snr=config.files.input_snr,
             )
 
         else:
@@ -257,6 +258,8 @@ def train_learned(config):
                 bg_fp=to_absolute_path(config.files.background_fp)
                 if config.files.background_fp is not None
                 else None,
+                input_snr=config.files.input_snr,
+                psf_snr=config.files.psf_snr,
             )
 
         test_set = HFDataset(
@@ -281,7 +284,12 @@ def train_learned(config):
             else None,
             force_rgb=config.files.force_rgb,
             simulate_lensless=False,  # in general evaluate on measured (set to False)
+            input_snr=config.files.input_snr,
         )
+
+        if config.files.psf_snr is not None:
+            # overwrite test set PSF with train set PSF
+            test_set.psf = train_set.psf
 
         if train_set.multimask:
             # get first PSF for initialization
@@ -397,7 +405,7 @@ def train_learned(config):
                     i,
                     lensed,
                     lensless,
-                    psf,
+                    psf_recon,
                     test_set,
                     "",
                     flip_lr,
@@ -415,7 +423,7 @@ def train_learned(config):
                         i,
                         lensed,
                         (lensless - background),
-                        psf,
+                        psf_recon,
                         test_set,
                         "subtraction_",
                         flip_lr,
@@ -503,6 +511,18 @@ def train_learned(config):
                 if name1 in dict_params2_post:
                     dict_params2_post[name1].data.copy_(param1.data)
 
+    # network for PSF
+    psf_network = None
+    if config.reconstruction.psf_network:
+        # create UnetRes for PSF
+        psf_network, _ = create_process_network(
+            network="UnetRes",
+            depth=len(config.reconstruction.psf_network),
+            nc=config.reconstruction.psf_network,
+            device=device,
+            device_ids=device_ids,
+        )
+
     # check/prepare background subtraction
     background_network = None
     if config.reconstruction.direct_background_subtraction:
@@ -565,6 +585,8 @@ def train_learned(config):
                 pre_process=pre_process if pre_proc_delay is None else None,
                 post_process=post_process if post_proc_delay is None else None,
                 background_network=background_network,
+                psf_network=psf_network,
+                psf_residual=config.reconstruction.psf_residual,
                 skip_unrolled=config.reconstruction.skip_unrolled,
                 return_intermediate=(
                     True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
@@ -585,6 +607,8 @@ def train_learned(config):
                 pre_process=pre_process if pre_proc_delay is None else None,
                 post_process=post_process if post_proc_delay is None else None,
                 background_network=background_network,
+                psf_network=psf_network,
+                psf_residual=config.reconstruction.psf_residual,
                 skip_unrolled=config.reconstruction.skip_unrolled,
                 return_intermediate=(
                     True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
@@ -596,6 +620,7 @@ def train_learned(config):
             )
         elif config.reconstruction.method == "trainable_inv":
             assert config.trainable_mask.mask_type == "TrainablePSF"
+            assert psf_network is None
             recon = TrainableInversion(
                 psf,
                 K=config.reconstruction.trainable_inv.K,
@@ -619,6 +644,7 @@ def train_learned(config):
             assert config.reconstruction.direct_background_subtraction is False, "Not supported"
             assert config.reconstruction.learned_background_subtraction is None, "Not supported"
             assert config.reconstruction.integrated_background_subtraction is None, "Not supported"
+            assert psf_network is None, "Not supported"
 
             recon = MultiWiener(
                 in_channels=3,
@@ -658,6 +684,9 @@ def train_learned(config):
     if background_network is not None:
         n_param = sum(p.numel() for p in background_network.parameters() if p.requires_grad)
         log.info(f"-- Background subtraction model with {n_param} parameters")
+    if psf_network is not None:
+        n_param = sum(p.numel() for p in psf_network.parameters() if p.requires_grad)
+        log.info(f"-- PSF network model with {n_param} parameters")
 
     log.info(f"Setup time : {time.time() - start_time} s")
     log.info(f"PSF shape : {psf.shape}")
