@@ -65,7 +65,6 @@ Added
 - Support for training/testing with multiple mask patterns in the dataset.
 - Multi-GPU support for training.
 - Dataset which interfaces with Hugging Face (``lensless.utils.dataset.HFDataset``).
-- Scripts for authentication.
 - DigiCam support for Telegram demo.
 - DiffuserCamMirflickr Hugging Face API.
 - Fallback for normalization if data not in 8bit range (``lensless.utils.io.save_image``).

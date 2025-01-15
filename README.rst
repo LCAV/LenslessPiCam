@@ -193,7 +193,8 @@ A few students at EPFL have also contributed to this project:
 * Julien Sahli: support and extension of algorithms for 3D.
 * Yohann Perron: unrolled algorithms for reconstruction.
 * Aaron Fargeon: mask designs.
-* Rein Bentdal: mask fabrication with 3D printing.
+* Rein Bentdal and David Karoubi: mask fabrication with 3D printing.
+* Stefan Peters: imaging under external illumination.
 
 Citing this work
 ----------------
