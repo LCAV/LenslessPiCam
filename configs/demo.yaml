@@ -81,7 +81,7 @@ recon:
   downsample: 4
   dtype: float32
   use_torch: True
-  torch_device: cpu
+  torch_device: cuda:0
   
   algo: admm
 
@@ -120,5 +120,5 @@ postproc:
   # crop_vert: null
   # # crop in percent to extract region of interest
   # # set to null to skip
-  crop_hor: [0.22, 0.8]
-  crop_vert: [0., 0.86]
+  crop_hor: [0.28, 0.75]
+  crop_vert: [0.2, 0.82]
