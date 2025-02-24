@@ -228,9 +228,11 @@ def train_learned(config):
                 display_res=config.files.image_res,
                 alignment=config.alignment,
                 bg_snr_range=config.files.background_snr_range,  # TODO check if correct
-                bg_fp=to_absolute_path(config.files.background_fp)
-                if config.files.background_fp is not None
-                else None,
+                bg_fp=(
+                    to_absolute_path(config.files.background_fp)
+                    if config.files.background_fp is not None
+                    else None
+                ),
                 input_snr=config.files.input_snr,
             )
 
@@ -255,9 +257,11 @@ def train_learned(config):
                 simulate_lensless=config.files.simulate_lensless,
                 random_flip=config.files.random_flip,
                 bg_snr_range=config.files.background_snr_range,
-                bg_fp=to_absolute_path(config.files.background_fp)
-                if config.files.background_fp is not None
-                else None,
+                bg_fp=(
+                    to_absolute_path(config.files.background_fp)
+                    if config.files.background_fp is not None
+                    else None
+                ),
                 input_snr=config.files.input_snr,
                 psf_snr=config.files.psf_snr,
             )
@@ -279,9 +283,11 @@ def train_learned(config):
             n_files=config.files.n_files,
             simulation_config=config.simulation,
             bg_snr_range=config.files.background_snr_range,
-            bg_fp=to_absolute_path(config.files.background_fp)
-            if config.files.background_fp is not None
-            else None,
+            bg_fp=(
+                to_absolute_path(config.files.background_fp)
+                if config.files.background_fp is not None
+                else None
+            ),
             force_rgb=config.files.force_rgb,
             simulate_lensless=False,  # in general evaluate on measured (set to False)
             input_snr=config.files.input_snr,

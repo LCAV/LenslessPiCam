@@ -1399,7 +1399,9 @@ class Trainer:
             _, ax = plt.subplots(n_psf, 1)
             for i in range(n_psf):
                 psf_np_i = psf_np[i].squeeze()
-                fp = os.path.join(path, f"psf_epoch{epoch}_{i}.png" if n_psf > 1 else f"psf_epoch{epoch}.png")
+                fp = os.path.join(
+                    path, f"psf_epoch{epoch}_{i}.png" if n_psf > 1 else f"psf_epoch{epoch}.png"
+                )
                 save_image(psf_np_i, fp)
                 plot_image(psf_np_i, gamma=self.gamma, ax=ax[i] if n_psf > 1 else ax)
                 if n_psf > 1:
@@ -1409,22 +1411,27 @@ class Trainer:
 
                 if self.use_wandb and epoch != "BEST":
                     log_key = f"psf_{i}" if n_psf > 1 else "psf"
-                    wandb.log({log_key: wandb.Image(fp)}, step=epoch)     
+                    wandb.log({log_key: wandb.Image(fp)}, step=epoch)
 
             fp = os.path.join(path, f"psf_epoch{epoch}_PLOT.png")
-            plt.savefig(fp)     
+            plt.savefig(fp)
 
             if epoch == "BEST":
                 # save difference with original PSF
                 psf_original = np.load("psf_original.npy")
                 diff = psf_np - psf_original
-                np.save(os.path.join(path, f"psf_epochBEST_diff.npy"), diff)
+                np.save(os.path.join(path, "psf_epochBEST_diff.npy"), diff)
                 diff_abs = np.abs(diff)
 
                 _, ax = plt.subplots(n_psf, 1)
                 for i in range(n_psf):
                     diff_abs_i = diff_abs[i].squeeze()
-                    save_image(diff_abs_i, os.path.join(path, f"psf_epochBEST_diffabs_{i}.png") if n_psf > 1 else os.path.join(path, f"psf_epochBEST_diffabs.png"))
+                    save_image(
+                        diff_abs_i,
+                        os.path.join(path, f"psf_epochBEST_diffabs_{i}.png")
+                        if n_psf > 1
+                        else os.path.join(path, "psf_epochBEST_diffabs.png"),
+                    )
                     if n_psf > 1:
                         ax[i].imshow(diff_abs_i, cmap="gray" if diff_abs.ndim == 2 else None)
                         ax[i].axis("off")
@@ -1434,8 +1441,8 @@ class Trainer:
                         ax.axis("off")
                         ax.set_title("Absolute difference with original PSF")
 
-                plt.savefig(os.path.join(path, f"psf_epochBEST_diffabs_PLOT.png"))
-                
+                plt.savefig(os.path.join(path, "psf_epochBEST_diffabs_PLOT.png"))
+
         # save optimizer
         if include_optimizer:
             torch.save(self.optimizer.state_dict(), os.path.join(path, f"optim_epoch{epoch}.pt"))
