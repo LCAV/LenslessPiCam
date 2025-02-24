@@ -37,7 +37,7 @@ import numpy as np
 import time
 from lensless.utils.image import shift_with_pad
 from lensless.hardware.trainable_mask import prep_trainable_mask
-from lensless import ADMM, UnrolledFISTA, UnrolledADMM, TrainableInversion
+from lensless import ADMM, UnrolledFISTA, UnrolledADMM, TrainableInversion, SVDeconvNet
 from lensless.recon.multi_wiener import MultiWiener
 from lensless.recon.integrated_background_sub import IntegratedBackgroundSub
 from lensless.utils.dataset import (
@@ -624,6 +624,21 @@ def train_learned(config):
             recon = TrainableInversion(
                 psf,
                 K=config.reconstruction.trainable_inv.K,
+                pre_process=pre_process if pre_proc_delay is None else None,
+                post_process=post_process if post_proc_delay is None else None,
+                background_network=background_network,
+                return_intermediate=(
+                    True if config.unrolled_output_factor > 0 or config.pre_proc_aux > 0 else False
+                ),
+                direct_background_subtraction=config.reconstruction.direct_background_subtraction,
+                integrated_background_subtraction=config.reconstruction.integrated_background_subtraction,
+            )
+        elif config.reconstruction.method == "svdeconvnet":
+            assert config.trainable_mask.mask_type == "TrainablePSF"
+            assert psf_network is None
+            recon = SVDeconvNet(
+                psf,
+                K=config.reconstruction.svdeconvnet.K,
                 pre_process=pre_process if pre_proc_delay is None else None,
                 post_process=post_process if post_proc_delay is None else None,
                 background_network=background_network,
