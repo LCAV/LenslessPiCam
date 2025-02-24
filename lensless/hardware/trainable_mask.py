@@ -391,7 +391,7 @@ def prep_trainable_mask(config, psf=None, downsample=None):
                     initial_mask = torch.rand((1, *resolution, 3))
 
             elif config["trainable_mask"]["initial_value"] == "psf":
-                
+
                 if config["reconstruction"]["method"] == "svdeconvnet":
                     # learnable PSF as part of SVDeconvNet
                     n_psf = config["reconstruction"]["svdeconvnet"]["K"] ** 2
