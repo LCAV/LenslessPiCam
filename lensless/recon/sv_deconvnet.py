@@ -17,19 +17,19 @@ def compute_weight_matrices(psf, K):
     centers = []
     for i in range(K):
         for j in range(K):
-            centers.append((int((i+0.5)*Nx/K), int((j+0.5)*Ny/K)))
+            centers.append((int((i + 0.5) * Nx / K), int((j + 0.5) * Ny / K)))
 
     # compute weight matrices
     Y, X = np.meshgrid(np.arange(Ny), np.arange(Nx))
     eps = 1e-4
     weight_mat = []
     for center in centers:
-        weight = ((X-center[0])**2 + (Y-center[1])**2 + eps) ** (-0.5)
+        weight = ((X - center[0]) ** 2 + (Y - center[1]) ** 2 + eps) ** (-0.5)
         weight_mat.append(weight)
 
     # normalize weight matrices
     sum_weights = np.sum(weight_mat, axis=0)
-    for i in range(K*K):
+    for i in range(K * K):
         weight_mat[i] /= sum_weights
 
     # check that sums to 1 at each pixel
@@ -57,11 +57,13 @@ class SVDeconvNet(TrainableReconstructionAlgorithm):
             (K x K) kernels are learned for spatially-variant deconvolution.
 
         """
-        multipsf = psf.repeat(K*K, 1, 1, 1)
+        multipsf = psf.repeat(K * K, 1, 1, 1)
 
         # compute weight matrices
-        self.weight_mat = torch.tensor(compute_weight_matrices(psf, K)).to(dtype=psf.dtype, device=psf.device)
-        self.weight_mat = self.weight_mat[None, :, :, :, None]   # (batch, K*K, Nx, Ny, channels)
+        self.weight_mat = torch.tensor(compute_weight_matrices(psf, K)).to(
+            dtype=psf.dtype, device=psf.device
+        )
+        self.weight_mat = self.weight_mat[None, :, :, :, None]  # (batch, K*K, Nx, Ny, channels)
         super(SVDeconvNet, self).__init__(multipsf, n_iter=1, dtype=dtype, reset=False, **kwargs)
         self.reset()
 
@@ -77,4 +79,6 @@ class SVDeconvNet(TrainableReconstructionAlgorithm):
         return
 
     def _update(self, iter):
-        self._image_est = torch.sum(self.weight_mat * self._convolver.deconvolve(self._data), dim=1, keepdim=True)
+        self._image_est = torch.sum(
+            self.weight_mat * self._convolver.deconvolve(self._data), dim=1, keepdim=True
+        )
