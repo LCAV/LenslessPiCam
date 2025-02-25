@@ -309,7 +309,9 @@ def train_learned(config):
         crop = test_set.crop  # same for train set
 
         # -- if learning mask
-        mask = prep_trainable_mask(config, psf)
+        mask = prep_trainable_mask(
+            config, psf[..., 0].unsqueeze(-1) if config.files.single_channel_psf else psf
+        )
         if mask is not None:
             assert not train_set.multimask
 
@@ -708,6 +710,9 @@ def train_learned(config):
     if psf_network is not None:
         n_param = sum(p.numel() for p in psf_network.parameters() if p.requires_grad)
         log.info(f"-- PSF network model with {n_param} parameters")
+    if mask is not None:
+        n_param = sum(p.numel() for p in mask.parameters() if p.requires_grad)
+        log.info(f"-- Trainable mask with {n_param} parameters")
 
     log.info(f"Setup time : {time.time() - start_time} s")
     log.info(f"PSF shape : {psf.shape}")

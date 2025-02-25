@@ -86,7 +86,6 @@ class TrainablePSF(TrainableMask):
     """
 
     def __init__(self, initial_psf, grayscale=False, **kwargs):
-
         super().__init__(**kwargs)
         self._psf = torch.nn.Parameter(initial_psf)
         initial_param = [self._psf]
@@ -113,6 +112,7 @@ class TrainablePSF(TrainableMask):
 
     def project(self):
         self._psf.data = torch.clamp(self._psf, 0, 1)
+        self._psf.data = self._psf.data / self._psf.data.norm()
 
 
 class AdafruitLCD(TrainableMask):
