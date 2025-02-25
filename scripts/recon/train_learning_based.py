@@ -541,6 +541,8 @@ def train_learned(config):
             device_ids=device_ids,
         )
     elif config.reconstruction.integrated_background_subtraction:
+        raise NotImplementedError("Integrated background subtraction not fully integrated yet")
+
         assert config.reconstruction.direct_background_subtraction is False
         assert config.reconstruction.learned_background_subtraction is False
         assert pre_process is None
