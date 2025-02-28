@@ -334,12 +334,9 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             if psfs is None:
                 psfs = self._psf.to(self._data.device)
             if self.psf_residual:
-                psfs = (
-                    self.psf_network(psfs, noise_level=self.psf_network_param).to(psfs.device)
-                    + psfs
-                )
+                psfs = self.psf_network(psfs, self.psf_network_param).to(psfs.device) + psfs
             else:
-                psfs = self.psf_network(psfs, noise_level=self.psf_network_param).to(psfs.device)
+                psfs = self.psf_network(psfs, self.psf_network_param).to(psfs.device)
 
         if psfs is not None:
             # assert same shape
@@ -355,13 +352,13 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         # pre process data
         if self.integrated_background_subtraction:
             # use preprocess for background subtraction
-            self._data = self.pre_process(self._data, noise_level=background)
+            self._data = self.pre_process(self._data, background)
         elif self.pre_process is not None and not self.skip_pre:
             # preproc that doesn't do background subtraction
             device_before = self._data.device
             self._data = self.pre_process(
                 self._data,
-                noise_level=self.pre_process_param,
+                self.pre_process_param,
                 background=background if self.input_background else None,
             )
             self._data = self._data.to(device_before)
@@ -391,7 +388,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
 
             final_est = self.post_process(
                 image_est,
-                noise_level=self.post_process_param,
+                self.post_process_param,
                 compensation_output=compensation_output,
             )
         else:
@@ -483,13 +480,13 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
         pre_processed_image = None
         if self.integrated_background_subtraction:
             # use preprocess for background subtraction
-            self._data = self.pre_process(self._data, noise_level=background)
+            self._data = self.pre_process(self._data, background)
         elif self.pre_process is not None and not self.skip_pre:
 
             # preproc that doesn't do background subtraction
             self._data = self.pre_process(
                 self._data,
-                noise_level=self.pre_process_param,
+                self.pre_process_param,
                 background=background if self.input_background else None,
             )
         if self.pre_process is not None and output_intermediate:
@@ -525,7 +522,7 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             if output_intermediate:
                 pre_post_process_image = im.clone()
             im = self.post_process(
-                im, noise_level=self.post_process_param, compensation_output=compensation_output
+                im, self.post_process_param, compensation_output=compensation_output
             )
 
         if plot:
