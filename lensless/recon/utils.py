@@ -348,7 +348,7 @@ def get_drunet_function(model, mode="inference"):
         Mode to use for model. Can be "inference" or "train".
     """
 
-    def process(image, noise_level, compensation_output=None, background=None):
+    def process(image, noise_level=10, compensation_output=None, background=None):
         assert compensation_output is None, "Compensation output not supported for legacy models."
         assert background is None, "Background not supported for legacy models."
         x_max = torch.amax(image, dim=(-2, -3), keepdim=True) + 1e-6
@@ -376,7 +376,7 @@ def get_drunet_function_v2(model, mode="inference"):
         Mode to use for model. Can be "inference" or "train".
     """
 
-    def process(image, noise_level, compensation_output=None, background=None):
+    def process(image, noise_level=10, compensation_output=None, background=None):
         x_max = torch.amax(image, dim=(-1, -2, -3, -4), keepdim=True) + 1e-6
         image = apply_denoiser(
             model,
@@ -416,13 +416,16 @@ def measure_gradient(model):
 
 def create_process_network(
     network,
-    depth=4,
     device="cpu",
-    nc=None,
     device_ids=None,
     concatenate_compensation=False,
     background_subtraction=False,
     input_background=False,
+    # unet parameters
+    depth=4,
+    nc=None,
+    # restormer parameters
+    restormer_params=None,
 ):
     """
     Helper function to create a process network.
@@ -477,14 +480,15 @@ def create_process_network(
         process_name = "UnetRes_d" + str(depth)
 
     elif network == "Restormer":
+        assert restormer_params is not None
         process = Restormer(
             inp_channels=3,
             out_channels=3,
-            dim=28,
-            num_blocks=[4, 6, 6, 8],
-            num_refinement_blocks=4,
-            heads=[1, 2, 4, 8],
-            ffn_expansion_factor=2.66,
+            dim=restormer_params["dim"],
+            num_blocks=restormer_params["num_blocks"],
+            num_refinement_blocks=restormer_params["num_refinement_blocks"],
+            heads=restormer_params["heads"],
+            ffn_expansion_factor=restormer_params["ffn_expansion_factor"],
             bias=False,
             LayerNorm_type="BiasFree",  # "WithBias"
             dual_pixel_task=False,
