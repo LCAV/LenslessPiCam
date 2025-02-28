@@ -503,7 +503,7 @@ def create_process_network(
         #     LayerNorm_type="BiasFree",  # "WithBias"
         #     dual_pixel_task=False,
         # )
-        # # TODO download path
+        # # TODO download path from https://drive.google.com/drive/folders/1Qwsjyny54RZWa7zC4Apg7exixLBo4uF0
         # weights_path = "/root/LenslessPiCam/notebook/real_denoising.pth"
         # checkpoint = torch.load(weights_path)
         # process.load_state_dict(checkpoint['params'])
