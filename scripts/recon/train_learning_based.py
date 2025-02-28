@@ -309,9 +309,7 @@ def train_learned(config):
         crop = test_set.crop  # same for train set
 
         # -- if learning mask
-        mask = prep_trainable_mask(
-            config, psf[..., 0].unsqueeze(-1) if config.files.single_channel_psf else psf
-        )
+        mask = prep_trainable_mask(config, psf)
         if mask is not None:
             assert not train_set.multimask
 
