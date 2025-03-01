@@ -193,7 +193,12 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             from lensless.recon.restormer import get_restormer_function
 
             process_model = process
-            if process.__class__.__name__ == "Restormer":
+            # handle DataParallel case
+            try:
+                process_type = process.module.__class__.__name__
+            except:
+                process_type = process.__class__.__name__
+            if process_type == "Restormer":
                 process_function = get_restormer_function(process_model)
             elif self._legacy_denoiser:
                 process_function = get_drunet_function(process_model, mode="train")

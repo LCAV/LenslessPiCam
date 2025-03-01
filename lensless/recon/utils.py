@@ -13,6 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import os
+import gc
 import torch
 from torch import nn
 from lensless.eval.benchmark import benchmark
@@ -1400,6 +1401,10 @@ class Trainer:
             self.on_epoch_end(mean_loss, save_pt, epoch + 1, disp=disp)
             if self.lr_step_epoch:
                 self.scheduler.step()
+
+            torch.cuda.empty_cache()
+            gc.collect()
+
 
         self.print(f"Train time [hour] : {(time.time() - start_time) / 3600} h")
 
