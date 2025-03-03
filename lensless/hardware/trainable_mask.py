@@ -112,7 +112,6 @@ class TrainablePSF(TrainableMask):
 
     def project(self):
         self._psf.data = torch.clamp(self._psf, 0, 1)
-        self._psf.data = self._psf.data / self._psf.data.norm()
 
 
 class AdafruitLCD(TrainableMask):
