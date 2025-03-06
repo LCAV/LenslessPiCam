@@ -27,11 +27,21 @@ reconstruction:
   method: unrolled_admm
   unrolled_admm:
     n_iter: 5
-  pre_process: 
-    network : UnetRes  # UnetRes or DruNet or null
-    depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
-    nc: [32,64,116,128]
+
   post_process: 
     network : UnetRes  # UnetRes or DruNet or null
     depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
     nc: [32,64,116,128]
+
+  # # without PSF correction
+  # pre_process: 
+  #   network : UnetRes  # UnetRes or DruNet or null
+  #   depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+  #   nc: [32,64,116,128]
+
+  # with PSF correction
+  psf_network: [4,8,16,32]
+  pre_process: 
+    network : UnetRes  # UnetRes or DruNet or null
+    depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+    nc: [32,64,112,128]
