@@ -1405,7 +1405,6 @@ class Trainer:
             torch.cuda.empty_cache()
             gc.collect()
 
-
         self.print(f"Train time [hour] : {(time.time() - start_time) / 3600} h")
 
     def save(self, epoch, path="recon", include_optimizer=False):
