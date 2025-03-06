@@ -193,10 +193,10 @@ class TrainableReconstructionAlgorithm(ReconstructionAlgorithm, torch.nn.Module)
             from lensless.recon.restormer import get_restormer_function
 
             process_model = process
-            # handle DataParallel case
-            try:
+            # handle DataParallel
+            if isinstance(process, torch.nn.DataParallel):
                 process_type = process.module.__class__.__name__
-            except:
+            else:
                 process_type = process.__class__.__name__
             if process_type == "Restormer":
                 process_function = get_restormer_function(process_model)
