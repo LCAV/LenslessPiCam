@@ -25,7 +25,9 @@ import os
 from lensless.utils.io import load_image, load_psf
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="simulate_single_file")
+@hydra.main(
+    version_base=None, config_path="../../configs/simulate", config_name="simulate_single_file"
+)
 def simulate(config):
 
     fp = to_absolute_path(config.files.original)

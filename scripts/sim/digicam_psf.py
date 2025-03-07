@@ -16,7 +16,7 @@ from huggingface_hub import hf_hub_download
 from lensless.utils.image import gamma_correction
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="sim_digicam_psf")
+@hydra.main(version_base=None, config_path="../../configs/simulate", config_name="sim_digicam_psf")
 def digicam_psf(config):
 
     output_folder = os.getcwd()

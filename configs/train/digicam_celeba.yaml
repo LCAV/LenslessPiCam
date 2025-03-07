@@ -1,0 +1,78 @@
+# python scripts/recon/train_learning_based.py -cn digicam_celeba
+defaults:
+  - defaults
+  - _self_
+
+wandb_project: digicam_celeba
+eval_disp_idx: [0, 2, 3, 4, 9]
+
+# Dataset
+files:
+  dataset: bezzam/DigiCam-CelebA-26K
+  huggingface_psf: "psf_simulated_waveprop.png"
+  huggingface_dataset: True
+  cache_dir: /dev/shm
+  split_seed: 0
+  test_size: 0.15
+  downsample: 2
+  rotate: True   # if measurement is upside-down
+  save_psf: False
+
+alignment:
+  # cropping when there is no downsampling
+  crop:
+    vertical: [0, 525]
+    horizontal: [265, 695]
+
+  # for prepping ground truth data
+  simulation:
+    scene2mask: 0.25   # [m]
+    mask2sensor: 0.002   # [m]
+    object_height: 0.33   # [m]
+    sensor: "rpi_hq"
+    snr_db: null
+    downsample: null
+    random_vflip: False
+    random_hflip: False
+    quantize: False
+    # shifting when there is no files to downsample
+    vertical_shift: -117
+    horizontal_shift: -25
+
+training:
+  batch_size: 4
+  epoch: 25
+  eval_batch_size: 4
+  crop_preloss: True
+
+reconstruction:
+  method: unrolled_admm
+  unrolled_admm:
+    n_iter: 5
+
+  # # Just post-processing (8.2M parameters)
+  # post_process: 
+  #   network : UnetRes  # UnetRes or DruNet or null
+  #   depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+  #   nc: [32,64,128,256]
+
+  # # Pre-processing + post-processing (8.1M parameters)
+  # pre_process: 
+  #   network : UnetRes  # UnetRes or DruNet or null
+  #   depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+  #   nc: [32,64,116,128]
+  # post_process: 
+  #   network : UnetRes  # UnetRes or DruNet or null
+  #   depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+  #   nc: [32,64,116,128]
+
+  # Pre-processing + post-processing + PSF correction (8.1M parameters)
+  psf_network: [4,8,16,32]
+  pre_process: 
+    network : UnetRes  # UnetRes or DruNet or null
+    depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+    nc: [32,64,112,128]
+  post_process: 
+    network : UnetRes  # UnetRes or DruNet or null
+    depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+    nc: [32,64,116,128]

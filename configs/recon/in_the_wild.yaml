@@ -1,0 +1,19 @@
+# python scripts/recon/gradient_descent.py -cn in_the_wild
+# python scripts/recon/admm.py -cn in_the_wild
+defaults:
+  - defaults
+  - _self_
+
+torch: True
+torch_device: 'cuda:0'
+
+input:
+  psf: data/psf/tape_rgb_31032023.png 
+  data: data/raw_data/fov_rgb_31032023.png
+
+preprocess:
+  downsample: 2
+
+gradient_descent:
+  # Number of iterations
+  n_iter: 600

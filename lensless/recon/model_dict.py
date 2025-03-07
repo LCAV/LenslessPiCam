@@ -493,7 +493,7 @@ def load_model(
         psf_learned = torch.nn.Parameter(psf_learned)
         recon._set_psf(psf_learned)
 
-    if config.get("device_ids", None) is not None:
+    if config.get("device_ids", None) is not None or isinstance(config.get("torch_device"), list):
         model_state_dict = remove_data_parallel(model_state_dict)
 
     # hotfixes for loading models

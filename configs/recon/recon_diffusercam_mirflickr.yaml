@@ -1,0 +1,36 @@
+# python scripts/recon/diffusercam_mirflickr.py
+# defaults to plug-and-play
+defaults:
+  - defaults
+  - _self_
+
+
+files:
+  dataset: /scratch/bezzam/DiffuserCam_mirflickr/dataset
+  psf: data/psf/diffusercam_psf.tiff
+  diffusercam_psf: True
+  downsample: 2
+
+model_name: null
+legacy_denoiser: True
+
+# defaults to plug-and-play
+admm:
+  # Number of iterations
+  n_iter: 20
+  # Hyperparameters
+  mu1: 1e-6
+  mu2: 1e-5
+  mu3: 4e-5
+  tau: 0.0001
+  # PnP
+  denoiser:
+    network: DruNet
+    noise_level: 0.05
+    use_dual: False
+
+
+device: cuda:0
+n_trials: 1   # more if you want to get average inference time
+idx: 3    # index from test set to reconstruct
+save: True

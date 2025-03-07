@@ -22,7 +22,7 @@ from tqdm import tqdm
 from lensless.utils.io import load_image, load_psf
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="simulate_dataset")
+@hydra.main(version_base=None, config_path="../../configs/simulate", config_name="simulate_dataset")
 def simulate(config):
 
     # set seed

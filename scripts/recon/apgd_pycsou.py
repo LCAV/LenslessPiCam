@@ -28,7 +28,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="apgd_l1")
+@hydra.main(version_base=None, config_path="../../configs/recon", config_name="apgd_l1")
 def apgd(
     config,
 ):

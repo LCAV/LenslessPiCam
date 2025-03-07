@@ -1,0 +1,8 @@
+# python scripts/recon/train_learning_based.py -cn diffusercam_sim
+defaults:
+  - diffusercam
+  - _self_
+
+# Only for training set! Test set still uses measured data
+files:
+  hf_simulated: True

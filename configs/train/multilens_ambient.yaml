@@ -1,0 +1,65 @@
+# python scripts/recon/train_learning_based.py -cn multilens_ambient
+defaults:
+  - defaults
+  - _self_
+
+wandb_project: multilens_ambient
+eval_disp_idx: [1, 2, 4, 5, 9]
+
+# Dataset
+files:
+  dataset: Lensless/MultiLens-Mirflickr-Ambient
+  cache_dir: /dev/shm
+  huggingface_dataset: True
+  huggingface_psf: psf.png
+  downsample: 1
+  # TODO: these parameters should be in the dataset?
+  rotate: False   # if measurement is upside-down
+  save_psf: True
+  image_res: [600, 600]
+
+alignment:
+  # when there is no downsampling
+  top_left: [118, 220]  # height, width
+  height: 123
+
+training:
+  batch_size: 4
+  epoch: 25
+  eval_batch_size: 4
+
+reconstruction:
+  method: unrolled_admm
+  unrolled_admm:
+    n_iter: 5
+
+  # direct_background_subtraction: False    # True or False
+  # learned_background_subtraction: [8,16,32,64]   # apply UNetRes to background before subtraction
+  unetres_input_background: True   # whether to input background to UNetRes
+
+  # # Just post-processing (8.2M parameters)
+  # post_process: 
+  #   network : UnetRes  # UnetRes or DruNet or null
+  #   depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+  #   nc: [32,64,128,256]
+
+  # # Pre-processing + post-processing (8.1M parameters)
+  # pre_process: 
+  #   network : UnetRes  # UnetRes or DruNet or null
+  #   depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+  #   nc: [32,64,116,128]
+  # post_process: 
+  #   network : UnetRes  # UnetRes or DruNet or null
+  #   depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+  #   nc: [32,64,116,128]
+
+  # Pre-processing + post-processing + PSF correction (8.1M parameters)
+  psf_network: [4,8,16,32]
+  pre_process: 
+    network : UnetRes  # UnetRes or DruNet or null
+    depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+    nc: [32,64,114,128]
+  post_process: 
+    network : UnetRes  # UnetRes or DruNet or null
+    depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+    nc: [32,64,114,128]
