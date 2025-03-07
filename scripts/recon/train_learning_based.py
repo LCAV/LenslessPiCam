@@ -670,8 +670,8 @@ def train_learned(config):
                 psf_channels = 3
 
             assert config.reconstruction.direct_background_subtraction is False, "Not supported"
-            assert config.reconstruction.learned_background_subtraction is None, "Not supported"
-            assert config.reconstruction.integrated_background_subtraction is None, "Not supported"
+            assert config.reconstruction.learned_background_subtraction is False, "Not supported"
+            assert config.reconstruction.integrated_background_subtraction is False, "Not supported"
             assert psf_network is None, "Not supported"
 
             recon = MultiWiener(
