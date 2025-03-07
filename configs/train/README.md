@@ -1,8 +1,17 @@
 # Training configurations
 
-The commands below train with the corresponding dataset, which will be downloaded from Hugging Face.
+The commands below train with the corresponding dataset, which will be downloaded from Hugging Face:
 
-By commenting/uncommenting relevant sections in the configuration file, you can train the models with different architectures. By default, the model architecture uses five unrolleed iterations of ADMM for camera inversion, and UNetRes models for the pre-processor post-processor, and PSF correction.
+- [DiffuserCam](#diffusercam): https://huggingface.co/datasets/bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM 
+- [TapeCam](#tapecam): https://huggingface.co/datasets/bezzam/TapeCam-Mirflickr-25K
+- [DigiCam with a Single Mask](#digicam-with-a-single-mask): https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-SingleMask-25K
+- [DigiCam with Multiple Masks](#digicam-with-multiple-masks): https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-MultiMask-25K
+- [DigiCam CelebA](#digicam-celeba): https://huggingface.co/datasets/bezzam/DigiCam-CelebA-26K
+- [MultiPSF under External Illumination](#multipsf-under-external-illumination): https://huggingface.co/datasets/Lensless/MultiLens-Mirflickr-Ambient
+
+By commenting/uncommenting relevant sections in the configuration file, you can train models with different architectures or by setting parameters via the command line. 
+
+By default, the model architecture uses five unrolleed iterations of ADMM for camera inversion, and UNetRes models for the pre-processor post-processor, and PSF correction.
 
 With DiffuserCam, we show how to set different camera inversion methods.
 
@@ -60,14 +69,14 @@ python scripts/recon/train_learning_based.py -cn diffusercam \
 python scripts/recon/train_learning_based.py -cn tapecam
 ```
 
-## DigiCam (Single Mask)
+## DigiCam with a Single Mask
 
 ```bash
 # unrolled ADMM
 python scripts/recon/train_learning_based.py -cn digicam
 ```
 
-## DigiCam (Multiple Masks)
+## DigiCam with Multiple Masks
 
 ```bash
 # unrolled ADMM
