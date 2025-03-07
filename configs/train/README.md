@@ -2,12 +2,12 @@
 
 The commands below train with the corresponding dataset, which will be downloaded from Hugging Face:
 
-- [DiffuserCam](#diffusercam): https://huggingface.co/datasets/bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM 
-- [TapeCam](#tapecam): https://huggingface.co/datasets/bezzam/TapeCam-Mirflickr-25K
-- [DigiCam with a Single Mask](#digicam-with-a-single-mask): https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-SingleMask-25K
-- [DigiCam with Multiple Masks](#digicam-with-multiple-masks): https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-MultiMask-25K
-- [DigiCam CelebA](#digicam-celeba): https://huggingface.co/datasets/bezzam/DigiCam-CelebA-26K
-- [MultiPSF under External Illumination](#multipsf-under-external-illumination): https://huggingface.co/datasets/Lensless/MultiLens-Mirflickr-Ambient
+- [DiffuserCam](#diffusercam)
+- [TapeCam](#tapecam)
+- [DigiCam with a Single Mask](#digicam-with-a-single-mask)
+- [DigiCam with Multiple Masks](#digicam-with-multiple-masks)
+- [DigiCam CelebA](#digicam-celeba)
+- [MultiPSF under External Illumination](#multipsf-under-external-illumination)
 
 By commenting/uncommenting relevant sections in the configuration file, you can train models with different architectures or by setting parameters via the command line. 
 
@@ -16,6 +16,8 @@ By default, the model architecture uses five unrolleed iterations of ADMM for ca
 With DiffuserCam, we show how to set different camera inversion methods.
 
 ## DiffuserCam
+
+Dataset link: https://huggingface.co/datasets/bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM
 
 The commands below show how to train different camera inversion methods on the DiffuserCam dataset (downsampled by a factor of 2 along each dimension). For a fair comparison, all models use around 8.1M parameters.
 
@@ -64,12 +66,16 @@ python scripts/recon/train_learning_based.py -cn diffusercam \
 
 ## TapeCam
 
+Dataset link: https://huggingface.co/datasets/bezzam/TapeCam-Mirflickr-25K
+
 ```bash
 # unrolled ADMM
 python scripts/recon/train_learning_based.py -cn tapecam
 ```
 
 ## DigiCam with a Single Mask
+
+Dataset link: https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-SingleMask-25K
 
 ```bash
 # unrolled ADMM
@@ -78,6 +84,8 @@ python scripts/recon/train_learning_based.py -cn digicam
 
 ## DigiCam with Multiple Masks
 
+Dataset link: https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-MultiMask-25K
+
 ```bash
 # unrolled ADMM
 python scripts/recon/train_learning_based.py -cn digicam_multimask
@@ -85,12 +93,16 @@ python scripts/recon/train_learning_based.py -cn digicam_multimask
 
 ## DigiCam CelebA
 
+Dataset link: https://huggingface.co/datasets/bezzam/DigiCam-CelebA-26K
+
 ```bash
 # unrolled ADMM
 python scripts/recon/train_learning_based.py -cn digicam_celeba
 ```
 
 ## MultiPSF under External Illumination
+
+Dataset link: https://huggingface.co/datasets/Lensless/MultiLens-Mirflickr-Ambient
 
 ```bash
 # unrolled ADMM
