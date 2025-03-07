@@ -8,7 +8,7 @@ With DiffuserCam, we show how to set different camera inversion methods.
 
 ## DiffuserCam
 
-The commands below show how to train different camera inversion methods on the DiffuserCam dataset (downsampled by a factor of 2 along each dimension).For a fair comparison, all models use around 8.1M parameters.
+The commands below show how to train different camera inversion methods on the DiffuserCam dataset (downsampled by a factor of 2 along each dimension). For a fair comparison, all models use around 8.1M parameters.
 
 ```bash
 # unrolled ADMM
@@ -39,6 +39,8 @@ python scripts/recon/train_learning_based.py -cn diffusercam \
     reconstruction.post_process.network=null \
     reconstruction.psf_network=False
 ```
+
+### Multi PSF camera inversion
 
 Similar to [PhoCoLens](https://phocolens.github.io/), we can train a camera inversion model that learns multiple PSFs. The training below uses the DiffuserCam dataset with its full resolution, and the number of model parameters is around 11.6M.
 ```bash
