@@ -3,9 +3,9 @@ defaults:
   - train_mirflickr_diffuser
   - _self_
 
-torch_device: 'cuda:2'
-# device_ids: [0, 1]
-device_ids: null
+torch_device: 'cuda:1'
+# device_ids: null
+device_ids: [1, 2]   # TODO doesn't seem to distribute model parameters
 eval_disp_idx: [0, 1, 3, 4, 8]
 
 # Dataset
@@ -29,9 +29,8 @@ reconstruction:
   unrolled_admm:
     n_iter: 5
 
+  # 8.1M (pre + post + PSF correction)
   psf_network: [4, 8, 16, 32]    # 127'740 parameters
-
-  # 8.1M (pre + post)
   pre_process: 
     network : Restormer
     restormer_params:
