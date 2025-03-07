@@ -99,8 +99,8 @@ Below are commands that worked for our configuration (Ubuntu
 install the library locally.
 
 Note that ``(lensless)`` is a convention to indicate that the virtual
-environment is activated. You can replace it with the name of your and
-there is no need to include it in the Terminal command.
+environment is activated. After activating your virtual environment, you only
+have to copy the command after ``(lensless)``.
 
 .. code:: bash
 
