@@ -6,6 +6,9 @@ LenslessPiCam
     :target: http://lensless.readthedocs.io/en/latest/
     :alt: Documentation Status
 
+.. image:: https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
+    :target: https://github.com/LCAV/LenslessPiCam
+    :alt: GitHub page
 
 .. image:: https://joss.theoj.org/papers/10.21105/joss.04747/status.svg
       :target: https://doi.org/10.21105/joss.04747
@@ -14,7 +17,6 @@ LenslessPiCam
 .. image:: https://static.pepy.tech/badge/lensless
       :target: https://www.pepy.tech/projects/lensless
       :alt: Downloads
-
 
 .. image:: https://colab.research.google.com/assets/colab-badge.svg
       :target: https://lensless.readthedocs.io/en/latest/examples.html
@@ -96,6 +98,10 @@ Below are commands that worked for our configuration (Ubuntu
 21.04), but there are certainly other ways to download a repository and
 install the library locally.
 
+Note that ``(lensless)`` is a convention to indicate that the virtual
+environment is activated. You can replace it with the name of your and
+there is no need to include it in the Terminal command.
+
 .. code:: bash
 
    # download from GitHub
@@ -112,16 +118,20 @@ install the library locally.
    source lensless_env/bin/activate
 
    # install package
-   pip install -e .
+   (lensless) pip install -e .
 
    # extra dependencies for local machine for plotting/reconstruction
-   pip install -r recon_requirements.txt
+   (lensless) pip install -r recon_requirements.txt
+
+   # pre-commit hooks for code formatting
+   (lensless) pip install pre-commit black
+   (lensless) pre-commit install
 
    # (optional) try reconstruction on local machine
-   python scripts/recon/admm.py
+   (lensless) python scripts/recon/admm.py
 
    # (optional) try reconstruction on local machine with GPU
-   python scripts/recon/admm.py -cn pytorch
+   (lensless) python scripts/recon/admm.py -cn pytorch
 
 
 Note (25-04-2023): for using the :py:class:`~lensless.recon.apgd.APGD` reconstruction method based on Pycsou
