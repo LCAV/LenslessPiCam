@@ -11,7 +11,9 @@ from torchvision import transforms, datasets
 from tqdm import tqdm
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="simulate_torch_dataset")
+@hydra.main(
+    version_base=None, config_path="../../configs/simulate", config_name="simulate_torch_dataset"
+)
 def simulate(config):
 
     # load dataset

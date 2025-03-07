@@ -36,7 +36,7 @@ import torch
 from torch.utils.data import Subset
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="benchmark")
+@hydra.main(version_base=None, config_path="../../configs/benchmark", config_name="defaults")
 def benchmark_recon(config):
 
     # set seed

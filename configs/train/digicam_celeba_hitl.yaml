@@ -1,0 +1,112 @@
+# Learn mask with HITL training by setting measure configuration (set to null for learning in simulation)
+# 
+# WARNING: May not run since there has been changes since the last run (late 2023).
+#
+# EXAMPLE COMMAND: 
+# python scripts/recon/train_learning_based.py -cn train_celeba_digicam_hitl measure.rpi_username=USERNAME measure.rpi_hostname=HOSTNAME files.vertical_shift=SHIFT
+
+defaults:
+  - digicam_celeba
+  - _self_
+
+# Train Dataset  (TODO use dataset from Hugging Face instead)
+files:
+
+  dataset: CelebA
+  celeba_root: /scratch/bezzam
+  n_files: 1000
+
+  downsample: 8
+  # TODO: set appropriately to align
+  vertical_shift: -520
+  horizontal_shift: null
+  crop:
+    vertical: [0, 2000]
+    horizontal: [1200, 2800]
+
+# for prepping ground truth data
+simulation:
+  scene2mask: 0.3   # [m]
+  mask2sensor: 0.002   # [m]
+  object_height: 0.38   # [m]
+  snr_db: 5
+  downsample: null
+  random_vflip: False
+  random_hflip: False
+  quantize: False
+  flip: False
+
+measure:
+  # TODO: set for device
+  rpi_username: null
+  rpi_hostname: null
+
+  display:
+    # default to this screen: https://www.dell.com/en-us/work/shop/dell-ultrasharp-usb-c-hub-monitor-u2421e/apd/210-axmg/monitors-monitor-accessories#techspecs_section
+    screen_res: [1920, 1200]   # width, height
+    pad: 10
+    hshift: 0
+    vshift: -18
+    brightness: 100
+    rot90: 3
+
+  capture:
+
+    # NB: not being used
+    max_level: 254
+    min_level: 150
+    max_tries: 4
+    delay: 2
+
+    sensor: rpi_hq
+    gamma: null # for visualization
+    exp: 0.8
+    script: ~/LenslessPiCam/scripts/measure/on_device_capture.py
+    iso: 100
+    config_pause: 1
+    sensor_mode: "0"
+    nbits_out: 8
+    nbits_capture: 12
+    legacy: True
+    gray: False
+    fn: raw_data
+    bayer: True
+    awb_gains: [1.6, 1.2]
+    rgb: True
+    down: 8
+    flip: True
+
+#Training
+training:
+  batch_size: 4
+  epoch: 10
+  eval_batch_size: 1
+  crop_preloss: True
+  save_every: 1
+
+#Trainable Mask
+trainable_mask:
+  mask_type: AdafruitLCD #Null or "TrainablePSF" or "AdafruitLCD"
+  # "random" (with shape of config.files.psf) or path to npy file 
+  grayscale: False
+  mask_lr: 1e-3
+  L1_strength: False
+  min_val: 0
+
+  train_mask_vals: True
+  train_color_filter: True
+
+  # -- only for AdafruitLCD 
+  initial_value: data/psf/adafruit_random_pattern_20231107_150902.npy
+  ap_center: [57, 77]
+  ap_shape: [18, 26]
+  rotate: 0   # rotation in degrees
+  # to align with measured PSF (so reconstruction also aligned)
+  vertical_shift: 0 # [px]
+  horizontal_shift: 0  # [px]
+  
+  slm: adafruit
+  sensor: rpi_hq
+  flipud: True
+  waveprop: True  # TODO: remove if too slow
+  

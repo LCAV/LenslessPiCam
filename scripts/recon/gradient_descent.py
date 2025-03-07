@@ -23,7 +23,7 @@ from lensless import (
 )
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="defaults_recon")
+@hydra.main(version_base=None, config_path="../../configs/recon", config_name="defaults")
 def gradient_descent(
     config,
 ):

@@ -61,7 +61,7 @@ from lensless.recon.model_dict import load_model, download_model
 log = logging.getLogger(__name__)
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="train_unrolledADMM")
+@hydra.main(version_base=None, config_path="../../configs/train", config_name="defaults")
 def train_learned(config):
 
     if config.wandb_project is not None:
@@ -92,18 +92,25 @@ def train_learned(config):
         save = os.getcwd()
 
     use_cuda = False
-    if "cuda" in config.torch_device and torch.cuda.is_available():
-        # if config.torch_device == "cuda" and torch.cuda.is_available():
-        log.info(f"Using GPU for training. Main device : {config.torch_device}")
+
+    # check torch_device is iterable
+    if hasattr(config.torch_device, "__iter__") and not isinstance(config.torch_device, str):
+        # assert every element is integer
+        assert all(isinstance(x, int) for x in config.torch_device)
+        device = f"cuda:{config.torch_device[0]}"
+        device_ids = config.torch_device
+    else:
         device = config.torch_device
+        device_ids = None
+
+    if "cuda" in device and torch.cuda.is_available():
+        log.info(f"Using GPU for training. Main device : {device}")
         use_cuda = True
     else:
         log.info("Using CPU for training.")
         device = "cpu"
-    device_ids = config.device_ids
     if device_ids is not None:
         log.info(f"Using multiple GPUs : {device_ids}")
-        assert device_ids[0] == int(device.split(":")[1])
 
     # load dataset and create dataloader
     train_set = None
