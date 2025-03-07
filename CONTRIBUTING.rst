@@ -52,8 +52,7 @@ guide:
 .. code:: bash
 
    # install inside virtual environment
-   (lensless) pip install pre-commit
-   (lensless) pip install black
+   (lensless) pip install pre-commit black
 
    # Install git hooks in `.git/` directory
    (lensless) pre-commit install
