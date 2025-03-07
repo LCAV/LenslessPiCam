@@ -2,13 +2,13 @@
 LenslessPiCam
 =============
 
-.. image:: https://readthedocs.org/projects/lensless/badge/?version=latest
-    :target: http://lensless.readthedocs.io/en/latest/
-    :alt: Documentation Status
-
 .. image:: https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white
     :target: https://github.com/LCAV/LenslessPiCam
     :alt: GitHub page
+
+.. image:: https://readthedocs.org/projects/lensless/badge/?version=latest
+    :target: http://lensless.readthedocs.io/en/latest/
+    :alt: Documentation Status
 
 .. image:: https://joss.theoj.org/papers/10.21105/joss.04747/status.svg
       :target: https://doi.org/10.21105/joss.04747
