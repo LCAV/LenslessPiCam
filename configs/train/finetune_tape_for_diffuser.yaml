@@ -1,0 +1,14 @@
+# python scripts/recon/train_learning_based.py -cn finetune_tape_for_diffuser
+defaults:
+  - diffusercam
+  - _self_
+
+# Fine-tune on simulate data
+files:
+  hf_simulated: True
+
+reconstruction:
+  init: hf:tapecam:mirflickr:Unet4M+U5+Unet4M
+
+optimizer:
+  lr: 1e-5

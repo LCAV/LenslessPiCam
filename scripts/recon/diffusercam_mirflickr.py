@@ -16,7 +16,7 @@ repo_path = "/home/bezzam/LenslessPiCam"
 
 
 @hydra.main(
-    version_base=None, config_path="../../configs", config_name="recon_diffusercam_mirflickr"
+    version_base=None, config_path="../../configs/recon", config_name="recon_diffusercam_mirflickr"
 )
 def apply_model(config):
     idx = config.idx

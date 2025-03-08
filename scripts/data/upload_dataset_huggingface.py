@@ -30,7 +30,7 @@ from joblib import Parallel, delayed
 
 
 @hydra.main(
-    version_base=None, config_path="../../configs", config_name="upload_dataset_huggingface"
+    version_base=None, config_path="../../configs/dataset", config_name="upload_dataset_huggingface"
 )
 def upload_dataset(config):
 

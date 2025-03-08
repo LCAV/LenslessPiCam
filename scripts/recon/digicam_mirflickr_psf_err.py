@@ -19,7 +19,7 @@ def key_to_ratio_correct(key_length, bit_depth, n_pixel):
 
 
 @hydra.main(
-    version_base=None, config_path="../../configs", config_name="recon_digicam_mirflickr_err"
+    version_base=None, config_path="../../configs/recon", config_name="digicam_mirflickr_psf_err"
 )
 def apply_pretrained(config):
     device = config.device
@@ -75,9 +75,9 @@ def apply_pretrained(config):
         # load data
         # TODO missing simulation parameters???
         test_set = HFDataset(
-            huggingface_repo=model_config["files"]["dataset"]
-            if config.hf_repo is None
-            else config.hf_repo,
+            huggingface_repo=(
+                model_config["files"]["dataset"] if config.hf_repo is None else config.hf_repo
+            ),
             psf=(
                 model_config["files"]["huggingface_psf"]
                 if "huggingface_psf" in model_config["files"]

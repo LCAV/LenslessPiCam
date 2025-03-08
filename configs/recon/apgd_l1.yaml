@@ -1,0 +1,16 @@
+# python scripts/recon/apgd_pycsou.py -cn apgd_l1
+defaults:
+  - defaults
+  - _self_
+
+preprocess:
+  # Downsampling factor along X and Y
+  downsample: 8
+
+apgd:
+  # Proximal prior / regularization: nonneg, l1, null
+  prox_penalty: l1
+  prox_lambda: 0.00001
+  # Lipschitz
+  lipschitz_tight: True
+  lipschitz_tol: 0.1

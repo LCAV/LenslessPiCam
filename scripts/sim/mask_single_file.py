@@ -64,7 +64,7 @@ from lensless.recon.tikhonov import CodedApertureReconstruction
 import torch
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="mask_sim_single")
+@hydra.main(version_base=None, config_path="../../configs/simulate", config_name="mask_sim_single")
 def simulate(config):
 
     fp = to_absolute_path(config.files.original)

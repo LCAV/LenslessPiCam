@@ -9,7 +9,9 @@ import time
 
 
 @hydra.main(
-    version_base=None, config_path="../../configs", config_name="simulate_torch_custom_dataset"
+    version_base=None,
+    config_path="../../configs/simulate",
+    config_name="simulate_torch_custom_dataset",
 )
 def simulate(config):
 
