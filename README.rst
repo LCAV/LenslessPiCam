@@ -47,7 +47,7 @@ As **modularity** is a key feature of this toolkit, we try to support different 
 
 The toolkit includes:
 
-* Training scripts/configuration for various learnable, physics-informed reconstruction approaches, as shown `here <https://github.com/LCAV/LenslessPiCam/blob/main/configs/train#training-configurations>`__.
+* Training scripts/configuration for various learnable, physics-informed reconstruction approaches, as shown `here <https://github.com/LCAV/LenslessPiCam/blob/main/configs/train#training-physics-informed-reconstruction-models>`__.
 * Camera assembly tutorials (`link <https://lensless.readthedocs.io/en/latest/building.html>`__).
 * Measurement scripts (`link <https://lensless.readthedocs.io/en/latest/measurement.html>`__).
 * Dataset preparation and loading tools, with `Hugging Face <https://huggingface.co/bezzam>`__ integration (`slides <https://docs.google.com/presentation/d/18h7jTcp20jeoiF8dJIEcc7wHgjpgFgVxZ_bJ04W55lg/edit?usp=sharing>`__ on uploading a dataset to Hugging Face with `this script <https://github.com/LCAV/LenslessPiCam/blob/main/scripts/data/upload_dataset_huggingface.py>`__).
