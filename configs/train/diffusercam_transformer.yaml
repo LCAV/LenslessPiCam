@@ -1,0 +1,43 @@
+# python scripts/recon/train_learning_based.py -cn diffusercam_transformer
+defaults:
+  - diffusercam
+  - _self_
+
+# torch_device: [0, 1]   # TODO doesn't seem to distribute model parameters very well
+
+training:
+  batch_size: 2
+
+reconstruction:
+
+  # 8.2M (pre + post + PSF correction)
+  psf_network: [4, 8, 16, 32]    # 127'740 parameters
+  pre_process:   # 4'044'848 parameters
+    network : Restormer
+    restormer_params:
+      dim: 24
+      num_blocks: [2, 2, 4, 4]
+      num_refinement_blocks: 4
+      heads: [1, 2, 4, 8]
+      ffn_expansion_factor: 2.66
+  post_process:  # 4'044'848 parameters
+    network : Restormer
+    restormer_params:
+      dim: 24
+      num_blocks: [2, 2, 4, 4]
+      num_refinement_blocks: 4
+      heads: [1, 2, 4, 8]
+      ffn_expansion_factor: 2.66
+
+  # # 8.M
+  # psf_network: null
+  # pre_process: 
+  #   network : null
+  # post_process: 
+  #   network : Restormer
+  #   restormer_params:
+  #     dim: 30
+  #     num_blocks: [4, 4, 4, 6]
+  #     num_refinement_blocks: 4
+  #     heads: [1, 2, 4, 8]
+  #     ffn_expansion_factor: 2.66
