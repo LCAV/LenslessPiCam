@@ -17,7 +17,7 @@ By default, the model architecture uses five unrolleed iterations of ADMM for ca
 
 The output of training can be visualized on WandB (if you have connected with it when launching the script) and will be saved in the `outputs` directory with the appropriate timestamp.
 
-With DiffuserCam, we show how to set different camera inversion methods, which can also be used with other datasets.
+With DiffuserCam, we show how to set different camera inversion methods and neural networks architecture for the processors, which can also be used with other datasets.
 
 
 ## DiffuserCam
@@ -57,6 +57,15 @@ python scripts/recon/train_learning_based.py -cn diffusercam \
     reconstruction.post_process.network=null \
     reconstruction.psf_network=False
 ```
+
+### Transformer architecture for pre- and post-processors
+
+The following command shows how to train a camera inversion model with a transformer architecture for the pre- and post-processors. These models uses around 8M parameters.
+Note that Transformer models are computationally expensive and require more memory than UNetRes models for training (so the batch size is reduced from 4 to 2).
+```bash
+ python scripts/recon/train_learning_based.py -cn diffusercam_transformer
+```
+[This report](https://api.wandb.ai/links/lcav/mtbd9g2c) compares between using UNetRes and Transformer models for the pre- and post-processors.
 
 ### Multi PSF camera inversion
 
