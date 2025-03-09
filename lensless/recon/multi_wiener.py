@@ -279,7 +279,7 @@ class MultiWiener(nn.Module):
         # apply to data
         return self.forward(self._data, **kwargs)
 
-    def reconstruction_error(self, prediction, lensless):
+    def reconstruction_error(self, prediction, lensless, **kwargs):
         convolver = self._convolver
         if not convolver.pad:
             prediction = convolver._pad(prediction)

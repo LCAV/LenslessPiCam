@@ -18,7 +18,7 @@ from lensless import ADMM
 from lensless.utils.plot import plot_image
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="defaults_recon")
+@hydra.main(version_base=None, config_path="../../configs/recon", config_name="defaults")
 def admm(config):
     if config.torch:
         try:

@@ -58,7 +58,7 @@ from lensless.hardware.mask import CodedAperture, PhaseContour, FresnelZoneApert
 from lensless.recon.tikhonov import CodedApertureReconstruction
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="mask_sim_dataset")
+@hydra.main(version_base=None, config_path="../../configs/simulate", config_name="mask_sim_dataset")
 def simulate(config):
 
     if config.torch:

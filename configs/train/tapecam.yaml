@@ -1,0 +1,61 @@
+# python scripts/recon/train_learning_based.py -cn tapecam
+defaults:
+  - defaults
+  - _self_
+
+wandb_project: tapecam
+eval_disp_idx: [1, 2, 4, 5, 9]
+
+# Dataset
+files:
+  dataset: bezzam/TapeCam-Mirflickr-25K
+  huggingface_dataset: True
+  huggingface_psf: psf.png
+  downsample: 1
+  # TODO: these parameters should be in the dataset?
+  image_res: [900, 1200]  # used during measurement
+  rotate: False   # if measurement is upside-down
+  save_psf: True
+
+# TODO: these parameters should be in the dataset?
+alignment:
+  # when there is no downsampling
+  top_left: [45, 95]  # height, width
+  height: 250
+
+training:
+  batch_size: 4
+  epoch: 25
+  eval_batch_size: 4
+
+reconstruction:
+  method: unrolled_admm
+  unrolled_admm:
+    n_iter: 5
+
+  # # Just post-processing (8.2M parameters)
+  # post_process: 
+  #   network : UnetRes  # UnetRes or DruNet or null
+  #   depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+  #   nc: [32,64,128,256]
+
+  # # Pre-processing + post-processing (8.1M parameters)
+  # pre_process: 
+  #   network : UnetRes  # UnetRes or DruNet or null
+  #   depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+  #   nc: [32,64,116,128]
+  # post_process: 
+  #   network : UnetRes  # UnetRes or DruNet or null
+  #   depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+  #   nc: [32,64,116,128]
+
+  # Pre-processing + post-processing + PSF correction (8.1M parameters)
+  psf_network: [4,8,16,32]
+  pre_process: 
+    network : UnetRes  # UnetRes or DruNet or null
+    depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+    nc: [32,64,112,128]
+  post_process: 
+    network : UnetRes  # UnetRes or DruNet or null
+    depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+    nc: [32,64,116,128]

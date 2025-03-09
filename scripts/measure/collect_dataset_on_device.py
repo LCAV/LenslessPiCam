@@ -50,7 +50,7 @@ def natural_sort(arr):
     return sorted(arr, key=alphanum_key)
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="collect_dataset")
+@hydra.main(version_base=None, config_path="../../configs/dataset", config_name="collect_dataset")
 def collect_dataset(config):
     input_dir = config.input_dir
     output_dir = config.output_dir
@@ -221,16 +221,33 @@ def collect_dataset(config):
                 # display img
                 display_img(_file, config, init_brightness)
                 # capture img
-                output, _, _, camera = capture_screen(MAX_LEVEL, MAX_TRIES, MIN_LEVEL, _file, brightness_vals, camera, config, down,
-                                        exposure_vals, g, i, init_brightness, shutter_speed, None,
-                                        n_tries_vals,
-                                        output_fp, start_idx)
+                output, _, _, camera = capture_screen(
+                    MAX_LEVEL,
+                    MAX_TRIES,
+                    MIN_LEVEL,
+                    _file,
+                    brightness_vals,
+                    camera,
+                    config,
+                    down,
+                    exposure_vals,
+                    g,
+                    i,
+                    init_brightness,
+                    shutter_speed,
+                    None,
+                    n_tries_vals,
+                    output_fp,
+                    start_idx,
+                )
 
                 if config.capture.measure_bg:
                     # name of background for current image
-                    bg_name = plib.Path(config.capture.bg_fp + str(i)).with_suffix(f".{config.output_file_ext}")
+                    bg_name = plib.Path(config.capture.bg_fp + str(i)).with_suffix(
+                        f".{config.output_file_ext}"
+                    )
                     bg = output_dir / bg_name
-                    
+
                     # append current file to bg list
                     if str(bg_name) not in current_bg:
                         current_bg[str(bg_name)] = str(_file.name)
@@ -241,27 +258,41 @@ def collect_dataset(config):
                         bg_name = str(bg_name)
                         # push the last bg-capture pairs
                         if current_bg:
-                            with open(output_dir / "bg_mappings.json", 'a') as outfile:
+                            with open(output_dir / "bg_mappings.json", "a") as outfile:
                                 json.dump(current_bg, outfile, indent=4)
                         current_bg = {}
-                        #current_bg[bg_name] = None
-                        
+                        # current_bg[bg_name] = None
+
                         # display bg
                         display_img(None, config, brightness=init_brightness)
                         # capture bg
-                        output, shutter_speed, init_brightness, camera = capture_screen(MAX_LEVEL, 0, MIN_LEVEL,
-                                                plib.Path(config.capture.bg_fp + str(i)).with_suffix(f".{config.output_file_ext}"),
-                                                brightness_vals, camera, config, down,
-                                                exposure_vals, g, i, init_brightness, shutter_speed, None,
-                                                n_tries_vals,
-                                                bg, start_idx)
-
+                        output, shutter_speed, init_brightness, camera = capture_screen(
+                            MAX_LEVEL,
+                            0,
+                            MIN_LEVEL,
+                            plib.Path(config.capture.bg_fp + str(i)).with_suffix(
+                                f".{config.output_file_ext}"
+                            ),
+                            brightness_vals,
+                            camera,
+                            config,
+                            down,
+                            exposure_vals,
+                            g,
+                            i,
+                            init_brightness,
+                            shutter_speed,
+                            None,
+                            n_tries_vals,
+                            bg,
+                            start_idx,
+                        )
 
         if recon is not None:
             # normalize and remove background
             output = output.astype(np.float32)
             output /= output.max()
-            output -= bg # TODO implement fancy bg subtraction
+            output -= bg  # TODO implement fancy bg subtraction
             output = np.clip(output, a_min=0, a_max=output.max())
 
             # set data
@@ -292,8 +323,25 @@ def collect_dataset(config):
     print(f"n_tries average: {np.mean(n_tries_vals)}")
 
 
-def capture_screen(MAX_LEVEL, MAX_TRIES, MIN_LEVEL, _file, brightness_vals, camera, config, down, exposure_vals, g, i,
-                   init_brightness, init_shutter_speed, mask_dir, n_tries_vals, output_fp, start_idx):
+def capture_screen(
+    MAX_LEVEL,
+    MAX_TRIES,
+    MIN_LEVEL,
+    _file,
+    brightness_vals,
+    camera,
+    config,
+    down,
+    exposure_vals,
+    g,
+    i,
+    init_brightness,
+    init_shutter_speed,
+    mask_dir,
+    n_tries_vals,
+    output_fp,
+    start_idx,
+):
     if not config.capture.skip:
 
         # -- set mask pattern
@@ -361,13 +409,15 @@ def capture_screen(MAX_LEVEL, MAX_TRIES, MIN_LEVEL, _file, brightness_vals, came
             max_pixel_val = output.max()
 
             if max_pixel_val < MIN_LEVEL:
-                
+
                 # increase exposure
                 current_shutter_speed = int(current_shutter_speed * fact_increase)
                 camera.shutter_speed = current_shutter_speed
                 time.sleep(config.capture.config_pause)
-                
-                print(f"increasing shutter speed to [desired] {current_shutter_speed} [actual] {camera.shutter_speed}")
+
+                print(
+                    f"increasing shutter speed to [desired] {current_shutter_speed} [actual] {camera.shutter_speed}"
+                )
 
             elif max_pixel_val > MAX_LEVEL:
                 if current_shutter_speed > 13098:  # TODO: minimum for RPi HQ
@@ -375,7 +425,9 @@ def capture_screen(MAX_LEVEL, MAX_TRIES, MIN_LEVEL, _file, brightness_vals, came
                     current_shutter_speed = int(current_shutter_speed / fact_decrease)
                     camera.shutter_speed = current_shutter_speed
                     time.sleep(config.capture.config_pause)
-                    print(f"decreasing shutter speed to [desired] {current_shutter_speed} [actual] {camera.shutter_speed}")
+                    print(
+                        f"decreasing shutter speed to [desired] {current_shutter_speed} [actual] {camera.shutter_speed}"
+                    )
 
                 else:
 

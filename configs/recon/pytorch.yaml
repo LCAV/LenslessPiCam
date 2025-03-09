@@ -1,0 +1,9 @@
+# python scripts/recon/gradient_descent.py -cn pytorch
+# python scripts/recon/admm.py -cn pytorch
+defaults:
+  - defaults
+  - _self_
+
+torch: True
+torch_device: 'cuda:0'
+

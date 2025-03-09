@@ -21,6 +21,7 @@ Contents
 .. toctree::
    :caption: From A to Z
 
+   learned
    building
    measurement
    reconstruction

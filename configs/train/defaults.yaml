@@ -1,0 +1,231 @@
+# python scripts/recon/train_learning_based.py
+hydra:
+  job:
+    chdir: True    # change to output folder
+
+
+wandb_project: lensless
+seed: 0
+start_delay: null   # wait for this time in minutes before starting
+torch: True
+torch_device: 'cuda'  # or list of devices, e.g. [0, 1, 2, 3]
+measure: null       # if measuring data on-the-fly
+
+# Dataset
+files:
+  # -- using local dataset
+  # dataset: /scratch/bezzam/DiffuserCam_mirflickr/dataset  # Simulated : "mnist", "fashion_mnist", "cifar10", "CelebA". Measure :"DiffuserCam"
+  # celeba_root: null   # path to parent directory of CelebA: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
+  # psf: data/psf/diffusercam_psf.tiff
+  # diffusercam_psf: True
+
+  cache_dir: null    # where to read/write dataset. Defaults to `"~/.cache/huggingface/datasets"`.
+
+  # -- using huggingface dataset
+  dataset: bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM
+  huggingface_dataset: True
+  huggingface_psf: psf.tiff
+  single_channel_psf: False    # whether to sum all PSF channels into one
+  hf_simulated: False
+
+  # -- train/test split
+  split_seed: null   # if null use train/test split from dataset
+  n_files: null    # null to use all for both train/test
+  test_size: null
+
+  # -- processing parameters
+  downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
+  downsample_lensed: 2   # only used if lensed if measured
+  input_snr: null    # adding shot noise at input (for measured dataset) at this SNR in dB
+  psf_snr: null    # adding noise to PSF at this SNR in dB
+  background_fp: null
+  background_snr_range: null
+  vertical_shift: null
+  horizontal_shift: null
+  rotate: False
+  flipud: False
+  flip_lensed: False
+  save_psf: False
+  crop: null
+    # vertical: null
+    # horizontal: null
+  image_res: null   # for measured data, what resolution used at screen
+  extra_eval: null  # dict of extra datasets to evaluate on
+  force_rgb: False
+  simulate_lensless: False   # False to use measured data
+  random_flip: False
+  random_rotate: False
+  random_shifts: False
+
+alignment: null
+#   top_left: null    # height, width
+  # height: null
+
+# test set example to visualize at the end of every epoch
+eval_disp_idx: [0, 1, 2, 3, 4]
+
+display:
+  # Whether to plot results.
+  plot: True
+  # Gamma factor for plotting.
+  gamma: null
+
+# Whether to save intermediate and final reconstructions.
+save: True
+
+reconstruction:
+
+  # initialize with Hugging Face model from model_dict, use "hf:camera:dataset:model_name"
+  init: null
+
+  # Method: unrolled_admm, unrolled_fista, trainable_inv, multi_wiener, svdeconvnet
+  method: unrolled_admm
+  skip_unrolled: False
+
+  # initialize with "init_processors"
+  # -- for HuggingFace model use "hf:camera:dataset:model_name"
+  # -- for local model use "local:model_path"
+  init_processors: null
+  init_pre: True   # if `init_processors`, set pre-procesor is available
+  init_post: True   # if `init_processors`, set post-procesor is available
+
+  # processing PSF
+  psf_network: False  # False, or set number of channels for UnetRes, e.g. [8,16,32,64], with skip connection
+  psf_residual: False  # if psf_network used, whether to use residual connection for original PSF estimate
+
+  # background subtraction (if dataset has corresponding background images)
+  direct_background_subtraction: False    # True or False
+  learned_background_subtraction: False   # False, or set number of channels for UnetRes, e.g. [8,16,32,64]
+  integrated_background_subtraction: False   # False, or set number of channels for UnetRes, e.g. [8,16,32,64]
+  down_subtraction: False  # for integrated_background_subtraction, whether to concatenate background subtraction during downsample or upsample
+  integrated_background_unetres: False   # whether to integrate within UNetRes
+  unetres_input_background: False   # whether to input background to UNetRes
+
+
+  # Hyperparameters for each method
+  unrolled_fista: # for unrolled_fista
+    # Number of iterations
+    n_iter: 20
+    tk: 1
+    learn_tk: True
+  unrolled_admm:
+    # Number of iterations
+    n_iter: 20
+    # Hyperparameters
+    mu1: 1e-4
+    mu2: 1e-4
+    mu3: 1e-4
+    tau: 2e-4
+  trainable_inv:
+    K: 1e-4    # regularization parameter
+  svdeconvnet:
+    K: 3       # KxK number of deconvolution filters
+  multi_wiener:
+    nc: [64, 128, 256, 512, 512]
+  pre_process: 
+    network : null  # UnetRes or DruNet or Restormer or null
+    delay: null    # add component after this may epochs
+    freeze: null
+    unfreeze: null
+    # -- parameters for UnetRes
+    depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
+    nc: null
+    # -- parameters for Restormer
+    restormer_params:
+      dim: 48
+      num_blocks: [4, 6, 6, 8]
+      num_refinement_blocks: 4
+      heads: [1, 2, 4, 8]
+      ffn_expansion_factor: 2.66
+  post_process: 
+    network : null  # UnetRes or DruNet or Restormer or null
+    delay: null    # add component after this may epochs
+    freeze: null
+    unfreeze: null
+    train_last_layer: False
+    # -- parameters for UnetRes
+    depth : 2 # depth of each up/downsampling layer. Ignore if network is DruNet
+    nc: null
+    # -- parameters for Restormer
+    restormer_params:
+      dim: 48
+      num_blocks: [4, 6, 6, 8]
+      num_refinement_blocks: 4
+      heads: [1, 2, 4, 8]
+      ffn_expansion_factor: 2.66
+  # number of channels for each compensation layer, list should equal to the number of layers (n_iter)
+  # and the last element should be equal to last layer of post_process.nc
+  compensation: null  
+  compensation_residual: True   # whether to use residual connection for compensation branch 
+
+#Trainable Mask
+trainable_mask:
+  mask_type: null #Null or "TrainablePSF" or "AdafruitLCD"
+  # "random" (with shape of config.files.psf) or "psf" (using config.files.psf)
+  initial_value: psf
+  grayscale: False
+  mask_lr: 1e-3
+  optimizer: Adam  # Adam, SGD... (Pytorch class)
+  L1_strength: 1.0  #False or float
+
+target: "object_plane"    # "original" or "object_plane" or "label"
+
+#for simulated dataset
+simulation:
+  grayscale: False
+  output_dim: null     # should be set if no PSF is used    
+  # random variations
+  object_height: 0.04   # range for random height or scalar
+  flip: True # change the orientation of the object (from vertical to horizontal)
+  random_shift: False
+  random_vflip: 0.5
+  random_hflip: 0.5
+  random_rotate: False
+  # these distance parameters are typically fixed for a given PSF
+  # for DiffuserCam psf # for tape_rgb psf     
+  scene2mask: 10e-2     # scene2mask: 40e-2       
+  mask2sensor: 9e-3     # mask2sensor: 4e-3    
+  deadspace: True    # whether to account for deadspace for programmable mask   
+  # see waveprop.devices
+  use_waveprop: False    # for PSF simulation
+  sensor: "rpi_hq"
+  snr_db: 10
+  # simulate different sensor resolution
+  # output_dim: [24, 32]    # [H, W] or null
+  # Downsampling for PSF
+  downsample: 8
+  # max val in simulated measured (quantized 8 bits)
+  quantize: False   # must be False for differentiability
+  max_val: 255
+
+#Training
+training:
+  batch_size: 8
+  epoch: 25
+  eval_batch_size: 10
+  metric_for_best_model: null   # e.g. LPIPS_Vgg, null does test loss
+  save_every: null
+  #In case of instable training
+  skip_NAN: True
+  clip_grad: 1.0
+  crop_preloss: False  # crop region for computing loss, files.crop should be set
+
+optimizer:
+  type: AdamW  # Adam, SGD... (Pytorch class)
+  lr: 1e-4
+  lr_step_epoch: False   # True -> update LR at end of each epoch, False at the end of each mini-batch
+  cosine_decay_warmup: True  # if set, cosine decay with warmup of 5%
+  final_lr: False   # if set, exponentially decay *to* this value
+  exp_decay: False  # if set, exponentially decay *with* this value
+  slow_start: False  #float how much to reduce lr for first epoch
+  # Decay LR in step fashion: https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.StepLR.html
+  step: False     # int, period of learning rate decay. False to not apply
+  gamma: 0.1      # float, factor for learning rate decay 
+  
+loss: 'l2'
+# set lpips to false to deactivate. Otherwise, give the weigth for the loss (the main loss l2/l1 always having a weigth of 1)
+lpips: 1.0
+unrolled_output_factor: False   # whether to account for unrolled output in loss (there must post-processor)
+# factor for auxiliary pre-processor loss to promote measurement consistency -> ||pre_proc(y) - A * camera_inversion(y)||
+# -- use camera inversion output so that doesn't include enhancements / coloring by post-processor
+pre_proc_aux: False

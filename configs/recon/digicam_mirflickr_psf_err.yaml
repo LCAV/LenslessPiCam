@@ -1,0 +1,28 @@
+# python scripts/recon/digicam_mirflickr_psf_err.py
+defaults:
+  - defaults
+  - _self_
+
+cache_dir: null
+metrics_fp : null
+hf_repo: null    # by default use one in model config
+
+# set model
+# -- for learning-based methods (comment if using ADMM)
+model: Unet4M+U5+Unet4M_wave_psfNN
+
+# # -- for ADMM with fixed parameters
+# model: admm
+n_iter: 10
+
+device: cuda:1
+save_idx: [1, 2, 4, 5, 9]
+n_files: null
+percent_pixels_wrong: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+plot_vs_percent_wrong: False   # whether to plot again percent wrong or correct
+flip: False   # whether to flip mask values (True) or reset them (False)
+
+compare_aes: [128, 256]  # key lengths
+digicam_ratio: 0.6   # approximate ratio of pixels that need to be correct
+bit_depth: 8
+n_pixel: 1404

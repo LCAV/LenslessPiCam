@@ -1,0 +1,55 @@
+# python scripts/recon/train_learning_based.py -cn diffusercam
+defaults:
+  - defaults
+  - _self_
+
+wandb_project: diffusercam
+eval_disp_idx: [0, 1, 3, 4, 8]
+
+# Dataset
+files:
+  dataset: bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM
+  huggingface_dataset: True
+  huggingface_psf: psf.tiff
+  single_channel_psf: True
+  downsample: 2    # factor by which to downsample the PSF, note that for DiffuserCam the PSF has 4x the resolution
+  downsample_lensed: 2   # only used if lensed if measured
+  flipud: True
+  flip_lensed: True
+
+training:
+  batch_size: 4
+  epoch: 25
+  eval_batch_size: 4
+
+reconstruction:
+  method: unrolled_admm
+  unrolled_admm:
+    n_iter: 5
+
+  # # Just post-processing (8.2M parameters)
+  # post_process: 
+  #   network : UnetRes  # UnetRes or DruNet or null
+  #   depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+  #   nc: [32,64,128,256]
+
+  # # Pre-processing + post-processing (8.1M parameters)
+  # pre_process: 
+  #   network : UnetRes  # UnetRes or DruNet or null
+  #   depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+  #   nc: [32,64,116,128]
+  # post_process: 
+  #   network : UnetRes  # UnetRes or DruNet or null
+  #   depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+  #   nc: [32,64,116,128]
+
+  # Pre-processing + post-processing + PSF correction (8.1M parameters)
+  psf_network: [4,8,16,32]
+  pre_process: 
+    network : UnetRes  # UnetRes or DruNet or null
+    depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+    nc: [32,64,112,128]
+  post_process: 
+    network : UnetRes  # UnetRes or DruNet or null
+    depth : 4 # depth of each up/downsampling layer. Ignore if network is DruNet
+    nc: [32,64,116,128]
