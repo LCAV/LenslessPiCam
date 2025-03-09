@@ -1,8 +1,12 @@
 # Training physics-informed reconstruction models
 
-The following datasets are supported (hyperlinks takes to relevant configuration description):
+The following datasets are supported (hyperlinks takes to relevant configuration description).
+By default, the model architecture uses five unrolleed iterations of ADMM for camera inversion, and UNetRes models for the pre-processor post-processor, and PSF correction.
+
 
 - [DiffuserCam](#diffusercam)
+    - [Transformer architecture for pre- and post-processors](#transformer-architecture-for-pre--and-post-processors)
+    - [Multi PSF camera inversion (PhoCoLens)](#multi-psf-camera-inversion)
 - [TapeCam](#tapecam)
 - [DigiCam with a Single Mask](#digicam-with-a-single-mask)
 - [DigiCam with Multiple Masks](#digicam-with-multiple-masks)
@@ -12,8 +16,6 @@ The following datasets are supported (hyperlinks takes to relevant configuration
 By commenting/uncommenting relevant sections in the configuration file, you can train models with different architectures or by setting parameters via the command line. 
 The corresponding dataset will be downloaded from Hugging Face (if not done already).
 The configuration files are based on [Hydra](https://hydra.cc/docs/intro/), which allows for easy parameter management. For more on Hydra, check out this [blog post](https://medium.com/@bezzam/hydra-for-cleaner-python-code-and-better-reproducibility-in-research-c035028101f9).
-
-By default, the model architecture uses five unrolleed iterations of ADMM for camera inversion, and UNetRes models for the pre-processor post-processor, and PSF correction.
 
 The output of training can be visualized on WandB (if you have connected with it when launching the script) and will be saved in the `outputs` directory with the appropriate timestamp.
 
