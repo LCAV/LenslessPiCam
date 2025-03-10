@@ -91,7 +91,7 @@ Camera / mask design:
 Datasets (hosted on Hugging Face and downloaded via their API):
 
 * DiffuserCam Lensless MIR Flickr dataset (copy on `Hugging Face <https://huggingface.co/datasets/bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM>`__). [2]_
-* TapeCam MIR Flickr (`Hugging Face <https://huggingface.co/datasets/bezzam/TapeCam-Mirflickr-25K`__). [7]_ 
+* TapeCam MIR Flickr (`Hugging Face <https://huggingface.co/datasets/bezzam/TapeCam-Mirflickr-25K>`__). [7]_ 
 * DigiCam MIR Flickr (`Hugging Face <https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-SingleMask-25K>`__). [7]_
 * DigiCam MIR Flickr with multiple mask patterns (`Hugging Face <https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-MultiMask-25K>`__). [7]_ 
 * DigiCam CelebA (`Hugging Face <https://huggingface.co/datasets/bezzam/DigiCam-CelebA-26K>`__). [7]_
