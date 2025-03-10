@@ -72,30 +72,30 @@ The following works have been implemented in the toolkit:
 
 Reconstruction algorithms:
 
-* ADMM with total variation regularization and 3D support [1]_ (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/recon/admm.py#L24>`__, `usage <https://github.com/LCAV/LenslessPiCam/blob/main/scripts/recon/admm.py>`).
-* Unrolled ADMM [2]_. (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/recon/unrolled_admm.py#L20>`__, `usage <https://github.com/LCAV/LenslessPiCam/tree/main/configs/train#unrolled-admm>`__).
-* Unrolled ADMM with compensation branch [3]_ (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/recon/utils.py#L84>`__, `usage <https://github.com/LCAV/LenslessPiCam/tree/main/configs/train#compensation-branch>`__).
-* Trainable inversion from Flatnet [4]_ (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/recon/trainable_inversion.py#L11>`__, `usage <https://github.com/LCAV/LenslessPiCam/tree/main/configs/train#trainable-inversion>`__).
-* Multi-Wiener deconvolution network [5]_ (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/recon/multi_wiener.py#L87>__`, `usage <https://github.com/LCAV/LenslessPiCam/tree/main/configs/train#multi-wiener-deconvolution-network>`__).
-* SVDeconvNet (for learning multi-PSF deconvolution) from PhoCoLens [6]_ (`source code <https://github.com/LCAV/LenslessPiCam/blob/main/lensless/recon/sv_deconvnet.py#L42>`__, `usage <https://github.com/LCAV/LenslessPiCam/tree/main/configs/train#multi-psf-camera-inversion>`__).
-* Incorporating pre-processor [7]_ (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/recon/trainable_recon.py#L52>__`).
-* Accounting for external illumination [8]_ (`source code 1 <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/recon/trainable_recon.py#L64>`__, `source code 2 <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/scripts/recon/train_learning_based.py#L458>`__, `usage <https://github.com/LCAV/LenslessPiCam/tree/main/configs/train#multilens-under-external-illumination>`__).
+* ADMM with total variation regularization and 3D support (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/recon/admm.py#L24>`__, `usage <https://github.com/LCAV/LenslessPiCam/blob/main/scripts/recon/admm.py>`__). [1]_
+* Unrolled ADMM (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/recon/unrolled_admm.py#L20>`__, `usage <https://github.com/LCAV/LenslessPiCam/tree/main/configs/train#unrolled-admm>`__). [2]_
+* Unrolled ADMM with compensation branch (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/recon/utils.py#L84>`__, `usage <https://github.com/LCAV/LenslessPiCam/tree/main/configs/train#compensation-branch>`__). [3]_
+* Trainable inversion from Flatnet (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/recon/trainable_inversion.py#L11>`__, `usage <https://github.com/LCAV/LenslessPiCam/tree/main/configs/train#trainable-inversion>`__). [4]_
+* Multi-Wiener deconvolution network (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/recon/multi_wiener.py#L87>`__, `usage <https://github.com/LCAV/LenslessPiCam/tree/main/configs/train#multi-wiener-deconvolution-network>`__). [5]_
+* SVDeconvNet (for learning multi-PSF deconvolution) from PhoCoLens (`source code <https://github.com/LCAV/LenslessPiCam/blob/main/lensless/recon/sv_deconvnet.py#L42>`__, `usage <https://github.com/LCAV/LenslessPiCam/tree/main/configs/train#multi-psf-camera-inversion>`__). [6]_
+* Incorporating pre-processor (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/recon/trainable_recon.py#L52>`__). [7]_
+* Accounting for external illumination(`source code 1 <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/recon/trainable_recon.py#L64>`__, `source code 2 <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/scripts/recon/train_learning_based.py#L458>`__, `usage <https://github.com/LCAV/LenslessPiCam/tree/main/configs/train#multilens-under-external-illumination>`__). [8]_ 
 
 Camera / mask design:
 
-* Fresnel zone aperture mask pattern [9]_ (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/hardware/mask.py#L823>`__).
-* Coded aperture mask pattern [10]_ (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/hardware/mask.py#L288>`__).
-* Near-field Phase Retrieval for designing a high-contrast phase mask [11]_ (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/hardware/mask.py#L706>`__).
-* LCD-based PSF simulation [7]_ (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/hardware/trainable_mask.py#L117>`__).
+* Fresnel zone aperture mask pattern (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/hardware/mask.py#L823>`__). [9]_ 
+* Coded aperture mask pattern (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/hardware/mask.py#L288>`__). [10]_
+* Near-field Phase Retrieval for designing a high-contrast phase mask (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/hardware/mask.py#L706>`__). [11]_
+* LCD-based camera, i.e. DigiCam (`source code <https://github.com/LCAV/LenslessPiCam/blob/d0261b4bc79ef05228b135e6898deb4f7793d1aa/lensless/hardware/trainable_mask.py#L117>`__). [7]_ 
 
-Datasets:
+Datasets (hosted on Hugging Face and downloaded via their API):
 
-* DiffuserCam Lensless MIR Flickr dataset [2]_ (copy on `Hugging Face <https://huggingface.co/datasets/bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM>`__).
-* TapeCam MIR Flickr [7]_ (`Hugging Face <https://huggingface.co/datasets/bezzam/TapeCam-Mirflickr-25K`__).
-* DigiCam MIR Flickr [7]_ (`Hugging Face <https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-SingleMask-25K>`__).
-* DigiCam MIR Flickr with multiple mask patterns [7]_ (`Hugging Face <https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-MultiMask-25K>`__).
-* DigiCam CelebA [7]_ (`Hugging Face <https://huggingface.co/datasets/bezzam/DigiCam-CelebA-26K>`__).
-* MultiFocal mask (fabricated by [12]_) MIR Flickr under external illumination [8]_ (`Hugging Face <https://huggingface.co/datasets/Lensless/MultiLens-Mirflickr-Ambient>`__).
+* DiffuserCam Lensless MIR Flickr dataset (copy on `Hugging Face <https://huggingface.co/datasets/bezzam/DiffuserCam-Lensless-Mirflickr-Dataset-NORM>`__). [2]_
+* TapeCam MIR Flickr (`Hugging Face <https://huggingface.co/datasets/bezzam/TapeCam-Mirflickr-25K>`__). [7]_ 
+* DigiCam MIR Flickr (`Hugging Face <https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-SingleMask-25K>`__). [7]_
+* DigiCam MIR Flickr with multiple mask patterns (`Hugging Face <https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-MultiMask-25K>`__). [7]_ 
+* DigiCam CelebA (`Hugging Face <https://huggingface.co/datasets/bezzam/DigiCam-CelebA-26K>`__). [7]_
+* MultiFocal mask MIR Flickr under external illumination (`Hugging Face <https://huggingface.co/datasets/Lensless/MultiLens-Mirflickr-Ambient>`__). [8]_ Mask fabricated by [12]_
 
 
 Setup 
@@ -262,10 +262,9 @@ If you use this toolkit in your own research, please cite the following:
    }
 
 
-The following papers have contributed different features to the toolkit:
+The following papers have contributed new approaches to the field of lensless imaging:
 
-* Introducing pre-processor component as part of modular reconstruction (`IEEE Transactions on Computational Imaging <https://arxiv.org/abs/2502.01102>`__
-and `IEEE International Conference on Image Processing (ICIP) 2024 <https://arxiv.org/abs/2403.00537>`__):
+* Introducing pre-processor component as part of modular reconstruction (`IEEE Transactions on Computational Imaging <https://arxiv.org/abs/2502.01102>`__ and `IEEE International Conference on Image Processing (ICIP) 2024 <https://arxiv.org/abs/2403.00537>`__):
 
 ::
 
