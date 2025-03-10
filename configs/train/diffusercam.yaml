@@ -20,7 +20,7 @@ files:
 training:
   batch_size: 4
   epoch: 25
-  eval_batch_size: 4
+  eval_batch_size: 8
 
 reconstruction:
   method: unrolled_admm

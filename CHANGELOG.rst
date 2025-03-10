@@ -38,6 +38,7 @@ Added
 - PSF correction network.
 - Option to add noise to input image or PSF (for robustness experiments).
 - Learnable shift-variant forward model similar to PhoCoLens: https://phocolens.github.io/
+- Restormer architecture for pre- and post-processors: https://arxiv.org/abs/2111.09881
 
 
 Changed
