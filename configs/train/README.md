@@ -1,6 +1,8 @@
 # Training physics-informed reconstruction models
 
-The core training script can be found [here](https://github.com/LCAV/LenslessPiCam/blob/main/scripts/recon/train_learning_based.py), which is used to train physics-informed reconstruction models on various datasets. The script supports different camera inversion methods, pre- and post-processors, and PSF correction. The training script is based on PyTorch.
+The core PyTorch-based training script can be found [here](https://github.com/LCAV/LenslessPiCam/blob/main/scripts/recon/train_learning_based.py), which is used to train physics-informed reconstruction models on various datasets. The script supports different camera inversion methods, pre- and post-processors, and PSF correction. Below is a visualization of the modular framework that can be trained (all components are optional).
+
+![Modular framework](modular_framework.png)
 
 The following datasets are supported (hyperlinks takes to relevant configuration description).
 By default, the model architecture uses five unrolleed iterations of ADMM for camera inversion, and UNetRes models for the pre-processor post-processor, and PSF correction.
