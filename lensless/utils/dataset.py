@@ -149,7 +149,7 @@ def print_available_datasets():
         )
 
 
-def get_dataset(dataset_name, split, cache_dir=None, **kwargs):
+def get_dataset(dataset_name, split, **kwargs):
     """
     Get a dataset by name.
 
@@ -159,8 +159,6 @@ def get_dataset(dataset_name, split, cache_dir=None, **kwargs):
         Name of the dataset from the available datasets in ``available_datasets``.
     split : str
         Split of the dataset to load (e.g. "train", "test").
-    cache_dir : str
-        Directory to cache the dataset. By default stored in ~/.cache/huggingface/datasets
 
     Returns
     -------
@@ -177,7 +175,9 @@ def get_dataset(dataset_name, split, cache_dir=None, **kwargs):
     assert split in ["train", "test"], "Split should be 'train' or 'test'"
 
     dataset_config = available_datasets[dataset_name]
-    return HFDataset(split=split, cache_dir=cache_dir, **dataset_config, **kwargs)
+    # replace dataset_config with anything from kwargs
+    dataset_config.update(kwargs)
+    return HFDataset(split=split, **dataset_config)
 
 
 class DualDataset(Dataset):

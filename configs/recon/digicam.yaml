@@ -1,4 +1,4 @@
-# python scripts/recon/digicam_mirflickr.py
+# python scripts/recon/digicam.py
 defaults:
   - defaults
   - _self_
