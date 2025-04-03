@@ -128,12 +128,12 @@ def display(
             if image_res[0] < 0:
                 new_height = image_res[1]
                 ratio = new_height / float(image_width)
-                image_res[0] = int(ratio * image_width)
+                image_res = (int(ratio * image_width), new_height)
 
             elif image_res[1] < 0:
                 new_width = image_res[0]
                 ratio = new_width / float(image_height)
-                image_res[1] = int(ratio * image_height)
+                image_res = (new_width, int(ratio * image_height))
 
         # set image within screen
         img_og = cv2.resize(img_og, image_res, interpolation=interpolation)
