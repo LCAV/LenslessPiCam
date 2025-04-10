@@ -138,6 +138,22 @@ available_datasets = {
         "display_res": [600, 600],
         "alignment": {"top_left": [118, 220], "height": 123},
     },
+    # Coded Aperture (MLS) MirFlickr 1K (467 MB) https://huggingface.co/datasets/Lensless/mirflickr_CA_fine_1k
+    "mls_mirflickr_1k": {
+        "size (GB)": 0.467,
+        "huggingface_repo": "Lensless/mirflickr_CA_fine_1k",
+        "psf": "psf_measured.png",
+        "display_res": [900, 1200],
+        # "alignment": {"top_left": [118, 220], "height": 123},
+    },
+    # Fresnel Zone Aperture MirFlickr 1K (454 MB) https://huggingface.co/datasets/Lensless/Mirflickr_FZA_fine_1k
+    "fza_mirflickr_1k": {
+        "size (GB)": 0.454,
+        "huggingface_repo": "Lensless/Mirflickr_FZA_fine_1k",
+        "psf": "psf_measured.png",
+        "display_res": [900, 1200],
+        # "alignment": {"top_left": [118, 220], "height": 123},
+    },
 }
 
 
