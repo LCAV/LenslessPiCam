@@ -649,35 +649,35 @@ async def psf_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     Measure PSF through screen
     """
 
-    global BUSY
+    # global BUSY
 
     res = await check_incoming_message(update, context)
     if res is not None:
         await update.message.reply_text(res, reply_to_message_id=update.message.message_id)
         return
 
-    vshift = -15
-    psf_size = 10
+    # vshift = -15
+    # psf_size = 10
 
-    # -- send to display
-    os.system(
-        f"python scripts/measure/remote_display.py -cn {CONFIG_FN} display.psf={psf_size} display.vshift={vshift} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
-    )
-    await update.message.reply_text(
-        f"PSF of {psf_size}x{psf_size} pixels set on display.",
-        reply_to_message_id=update.message.message_id,
-    )
+    # # -- send to display
+    # os.system(
+    #     f"python scripts/measure/remote_display.py -cn {CONFIG_FN} display.psf={psf_size} display.vshift={vshift} rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+    # )
+    # await update.message.reply_text(
+    #     f"PSF of {psf_size}x{psf_size} pixels set on display.",
+    #     reply_to_message_id=update.message.message_id,
+    # )
 
-    # -- measurement
-    os.system(
-        f"python scripts/measure/remote_capture.py -cn demo_measure_psf rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
-    )
-    OUTPUT_FP = os.path.join(OUTPUT_FOLDER, "raw_data.png")
-    await update.message.reply_photo(
-        OUTPUT_FP,
-        caption="PSF (zoom in to see pattern)",
-        reply_to_message_id=update.message.message_id,
-    )
+    # # -- measurement
+    # os.system(
+    #     f"python scripts/measure/remote_capture.py -cn demo_measure_psf rpi.username={RPI_USERNAME} rpi.hostname={RPI_HOSTNAME}"
+    # )
+    # OUTPUT_FP = os.path.join(OUTPUT_FOLDER, "raw_data.png")
+    # await update.message.reply_photo(
+    #     OUTPUT_FP,
+    #     caption="PSF (zoom in to see pattern)",
+    #     reply_to_message_id=update.message.message_id,
+    # )
 
     # send back ground truth PSF
     if PSF_FP is not None:
@@ -696,7 +696,7 @@ async def psf_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             reply_to_message_id=update.message.message_id,
         )
 
-    BUSY = False
+    # BUSY = False
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -971,7 +971,7 @@ def main(config) -> None:
         # "image will be displayed on the screen). "
         # "In practice, we measure the PSF with single white LED. The used PSF is sent also sent "
         # "back with the /psf command."
-        "\n\nMore info: go.epfl.ch/lensless"
+        "\n\nMore info: https://lensless.readthedocs.io/"
     )
 
     # make output folder
