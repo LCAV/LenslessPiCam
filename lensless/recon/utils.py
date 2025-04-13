@@ -634,7 +634,7 @@ class Trainer:
             Epoch at which to unfreeze post process component. Default is None.
 
         """
-        global print
+        # global print
 
         self.use_wandb = use_wandb
 
