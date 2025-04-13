@@ -1,0 +1,30 @@
+# python scripts/recon/diffusercam.py
+defaults:
+  - defaults
+  - _self_
+
+cache_dir: null
+idx: 0
+
+# - Learned reconstructions: see "lensless/recon/model_dict.py"
+# --- UNetRes vs Restormer
+# model: U5+Unet8M_adamw
+# model: Unet4M+U5+Unet4M_adamw
+# model: Unet4M+U5+Unet4M_psfNN_adamw
+# model: U5+Transformer8M
+# model: Transformer4M+U5+Transformer4M
+# model: Transformer4M+U5+Transformer4M_psfNN
+# # --- SVDeconv vs LeADMM5
+# model: U5+Unet12M_fullres
+# model: Unet6M+U5+Unet6M_fullres
+# model: Unet6M+U5+Unet6M_psfNN_fullres
+# model: SVDecon+UNet8M
+model: Unet4M+SVDecon+Unet4M
+
+# # -- for ADMM with fixed parameters
+# model: admm
+# n_iter: 100
+
+device: cuda:0
+n_trials: 100   # to get average inference time
+save: True

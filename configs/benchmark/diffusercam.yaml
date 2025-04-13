@@ -20,25 +20,29 @@ huggingface:
   single_channel_psf: True
 
 algorithms: [
-  # "ADMM",
+  "ADMM",
+  "ADMM_PnP",
+  "FISTA",
+  "FISTA_PnP",
 
   ## -- reconstructions trained on DiffuserCam measured
-  "hf:diffusercam:mirflickr:U5+Unet8M",
+  # "hf:diffusercam:mirflickr:U5+Unet8M",
   # "hf:diffusercam:mirflickr:Unet8M+U5",
   # "hf:diffusercam:mirflickr:TrainInv+Unet8M",
   # "hf:diffusercam:mirflickr:MMCN4M+Unet4M",
   # "hf:diffusercam:mirflickr:MWDN8M",
-  "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M",
   # "hf:diffusercam:mirflickr:Unet4M+TrainInv+Unet4M",
   # "hf:diffusercam:mirflickr:Unet2M+MMCN+Unet2M",
   # "hf:diffusercam:mirflickr:Unet2M+MWDN6M",
   # "hf:diffusercam:mirflickr:Unet4M+U10+Unet4M",
-  "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_psfNN",
+  # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_psfNN",
 
   # ## comparing UNetRes and Transformer, ADAMW optimizer
   # "hf:diffusercam:mirflickr:Transformer4M+U5+Transformer4M",
   # "hf:diffusercam:mirflickr:Transformer4M+U5+Transformer4M_psfNN",
   # "hf:diffusercam:mirflickr:U5+Transformer8M",
+  # "hf:diffusercam:mirflickr:U5+Unet8M_adamw",
   # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_adamw",
   # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_psfNN_adamw",
 
@@ -83,6 +87,8 @@ algorithms: [
   # "hf:digicam:mirflickr_multi_25k:Unet4M+U5+Unet4M_wave",
 ]
 
-save_idx: [0, 1, 3, 4, 8, 45, 58, 63]
-n_iter_range: [100]    # for ADMM
+save_idx: [0, 1, 3, 4, 8]
+n_iter_range: [10]    # for ADMM
+# save_idx: [0, 1, 3, 4, 8, 45, 58, 63]
+# n_iter_range: [100]    # for ADMM
 

@@ -98,6 +98,7 @@ def display(
         img = np.zeros((screen_res[1], screen_res[0], 3), dtype=img_og.dtype)
 
         if image_res is None:
+
             # set image with padding and correct aspect ratio
             if screen_res[0] < screen_res[1]:
 
@@ -119,6 +120,20 @@ def display(
             new_width = int(ratio * image_width)
             new_height = int(ratio * image_height)
             image_res = (new_width, new_height)
+
+        # if negative value in image res
+        elif image_res[0] < 0 or image_res[1] < 0:
+            assert image_res[0] > 0 or image_res[1] > 0, "Both dimensions cannot be negative."
+            # rescale according to non-negative value
+            if image_res[0] < 0:
+                new_height = image_res[1]
+                ratio = new_height / float(image_height)
+                image_res = (int(ratio * image_width), new_height)
+
+            elif image_res[1] < 0:
+                new_width = image_res[0]
+                ratio = new_width / float(image_width)
+                image_res = (new_width, int(ratio * image_height))
 
         # set image within screen
         img_og = cv2.resize(img_og, image_res, interpolation=interpolation)

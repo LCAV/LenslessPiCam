@@ -235,10 +235,19 @@ def plot_cross_section(
         zero_crossings = np.where(np.diff(np.signbit(cross_section + plot_db_drop)))[0]
         if len(zero_crossings) >= 2:
             zero_crossings -= np.argmax(cross_section)
-            width = zero_crossings[-1] - zero_crossings[0]
-            ax.set_title(f"-{plot_db_drop}dB width = {width}")
-            ax.axvline(x=zero_crossings[0], c="k", linestyle="--")
-            ax.axvline(x=zero_crossings[-1], c="k", linestyle="--")
+
+            # width = zero_crossings[-1] - zero_crossings[0]
+            # ax.axvline(x=zero_crossings[0], c="k", linestyle="--")
+            # ax.axvline(x=zero_crossings[-1], c="k", linestyle="--")
+
+            first_crossing = np.abs(zero_crossings[np.argmin(np.abs(zero_crossings))])
+            width = 2 * np.abs(first_crossing)
+            ax.axvline(x=-first_crossing, c="k", linestyle="--")
+            ax.axvline(x=+first_crossing, c="k", linestyle="--")
+
+            ax.set_title("Cross-section")
+            ax.set_xlabel(f"-{plot_db_drop}dB width = {width}")
+
         else:
             warnings.warn(
                 "Width could not be determined. Did not detect two -{} points : {}".format(
@@ -290,7 +299,7 @@ def plot_autocorr2d(vals, pad_mode="reflect", ax=None):
     return ax, autocorr
 
 
-def plot_autocorr_rgb(img, width=3, figsize=None):
+def plot_autocorr_rgb(img, width=3, figsize=None, plot_psf=False, psf_gamma=2.2):
     """
     Plot autocorrelation of each channel of an image.
 
@@ -306,15 +315,36 @@ def plot_autocorr_rgb(img, width=3, figsize=None):
     assert len(img.shape) == 3, "Image must be 3D"
     assert img.shape[2] == 3, "Image must have 3 color channels"
 
-    _, ax_auto = plt.subplots(ncols=3, nrows=2, num="Autocorrelations", figsize=figsize)
+    if plot_psf:
+        _, ax_auto = plt.subplots(ncols=3, nrows=3, num="Autocorrelations", figsize=figsize)
+    else:
+        _, ax_auto = plt.subplots(ncols=3, nrows=2, num="Autocorrelations", figsize=figsize)
 
-    for i, c in enumerate(["r", "g", "b"]):
-        _, autocorr_c = plot_autocorr2d(img[:, :, i], ax=ax_auto[0][i])
+    for i, c in enumerate(["Red", "Green", "Blue"]):
+        if plot_psf:
+            plot_image(
+                img[:, :, i],
+                ax=ax_auto[0][i],
+                gamma=psf_gamma,
+                normalize=True,
+            )
+            # ax_auto[0][i].imshow(img[:, :, i], cmap="gray")
+            ax_auto[0][i].axis("off")
+            ax_auto[0][i].set_title(f"{c} PSF")
+
+        # plot autocorrelation
+        _, autocorr_c = plot_autocorr2d(img[:, :, i], ax=ax_auto[1 if plot_psf else 0][i])
+        ax_auto[1][i].set_title("Autocorrelation")
+        # # -- horizontal cross-section
+        max_idx = np.unravel_index(np.argmax(autocorr_c, axis=None), autocorr_c.shape)
+        idx = max_idx[0]
+        # ax_auto[1][i].axhline(y=idx, c=c, linestyle="--")
 
         ax, _ = plot_cross_section(
             autocorr_c,
+            idx=idx,
             color=c,
-            ax=ax_auto[1][i],
+            ax=ax_auto[2 if plot_psf else 1][i],
             plot_db_drop=width,
         )
         if i != 0:

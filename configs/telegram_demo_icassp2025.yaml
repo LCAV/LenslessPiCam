@@ -1,0 +1,51 @@
+defaults:
+  - telegram_demo
+  - _self_
+
+# for Telegram
+token: null
+setup_fp: icassp_setup.jpeg
+
+# usernames and IP address
+rpi_username: null
+rpi_hostname: null
+
+config_name: demo_icassp2025
+psf:
+  fp: psf_voronoi_apr2025/voronoi_rgb.png
+  downsample: 4
+
+default_algo: fista
+
+files:
+  mnist:
+    fp: data/original/mnist_3.png
+    exposure: 0.05
+    brightness: 100
+  thumb: 
+    fp: data/original/thumbs_up.png
+    exposure: 0.02
+    brightness: 80
+  face:
+    fp: data/original/face.jpg
+    exposure: 0.03
+    brightness: 80
+  tree:
+    fp: data/original/tree.png
+    exposure: 0.08
+    brightness: 100
+
+overlay:
+  alpha: 60
+
+  img1:
+    fp: data/original/epfl_white.png
+    scaling: 0.23
+    position: [5,15]
+
+  img2:
+    fp: data/original/icassp.png
+    scaling: 0.2
+    position: [305,10]
+
+  img3: null

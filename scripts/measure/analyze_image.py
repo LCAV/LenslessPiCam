@@ -39,6 +39,7 @@ python scripts/measure/analyze_image.py --fp data/raw_data/thumbs_up_bayer.png -
 
 import click
 import cv2
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from lensless.utils.image import rgb2gray, gamma_correction, resize
@@ -149,14 +150,14 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
     ax.set_title("RGB")
     ax = pixel_histogram(img, ax=ax_rgb[1], nbits=nbits)
     ax.set_title("Histogram")
-    fig_rgb.savefig("rgb_analysis.png")
+    fig_rgb.savefig(os.path.join(os.path.dirname(fp), "rgb_analysis.png"))
 
     img_grey = rgb2gray(img[None, ...])
     ax = plot_image(img_grey, gamma=gamma, normalize=True, ax=ax_gray[0])
     ax.set_title("Grayscale")
     ax = pixel_histogram(img_grey, ax=ax_gray[1], nbits=nbits)
     ax.set_title("Histogram")
-    fig_gray.savefig("grey_analysis.png")
+    fig_gray.savefig(os.path.join(os.path.dirname(fp), "grey_analysis.png"))
 
     img_grey = img_grey.squeeze()
     img = img.squeeze()

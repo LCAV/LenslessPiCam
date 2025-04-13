@@ -90,13 +90,15 @@ model_dict = {
             "Unet4M+U5+Unet4M_ft_tapecam": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-ft-tapecam",
             "Unet4M+U5+Unet4M_ft_tapecam_post": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-ft-tapecam-post",
             "Unet4M+U5+Unet4M_ft_tapecam_pre": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-ft-tapecam-pre",
-            # comparing with transformers, with ADAMW optimizer (rest with ADAM)
+            # comparing with transformers, with ADAMW optimizer (below with ADAMW optimizer)
+            "U5+Unet8M_adamw": "bezzam/diffusercam-mirflickr-unrolled-admm5-unet8M-adamw",
             "Unet4M+U5+Unet4M_adamw": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-adamw",
             "Unet4M+U5+Unet4M_psfNN_adamw": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-psfNN-adamw",
             "U5+Transformer8M": "bezzam/diffusercam-mirflickr-unrolled-admm5-transformer8M",
             "Transformer4M+U5+Transformer4M": "bezzam/diffusercam-mirflickr-transformer4M-unrolled-admm5-transformer4M",
             "Transformer4M+U5+Transformer4M_psfNN": "bezzam/difusercam-mirflickr-transformer4M-unrolled-admm5-transformer4M-psfNN",
             # (~11.6M param) comparing with SVDeconvNet, with ADAMW optimizer (full resolution images)
+            "U5+Unet12M_fullres": "bezzam/diffusercam-mirflickr-unrolled-admm5-unet12M-fullres",
             "Unet6M+U5+Unet6M_fullres": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-fullres",
             "Unet6M+U5+Unet6M_psfNN_fullres": "bezzam/diffusercam-mirflickr-unet4M-unrolled-admm5-unet4M-psfNN-fullres",
             "SVDecon+UNet8M": "bezzam/diffusercam-mirflickr-svdecon-unet4M",

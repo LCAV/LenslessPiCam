@@ -23,19 +23,21 @@ huggingface:
 
 algorithms: [
   # "ADMM",
+  "ADMM",
+  "ADMM_PnP",
 
   # # -- reconstructions trained on measured data
-  "hf:digicam:mirflickr_single_25k:U5+Unet8M_wave",
+  # "hf:digicam:mirflickr_single_25k:U5+Unet8M_wave",
   # "hf:digicam:mirflickr_single_25k:Unet8M+U5_wave",
   # "hf:digicam:mirflickr_single_25k:TrainInv+Unet8M_wave",
   # "hf:digicam:mirflickr_single_25k:MMCN4M+Unet4M_wave",
   # "hf:digicam:mirflickr_single_25k:MWDN8M_wave",
   # "hf:digicam:mirflickr_single_25k:Unet4M+TrainInv+Unet4M_wave",
-  "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave",
   # "hf:digicam:mirflickr_single_25k:Unet2M+MMCN+Unet2M_wave",
   # "hf:digicam:mirflickr_single_25k:Unet2M+MWDN6M_wave",
   # "hf:digicam:mirflickr_single_25k:Unet4M+U10+Unet4M_wave",
-  "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave_psfNN",
+  # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave_psfNN",
   # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave_flips",
   # "hf:digicam:mirflickr_single_25k:Unet4M+U5+Unet4M_wave_flips_rotate10",
   # "hf:digicam:mirflickr_single_25k:Unet8M_wave_v2",
@@ -53,8 +55,10 @@ algorithms: [
   # "hf:diffusercam:mirflickr:Unet4M+U5+Unet4M_psfNN",
 ]
 
-save_idx: [1, 2, 4, 5, 9, 24, 33, 61]
-n_iter_range: [100]    # for ADMM
+# save_idx: [1, 2, 4, 5, 9, 24, 33, 61]
+# n_iter_range: [100]    # for ADMM
+save_idx: [1, 2, 4, 5, 9]
+n_iter_range: [10]    # for ADMM
 
 # simulating PSF
 simulation:
