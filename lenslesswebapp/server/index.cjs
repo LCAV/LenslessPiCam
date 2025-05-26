@@ -36,7 +36,8 @@ app.post('/run-demo', async (req, res) => {
     await runCommand(`PYTHONPATH=.. python3 ../scripts/measure/on_device_capture.py \
       sensor=rpi_hq bayer=True fn=test_psf/raw_data.png \
       exp=1 iso=100 config_pause=2 sensor_mode=0 \
-      nbits_out=12 legacy=True rgb=False gray=False plot=True sixteen=True`);
+      nbits_out=12 legacy=True rgb=False gray=False sixteen=True -- plot=True`);
+
 
     // 2. Color correction
     console.log("[SERVER] Running color correction");
