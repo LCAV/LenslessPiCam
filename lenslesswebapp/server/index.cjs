@@ -34,7 +34,7 @@ app.post('/run-demo', async (req, res) => {
     // 1. Capture
     console.log("[SERVER] Starting on-device capture");
     await runCommand(`PYTHONPATH=.. ~/LenslessPiCam/lensless_env/bin/python ../scripts/measure/on_device_capture.py \
-      sensor=rpi_hq bayer=True fn=test_psf/raw_data \
+      sensor=rpi_hq bayer=True fn=remote_capture /raw_data \
       exp=1 iso=100 config_pause=2 sensor_mode=0 \
       nbits_out=12 legacy=True rgb=False gray=False sixteen=True`);
 
