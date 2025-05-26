@@ -33,20 +33,20 @@ app.post('/run-demo', async (req, res) => {
 
     // 1. Capture
     console.log("[SERVER] Starting on-device capture");
-    await runCommand(`python3 scripts/measure/on_device_capture.py \
+    await runCommand(`python3 ../scripts/measure/on_device_capture.py \
       capture.legacy=True capture.bayer=True capture.rgb=False \
       capture.down=null capture.nbits_out=12 capture.awb_gains=null \
       output=test_psf plot=True capture.exp=1`);
 
     // 2. Color correction
     console.log("[SERVER] Running color correction");
-    await runCommand(`python3 scripts/measure/analyze_image.py \
+    await runCommand(`python3 ../scripts/measure/analyze_image.py \
       --fp test_psf/raw_data.png \
       --bayer --gamma 2.2 --rg 2.0 --bg 1.1 --save test_psf/psf_rgb.png`);
 
     // 3. Autocorrelation (assumes psf_1mm/raw_data.png already exists)
     console.log("[SERVER] Running autocorrelation analysis");
-    await runCommand(`python3 scripts/measure/analyze_image.py \
+    await runCommand(`python3 ../scripts/measure/analyze_image.py \
       --fp psf_1mm/raw_data.png \
       --bayer --gamma 2.2 --rg 2.0 --bg 1.1 --lensless`);
 
