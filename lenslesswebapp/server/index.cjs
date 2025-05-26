@@ -34,9 +34,9 @@ app.post('/run-demo', async (req, res) => {
     // 1. Capture
     console.log("[SERVER] Starting on-device capture");
     await runCommand(`PYTHONPATH=.. python3 ../scripts/measure/on_device_capture.py \
-      +capture.legacy=True +capture.bayer=True +capture.rgb=False \
-      +capture.down=null +capture.nbits_out=12 +capture.awb_gains=null \
-      +output=test_psf +plot=True +capture.exp=1`);
+      sensor=rpi_hq bayer=True fn=test_psf/raw_data.png \
+      exp=1 iso=100 config_pause=2 sensor_mode=0 \
+      nbits_out=12 legacy=True rgb=False gray=False plot=True sixteen=True`);
 
     // 2. Color correction
     console.log("[SERVER] Running color correction");
