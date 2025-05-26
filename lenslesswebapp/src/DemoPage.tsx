@@ -63,22 +63,23 @@ export default function Demo() {
   };
 
   const triggerCamera = async () => {
-    console.log("Requesting webcam access...");
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      console.log("Webcam stream obtained:", stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        setShowCamera(true);
-      } else {
-        console.warn("videoRef.current is null");
-      }
-    } catch (err) {
-      console.error("Error accessing webcam: ", err);
-      alert("Could not access your webcam. Please check browser permissions or try a different browser.");
+  console.log("Requesting webcam access...");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    console.log("Webcam stream obtained:", stream);
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+      console.log("Video is playing.");
+      setShowCamera(true);
+    } else {
+      console.warn("videoRef.current is null");
     }
-  };
+  } catch (err) {
+    console.error("Error accessing webcam: ", err);
+  }
+};
 
   const takeSnapshot = () => {
     const video = videoRef.current;
