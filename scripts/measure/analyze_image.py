@@ -120,30 +120,69 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
         fig_gray, ax_gray = plt.subplots(ncols=3, nrows=1, num="Grayscale", figsize=(15, 5))
     else:
         fig_gray, ax_gray = plt.subplots(ncols=2, nrows=1, num="Grayscale", figsize=(15, 5))
+    # Auto white balance loop (always on for Bayer + save)
+    if bayer and save is not None:
+        print("🔁 Starting automatic red/blue gain tuning...")
+        rg = rg or 1.0
+        bg = bg or 1.0
+        max_iter = 10
 
-    # load PSF/image
-    if lensless:
-        img = load_psf(
-            fp,
-            verbose=True,
-            bayer=bayer,
-            blue_gain=bg,
-            red_gain=rg,
-            nbits_out=nbits,
-            return_float=False,
-        )[0]
+        for i in range(max_iter):
+            print(f"\n▶️ Iteration {i+1}: rg={rg:.3f}, bg={bg:.3f}")
+
+            img = load_image(
+                fp,
+                verbose=True,
+                bayer=bayer,
+                blue_gain=bg,
+                red_gain=rg,
+                nbits_out=nbits,
+                back=back,
+            )
+
+            if nbits is None:
+                nbits = int(np.ceil(np.log2(img.max())))
+
+            done, (r, g, b), (err_r, err_b) = check_balance(img)
+            print(f"📊 Channel means — R: {r:.1f}, G: {g:.1f}, B: {b:.1f}")
+            print(f"📉 Errors — R: {err_r:.3f}, B: {err_b:.3f}")
+
+            if done:
+                print("✅ White balance converged.")
+                break
+
+            if r > 0:
+                rg *= g / r
+            if b > 0:
+                bg *= g / b
+
+        print(f"🎯 Final gains: rg={rg:.3f}, bg={bg:.3f}")
+
     else:
-        img = load_image(
-            fp,
-            verbose=True,
-            bayer=bayer,
-            blue_gain=bg,
-            red_gain=rg,
-            nbits_out=nbits,
-            back=back,
-        )
-    if nbits is None:
-        nbits = int(np.ceil(np.log2(img.max())))
+        # load PSF/image
+        if lensless:
+            img = load_psf(
+                fp,
+                verbose=True,
+                bayer=bayer,
+                blue_gain=bg,
+                red_gain=rg,
+                nbits_out=nbits,
+                return_float=False,
+            )[0]
+        else:
+            img = load_image(
+                fp,
+                verbose=True,
+                bayer=bayer,
+                blue_gain=bg,
+                red_gain=rg,
+                nbits_out=nbits,
+                back=back,
+            )
+
+        if nbits is None:
+            nbits = int(np.ceil(np.log2(img.max())))
 
     # plot RGB and grayscale
     ax = plot_image(img, gamma=gamma, normalize=True, ax=ax_rgb[0])
@@ -216,6 +255,16 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
 
     plt.show()
 
+def check_balance(img, threshold=0.05):
+    """Returns True if R/B are within threshold of G."""
+    mean_r = np.mean(img[:, :, 0])
+    mean_g = np.mean(img[:, :, 1])
+    mean_b = np.mean(img[:, :, 2])
+
+    err_r = abs(mean_r - mean_g) / mean_g
+    err_b = abs(mean_b - mean_g) / mean_g
+
+    return err_r < threshold and err_b < threshold, (mean_r, mean_g, mean_b), (err_r, err_b)
 
 if __name__ == "__main__":
     analyze_image()
