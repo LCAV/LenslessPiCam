@@ -1,31 +1,3 @@
-"""
-
-For Bayer data with RPI HQ sensor:
-```
-python scripts/measure/remote_capture.py \
-rpi.username=USERNAME rpi.hostname=IP_ADDRESS
-```
-
-For Bayer data with RPI Global shutter sensor:
-```
-python scripts/measure/remote_capture.py -cn remote_capture_rpi_gs \
-rpi.username=USERNAME rpi.hostname=IP_ADDRESS
-```
-
-For RGB data with RPI HQ RPI Global shutter sensor:
-```
-python scripts/measure/remote_capture.py -cn remote_capture_rpi_gs \
-rpi.username=USERNAME rpi.hostname=IP_ADDRESS \
-capture.bayer=False capture.down=2
-```
-
-Check out the `configs/demo.yaml` file for parameters, specifically:
-
-- `rpi`: RPi parameters
-- `capture`: parameters for taking pictures
-
-"""
-
 import hydra
 import os
 import subprocess
@@ -101,6 +73,8 @@ def liveview(config):
     output_path = os.path.join(config.output or os.getcwd(), f"{config.capture.raw_data_fn}.png")
 
     # 3. Run auto-exposure loop
+    auto_expose_via_remote(config, pic_command, output_path)
+
     result = auto_expose_via_remote(config, pic_command, output_path)
 
     result = [res.decode("UTF-8") for res in result]
@@ -258,11 +232,11 @@ def liveview(config):
 # Auto-exposure logic injected before running SSH command
 
 def auto_expose_via_remote(config, base_command, output_path):
-    final_result = []
     exp = config.capture.exp
     max_iter = 10
     target_max = 4095
     max_saturation_ratio = 0.001
+    final_img = None
 
     for i in range(max_iter):
         print(f"\n Attempt {i+1} | exp={exp:.6f}s")
@@ -301,7 +275,7 @@ def auto_expose_via_remote(config, base_command, output_path):
         print(f"Max: {max_val} | Saturated: {sat_ratio*100:.4f}%")
 
         if max_val >= target_max and sat_ratio <= max_saturation_ratio:
-            print(f"Ideal exposure found: {exp:.6f}s")
+            print(f"✅Ideal exposure found: {exp:.6f}s")
             final_result = result
             break
 
