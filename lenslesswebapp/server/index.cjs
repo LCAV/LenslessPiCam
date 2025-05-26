@@ -50,7 +50,7 @@ app.post('/run-demo', async (req, res) => {
     // 3. Autocorrelation (assumes psf_1mm/raw_data.png already exists)
     console.log("[SERVER] Running autocorrelation analysis");
     await runCommand(`PYTHONPATH=.. ~/LenslessPiCam/lensless_env/bin/python ../scripts/measure/analyze_image.py \
-      --fp psf_1mm/raw_data.png \
+      --fp test_psf/raw_data.png \
       --bayer --gamma 2.2 --rg 2.0 --bg 1.1 --lensless`);
 
     // Read both images as base64
