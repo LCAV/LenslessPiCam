@@ -36,7 +36,7 @@ app.post('/run-demo', async (req, res) => {
     await runCommand(`PYTHONPATH=.. ~/LenslessPiCam/lensless_env/bin/python ../scripts/measure/on_device_capture.py \
       sensor=rpi_hq bayer=True fn=test_psf/raw_data.png \
       exp=1 iso=100 config_pause=2 sensor_mode=0 \
-      nbits_out=12 legacy=True rgb=False gray=False sixteen=TÒrue`);
+      nbits_out=12 legacy=True rgb=False gray=False sixteen=True`);
 
 
     // 2. Color correction
