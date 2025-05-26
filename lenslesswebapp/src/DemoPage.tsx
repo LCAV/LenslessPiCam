@@ -14,9 +14,18 @@ export default function Demo() {
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const streamRef = useRef(null);
 
   const [psfImage, setPsfImage] = useState(null);
   const [autocorrImage, setAutocorrImage] = useState(null);
+
+  useEffect(() => {
+    if (showCamera && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play();
+      console.log("Video is now playing via useEffect.");
+    }
+  }, [showCamera]);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -63,23 +72,16 @@ export default function Demo() {
   };
 
   const triggerCamera = async () => {
-  console.log("Requesting webcam access...");
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    console.log("Webcam stream obtained:", stream);
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
-      console.log("Video is playing.");
+    console.log("Requesting webcam access...");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      console.log("Webcam stream obtained:", stream);
+      streamRef.current = stream;
       setShowCamera(true);
-    } else {
-      console.warn("videoRef.current is null");
+    } catch (err) {
+      console.error("Error accessing webcam: ", err);
     }
-  } catch (err) {
-    console.error("Error accessing webcam: ", err);
-  }
-};
+  };
 
   const takeSnapshot = () => {
     const video = videoRef.current;
