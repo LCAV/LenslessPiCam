@@ -12,6 +12,7 @@ app.use(express.json());
 
 // Helper function to execute a command and return a Promise
 function runCommand(command) {
+  console.log(`Running command: ${command}`);
   return new Promise((resolve, reject) => {
     exec(command, (error, stdout, stderr) => {
       if (error) {
@@ -19,6 +20,7 @@ function runCommand(command) {
         console.error(stderr);
         reject(stderr);
       } else {
+        console.log(`Command output: ${stdout}`);
         resolve(stdout);
       }
     });
@@ -27,23 +29,29 @@ function runCommand(command) {
 
 app.post('/run-demo', async (req, res) => {
   try {
+    console.log("[SERVER] /run-demo endpoint hit");
+
     // 1. Capture
+    console.log("[SERVER] Starting on-device capture");
     await runCommand(`python3 scripts/measure/on_device_capture.py \
       capture.legacy=True capture.bayer=True capture.rgb=False \
       capture.down=null capture.nbits_out=12 capture.awb_gains=null \
       output=test_psf plot=True capture.exp=1`);
 
     // 2. Color correction
+    console.log("[SERVER] Running color correction");
     await runCommand(`python3 scripts/measure/analyze_image.py \
       --fp test_psf/raw_data.png \
       --bayer --gamma 2.2 --rg 2.0 --bg 1.1 --save test_psf/psf_rgb.png`);
 
     // 3. Autocorrelation (assumes psf_1mm/raw_data.png already exists)
+    console.log("[SERVER] Running autocorrelation analysis");
     await runCommand(`python3 scripts/measure/analyze_image.py \
       --fp psf_1mm/raw_data.png \
       --bayer --gamma 2.2 --rg 2.0 --bg 1.1 --lensless`);
 
     // Read both images as base64
+    console.log("[SERVER] Reading images and sending response");
     const psfBuffer = fs.readFileSync(path.join(__dirname, '../test_psf/psf_rgb.png'));
     const autocorrBuffer = fs.readFileSync(path.join(__dirname, '../psf_1mm/autocorr.png'));
 
@@ -53,6 +61,7 @@ app.post('/run-demo', async (req, res) => {
     });
 
   } catch (err) {
+    console.error("[SERVER] Error in /run-demo", err);
     res.status(500).send({ error: 'Demo failed to run', details: err });
   }
 });
