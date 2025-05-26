@@ -122,13 +122,13 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
         fig_gray, ax_gray = plt.subplots(ncols=2, nrows=1, num="Grayscale", figsize=(15, 5))
     # Auto white balance loop (always on for Bayer + save)
     if bayer and save is not None:
-        print("🔁 Starting automatic red/blue gain tuning...")
+        print(" Starting automatic red/blue gain tuning...")
         rg = rg or 1.0
         bg = bg or 1.0
         max_iter = 10
 
         for i in range(max_iter):
-            print(f"\n▶️ Iteration {i+1}: rg={rg:.3f}, bg={bg:.3f}")
+            print(f"\n Iteration {i+1}: rg={rg:.3f}, bg={bg:.3f}")
 
             img = load_image(
                 fp,
@@ -144,11 +144,11 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
                 nbits = int(np.ceil(np.log2(img.max())))
 
             done, (r, g, b), (err_r, err_b) = check_balance(img)
-            print(f"📊 Channel means — R: {r:.1f}, G: {g:.1f}, B: {b:.1f}")
-            print(f"📉 Errors — R: {err_r:.3f}, B: {err_b:.3f}")
+            print(f" Channel means — R: {r:.1f}, G: {g:.1f}, B: {b:.1f}")
+            print(f" Errors — R: {err_r:.3f}, B: {err_b:.3f}")
 
             if done:
-                print("✅ White balance converged.")
+                print(" White balance converged.")
                 break
 
             if r > 0:

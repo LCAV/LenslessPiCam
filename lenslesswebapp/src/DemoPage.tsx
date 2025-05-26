@@ -63,21 +63,30 @@ export default function Demo() {
   };
 
   const triggerCamera = async () => {
-    setShowCamera(true);
+    console.log("Requesting webcam access...");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      console.log("Webcam stream obtained:", stream);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        await videoRef.current.play();
+        setShowCamera(true);
+      } else {
+        console.warn("videoRef.current is null");
       }
     } catch (err) {
       console.error("Error accessing webcam: ", err);
+      alert("Could not access your webcam. Please check browser permissions or try a different browser.");
     }
   };
 
   const takeSnapshot = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    if (!video || !canvas) {
+      console.error("Video or canvas not available for snapshot.");
+      return;
+    }
     const context = canvas.getContext("2d");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -85,7 +94,10 @@ export default function Demo() {
     const dataURL = canvas.toDataURL("image/png");
     setImagePreview(dataURL);
     setShowCamera(false);
-    video.srcObject.getTracks().forEach((track) => track.stop());
+
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach((track) => track.stop());
+    }
   };
 
   return (
@@ -191,7 +203,13 @@ export default function Demo() {
       {showCamera && (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50">
           <div className="bg-[#1f1f2f] p-6 rounded-2xl text-white text-center">
-            <video ref={videoRef} autoPlay playsInline className="w-full rounded mb-4" />
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className="w-full rounded mb-4 bg-black"
+              style={{ minHeight: "200px" }}
+            />
             <button onClick={takeSnapshot} className="bg-green-400 px-6 py-2 rounded-full text-black font-semibold hover:bg-green-300">Capture Snapshot</button>
             <canvas ref={canvasRef} className="hidden"></canvas>
           </div>
