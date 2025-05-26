@@ -33,7 +33,7 @@ app.post('/run-demo', async (req, res) => {
 
     // 1. Capture
     console.log("[SERVER] Starting on-device capture");
-    await runCommand(`python3 ../scripts/measure/on_device_capture.py \
+    await runCommand(`PYTHONPATH=.. python3 ../scripts/measure/on_device_capture.py \
       capture.legacy=True capture.bayer=True capture.rgb=False \
       capture.down=null capture.nbits_out=12 capture.awb_gains=null \
       output=test_psf plot=True capture.exp=1`);
