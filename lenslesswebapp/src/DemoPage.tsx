@@ -15,6 +15,9 @@ export default function Demo() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
+  const [psfImage, setPsfImage] = useState(null);
+  const [autocorrImage, setAutocorrImage] = useState(null);
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     setSelectedFile(file);
@@ -36,8 +39,18 @@ export default function Demo() {
   };
 
   const handleRunCapture = () => {
-    alert(`Capturing PSF with name: ${psfName}`);
     setShowPSFModal(false);
+    fetch('http://localhost:5000/run-demo', {
+      method: 'POST',
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setPsfImage(`data:image/png;base64,${data.psf}`);
+        setAutocorrImage(`data:image/png;base64,${data.autocorr}`);
+      })
+      .catch((err) => {
+        console.error('Demo run failed:', err);
+      });
   };
 
   const handleRunImaging = () => {
@@ -101,8 +114,20 @@ export default function Demo() {
             <button className="bg-gray-200 text-black py-2 px-6 rounded-full hover:bg-gray-300 transition w-full md:w-auto">Download</button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-blue-700 h-40 rounded-xl flex items-center justify-center text-white font-semibold text-xl">PSF</div>
-            <div className="bg-blue-700 h-40 rounded-xl flex items-center justify-center text-white font-semibold text-xl">Autocorrelations</div>
+            <div className="bg-blue-700 h-40 rounded-xl flex items-center justify-center">
+              {psfImage ? (
+                <img src={psfImage} alt="PSF" className="h-full rounded-xl object-contain" />
+              ) : (
+                <span className="text-white font-semibold text-xl">PSF</span>
+              )}
+            </div>
+            <div className="bg-blue-700 h-40 rounded-xl flex items-center justify-center">
+              {autocorrImage ? (
+                <img src={autocorrImage} alt="Autocorrelation" className="h-full rounded-xl object-contain" />
+              ) : (
+                <span className="text-white font-semibold text-xl">Autocorrelations</span>
+              )}
+            </div>
           </div>
         </div>
 
