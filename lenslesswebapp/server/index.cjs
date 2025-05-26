@@ -41,9 +41,10 @@ app.post('/run-demo', async (req, res) => {
 
     // 2. Color correction
     console.log("[SERVER] Running color correction");
-    await runCommand(`python3 ../scripts/measure/analyze_image.py \
+    await runCommand(`PYTHONPATH=.. ~/LenslessPiCam/lensless_env/bin/python ../scripts/measure/analyze_image.py \
       --fp test_psf/raw_data.png \
       --bayer --gamma 2.2 --rg 2.0 --bg 1.1 --save test_psf/psf_rgb.png`);
+
 
     // 3. Autocorrelation (assumes psf_1mm/raw_data.png already exists)
     console.log("[SERVER] Running autocorrelation analysis");
