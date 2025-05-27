@@ -27,7 +27,7 @@ function runCommandLive(command, args, cwd) {
 
     proc.on('close', (code) => {
       if (code === 0) {
-        console.log(`[✅] Command completed: ${command}`);
+        console.log(` Command completed: ${command}`);
         resolve();
       } else {
         reject(new Error(`Command failed with exit code ${code}`));
