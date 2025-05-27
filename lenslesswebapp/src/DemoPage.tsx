@@ -49,7 +49,7 @@ export default function Demo() {
 
   const handleRunCapture = () => {
     setShowPSFModal(false);
-    fetch('http://128.179.187.191:5000/run-demo', {
+    fetch('https://128.179.187.191:5000/run-demo', {
       method: 'POST',
     })
       .then((res) => res.json())

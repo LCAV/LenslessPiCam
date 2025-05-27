@@ -3,6 +3,8 @@ const cors = require('cors');
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
+
 
 const app = express();
 const PORT = 5000;
@@ -69,6 +71,12 @@ app.post('/run-demo', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Demo backend running on http://localhost:${PORT}`);
+const https = require('https');
+
+const key = fs.readFileSync(path.join(__dirname, '../certs/key.pem'));
+const cert = fs.readFileSync(path.join(__dirname, '../certs/cert.pem'));
+
+https.createServer({ key, cert }, app).listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Demo backend running on https://128.179.187.191:${PORT}`);
 });
+
