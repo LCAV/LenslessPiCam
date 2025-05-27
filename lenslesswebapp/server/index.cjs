@@ -71,7 +71,6 @@ app.post('/run-demo', async (req, res) => {
   }
 });
 
-const https = require('https');
 
 const key = fs.readFileSync(path.join(__dirname, '../certs/key.pem'));
 const cert = fs.readFileSync(path.join(__dirname, '../certs/cert.pem'));
