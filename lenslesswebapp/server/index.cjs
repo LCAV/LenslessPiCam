@@ -43,24 +43,26 @@ app.post('/run-demo', async (req, res) => {
     const repoRoot = path.join(__dirname, '..');
 
     // 1. Create test_psf directory
-    //await runCommandLive('mkdir', ['-p', 'test_psf'], repoRoot);
+    await runCommandLive('mkdir', ['-p', 'test_psf'], repoRoot);
 
     // 2. Run on-device capture
     await runCommandLive(
       path.join(repoRoot, 'lensless_env/bin/python'),
       [
-        'scripts/measure/remote_capture.py',
-        'rpi.username=pi3',
-        'rpi.hostname=128.179.187.191',
-        'capture.legacy=True',
-        'capture.bayer=True',
-        'capture.rgb=False',
-        'capture.down=null',
-        'capture.nbits_out=12',
-        'capture.awb_gains=null',
-        'output=test_psf',
-        'plot=True',
-        'capture.exp=1'
+        'scripts/measure/on_device_capture.py',
+        'sensor=rpi_hq',
+        'bayer=True',
+        'fn=test_psf/raw_data',
+        'exp=1',
+        'iso=100',
+        'config_pause=2',
+        'sensor_mode=0',
+        'nbits_out=12',
+        'legacy=True',
+        'rgb=False',
+        'gray=False',
+        'sixteen=True',
+        'down=4'
       ],
       repoRoot
     );
