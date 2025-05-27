@@ -47,7 +47,7 @@ app.post('/run-demo', async (req, res) => {
 
     // 2. Run on-device capture
     await runCommandLive(
-      path.join(repoRoot, 'lensless_env/bin/python'),
+      path.join(repoRoot, '/home/pi3/LenslessPiCam/lensless_env/bin/python'),
       [
         'scripts/measure/on_device_capture.py',
         'sensor=rpi_hq',
@@ -69,7 +69,7 @@ app.post('/run-demo', async (req, res) => {
 
     // 3. Run color correction
     await runCommandLive(
-      path.join(repoRoot, 'lensless_env/bin/python'),
+      path.join(repoRoot, '/home/pi3/LenslessPiCam/lensless_env/bin/python'),
       [
         'scripts/measure/analyze_image.py',
         '--fp', 'test_psf/raw_data.png',
@@ -84,7 +84,7 @@ app.post('/run-demo', async (req, res) => {
 
     // 4. Run autocorrelation
     await runCommandLive(
-      path.join(repoRoot, 'lensless_env/bin/python'),
+      path.join(repoRoot, '/home/pi3/LenslessPiCam/lensless_env/bin/python'),
       [
         'scripts/measure/analyze_image.py',
         '--fp', 'test_psf/raw_data.png',
