@@ -43,7 +43,7 @@ app.post('/run-demo', async (req, res) => {
     const repoRoot = path.join(__dirname, '..');
 
     // 1. Create test_psf directory
-    await runCommandLive('mkdir', ['-p', 'test_psf'], repoRoot);
+    //await runCommandLive('mkdir', ['-p', 'test_psf'], repoRoot);
 
     // 2. Run on-device capture
     await runCommandLive(
