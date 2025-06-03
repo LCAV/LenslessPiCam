@@ -101,17 +101,28 @@ from lensless.utils.io import load_image, load_psf, save_image
     help="File name to save color correct bayer as RGB.",
 )
 @click.option(
+    "--save_auto",
+    type=str,
+    help="Save autocorrelation instead of pop-up window.",
+)
+@click.option(
     "--nbits",
     default=None,
     type=int,
     help="Number of bits for output. Only used for Bayer data",
 )
 @click.option(
+    "--down",
+    default=1,
+    type=int,
+    help="Factor by which to downsample.",
+)
+@click.option(
     "--back",
     type=str,
     help="File path for background image, e.g. for screen.",
 )
-def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, save, nbits, back):
+def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, save, save_auto, nbits, down, back):
     assert fp is not None, "Must pass file path."
 
     # initialize plotting axis
@@ -131,6 +142,7 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
             red_gain=rg,
             nbits_out=nbits,
             return_float=False,
+            downsample=down
         )[0]
     else:
         img = load_image(
@@ -141,10 +153,10 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
             red_gain=rg,
             nbits_out=nbits,
             back=back,
+            downsample=down
         )
     if nbits is None:
         nbits = int(np.ceil(np.log2(img.max())))
-
     # plot RGB and grayscale
     ax = plot_image(img, gamma=gamma, normalize=True, ax=ax_rgb[0])
     ax.set_title("RGB")
@@ -167,8 +179,9 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
         plot_cross_section(
             img_grey, color="gray", plot_db_drop=width, ax=ax_gray[2], plot_width=plot_width
         )
-        _, ax_cross = plt.subplots(ncols=3, nrows=1, num="RGB widths", figsize=(15, 5))
+        fig_auto, ax_cross = plt.subplots(ncols=3, nrows=1, num="RGB widths", figsize=(15, 5))
         for i, c in enumerate(["r", "g", "b"]):
+            print(f"-- {c} channel")
             ax, _ = plot_cross_section(
                 img[:, :, i],
                 color=c,
@@ -181,18 +194,18 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
                 ax.set_ylabel("")
 
     elif lensless:
-
         # plot autocorrelations and width
         # -- grey
-        _, ax_auto = plt.subplots(ncols=4, nrows=2, num="Autocorrelations", figsize=(15, 5))
+        fig_auto, ax_auto = plt.subplots(ncols=4, nrows=2, num="Autocorrelations", figsize=(15, 5))
         _, autocorr_grey = plot_autocorr2d(img_grey, ax=ax_auto[0][0])
+        print(f"-- grayscale")
         plot_cross_section(
             autocorr_grey, color="gray", plot_db_drop=width, ax=ax_auto[1][0], plot_width=plot_width
         )
         # -- rgb
         for i, c in enumerate(["r", "g", "b"]):
             _, autocorr_c = plot_autocorr2d(img[:, :, i], ax=ax_auto[0][i + 1])
-
+            print(f"-- {c} channel")
             ax, _ = plot_cross_section(
                 autocorr_c,
                 color=c,
@@ -217,7 +230,14 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
         save_image(img, save_8bit, normalize=True)
         print(f"\n8bit version saved to: {save_8bit}")
 
-    plt.show()
+    if save_auto:
+        auto_fp = os.path.join(os.path.dirname(fp), "autocorrelation.png")
+        fig_auto.savefig(auto_fp)
+        print(f"\nAutocorrelation saved to: {auto_fp}")
+    else:
+        plt.show()
+        
+        
 
 
 if __name__ == "__main__":

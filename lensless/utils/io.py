@@ -166,9 +166,6 @@ def load_image(
     if flip_lr:
         img = np.fliplr(img)
 
-    if verbose:
-        print_image_info(img)
-
     if bg is not None:
 
         # if bg is float vector, turn into int-valued vector
@@ -203,6 +200,9 @@ def load_image(
         if dtype is None:
             dtype = original_dtype
         img = img.astype(dtype)
+
+    if verbose:
+        print_image_info(img)
 
     return img
 
@@ -292,7 +292,7 @@ def load_psf(
     else:
         psf = load_image(
             fp,
-            verbose=verbose,
+            verbose=False,
             flip=flip,
             flip_ud=flip_ud,
             flip_lr=flip_lr,
@@ -376,6 +376,9 @@ def load_psf(
         bg /= max_val
     else:
         psf = psf.astype(original_dtype)
+        
+    if verbose:
+        print_image_info(psf)
 
     if return_bg:
         return psf, bg

@@ -239,6 +239,7 @@ def plot_cross_section(
             ax.set_title(f"-{plot_db_drop}dB width = {width}")
             ax.axvline(x=zero_crossings[0], c="k", linestyle="--")
             ax.axvline(x=zero_crossings[-1], c="k", linestyle="--")
+            print(f"{plot_db_drop}dB width : {width} pixels")
         else:
             warnings.warn(
                 "Width could not be determined. Did not detect two -{} points : {}".format(
