@@ -235,13 +235,6 @@ def plot_cross_section(
         zero_crossings = np.where(np.diff(np.signbit(cross_section + plot_db_drop)))[0]
         if len(zero_crossings) >= 2:
             zero_crossings -= np.argmax(cross_section)
-<<<<<<< HEAD
-            width = zero_crossings[-1] - zero_crossings[0]
-            ax.set_title(f"-{plot_db_drop}dB width = {width}")
-            ax.axvline(x=zero_crossings[0], c="k", linestyle="--")
-            ax.axvline(x=zero_crossings[-1], c="k", linestyle="--")
-            print(f"{plot_db_drop}dB width : {width} pixels")
-=======
 
             # width = zero_crossings[-1] - zero_crossings[0]
             # ax.axvline(x=zero_crossings[0], c="k", linestyle="--")
@@ -251,11 +244,11 @@ def plot_cross_section(
             width = 2 * np.abs(first_crossing)
             ax.axvline(x=-first_crossing, c="k", linestyle="--")
             ax.axvline(x=+first_crossing, c="k", linestyle="--")
+            print(f"{plot_db_drop}dB width : {width} pixels")
 
             ax.set_title("Cross-section")
             ax.set_xlabel(f"-{plot_db_drop}dB width = {width}")
 
->>>>>>> main
         else:
             warnings.warn(
                 "Width could not be determined. Did not detect two -{} points : {}".format(

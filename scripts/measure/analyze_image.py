@@ -102,7 +102,7 @@ from lensless.utils.io import load_image, load_psf, save_image
 )
 @click.option(
     "--save_auto",
-    type=str,
+    is_flag=True,
     help="Save autocorrelation instead of pop-up window.",
 )
 @click.option(
