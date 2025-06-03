@@ -223,9 +223,6 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
         if gamma is not None:
             img = img / img.max()
             img = gamma_correction(img, gamma=gamma)
-        # -- downsample
-        img = resize(img, factor=1 / 4)
-        print(img.shape)
         save_8bit = save.replace(".png", "_8bit.png")
         save_image(img, save_8bit, normalize=True)
         print(f"\n8bit version saved to: {save_8bit}")

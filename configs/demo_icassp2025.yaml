@@ -6,7 +6,7 @@ defaults:
 gamma: 2.2  # for plotting PSF
 
 display:
-  image_res: [-1,1100]   # negative value to set according to other dimension
+  image_res: [900,-1]   # negative value to set according to other dimension
   vshift: -26
 
 capture:
@@ -14,7 +14,7 @@ capture:
   bayer: True
   rgb: True
   down: 4
-  awb_gains: [2.0, 1.1]
+  awb_gains: [1.8, 1.1]
 
 recon:
   gamma: null
@@ -22,7 +22,7 @@ recon:
   dtype: float32
   use_torch: True
   torch_device: cuda:0
-  algo: admm
+  algo: fista
 
   fista:
     n_iter: 300
@@ -33,5 +33,5 @@ recon:
 postproc:
   # crop in percent to extract region of interest
   # set to null to skip
-  crop_hor: [0.3, 0.75]
-  crop_vert: [0.22, 0.7]
+  crop_hor: [0.29, 0.67]
+  crop_vert: [0.22, 0.78]

@@ -101,7 +101,7 @@ available_datasets = {
     # DigiCam MirFlickr Mini (472 MB) https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-SingleMask-1K
     "digicam_mirflickr_mini": {
         "size (GB)": 0.472,
-        "huggingface_repo": "bezzam/DigiCam-Mirflickr-SingleMask-25K",
+        "huggingface_repo": "bezzam/DigiCam-Mirflickr-SingleMask-1K",
         "display_res": [900, 1200],
         "rotate": True,
         "alignment": {"top_left": [80, 100], "height": 200},
@@ -137,6 +137,29 @@ available_datasets = {
         "psf": "psf.png",
         "display_res": [600, 600],
         "alignment": {"top_left": [118, 220], "height": 123},
+    },
+    # Multilens MirFlickr Mini (427 MB) https://huggingface.co/datasets/Lensless/mirflickr_voronoi_1k
+    "multilens_mirflickr_mini": {
+        "size (GB)": 0.427,
+        "huggingface_repo": "Lensless/mirflickr_voronoi_1k",
+        "psf": "psf_measured.png",
+        "display_res": [900, 1200],
+    },
+    # Coded Aperture (MLS) MirFlickr 1K (467 MB) https://huggingface.co/datasets/Lensless/mirflickr_CA_fine_1k
+    "mls_mirflickr_1k": {
+        "size (GB)": 0.467,
+        "huggingface_repo": "Lensless/mirflickr_CA_fine_1k",
+        "psf": "psf_measured.png",
+        "display_res": [900, 1200],
+        # "alignment": {"top_left": [118, 220], "height": 123},
+    },
+    # Fresnel Zone Aperture MirFlickr 1K (454 MB) https://huggingface.co/datasets/Lensless/Mirflickr_FZA_fine_1k
+    "fza_mirflickr_1k": {
+        "size (GB)": 0.454,
+        "huggingface_repo": "Lensless/Mirflickr_FZA_fine_1k",
+        "psf": "psf_measured.png",
+        "display_res": [900, 1200],
+        # "alignment": {"top_left": [118, 220], "height": 123},
     },
 }
 

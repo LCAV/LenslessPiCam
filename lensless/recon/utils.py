@@ -307,11 +307,12 @@ def apply_denoiser(
             noise_level = noise_level / 255.0
         else:
             noise_level = torch.tensor([noise_level / 255.0])
-
         image = torch.cat(
             (
                 image,
-                noise_level.repeat(image.shape[0], 1, image.shape[2], image.shape[3]),
+                noise_level.repeat(image.shape[0], 1, image.shape[2], image.shape[3]).to(
+                    image.device
+                ),
             ),
             dim=1,
         )
@@ -633,7 +634,7 @@ class Trainer:
             Epoch at which to unfreeze post process component. Default is None.
 
         """
-        global print
+        # global print
 
         self.use_wandb = use_wandb
 
