@@ -122,7 +122,9 @@ from lensless.utils.io import load_image, load_psf, save_image
     type=str,
     help="File path for background image, e.g. for screen.",
 )
-def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, save, save_auto, nbits, down, back):
+def analyze_image(
+    fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, save, save_auto, nbits, down, back
+):
     assert fp is not None, "Must pass file path."
 
     # initialize plotting axis
@@ -142,7 +144,7 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
             red_gain=rg,
             nbits_out=nbits,
             return_float=False,
-            downsample=down
+            downsample=down,
         )[0]
     else:
         img = load_image(
@@ -153,7 +155,7 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
             red_gain=rg,
             nbits_out=nbits,
             back=back,
-            downsample=down
+            downsample=down,
         )
     if nbits is None:
         nbits = int(np.ceil(np.log2(img.max())))
@@ -198,7 +200,7 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
         # -- grey
         fig_auto, ax_auto = plt.subplots(ncols=4, nrows=2, num="Autocorrelations", figsize=(15, 5))
         _, autocorr_grey = plot_autocorr2d(img_grey, ax=ax_auto[0][0])
-        print(f"-- grayscale")
+        print("-- grayscale")
         plot_cross_section(
             autocorr_grey, color="gray", plot_db_drop=width, ax=ax_auto[1][0], plot_width=plot_width
         )
@@ -233,8 +235,6 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
         print(f"\nAutocorrelation saved to: {auto_fp}")
     else:
         plt.show()
-        
-        
 
 
 if __name__ == "__main__":

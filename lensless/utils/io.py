@@ -376,7 +376,7 @@ def load_psf(
         bg /= max_val
     else:
         psf = psf.astype(original_dtype)
-        
+
     if verbose:
         print_image_info(psf)
 
