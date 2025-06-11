@@ -37,7 +37,8 @@ from lensless.hardware.constants import RPI_HQ_CAMERA_CCM_MATRIX, RPI_HQ_CAMERA_
 from lensless.hardware.sensor import SensorOptions, sensor_dict, SensorParam
 from fractions import Fraction
 import time
-
+import copy
+from lensless.utils.io import load_image
 
 SENSOR_MODES = [
     "off",
@@ -53,7 +54,6 @@ SENSOR_MODES = [
 ]
 
 
-@hydra.main(version_base=None, config_path="../../configs", config_name="capture")
 def capture(config):
 
     sensor = config.sensor
@@ -183,78 +183,80 @@ def capture(config):
         if bayer:
 
             camera = picamerax.PiCamera(framerate=1 / exp, sensor_mode=sensor_mode, resolution=res)
+            try:
+                # camera settings, as little processing as possible
+                camera.iso = iso
+                camera.shutter_speed = int(exp * 1e6)
+                camera.exposure_mode = "off"
+                camera.drc_strength = "off"
+                camera.image_denoise = False
+                camera.image_effect = "none"
+                camera.still_stats = False
 
-            # camera settings, as little processing as possible
-            camera.iso = iso
-            camera.shutter_speed = int(exp * 1e6)
-            camera.exposure_mode = "off"
-            camera.drc_strength = "off"
-            camera.image_denoise = False
-            camera.image_effect = "none"
-            camera.still_stats = False
+                sleep(config_pause)
+                awb_gains = camera.awb_gains
+                camera.awb_mode = "off"
+                camera.awb_gains = awb_gains
 
-            sleep(config_pause)
-            awb_gains = camera.awb_gains
-            camera.awb_mode = "off"
-            camera.awb_gains = awb_gains
+                print("Resolution : {}".format(camera.resolution))
+                print("Shutter speed : {}".format(camera.shutter_speed))
+                print("ISO : {}".format(camera.iso))
+                print("Frame rate : {}".format(camera.framerate))
+                print("Sensor mode : {}".format(SENSOR_MODES[sensor_mode]))
+                # keep this as it needs to be parsed from remote script!
+                red_gain = float(awb_gains[0])
+                blue_gain = float(awb_gains[1])
+                print("Red gain : {}".format(red_gain))
+                print("Blue gain : {}".format(blue_gain))
 
-            print("Resolution : {}".format(camera.resolution))
-            print("Shutter speed : {}".format(camera.shutter_speed))
-            print("ISO : {}".format(camera.iso))
-            print("Frame rate : {}".format(camera.framerate))
-            print("Sensor mode : {}".format(SENSOR_MODES[sensor_mode]))
-            # keep this as it needs to be parsed from remote script!
-            red_gain = float(awb_gains[0])
-            blue_gain = float(awb_gains[1])
-            print("Red gain : {}".format(red_gain))
-            print("Blue gain : {}".format(blue_gain))
+                # capture data
+                stream = picamerax.array.PiBayerArray(camera)
+                camera.capture(stream, "jpeg", bayer=True)
 
-            # capture data
-            stream = picamerax.array.PiBayerArray(camera)
-            camera.capture(stream, "jpeg", bayer=True)
-
-            # get bayer data
-            if sixteen:
-                output = np.sum(stream.array, axis=2).astype(np.uint16)
-            else:
-                output = (np.sum(stream.array, axis=2) >> 2).astype(np.uint8)
-
-            # returning non-bayer data
-            if rgb or gray:
+                # get bayer data
                 if sixteen:
-                    n_bits = 12  # assuming Raspberry Pi HQ
+                    output = np.sum(stream.array, axis=2).astype(np.uint16)
                 else:
-                    n_bits = 8
+                    output = (np.sum(stream.array, axis=2) >> 2).astype(np.uint8)
 
-                if config.awb_gains is not None:
-                    red_gain = config.awb_gains[0]
-                    blue_gain = config.awb_gains[1]
+                # returning non-bayer data
+                if rgb or gray:
+                    if sixteen:
+                        n_bits = 12  # assuming Raspberry Pi HQ
+                    else:
+                        n_bits = 8
 
-                output_rgb = bayer2rgb_cc(
-                    output,
-                    nbits=n_bits,
-                    blue_gain=blue_gain,
-                    red_gain=red_gain,
-                    black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
-                    ccm=RPI_HQ_CAMERA_CCM_MATRIX,
-                    nbits_out=nbits_out,
-                )
+                    if config.awb_gains is not None:
+                        red_gain = config.awb_gains[0]
+                        blue_gain = config.awb_gains[1]
 
-                if down:
-                    output_rgb = resize(
-                        output_rgb[None, ...], 1 / down, interpolation=cv2.INTER_CUBIC
-                    )[0]
+                    output_rgb = bayer2rgb_cc(
+                        output,
+                        nbits=n_bits,
+                        blue_gain=blue_gain,
+                        red_gain=red_gain,
+                        black_level=RPI_HQ_CAMERA_BLACK_LEVEL,
+                        ccm=RPI_HQ_CAMERA_CCM_MATRIX,
+                        nbits_out=nbits_out,
+                    )
 
-                # need OpenCV to save 16-bit RGB image
-                if gray:
-                    output_gray = rgb2gray(output_rgb[None, ...])
-                    output_gray = output_gray.astype(output_rgb.dtype).squeeze()
-                    cv2.imwrite(fn, output_gray)
+                    if down:
+                        output_rgb = resize(
+                            output_rgb[None, ...], 1 / down, interpolation=cv2.INTER_CUBIC
+                        )[0]
+
+                    # need OpenCV to save 16-bit RGB image
+                    if gray:
+                        output_gray = rgb2gray(output_rgb[None, ...])
+                        output_gray = output_gray.astype(output_rgb.dtype).squeeze()
+                        cv2.imwrite(fn, output_gray)
+                    else:
+                        cv2.imwrite(fn, cv2.cvtColor(output_rgb, cv2.COLOR_RGB2BGR))
                 else:
-                    cv2.imwrite(fn, cv2.cvtColor(output_rgb, cv2.COLOR_RGB2BGR))
-            else:
-                img = Image.fromarray(output)
-                img.save(fn)
+                    img = Image.fromarray(output)
+                    img.save(fn) 
+            finally: 
+                camera.close()
 
         else:
 
@@ -271,31 +273,93 @@ def capture(config):
 
             # -- now set up camera with desired settings
             camera = PiCamera(framerate=1 / exp, sensor_mode=sensor_mode, resolution=tuple(res))
-
-            # Wait for the automatic gain control to settle
-            time.sleep(config.config_pause)
-
-            if config.awb_gains is not None:
-                assert len(config.awb_gains) == 2
-                g = (Fraction(config.awb_gains[0]), Fraction(config.awb_gains[1]))
-                g = tuple(g)
-                camera.awb_mode = "off"
-                camera.awb_gains = g
-                time.sleep(0.1)
-
-            print("Capturing at resolution: ", res)
-            print("AWB gains: ", float(camera.awb_gains[0]), float(camera.awb_gains[1]))
-
             try:
-                camera.resolution = tuple(res)
-                camera.capture(fn)
-            except ValueError:
-                raise ValueError(
-                    "Out of resources! Use bayer for higher resolution, or increase `gpu_mem` in `/boot/config.txt`."
-                )
+                # Wait for the automatic gain control to settle
+                time.sleep(config.config_pause)
+
+                if config.awb_gains is not None:
+                    assert len(config.awb_gains) == 2
+                    g = (Fraction(config.awb_gains[0]), Fraction(config.awb_gains[1]))
+                    g = tuple(g)
+                    camera.awb_mode = "off"
+                    camera.awb_gains = g
+                    time.sleep(0.1)
+
+                print("Capturing at resolution: ", res)
+                print("AWB gains: ", float(camera.awb_gains[0]), float(camera.awb_gains[1]))
+
+                try:
+                    camera.resolution = tuple(res)
+                    camera.capture(fn)
+                except ValueError:
+                    raise ValueError(
+                        "Out of resources! Use bayer for higher resolution, or increase `gpu_mem` in `/boot/config.txt`."
+                    )
+            finally:
+                camera.close()
+            
 
     print("Image saved to : {}".format(fn))
 
+def auto_expose_locally(config):
+
+    max_iter = 10
+    target_max = 4095 if config.nbits_out > 8 else 255
+    max_saturation_ratio = 0.001
+    exp = config.exp
+
+    i = 0
+    while i < max_iter:
+        print(f"\n[Auto Exposure] Attempt {i+1} | exp = {exp:.6f}s")
+
+        # Clone config and update exposure
+        config_local = copy.deepcopy(config)
+        config_local.exp = exp
+
+        # Call capture
+        capture(config_local)
+
+        # Build image path
+        fn = config.fn + ".png"
+
+        # Load image
+        img = cv2.imread(fn, cv2.IMREAD_UNCHANGED)
+        if img is None:
+            print(f"❌ Failed to load image from {fn}")
+            break
+
+        # Evaluate brightness
+        max_val = np.max(img)
+        sat_ratio = np.sum(img == target_max) / img.size
+        print(f"    Max pixel: {max_val} | Saturated: {sat_ratio*100:.4f}%")
+
+        # Stop if image is well exposed
+        if max_val >= target_max * 0.99 and sat_ratio <= max_saturation_ratio:
+            print(f"✅ Good exposure found at exp = {exp:.6f}s")
+            break
+
+        # Adjust exposure
+        if max_val >= target_max:
+            exp *= 0.7 if sat_ratio > max_saturation_ratio else 0.95
+        elif max_val >= target_max * 0.93:
+            exp *= 1.05
+        else:
+            exp *= 1.4
+
+        # Clamp to hardware limits
+        min_exp = sensor_dict[config.sensor][SensorParam.MIN_EXPOSURE]
+        max_exp = sensor_dict[config.sensor][SensorParam.MAX_EXPOSURE]
+        exp = min(max(exp, min_exp), max_exp)
+
+        i += 1
+
+    print(f"Final exposure used: {exp:.6f}s")
+
+
+@hydra.main(version_base=None, config_path="../../configs", config_name="capture")
+def main(config):
+    auto_expose_locally(config)
 
 if __name__ == "__main__":
-    capture()
+    main()
+

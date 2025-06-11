@@ -101,17 +101,30 @@ from lensless.utils.io import load_image, load_psf, save_image
     help="File name to save color correct bayer as RGB.",
 )
 @click.option(
+    "--save_auto",
+    is_flag=True,
+    help="Save autocorrelation instead of pop-up window.",
+)
+@click.option(
     "--nbits",
     default=None,
     type=int,
     help="Number of bits for output. Only used for Bayer data",
 )
 @click.option(
+    "--down",
+    default=1,
+    type=int,
+    help="Factor by which to downsample.",
+)
+@click.option(
     "--back",
     type=str,
     help="File path for background image, e.g. for screen.",
 )
-def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, save, nbits, back):
+def analyze_image(
+    fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, save, save_auto, nbits, down, back
+):
     assert fp is not None, "Must pass file path."
 
     # initialize plotting axis
@@ -120,70 +133,32 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
         fig_gray, ax_gray = plt.subplots(ncols=3, nrows=1, num="Grayscale", figsize=(15, 5))
     else:
         fig_gray, ax_gray = plt.subplots(ncols=2, nrows=1, num="Grayscale", figsize=(15, 5))
-    # Auto white balance loop (always on for Bayer + save)
-    if bayer and save is not None:
-        print(" Starting automatic red/blue gain tuning...")
-        rg = rg or 1.0
-        bg = bg or 1.0
-        max_iter = 10
 
-        for i in range(max_iter):
-            #print(f"\n Iteration {i+1}: rg={rg:.3f}, bg={bg:.3f}")
-
-            img = load_image(
-                fp,
-                verbose=True,
-                bayer=bayer,
-                blue_gain=bg,
-                red_gain=rg,
-                nbits_out=nbits,
-                back=back,
-            )
-
-            if nbits is None:
-                nbits = int(np.ceil(np.log2(img.max())))
-
-            done, (r, g, b), (err_r, err_b) = check_balance(img)
-            #print(f" Channel means — R: {r:.1f}, G: {g:.1f}, B: {b:.1f}")
-            #print(f" Errors — R: {err_r:.3f}, B: {err_b:.3f}")
-
-            if done:
-                print(" White balance converged.")
-                break
-
-            if r > 0:
-                rg *= g / r
-            if b > 0:
-                bg *= g / b
-
-        print(f" Final gains: rg={rg:.3f}, bg={bg:.3f}")
-
+    # load PSF/image
+    if lensless:
+        img = load_psf(
+            fp,
+            verbose=True,
+            bayer=bayer,
+            blue_gain=bg,
+            red_gain=rg,
+            nbits_out=nbits,
+            return_float=False,
+            downsample=down,
+        )[0]
     else:
-        # load PSF/image
-        if lensless:
-            img = load_psf(
-                fp,
-                verbose=True,
-                bayer=bayer,
-                blue_gain=bg,
-                red_gain=rg,
-                nbits_out=nbits,
-                return_float=False,
-            )[0]
-        else:
-            img = load_image(
-                fp,
-                verbose=True,
-                bayer=bayer,
-                blue_gain=bg,
-                red_gain=rg,
-                nbits_out=nbits,
-                back=back,
-            )
-
-        if nbits is None:
-            nbits = int(np.ceil(np.log2(img.max())))
-
+        img = load_image(
+            fp,
+            verbose=True,
+            bayer=bayer,
+            blue_gain=bg,
+            red_gain=rg,
+            nbits_out=nbits,
+            back=back,
+            downsample=down,
+        )
+    if nbits is None:
+        nbits = int(np.ceil(np.log2(img.max())))
     # plot RGB and grayscale
     ax = plot_image(img, gamma=gamma, normalize=True, ax=ax_rgb[0])
     ax.set_title("RGB")
@@ -206,8 +181,9 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
         plot_cross_section(
             img_grey, color="gray", plot_db_drop=width, ax=ax_gray[2], plot_width=plot_width
         )
-        _, ax_cross = plt.subplots(ncols=3, nrows=1, num="RGB widths", figsize=(15, 5))
+        fig_auto, ax_cross = plt.subplots(ncols=3, nrows=1, num="RGB widths", figsize=(15, 5))
         for i, c in enumerate(["r", "g", "b"]):
+            print(f"-- {c} channel")
             ax, _ = plot_cross_section(
                 img[:, :, i],
                 color=c,
@@ -220,18 +196,18 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
                 ax.set_ylabel("")
 
     elif lensless:
-
         # plot autocorrelations and width
         # -- grey
-        _, ax_auto = plt.subplots(ncols=4, nrows=2, num="Autocorrelations", figsize=(15, 5))
+        fig_auto, ax_auto = plt.subplots(ncols=4, nrows=2, num="Autocorrelations", figsize=(15, 5))
         _, autocorr_grey = plot_autocorr2d(img_grey, ax=ax_auto[0][0])
+        print("-- grayscale")
         plot_cross_section(
             autocorr_grey, color="gray", plot_db_drop=width, ax=ax_auto[1][0], plot_width=plot_width
         )
         # -- rgb
         for i, c in enumerate(["r", "g", "b"]):
             _, autocorr_c = plot_autocorr2d(img[:, :, i], ax=ax_auto[0][i + 1])
-
+            print(f"-- {c} channel")
             ax, _ = plot_cross_section(
                 autocorr_c,
                 color=c,
@@ -253,18 +229,13 @@ def analyze_image(fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, s
         save_image(img, save_8bit, normalize=True)
         print(f"\n8bit version saved to: {save_8bit}")
 
-    plt.show()
+    if save_auto:
+        auto_fp = os.path.join(os.path.dirname(fp), "autocorrelation.png")
+        fig_auto.savefig(auto_fp)
+        print(f"\nAutocorrelation saved to: {auto_fp}")
+    else:
+        plt.show()
 
-def check_balance(img, threshold=0.05):
-    """Returns True if R/B are within threshold of G."""
-    mean_r = np.mean(img[:, :, 0])
-    mean_g = np.mean(img[:, :, 1])
-    mean_b = np.mean(img[:, :, 2])
-
-    err_r = abs(mean_r - mean_g) / mean_g
-    err_b = abs(mean_b - mean_g) / mean_g
-
-    return err_r < threshold and err_b < threshold, (mean_r, mean_g, mean_b), (err_r, err_b)
 
 if __name__ == "__main__":
     analyze_image()
