@@ -358,7 +358,10 @@ def auto_expose_locally(config):
 
 @hydra.main(version_base=None, config_path="../../configs", config_name="capture")
 def main(config):
-    auto_expose_locally(config)
+    if config.auto_exp:
+        auto_expose_locally(config)
+    else:
+        capture(config)
 
 if __name__ == "__main__":
     main()
