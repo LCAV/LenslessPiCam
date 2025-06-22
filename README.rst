@@ -30,20 +30,6 @@ Project Structure
     ├── captures/             # PSFs and image captures
     ├── README.rst            # This file
 
-Demo
-----
-
-Once the frontend server is running, the local IP address of the Raspberry Pi
-and the full URL (e.g., ``http://192.168.1.42:5173``) will be printed in the terminal.
-
-You must:
-
-- SSH into the Raspberry Pi
-- Run the frontend (`npm run dev`)
-- Copy the printed IP address from the terminal
-- Open the browser from another device on the same network
-
-The IP address may change depending on your local network configuration.
 
 Getting Started
 ---------------
