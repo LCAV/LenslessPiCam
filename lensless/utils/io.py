@@ -166,9 +166,6 @@ def load_image(
     if flip_lr:
         img = np.fliplr(img)
 
-    if verbose:
-        print_image_info(img)
-
     if bg is not None:
 
         # if bg is float vector, turn into int-valued vector
@@ -203,6 +200,9 @@ def load_image(
         if dtype is None:
             dtype = original_dtype
         img = img.astype(dtype)
+
+    if verbose:
+        print_image_info(img)
 
     return img
 

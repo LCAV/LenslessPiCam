@@ -9,6 +9,7 @@ rpi:
 device: adafruit
 virtual: False
 save: True
+preview: False
 
 # pattern: data/psf/adafruit_random_pattern_20230719.npy
 pattern: random
@@ -20,9 +21,7 @@ radius: 20            # if pattern: circ
 center: [0, 0]
 
 
-aperture:
-  center: null
-  shape: null
+aperture: null
 # aperture:
 #   center: [59,76]
 #   shape: [19,26]

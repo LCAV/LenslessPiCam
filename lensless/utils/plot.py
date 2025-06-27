@@ -230,6 +230,7 @@ def plot_cross_section(
         ax.set_xlim([-half_width, half_width])
     ax.grid()
 
+    ax.set_title("Cross-section")
     if dB and plot_db_drop:
         cross_section -= np.max(cross_section)
         zero_crossings = np.where(np.diff(np.signbit(cross_section + plot_db_drop)))[0]
@@ -244,8 +245,6 @@ def plot_cross_section(
             width = 2 * np.abs(first_crossing)
             ax.axvline(x=-first_crossing, c="k", linestyle="--")
             ax.axvline(x=+first_crossing, c="k", linestyle="--")
-
-            ax.set_title("Cross-section")
             ax.set_xlabel(f"-{plot_db_drop}dB width = {width}")
 
         else:
@@ -299,7 +298,7 @@ def plot_autocorr2d(vals, pad_mode="reflect", ax=None):
     return ax, autocorr
 
 
-def plot_autocorr_rgb(img, width=3, figsize=None, plot_psf=False, psf_gamma=2.2):
+def plot_autocorr_rgb(img, width=3, figsize=None, plot_psf=False, psf_gamma=2.2, verbose=False):
     """
     Plot autocorrelation of each channel of an image.
 
@@ -340,13 +339,15 @@ def plot_autocorr_rgb(img, width=3, figsize=None, plot_psf=False, psf_gamma=2.2)
         idx = max_idx[0]
         # ax_auto[1][i].axhline(y=idx, c=c, linestyle="--")
 
-        ax, _ = plot_cross_section(
+        ax, cross_section = plot_cross_section(
             autocorr_c,
             idx=idx,
             color=c,
             ax=ax_auto[2 if plot_psf else 1][i],
             plot_db_drop=width,
         )
+        if verbose:
+            print(f"Maximum drop in {c} channel: {cross_section.max() - cross_section.min()}")
         if i != 0:
             ax.set_ylabel("")
     return ax
