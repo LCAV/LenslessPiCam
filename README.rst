@@ -324,3 +324,10 @@ References
 .. [10] Asif, M. S., Ayremlou, A., Sankaranarayanan, A., Veeraraghavan, A., & Baraniuk, R. G. (2016). Flatcam: Thin, lensless cameras using coded aperture and computation. IEEE Transactions on Computational Imaging, 3(3), 384-397.
 .. [11] Boominathan, V., Adams, J. K., Robinson, J. T., & Veeraraghavan, A. (2020). Phlatcam: Designed phase-mask based thin lensless camera. IEEE transactions on pattern analysis and machine intelligence, 42(7), 1618-1629.
 .. [12] Lee, K. C., Bae, J., Baek, N., Jung, J., Park, W., & Lee, S. A. (2023). Design and single-shot fabrication of lensless cameras with arbitrary point spread functions. Optica, 10(1), 72-80.
+
+License
+-------
+
+The open source license is in the [LICENSE](https://github.com/LCAV/LenslessPiCam/blob/main/LICENSE) file. 
+
+If this license is not suitable for your business or project, please contact EPFL-TTO (https://tto.epfl.ch/) for a full commercial license.
