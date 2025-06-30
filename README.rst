@@ -328,6 +328,6 @@ References
 License
 -------
 
-The open source license is in the [LICENSE](https://github.com/LCAV/LenslessPiCam/blob/main/LICENSE) file. 
+The open source license is in the `LICENSE <https://github.com/LCAV/LenslessPiCam/blob/main/LICENSE>`__ file.
 
 If this license is not suitable for your business or project, please contact EPFL-TTO (https://tto.epfl.ch/) for a full commercial license.
