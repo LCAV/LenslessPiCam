@@ -245,6 +245,8 @@ def plot_cross_section(
             width = 2 * np.abs(first_crossing)
             ax.axvline(x=-first_crossing, c="k", linestyle="--")
             ax.axvline(x=+first_crossing, c="k", linestyle="--")
+            print(f"-{plot_db_drop}dB width = {width} pixels")
+            ax.set_title("Cross-section")
             ax.set_xlabel(f"-{plot_db_drop}dB width = {width}")
 
         else:

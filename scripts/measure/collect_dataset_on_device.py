@@ -20,6 +20,7 @@ import time
 import os
 import pathlib as plib
 import shutil
+import warnings
 import tqdm
 from picamerax import PiCamera
 from fractions import Fraction
@@ -161,7 +162,26 @@ def collect_dataset(config):
         camera.close()
 
         # -- now set up camera with desired settings
-        camera = PiCamera(sensor_mode=0, resolution=tuple(res), framerate=config.capture.framerate)
+        max_increase = (
+            config.capture.fact_increase * config.max_tries
+            if config.max_tries > 0
+            else 1
+        )
+        max_exposure = min(20, config.capture.exposure * max_increase)
+        if config.capture.framerate is None:
+            framerate = 1 / max_exposure
+            warnings.warn(
+                f"Framerate is not given. Setting it to 1 / max_exposure = {framerate}"
+            )
+        elif config.capture.framerate > 1 / max_exposure:
+            warnings.warn(
+                f"Framerate should be less or equal 1 / max_exposure = {1 / max_exposure}. Resetting framerate"
+            )
+            framerate = 1 / max_exposure
+        else:
+            framerate = config.capture.framerate
+
+        camera = PiCamera(sensor_mode=0, resolution=tuple(res), framerate=framerate)
 
         # Set ISO to the desired value
         camera.resolution = tuple(res)
@@ -175,8 +195,8 @@ def collect_dataset(config):
             init_shutter_speed = int(config.capture.exposure * 1e6)
         else:
             init_shutter_speed = camera.exposure_speed
-        camera.shutter_speed = init_shutter_speed
         camera.exposure_mode = "off"
+        camera.shutter_speed = init_shutter_speed
 
         # AWB
         if config.capture.awb_gains:
@@ -362,8 +382,10 @@ def capture_screen(
         fact_decrease = config.capture.fact_decrease
         n_tries = 0
 
-        camera.shutter_speed = int(init_shutter_speed)
-        time.sleep(config.capture.config_pause)
+        if MAX_TRIES > 0:
+            # shutter speed is constant for MAX_TRIES == 0
+            camera.shutter_speed = int(init_shutter_speed)
+            time.sleep(config.capture.config_pause)
         current_shutter_speed = camera.shutter_speed
 
         current_screen_brightness = init_brightness

@@ -292,7 +292,7 @@ def load_psf(
     else:
         psf = load_image(
             fp,
-            verbose=verbose,
+            verbose=False,
             flip=flip,
             flip_ud=flip_ud,
             flip_lr=flip_lr,
@@ -376,6 +376,9 @@ def load_psf(
         bg /= max_val
     else:
         psf = psf.astype(original_dtype)
+
+    if verbose:
+        print_image_info(psf)
 
     if return_bg:
         return psf, bg

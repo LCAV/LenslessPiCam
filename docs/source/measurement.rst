@@ -149,7 +149,7 @@ The script should be launched **from the Raspberry Pi**:
 
    python scripts/measure/collect_dataset_on_device.py -cn CONFIG_NAME
 
-The default configuration can be found in `configs/collect_dataset.yaml <https://github.com/LCAV/LenslessPiCam/blob/main/configs/collect_dataset.yaml>`__.
+The default configuration can be found in `configs/collect_dataset.yaml <https://github.com/LCAV/LenslessPiCam/blob/main/configs/dataset/collect_dataset.yaml>`__.
 
 
 The following needs to be done before running the script:
