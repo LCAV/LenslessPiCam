@@ -64,7 +64,7 @@ class GradientDescent(ReconstructionAlgorithm):
     Object for applying projected gradient descent.
     """
 
-    def __init__(self, psf, dtype=None, proj=non_neg, **kwargs):
+    def __init__(self, psf, dtype=None, proj=non_neg, lip_fact=1.8, **kwargs):
         """
 
         Parameters
@@ -83,6 +83,7 @@ class GradientDescent(ReconstructionAlgorithm):
 
         assert callable(proj)
         self._proj = proj
+        self._lip_fact = lip_fact
         super(GradientDescent, self).__init__(psf, dtype, **kwargs)
 
         if self._denoiser is not None:
@@ -106,7 +107,9 @@ class GradientDescent(ReconstructionAlgorithm):
             # set step size as < 2 / lipschitz
             Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
             H_flat = self._convolver._H.reshape(-1, self._psf_shape[3])
-            self._alpha = torch.real(1.8 / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values)
+            self._alpha = torch.real(
+                self._lip_fact / torch.max(torch.abs(Hadj_flat * H_flat), axis=0).values
+            )
 
         else:
             if self._initial_est is not None:
@@ -120,7 +123,7 @@ class GradientDescent(ReconstructionAlgorithm):
             # set step size as < 2 / lipschitz
             Hadj_flat = self._convolver._Hadj.reshape(-1, self._psf_shape[3])
             H_flat = self._convolver._H.reshape(-1, self._psf_shape[3])
-            self._alpha = np.real(1.8 / np.max(Hadj_flat * H_flat, axis=0))
+            self._alpha = np.real(self._lip_fact / np.max(Hadj_flat * H_flat, axis=0))
 
     def _grad(self):
         diff = self._convolver.convolve(self._image_est) - self._data

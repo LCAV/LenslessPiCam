@@ -8,7 +8,10 @@ DiffuserCam_Mirflickr_200_3011302021_11h43_seed11*
 paper/paper.pdf
 data/*
 models/*
+multirun/*
 notebooks/models/*
+authenticate_admm/*
+authenticate_learned/*
 *.png
 *.jpg
 *.npy

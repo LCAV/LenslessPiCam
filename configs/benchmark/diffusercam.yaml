@@ -1,4 +1,10 @@
 # python scripts/eval/benchmark_recon.py -cn diffusercam
+#
+# To sweep over multiple hyperparameters, e.g. of mu1 and mu2 of ADMM:
+# python scripts/eval/benchmark_recon.py -cn diffusercam -m algorithms=[ADMM] n_iter_range=[10,100] admm.mu1=1e-6,1e-5 admm.mu2=1e-6,1e-5 admm.mu3=3e-5 admm.tau=1e-4
+#
+# Hydra will do a Cartesian product of mu1 and mu2, i.e. it will run 4 experiments.
+# Output will be saved to `multirun` folder.
 defaults:
   - defaults
   - _self_
@@ -91,4 +97,10 @@ save_idx: [0, 1, 3, 4, 8]
 n_iter_range: [10]    # for ADMM
 # save_idx: [0, 1, 3, 4, 8, 45, 58, 63]
 # n_iter_range: [100]    # for ADMM
+
+admm:
+  mu1: 1e-6
+  mu2: 1e-5
+  mu3: 4e-5
+  tau: 0.0001
 

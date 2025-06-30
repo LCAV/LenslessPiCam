@@ -103,7 +103,8 @@ def config_digicam(config):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         s = slm.create(device)
-        s._show_preview(pattern)
+        if config.preview:
+            s._show_preview(pattern)
         plt.savefig("preview.png")
 
 
