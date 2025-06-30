@@ -10,6 +10,11 @@ The format is based on `Keep a Changelog <http://keepachangelog.com/en/1.0.0/>`_
 Unreleased
 ----------
 
+- Nothing
+
+1.0.8 - (2025-06-30)
+--------------------
+
 Added
 ~~~~~
 
