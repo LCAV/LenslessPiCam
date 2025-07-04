@@ -301,6 +301,67 @@ def capture(config):
 
     print("Image saved to : {}".format(fn))
 
+def auto_expose_locally(config):
+
+    max_iter = 10
+    target_max = 4095 if config.nbits_out > 8 else 255
+    max_saturation_ratio = 0.001
+    exp = config.exp
+
+    i = 0
+    while i < max_iter:
+        print(f"\n[Auto Exposure] Attempt {i+1} | exp = {exp:.6f}s")
+
+        # Clone config and update exposure
+        config_local = copy.deepcopy(config)
+        config_local.exp = exp
+
+        # Call capture
+        capture(config_local)
+
+        # Build image path
+        fn = config.fn + ".png"
+
+        # Load image
+        img = cv2.imread(fn, cv2.IMREAD_UNCHANGED)
+        if img is None:
+            print(f"❌ Failed to load image from {fn}")
+            break
+
+        # Evaluate brightness
+        max_val = np.max(img)
+        sat_ratio = np.sum(img == target_max) / img.size
+        print(f"    Max pixel: {max_val} | Saturated: {sat_ratio*100:.4f}%")
+
+        # Stop if image is well exposed
+        if max_val >= target_max * 0.99 and sat_ratio <= max_saturation_ratio:
+            print(f"✅ Good exposure found at exp = {exp:.6f}s")
+            break
+
+        # Adjust exposure
+        if max_val >= target_max:
+            exp *= 0.7 if sat_ratio > max_saturation_ratio else 0.95
+        elif max_val >= target_max * 0.93:
+            exp *= 1.05
+        else:
+            exp *= 1.4
+
+        # Clamp to hardware limits
+        min_exp = sensor_dict[config.sensor][SensorParam.MIN_EXPOSURE]
+        max_exp = sensor_dict[config.sensor][SensorParam.MAX_EXPOSURE]
+        exp = min(max(exp, min_exp), max_exp)
+
+        i += 1
+
+    print(f"Final exposure used: {exp:.6f}s")
+
+
+@hydra.main(version_base=None, config_path="../../configs", config_name="capture")
+def main(config):
+    if config.auto_exp:
+        auto_expose_locally(config)
+    else:
+        capture(config)
 
 if __name__ == "__main__":
     main()
