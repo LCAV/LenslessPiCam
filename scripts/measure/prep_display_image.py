@@ -165,7 +165,7 @@ def display(
         img = np.roll(img, shift=int(hshift * ny / 100), axis=1)
 
     if brightness:
-        img = (img * brightness / 100).astype(np.uint8)
+        img = (img.astype(np.float32) * brightness / 100).astype(np.uint8)
 
     # save to file
     im = Image.fromarray(img)
