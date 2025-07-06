@@ -16,8 +16,13 @@ export default function PhoneCapturePage() {
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          await videoRef.current.play();
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current?.play().catch(err => {
+              console.error("Video play() failed:", err);
+            });
+          };
         }
+
       } catch (err) {
         console.error("Camera access failed", err);
         setStatus("Camera access denied.");

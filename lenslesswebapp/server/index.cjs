@@ -6,12 +6,16 @@ const fs = require('fs');
 const https = require('https');
 const multer = require('multer');
 const upload = multer({ dest: '/tmp' }); // Dossier temporaire
+const Jimp = require('jimp');
 
 
 const app = express();
 const PORT = 5000;
 
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST'],
+}));
 app.use(express.json());
 
 // Helper function to execute a shell command with real-time output
@@ -47,7 +51,6 @@ function runCommandLive(command, args, cwd, extractHydraDir = false) {
   });
 }
 
-
 app.post('/run-demo', async (req, res) => {
   try {
     console.log("[SERVER] /run-demo endpoint hit");
@@ -73,7 +76,7 @@ app.post('/run-demo', async (req, res) => {
         'sensor=rpi_hq',
         'bayer=True',
         'fn=capture',
-        'exp=1',
+        'exp=0.15',
         'iso=100',
         'config_pause=2',
         'sensor_mode=0',
@@ -82,6 +85,7 @@ app.post('/run-demo', async (req, res) => {
         'rgb=False',
         'gray=False',
         'sixteen=True',
+        'auto_exp_psf=true'
       ],
       '/home/pi3/LenslessPiCam-Imane'
     );
@@ -101,7 +105,7 @@ app.post('/run-demo', async (req, res) => {
         '--bayer',
         '--gamma', '2.2',
         '--rg', '2.0',
-        '--bg', '1.1',
+        '--bg', '1.2',
         '--lensless',
         '--down', '2',
         '--save', `Psf/${psfName}/psf_rgb.png`,
@@ -128,11 +132,18 @@ app.post('/run-demo', async (req, res) => {
 
   app.post('/run-full-imaging', upload.single('image'), async (req, res) => {
     try {
-      const { psfChosen, iterations = 10, algorithm = "ADMM" } = req.body;
+      const psfChosen = req.body.psfChosen;
+      const iterations = parseInt(req.body.iterations || '10', 10);
+      const algorithm = req.body.algorithm || "ADMM";
+      const useAutoExposure = req.body.useAutoExposure === 'true';
+      const manualExposure = parseFloat(req.body.manualExposure || '0.04');
       const imagePath = req.file.path;
 
+      console.log(`[DEBUG] useAutoExposure: ${useAutoExposure}, manualExposure: ${manualExposure}s`);
+
+
       // 1. Nom de dossier basé sur timestamp (très simple et lisible)
-      const captureId = Date.now().toString();
+      const captureId = req.body.captureName || Date.now().toString();
       const captureDir = `/home/pi3/LenslessPiCam-Imane/Captures/${captureId}`;
       console.log(`[1] Création du dossier de capture : ${captureDir}`);
 
@@ -161,31 +172,37 @@ app.post('/run-demo', async (req, res) => {
           'rpi.username=pi3',
           'rpi.hostname=128.179.187.191',
           `fp=${captureDir}/uploaded.png`,
-          "'display.image_res=[900,900]'"
+          "'display.image_res=[900,900]'",
+          "'display.vshift=-25'"
         ],
-        '/home/pi3/LenslessPiCam'
+        '/home/pi3/LenslessPiCam-Imane'
       );
       console.log(`[3] Image affichée.`);
 
       // 5. Capture la photo via la caméra du Pi
       console.log(`[4] Capture via la caméra du Pi (on_device_capture.py)`);
+      const baseArgs = [
+        'scripts/measure/on_device_capture.py',
+        'sensor=rpi_hq',
+        'bayer=True',
+        'fn=capture',
+        ...(useAutoExposure ? ['exp=0.04', 'auto_exp_img=true'] : [`exp=${manualExposure}`]),
+        'iso=100',
+        'config_pause=2',
+        'sensor_mode=0',
+        'nbits_out=12',
+        'legacy=True',
+        'rgb=False',
+        'gray=False',
+        'sixteen=True'
+      ];
+
+      if (useAutoExposure) {
+        baseArgs.push('auto_exp_img=true');} // ← très important
+
       await runCommandLive(
         '/home/pi3/LenslessPiCam/lensless_env/bin/python',
-        [
-          'scripts/measure/on_device_capture.py',
-          'sensor=rpi_hq',
-          'bayer=True',
-          'fn=capture',
-          'exp=1',
-          'iso=100',
-          'config_pause=2',
-          'sensor_mode=0',
-          'nbits_out=12',
-          'legacy=True',
-          'rgb=False',
-          'gray=False',
-          'sixteen=True',
-        ],
+        baseArgs,
         '/home/pi3/LenslessPiCam-Imane'
       );
       console.log(`[4] Capture terminée.`);
@@ -209,7 +226,7 @@ app.post('/run-demo', async (req, res) => {
           '--bayer',
           '--gamma', '2.2',
           '--rg', '2.0',
-          '--bg', '1.1',
+          '--bg', '1.2',
           '--save', colorCorrectedPath
         ],
         '/home/pi3/LenslessPiCam-Imane'
@@ -234,7 +251,7 @@ app.post('/run-demo', async (req, res) => {
           `input.data=${colorCorrectedPath}`,
           `input.psf=${psfPath}`,
           `admm.n_iter=${iterations}`,
-          `preprocess.downsample=8`,
+          `preprocess.downsample=2`,
           `display.plot=true`
         ];
       }
@@ -250,6 +267,108 @@ app.post('/run-demo', async (req, res) => {
       if (hydraOutputDir) {
         const reconSrc = path.join(hydraOutputDir, `${iterations}.png`);
         await runCommandLive('mv', [reconSrc, reconPath], '/home/pi3/LenslessPiCam-Imane');
+
+        // 🧠 Smart cropping logic starts here
+        const Jimp = require('jimp');
+        const image = await Jimp.read(reconPath);
+
+        // Step 1: Remove white matplotlib border
+        const whiteMargin = 100;
+        if (image.bitmap.width > 2 * whiteMargin && image.bitmap.height > 2 * whiteMargin) {
+          image.crop(
+            whiteMargin,
+            whiteMargin,
+            image.bitmap.width - 2 * whiteMargin,
+            image.bitmap.height - 2 * whiteMargin
+          );
+        } else {
+          console.warn(`⚠️ Skipping white border crop — image too small (${image.bitmap.width}x${image.bitmap.height})`);
+        }
+
+        // Step 2: Histogram-based black crop
+        const w = image.bitmap.width;
+        const h = image.bitmap.height;
+        const brightnessThreshold = 30;
+        const pixelThreshold = 1;
+
+        let top = 0, bottom = h - 1;
+        let left = 0, right = w - 1;
+
+        for (let y = 0; y < h; y++) {
+          let count = 0;
+          for (let x = 0; x < w; x++) {
+            const idx = image.getPixelIndex(x, y);
+            const r = image.bitmap.data[idx + 0];
+            const g = image.bitmap.data[idx + 1];
+            const b = image.bitmap.data[idx + 2];
+            const brightness = (r + g + b) / 3;
+            if (brightness > brightnessThreshold) count++;
+          }
+          if (count > pixelThreshold) {
+            top = y;
+            break;
+          }
+        }
+
+        for (let y = h - 1; y >= 0; y--) {
+          let count = 0;
+          for (let x = 0; x < w; x++) {
+            const idx = image.getPixelIndex(x, y);
+            const r = image.bitmap.data[idx + 0];
+            const g = image.bitmap.data[idx + 1];
+            const b = image.bitmap.data[idx + 2];
+            const brightness = (r + g + b) / 3;
+            if (brightness > brightnessThreshold) count++;
+          }
+          if (count > pixelThreshold) {
+            bottom = y;
+            break;
+          }
+        }
+
+        for (let x = 0; x < w; x++) {
+          let count = 0;
+          for (let y = 0; y < h; y++) {
+            const idx = image.getPixelIndex(x, y);
+            const r = image.bitmap.data[idx + 0];
+            const g = image.bitmap.data[idx + 1];
+            const b = image.bitmap.data[idx + 2];
+            const brightness = (r + g + b) / 3;
+            if (brightness > brightnessThreshold) count++;
+          }
+          if (count > pixelThreshold) {
+            left = x;
+            break;
+          }
+        }
+
+        for (let x = w - 1; x >= 0; x--) {
+          let count = 0;
+          for (let y = 0; y < h; y++) {
+            const idx = image.getPixelIndex(x, y);
+            const r = image.bitmap.data[idx + 0];
+            const g = image.bitmap.data[idx + 1];
+            const b = image.bitmap.data[idx + 2];
+            const brightness = (r + g + b) / 3;
+            if (brightness > brightnessThreshold) count++;
+          }
+          if (count > pixelThreshold) {
+            right = x;
+            break;
+          }
+        }
+
+        const cropWidth = right - left + 1;
+        const cropHeight = bottom - top + 1;
+
+        if (cropWidth > 0 && cropHeight > 0) {
+          image.crop(left, top, cropWidth, cropHeight);
+          await image.writeAsync(reconPath);
+          console.log(`✅ Smart-cropped to: ${cropWidth}x${cropHeight}`);
+        } else {
+          console.warn(`⚠️ Skipping: invalid crop area.`);
+        }
+
       } else {
         throw new Error('No Hydra output directory detected!');
       }
@@ -323,7 +442,7 @@ app.post('/run-demo', async (req, res) => {
           `input.data=${colorCorrectedPath}`,
           `input.psf=${psfPath}`,
           `admm.n_iter=${iterations}`,
-          `preprocess.downsample=8`,
+          `preprocess.downsample=2`,
           `display.plot=true`
         ];
       }
@@ -334,6 +453,7 @@ app.post('/run-demo', async (req, res) => {
         '/home/pi3/LenslessPiCam-Imane',
         true
       );
+      
 
 
       if (!hydraOutputDir) {
@@ -342,6 +462,109 @@ app.post('/run-demo', async (req, res) => {
 
       const newReconPath = path.join(hydraOutputDir, `${iterations}.png`);
       await runCommandLive('mv', [newReconPath, reconPath], '/home/pi3/LenslessPiCam-Imane');
+      
+      // 🧠 Smart cropping logic starts here
+      const Jimp = require('jimp');
+      const image = await Jimp.read(reconPath);
+
+      // Step 1: Remove white matplotlib border
+      const whiteMargin = 100;
+      if (image.bitmap.width > 2 * whiteMargin && image.bitmap.height > 2 * whiteMargin) {
+        image.crop(
+          whiteMargin,
+          whiteMargin,
+          image.bitmap.width - 2 * whiteMargin,
+          image.bitmap.height - 2 * whiteMargin
+        );
+      } else {
+        console.warn(`⚠️ Skipping white border crop — image too small (${image.bitmap.width}x${image.bitmap.height})`);
+      }
+
+      // Step 2: Histogram-based black crop
+      const w = image.bitmap.width;
+      const h = image.bitmap.height;
+      const brightnessThreshold = 25;
+      const pixelThreshold = 1;
+
+      let top = 0, bottom = h - 1;
+      let left = 0, right = w - 1;
+
+      for (let y = 0; y < h; y++) {
+        let count = 0;
+        for (let x = 0; x < w; x++) {
+          const idx = image.getPixelIndex(x, y);
+          const r = image.bitmap.data[idx + 0];
+          const g = image.bitmap.data[idx + 1];
+          const b = image.bitmap.data[idx + 2];
+          const brightness = (r + g + b) / 3;
+          if (brightness > brightnessThreshold) count++;
+        }
+        if (count > pixelThreshold) {
+          top = y;
+          break;
+        }
+      }
+
+      for (let y = h - 1; y >= 0; y--) {
+        let count = 0;
+        for (let x = 0; x < w; x++) {
+          const idx = image.getPixelIndex(x, y);
+          const r = image.bitmap.data[idx + 0];
+          const g = image.bitmap.data[idx + 1];
+          const b = image.bitmap.data[idx + 2];
+          const brightness = (r + g + b) / 3;
+          if (brightness > brightnessThreshold) count++;
+        }
+        if (count > pixelThreshold) {
+          bottom = y;
+          break;
+        }
+      }
+
+      for (let x = 0; x < w; x++) {
+        let count = 0;
+        for (let y = 0; y < h; y++) {
+          const idx = image.getPixelIndex(x, y);
+          const r = image.bitmap.data[idx + 0];
+          const g = image.bitmap.data[idx + 1];
+          const b = image.bitmap.data[idx + 2];
+          const brightness = (r + g + b) / 3;
+          if (brightness > brightnessThreshold) count++;
+        }
+        if (count > pixelThreshold) {
+          left = x;
+          break;
+        }
+      }
+
+      for (let x = w - 1; x >= 0; x--) {
+        let count = 0;
+        for (let y = 0; y < h; y++) {
+          const idx = image.getPixelIndex(x, y);
+          const r = image.bitmap.data[idx + 0];
+          const g = image.bitmap.data[idx + 1];
+          const b = image.bitmap.data[idx + 2];
+          const brightness = (r + g + b) / 3;
+          if (brightness > brightnessThreshold) count++;
+        }
+        if (count > pixelThreshold) {
+          right = x;
+          break;
+        }
+      }
+
+      const cropWidth = right - left + 1;
+      const cropHeight = bottom - top + 1;
+
+      if (cropWidth > 0 && cropHeight > 0) {
+        image.crop(left, top, cropWidth, cropHeight);
+        await image.writeAsync(reconPath);
+        console.log(`✅ Smart-cropped to: ${cropWidth}x${cropHeight}`);
+      } else {
+        console.warn(`⚠️ Skipping: invalid crop area.`);
+      }
+
+
 
       const reconBuffer = fs.readFileSync(reconPath);
       res.json({ recon: reconBuffer.toString('base64') });
@@ -386,6 +609,46 @@ app.post('/run-demo', async (req, res) => {
       autocorr: autocorrBuffer.toString('base64'),
     });
   });
+
+  app.get('/list-captures', (req, res) => {
+    const baseDir = '/home/pi3/LenslessPiCam-Imane/Captures';
+    fs.readdir(baseDir, { withFileTypes: true }, (err, files) => {
+      if (err) {
+        console.error("[SERVER] Error listing captures:", err);
+        return res.status(500).json({ error: 'Could not read Captures directory' });
+      }
+      const captureList = files.filter(f => f.isDirectory()).map(f => f.name);
+      res.json({ captures: captureList });
+    });
+  })
+
+  app.get('/load-capture/:captureId', (req, res) => {
+    const { captureId } = req.params;
+    const captureDir = path.join('/home/pi3/LenslessPiCam-Imane/Captures', captureId);
+    let psfName = 'PSF_1mm'; // ⬅️ fallback default
+
+    const rawPath = path.join(captureDir, 'data_rgb_8bit.png');
+    const reconPath = path.join(captureDir, 'reconstruction.png');
+    const uploadedPath = path.join(captureDir, 'uploaded.png');
+
+    if (!fs.existsSync(rawPath) || !fs.existsSync(reconPath)) {
+      return res.status(404).json({ error: 'Files not found in capture folder' });
+    }
+
+    const imgCapture = fs.readFileSync(rawPath);
+    const imgRecon = fs.readFileSync(reconPath);
+    let imgUpload = null;
+    if (fs.existsSync(uploadedPath)) {
+      imgUpload = fs.readFileSync(uploadedPath);
+    }
+    res.json({
+      imgCapture: imgCapture.toString('base64'),
+      imgRecon: imgRecon.toString('base64'),
+      imgUpload: imgUpload ? imgUpload.toString('base64') : null,psfName
+
+    });
+  });
+
 
 
   const archiver = require('archiver'); // ← if not yet added at the top

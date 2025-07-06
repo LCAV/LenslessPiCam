@@ -21,6 +21,9 @@ const downloadImagingZip = async (captureId) => {
   }
 };
 
+
+
+
 export default function Demo() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -44,6 +47,14 @@ export default function Demo() {
   const [manualExposure, setManualExposure] = useState(1); // default to 1s
   const [showAlgorithmModal, setShowAlgorithmModal] = useState(false);
   const [newAlgorithm, setNewAlgorithm] = useState(algorithm);
+  const [captureName, setCaptureName] = useState("");
+  const [captureList, setCaptureList] = useState([]);
+  const [selectedCapture, setSelectedCapture] = useState("");
+  const [showCaptureDropdown, setShowCaptureDropdown] = useState(false); // ✅ add this
+  
+
+
+
 
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
@@ -52,7 +63,33 @@ export default function Demo() {
 
   const [psfImage, setPsfImage] = useState(null);
   const [autocorrImage, setAutocorrImage] = useState(null);
+  const handleLoadCapture = async (id) => {
+    try {
+      const res = await fetch(`https://128.179.187.191:5000/load-capture/${id}`);
+      if (!res.ok) throw new Error("Failed to load capture");
+      const data = await res.json();
+      setRawLenslessImage(`data:image/png;base64,${data.imgCapture}`);
+      setReconImage(`data:image/png;base64,${data.imgRecon}`);
+      sessionStorage.setItem("latestCaptureId", id); // set for download & rerun
+      if (data.psfName) {
+        setSelectedPsf(data.psfName);
+        sessionStorage.setItem("selectedPsf", data.psfName);
+      }
 
+      if (data.imgUpload) {
+        const uploadUrl = `data:image/png;base64,${data.imgUpload}`;
+        setImagePreview(uploadUrl); // 🔍 for visual preview
+
+        // Also keep File object in case user reruns reconstruction
+        const blob = await (await fetch(uploadUrl)).blob();
+        const file = new File([blob], "loaded.png", { type: "image/png" });
+        setSelectedFile(file); // ✅ Makes sure the backend can rerun with this
+      }
+    } catch (err) {
+      setImagingStatus("❌ Load failed.");
+      console.error(err);
+    }
+  };
   useEffect(() => {
     if (showCamera && videoRef.current && streamRef.current) {
       videoRef.current.srcObject = streamRef.current;
@@ -70,6 +107,17 @@ export default function Demo() {
       console.error('Could not load PSF list:', err);
     });
 }, []);
+
+  useEffect(() => {
+    fetch('https://128.179.187.191:5000/list-captures')
+      .then(res => res.json())
+      .then(data => setCaptureList(data.captures || []))
+      .catch(err => {
+        setCaptureList([]);
+        console.error('Could not load capture list:', err);
+      });
+  }, []);
+
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -134,8 +182,10 @@ export default function Demo() {
     formData.append('iterations', iterations);
     formData.append('psfChosen', selectedPsf);
     formData.append('image', selectedFile);
-    //formData.append('exp', useAutoExposure ? 'auto' : manualExposure);
+    formData.append('useAutoExposure', useAutoExposure.toString()); 
+    formData.append('manualExposure', manualExposure.toString()); 
     formData.append('algorithm', algorithm);
+    formData.append('captureName', captureName.trim());
     try {
       setShowImagingModal(false);
       setImagingStatus("Uploading and displaying image...");
@@ -453,6 +503,29 @@ export default function Demo() {
             >
               Download
             </button>
+            <button
+              onClick={() => setShowCaptureDropdown(prev => !prev)}
+              className="bg-gray-200 text-black py-2 px-6 rounded-full hover:bg-gray-300 transition w-full md:w-auto"
+            >
+              Load
+            </button>
+
+            {showCaptureDropdown && (
+              <select
+                value={selectedCapture}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedCapture(id);
+                  handleLoadCapture(id);
+                }}
+                className="bg-gray-800 text-green-300 px-4 py-2 rounded w-full md:w-auto"
+              >
+                <option value="">-- Select a capture --</option>
+                {captureList.map((cap) => (
+                  <option key={cap} value={cap}>{cap}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div className="flex flex-col md:flex-row gap-8 mb-6 justify-center items-center">
@@ -541,7 +614,7 @@ export default function Demo() {
 
           {imagePreview && (
             <div className="text-center">
-              <p className="mb-2 text-sm text-gray-400">Image Preview:</p>
+              <p className="mb-2 text-sm text-gray-400 mt-2">Image Preview:</p>
               <img src={imagePreview} alt="Preview" className="mx-auto max-h-72 border rounded-lg shadow-lg" />
             </div>
           )}
@@ -685,12 +758,12 @@ export default function Demo() {
 
               {!useAutoExposure && (
                 <div className="mb-4">
-                  <label className="block mb-1">Set Exposure (in seconds):</label>
+                  <label className="block mb-1">Set Exposure :</label>
                   <input
                     type="number"
+                    step="any"
                     value={manualExposure}
-                    min={0.1}
-                    step={0.1}
+                    min={0.001}
                     onChange={(e) => setManualExposure(Number(e.target.value))}
                     className="w-full px-3 py-1 rounded text-black"
                   />
@@ -702,8 +775,16 @@ export default function Demo() {
             </div>
             <label className="block mb-2">Number of iterations: {iterations}</label>
             <input type="range" min="1" max="100" value={iterations} onChange={(e) => setIterations(Number(e.target.value))} className="w-full" />
-
-
+            <div className="mb-4">
+              <label className="block mb-2 text-sm text-gray-300">Image folder name :</label>
+              <input
+                type="text"
+                value={captureName}
+                onChange={(e) => setCaptureName(e.target.value)}
+                placeholder="Enter folder name"
+                className="w-full px-4 py-2 rounded text-black"
+              />
+            </div>
             <button
               onClick={handleRunImaging}
               disabled={!selectedPsf || !selectedFile}
@@ -791,7 +872,13 @@ export default function Demo() {
           </div>
         </div>
       )}
-
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
     </div>
   );
 }

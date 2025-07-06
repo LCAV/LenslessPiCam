@@ -165,3 +165,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# ignore all generated outputs
+lenslesswebapp/outputs/
