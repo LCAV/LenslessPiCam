@@ -122,8 +122,15 @@ from lensless.utils.io import load_image, load_psf, save_image
     type=str,
     help="File path for background image, e.g. for screen.",
 )
+@click.option(
+    "--gain_search",
+    type=int,
+    default=0,
+    help="Number of auto-gain iterations to run (0 = disable).",
+)
+
 def analyze_image(
-    fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, save, save_auto, nbits, down, back
+    fp, gamma, width, bayer, lens, lensless, bg, rg, plot_width, save, save_auto, nbits, down, back, gain_search
 ):
     assert fp is not None, "Must pass file path."
 
@@ -134,6 +141,13 @@ def analyze_image(
     else:
         fig_gray, ax_gray = plt.subplots(ncols=2, nrows=1, num="Grayscale", figsize=(15, 5))
 
+    
+    if bayer and gain_search > 0 :
+        return auto_gain_locally(
+            fp, gamma, width, bayer, lens, lensless,
+            plot_width, save, save_auto, nbits, down, back,
+            rg, bg, gain_search
+        )
     # load PSF/image
     if lensless:
         img = load_psf(
@@ -236,6 +250,68 @@ def analyze_image(
     else:
         plt.show()
 
+def fit_gains_by_quantiles(img, nbits=12):
+    """
+    Fit RG/BG so that R and B match G over a dense set of mid-tail percentiles,
+    with a triangular weighting that emphasizes the shoulder (around 80%).
+    """
+    # 10 percentiles from 0.65 to 0.95
+    ps = np.linspace(0.65, 0.95, 10)
+    perc = (100 * ps).tolist()
+
+    # compute percentiles for each channel
+    qs = {c: np.percentile(img[...,c], perc) for c in (0,1,2)}
+    qR, qG, qB = qs[0], qs[1], qs[2]
+
+    # build triangular weights (peak at index 5, i.e. ~80%)
+    w = np.arange(1, 11)
+    w = np.minimum(w, w[::-1]).astype(float)  # [1,2,3,4,5,5,4,3,2,1]
+
+    wB = w.copy()
+    wB[-2:] *= 0.5
+
+    # least-squares with weights: gR = (w·qG·qR)/(w·qR·qR)
+    numR = np.dot(w * qG, qR)
+    denR = np.dot(w * qR, qR) + 1e-12
+    numB = np.dot(w * qG, qB)
+    denB = np.dot(w * qB, qB) + 1e-12
+
+    gR = np.clip(numR/denR, 0.5, 2.5)
+    gB = np.clip( (numB/denB) * 0.8, 0.5, 2.5 )
+
+    # clamp to sensible bounds
+    return gR, gB
+
+def auto_gain_locally(fp, gamma, width, bayer, lens, lensless,
+                      plot_width, save, save_auto, _nbits, down, back,
+                      rg, bg, gain_search):
+    """
+    One‐shot quantile‐fitting auto‐gain:
+     • Loads image once with unity gains (or supplied).
+     • Computes gR,gB by fitting 3 quantiles.
+     • Invokes final analysis with these gains.
+    """
+    img0 = load_image(
+        fp, verbose=False, bayer=True,
+        red_gain=rg or 1.0, blue_gain=bg or 1.0,
+        nbits_out=12, return_float=False,
+        downsample=down, back=back
+    )
+
+    # fit via many quantiles
+    gR, gB = fit_gains_by_quantiles(img0)
+
+    click.echo(f"[AutoGain] fitted gains → rg={gR:.3f}, bg={gB:.3f}")
+
+    # final one-shot
+    analyze_image.callback(
+        fp=fp, gamma=gamma, width=width,
+        bayer=bayer, lens=lens, lensless=lensless,
+        bg=gB, rg=gR, plot_width=plot_width,
+        save=save, save_auto=save_auto,
+        nbits=12, down=down, back=back,
+        gain_search=0
+    )
 
 if __name__ == "__main__":
     analyze_image()
