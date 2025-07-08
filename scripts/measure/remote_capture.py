@@ -1,8 +1,35 @@
+"""
+
+For Bayer data with RPI HQ sensor:
+```
+python scripts/measure/remote_capture.py \
+rpi.username=USERNAME rpi.hostname=IP_ADDRESS
+```
+
+For Bayer data with RPI Global shutter sensor:
+```
+python scripts/measure/remote_capture.py -cn remote_capture_rpi_gs \
+rpi.username=USERNAME rpi.hostname=IP_ADDRESS
+```
+
+For RGB data with RPI HQ RPI Global shutter sensor:
+```
+python scripts/measure/remote_capture.py -cn remote_capture_rpi_gs \
+rpi.username=USERNAME rpi.hostname=IP_ADDRESS \
+capture.bayer=False capture.down=2
+```
+
+Check out the `configs/demo.yaml` file for parameters, specifically:
+
+- `rpi`: RPi parameters
+- `capture`: parameters for taking pictures
+
+"""
+
 import hydra
 import os
 import subprocess
 import cv2
-import numpy as np
 from pprint import pprint
 import matplotlib.pyplot as plt
 from lensless.hardware.utils import check_username_hostname
@@ -52,15 +79,11 @@ def liveview(config):
 
     # take picture
     remote_fn = "remote_capture"
-    print("\n Running auto-exposure...")
-
-    # 1. Build base command
+    print("\nTaking picture...")
     pic_command = (
-        f"{config.rpi.python} {config.capture.script} "
-        f"sensor={sensor} bayer={bayer} fn={remote_fn} exp={config.capture.exp} iso={config.capture.iso} "
-        f"config_pause={config.capture.config_pause} sensor_mode={config.capture.sensor_mode} "
-        f"nbits_out={config.capture.nbits_out} legacy={config.capture.legacy} "
-        f"rgb={config.capture.rgb} gray={config.capture.gray} "
+        f"{config.rpi.python} {config.capture.script} sensor={sensor} bayer={bayer} fn={remote_fn} exp={config.capture.exp} iso={config.capture.iso} "
+        f"config_pause={config.capture.config_pause} sensor_mode={config.capture.sensor_mode} nbits_out={config.capture.nbits_out} "
+        f"legacy={config.capture.legacy} rgb={config.capture.rgb} gray={config.capture.gray} "
     )
     if config.capture.nbits > 8:
         pic_command += " sixteen=True"
@@ -69,24 +92,34 @@ def liveview(config):
     if config.capture.awb_gains:
         pic_command += f" awb_gains=[{config.capture.awb_gains[0]},{config.capture.awb_gains[1]}]"
 
-    # 2. Define expected output path
-    output_path = os.path.join(config.output or os.getcwd(), f"{config.capture.raw_data_fn}.png")
+    print(f"COMMAND : {pic_command}")
+    ssh = subprocess.Popen(
+        ["ssh", "%s@%s" % (username, hostname), pic_command],
+        shell=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    result = ssh.stdout.readlines()
+    error = ssh.stderr.readlines()
 
-    # 3. Run auto-exposure loop
-    auto_expose_via_remote(config, pic_command, output_path)
-
-    result = auto_expose_via_remote(config, pic_command, output_path)
-
-    result = [res.decode("UTF-8") for res in result]
-    result = [res for res in result if len(res) > 3]
-    result_dict = dict()
-    for res in result:
-        _key = res.split(":")[0].strip()
-        _val = "".join(res.split(":")[1:]).strip()
-        result_dict[_key] = _val
-    # result_dict = dict(map(lambda s: map(str.strip, s.split(":")), result))
-    print("COMMAND OUTPUT : ")
-    pprint(result_dict)
+    if error != [] and legacy:  # new camera software seems to return error even if it works
+        print("ERROR: %s" % error)
+        return
+    if result == []:
+        error = ssh.stderr.readlines()
+        print("ERROR: %s" % error)
+        return
+    else:
+        result = [res.decode("UTF-8") for res in result]
+        result = [res for res in result if len(res) > 3]
+        result_dict = dict()
+        for res in result:
+            _key = res.split(":")[0].strip()
+            _val = "".join(res.split(":")[1:]).strip()
+            result_dict[_key] = _val
+        # result_dict = dict(map(lambda s: map(str.strip, s.split(":")), result))
+        print("COMMAND OUTPUT : ")
+        pprint(result_dict)
 
     if (
         "RPi distribution" in result_dict.keys()
@@ -227,68 +260,6 @@ def liveview(config):
 
     if save:
         print(f"\nSaved plots to: {save}")
-
-
-# Auto-exposure logic injected before running SSH command
-
-def auto_expose_via_remote(config, base_command, output_path):
-    exp = config.capture.exp
-    max_iter = 10
-    target_max = 4095
-    max_saturation_ratio = 0.001
-    final_img = None
-
-    for i in range(max_iter):
-        print(f"\n Attempt {i+1} | exp={exp:.6f}s")
-
-        # Inject new exposure into command
-        pic_command = base_command.replace(f"exp={config.capture.exp}", f"exp={exp}")
-
-        ssh = subprocess.Popen(
-            ["ssh", f"{config.rpi.username}@{config.rpi.hostname}", pic_command],
-            shell=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        result = ssh.stdout.readlines()
-        error = ssh.stderr.readlines()
-
-        if error and config.capture.legacy:
-            print("ERROR:", error)
-            break
-        if not result:
-            print("ERROR:", error)
-            break
-
-        # Check image exists
-        if not os.path.exists(output_path):
-            print("Output image not found")
-            break
-
-        img = cv2.imread(output_path, cv2.IMREAD_UNCHANGED)
-        if img is None:
-            print("Failed to load captured image")
-            break
-
-        max_val = int(np.max(img))
-        sat_ratio = np.sum(img == 4095) / img.size
-        print(f"Max: {max_val} | Saturated: {sat_ratio*100:.4f}%")
-
-        if max_val >= target_max and sat_ratio <= max_saturation_ratio:
-            print(f"✅Ideal exposure found: {exp:.6f}s")
-            final_result = result
-            break
-
-        # Adjust exposure
-        if max_val >= 4095:
-            exp *= 0.7 if sat_ratio > max_saturation_ratio else 0.95
-        elif max_val >= 3800:
-            exp *= 1.05
-        else:
-            exp *= 1.4
-
-    return final_result
-
 
 
 if __name__ == "__main__":
