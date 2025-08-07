@@ -39,6 +39,10 @@ reconstruction:
   method: unrolled_admm
   unrolled_admm:
     n_iter: 5
+    mu1: 0.0001
+    mu2: 0.0001
+    mu3: 0.0001
+    tau: 0.0002
 
   # # Just post-processing (8.2M parameters)
   # post_process: 
