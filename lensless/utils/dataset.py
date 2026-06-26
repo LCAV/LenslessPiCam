@@ -117,7 +117,7 @@ available_datasets = {
     # -- DigiCam MirFlickr Multimask Mini (477 MB) https://huggingface.co/datasets/bezzam/DigiCam-Mirflickr-MultiMask-1K
     "digicam_mirflickr_multi_mini": {
         "size (GB)": 0.477,
-        "huggingface_repo": "bezzam/DigiCam-Mirflickr-MultiMask-25K",
+        "huggingface_repo": "bezzam/DigiCam-Mirflickr-MultiMask-1K",
         "display_res": [900, 1200],
         "rotate": True,
         "alignment": {"top_left": [80, 100], "height": 200},
