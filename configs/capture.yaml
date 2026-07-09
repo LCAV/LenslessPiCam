@@ -16,4 +16,6 @@ down: null
 res: null
 nbits_out: 8
 awb_gains: null
+auto_exp_psf: false
+auto_exp_img: false
 # awb_gains: [1.9, 1.2]   # red, blue
